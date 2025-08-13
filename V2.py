@@ -1599,89 +1599,6 @@ class AdvancedUIComponents:
                         st.metric("🎯 Sentiment", sentiment)
     
     @staticmethod
-    @performance_tracked("ui_interactive_charts")
-    def render_interactive_charts(df: pd.DataFrame) -> None:
-        """Interactive charts with advanced visualizations"""
-        if df is None or df.empty:
-            return
-            
-        st.markdown("### 📊 Interactive Market Analysis")
-        
-        # Chart selection tabs
-        chart_tab1, chart_tab2, chart_tab3 = st.tabs([
-            "🎯 Performance Scatter", "📈 Sector Heatmap", "🔥 Volume Analysis"
-        ])
-        
-        with chart_tab1:
-            col1, col2 = st.columns([3, 1])
-            
-            with col2:
-                st.markdown("#### Chart Controls")
-                x_axis = st.selectbox("X-Axis", ['ret_1d', 'ret_7d', 'ret_30d', 'rvol'], key="scatter_x")
-                y_axis = st.selectbox("Y-Axis", ['from_low_pct', 'ret_7d', 'volume_1d', 'rvol'], key="scatter_y")
-                color_by = st.selectbox("Color By", ['category', 'sector', 'ret_1d'], key="scatter_color")
-                
-            with col1:
-                try:
-                    if all(col in df.columns for col in [x_axis, y_axis]):
-                        fig = px.scatter(
-                            df.sample(min(500, len(df))),  # Sample for performance
-                            x=x_axis, y=y_axis, color=color_by,
-                            hover_data=['ticker', 'company_name', 'price'],
-                            title=f"{y_axis.title()} vs {x_axis.title()}",
-                            height=400
-                        )
-                        fig.update_layout(showlegend=True)
-                        st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Chart error: {str(e)}")
-        
-        with chart_tab2:
-            if 'sector' in df.columns and 'ret_7d' in df.columns:
-                try:
-                    heatmap_data = df.groupby('sector').agg({
-                        'ret_7d': 'mean',
-                        'ticker': 'count'
-                    }).round(2)
-                    
-                    fig = px.treemap(
-                        heatmap_data.reset_index(),
-                        path=['sector'],
-                        values='ticker',
-                        color='ret_7d',
-                        title="Sector Performance Heatmap (7-Day Returns)",
-                        color_continuous_scale="RdYlGn",
-                        height=400
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Heatmap error: {str(e)}")
-        
-        with chart_tab3:
-            if 'rvol' in df.columns and 'ret_1d' in df.columns:
-                try:
-                    # Volume vs Performance analysis
-                    vol_bins = pd.cut(pd.to_numeric(df['rvol'], errors='coerce'), 
-                                    bins=5, labels=['Very Low', 'Low', 'Normal', 'High', 'Very High'])
-                    
-                    vol_analysis = df.groupby(vol_bins).agg({
-                        'ret_1d': 'mean',
-                        'ticker': 'count'
-                    }).round(2)
-                    
-                    fig = px.bar(
-                        vol_analysis.reset_index(),
-                        x='rvol', y='ret_1d',
-                        title="Average Returns by Volume Category",
-                        text='ticker',
-                        height=400
-                    )
-                    fig.update_traces(texttemplate='%{text} stocks', textposition='outside')
-                    st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Volume analysis error: {str(e)}")
-
-    @staticmethod
     @performance_tracked("ui_export_features")
     def render_export_features(df: pd.DataFrame) -> None:
         """Advanced export and sharing features"""
@@ -11892,18 +11809,15 @@ def main():
     
     # CLEAN DASHBOARD - Your Philosophy
     if not filtered_df.empty:
-        # Simple, clean tabs
-        tab1, tab2, tab3 = st.tabs([
-            "📊 Analysis", "🎯 Patterns", "📤 Export"
+        # Simple, clean tabs - EXACTLY YOUR STYLE
+        tab1, tab2 = st.tabs([
+            "🎯 Patterns", "📤 Export"
         ])
         
         with tab1:
-            AdvancedUIComponents.render_interactive_charts(filtered_df)
-        
-        with tab2:
             AdvancedUIComponents.render_pattern_insights(filtered_df)
         
-        with tab3:
+        with tab2:
             AdvancedUIComponents.render_export_features(filtered_df)
     
     # CLEAN METRICS - Simplified
@@ -12008,7 +11922,7 @@ def main():
             UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
     
     tabs = st.tabs([
-        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "📊 Analysis", "🤖 ML Insights", "🔍 Search", "📥 Export", "ℹ️ About"
+        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "🤖 ML Insights", "🔍 Search", "📥 Export", "ℹ️ About"
     ])
     
     with tabs[0]:
@@ -13371,8 +13285,7 @@ def main():
         else:
             st.warning(f"No data available for Wave Radar analysis with {wave_timeframe} timeframe.")
     
-    with tabs[3]:
-        st.markdown("### 📊 Market Analysis")
+    # Tab 3: ML Insights (PHASE 3)
         
         if not filtered_df.empty:
             col1, col2 = st.columns(2)
@@ -13513,8 +13426,8 @@ def main():
         else:
             st.info("No data available for analysis.")
     
-    # Tab 4: ML Insights (PHASE 3)
-    with tabs[4]:
+    # Tab 3: ML Insights (PHASE 3)
+    with tabs[3]:
         st.markdown("### 🤖 Machine Learning Insights")
         
         # Check ML availability
@@ -13621,7 +13534,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     st.success("✅ ML insights ready to copy!")
 
     # Tab 5: Search (updated index)
-    with tabs[5]:
+    with tabs[4]:
         st.markdown("### 🔍 Advanced Stock Search")
         
         # Search interface
@@ -14307,7 +14220,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 st.caption("💡 Tip: Click on any ticker above and copy it to search")    
                 
     # Tab 6: Export (updated index)
-    with tabs[6]:
+    with tabs[5]:
         st.markdown("### 📥 Export Data")
         
         st.markdown("#### 📋 Export Templates")
@@ -14419,7 +14332,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 UIComponents.render_metric_card(label, value)
     
     # Tab 7: About (updated index)
-    with tabs[7]:
+    with tabs[6]:
         st.markdown("### ℹ️ About Wave Detection Ultimate 3.0 - Final Production Version")
         
         col1, col2 = st.columns([2, 1])
