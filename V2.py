@@ -336,89 +336,8 @@ class Config:
         "Communication Services": {"count": 34, "tier": "Low Volume", "selectivity": "Highly Selective", "alpha_potential": "High"},
         "Utilities": {"count": 32, "tier": "Low Volume", "selectivity": "Highly Selective", "alpha_potential": "Low"},
         "Financial Services": {"count": 14, "tier": "Very Low Volume", "selectivity": "Extremely Selective", "alpha_potential": "High"}
-    }),
-
-    # Sector-specific PE ratio contexts for intelligent insights
-    SECTOR_CHARACTERISTICS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "Industrials": {
-            "typical_pe_range": (8, 25),
-            "cyclical": True,
-            "growth_type": "Economic Cycle Dependent",
-            "volatility": "Medium-High",
-            "dividend_yield": "Medium"
-        },
-        "Basic Materials": {
-            "typical_pe_range": (6, 20), 
-            "cyclical": True,
-            "growth_type": "Commodity Cycle Dependent",
-            "volatility": "High",
-            "dividend_yield": "Medium"
-        },
-        "Consumer Cyclical": {
-            "typical_pe_range": (8, 25),
-            "cyclical": True,
-            "growth_type": "Consumer Spending Dependent", 
-            "volatility": "Medium-High",
-            "dividend_yield": "Low-Medium"
-        },
-        "Consumer Defensive": {
-            "typical_pe_range": (15, 35),
-            "cyclical": False,
-            "growth_type": "Stable Growth",
-            "volatility": "Low",
-            "dividend_yield": "Medium-High"
-        },
-        "Healthcare": {
-            "typical_pe_range": (15, 40),
-            "cyclical": False,
-            "growth_type": "Innovation & Demographics",
-            "volatility": "Medium",
-            "dividend_yield": "Low-Medium"
-        },
-        "Technology": {
-            "typical_pe_range": (15, 50),
-            "cyclical": False,
-            "growth_type": "Innovation & Disruption",
-            "volatility": "High",
-            "dividend_yield": "Low"
-        },
-        "Financial Services": {
-            "typical_pe_range": (6, 18),
-            "cyclical": True,
-            "growth_type": "Interest Rate Sensitive",
-            "volatility": "Medium-High", 
-            "dividend_yield": "Medium-High"
-        },
-        "Real Estate": {
-            "typical_pe_range": (8, 25),
-            "cyclical": True,
-            "growth_type": "Interest Rate & Economy Sensitive",
-            "volatility": "Medium-High",
-            "dividend_yield": "High"
-        },
-        "Energy": {
-            "typical_pe_range": (5, 15),
-            "cyclical": True,
-            "growth_type": "Commodity Price Dependent",
-            "volatility": "Very High",
-            "dividend_yield": "Medium-High"
-        },
-        "Utilities": {
-            "typical_pe_range": (10, 22),
-            "cyclical": False,
-            "growth_type": "Regulated Utility Growth",
-            "volatility": "Low",
-            "dividend_yield": "High"
-        },
-        "Communication Services": {
-            "typical_pe_range": (12, 30),
-            "cyclical": False,
-            "growth_type": "Technology & Content Driven",
-            "volatility": "Medium",
-            "dividend_yield": "Medium"
-        }
     })
-    
+
     # Metric Tooltips for better UX - Enhanced with tier information
     METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
         'vmi': 'Volume Momentum Index: Weighted volume trend score (higher = stronger volume momentum)',
@@ -6216,6 +6135,70 @@ def main():
         if not filtered_df.empty:
             UIComponents.render_summary_section(filtered_df)
             
+            # 🧠 Sector Intelligence Analytics (moved from Rankings tab)
+            st.markdown("---")
+            st.subheader("🧠 Sector Intelligence Analytics")
+            
+            if 'sector' in filtered_df.columns:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("### 📊 Stock Distribution by Sector")
+                    sector_counts = filtered_df['sector'].value_counts()
+                    
+                    # Create sector distribution chart
+                    fig_distribution = px.bar(
+                        x=sector_counts.index,
+                        y=sector_counts.values,
+                        title="Stock Count per Sector",
+                        labels={'x': 'Sector', 'y': 'Number of Stocks'},
+                        color=sector_counts.values,
+                        color_continuous_scale='Viridis'
+                    )
+                    fig_distribution.update_layout(
+                        xaxis_tickangle=-45,
+                        height=400,
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig_distribution, use_container_width=True)
+                
+                with col2:
+                    st.markdown("### ⚡ Sector Intelligence Summary")
+                    
+                    # Display sector metadata and strategy
+                    for sector in sector_counts.index[:8]:  # Top 8 sectors by stock count
+                        sector_meta = CONFIG.SECTOR_STOCK_COUNTS.get(sector, {})
+                        # Safety check for sector metadata
+                        if not isinstance(sector_meta, dict):
+                            sector_meta = {"count": 100, "alpha_potential": "Medium", "selectivity": "Balanced"}
+                        sector_stocks = sector_counts.get(sector, 0)
+                        expected_count = sector_meta.get('count', sector_stocks)
+                        
+                        # Determine strategy emoji
+                        if expected_count >= 400:
+                            strategy_emoji = "🛡️"  # Conservative
+                            strategy_text = "Conservative"
+                        elif expected_count >= 150:
+                            strategy_emoji = "⚖️"  # Balanced
+                            strategy_text = "Balanced"
+                        elif expected_count >= 30:
+                            strategy_emoji = "🚀"  # Aggressive
+                            strategy_text = "Alpha-Seeking"
+                        else:
+                            strategy_emoji = "💎"  # Extremely selective
+                            strategy_text = "Gem-Mining"
+                        
+                        alpha_potential = sector_meta.get('alpha_potential', 'Medium')
+                        selectivity = sector_meta.get('selectivity', 'Balanced')
+                        
+                        st.markdown(f"""
+                        **{strategy_emoji} {sector}**
+                        - Stocks: {sector_stocks} ({expected_count} expected)
+                        - Strategy: {strategy_text}
+                        - Alpha Potential: {alpha_potential}
+                        - Selectivity: {selectivity}
+                        """)
+            
             st.markdown("---")
             st.markdown("#### 💾 Download Clean Processed Data")
             
@@ -6523,69 +6506,6 @@ def main():
                 )
             
             
-            # 🧠 Sector Intelligence Analytics (before main display)
-            st.subheader("🧠 Sector Intelligence Analytics")
-            
-            if 'sector' in display_df.columns:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("### 📊 Stock Distribution by Sector")
-                    sector_counts = display_df['sector'].value_counts()
-                    
-                    # Create sector distribution chart
-                    fig_distribution = px.bar(
-                        x=sector_counts.index,
-                        y=sector_counts.values,
-                        title="Stock Count per Sector",
-                        labels={'x': 'Sector', 'y': 'Number of Stocks'},
-                        color=sector_counts.values,
-                        color_continuous_scale='Viridis'
-                    )
-                    fig_distribution.update_layout(
-                        xaxis_tickangle=-45,
-                        height=400,
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig_distribution, use_container_width=True)
-                
-                with col2:
-                    st.markdown("### ⚡ Sector Intelligence Summary")
-                    
-                    # Display sector metadata and strategy
-                    for sector in sector_counts.index[:8]:  # Top 8 sectors by stock count
-                        sector_meta = CONFIG.SECTOR_STOCK_COUNTS.get(sector, {})
-                        # Safety check for sector metadata
-                        if not isinstance(sector_meta, dict):
-                            sector_meta = {"count": 100, "alpha_potential": "Medium", "selectivity": "Balanced"}
-                        sector_stocks = sector_counts.get(sector, 0)
-                        expected_count = sector_meta.get('count', sector_stocks)
-                        
-                        # Determine strategy emoji
-                        if expected_count >= 400:
-                            strategy_emoji = "🛡️"  # Conservative
-                            strategy_text = "Conservative"
-                        elif expected_count >= 150:
-                            strategy_emoji = "⚖️"  # Balanced
-                            strategy_text = "Balanced"
-                        elif expected_count >= 30:
-                            strategy_emoji = "🚀"  # Aggressive
-                            strategy_text = "Alpha-Seeking"
-                        else:
-                            strategy_emoji = "💎"  # Extremely selective
-                            strategy_text = "Gem-Mining"
-                        
-                        alpha_potential = sector_meta.get('alpha_potential', 'Medium')
-                        selectivity = sector_meta.get('selectivity', 'Balanced')
-                        
-                        st.markdown(f"""
-                        **{strategy_emoji} {sector}**
-                        - Stocks: {sector_stocks} ({expected_count} expected)
-                        - Strategy: {strategy_text}
-                        - Alpha Potential: {alpha_potential}
-                        - Selectivity: {selectivity}
-                        """)
-            
             # Display the main dataframe with column configuration
             st.dataframe(
                 final_display_df,
@@ -6597,7 +6517,7 @@ def main():
             
             # Quick Statistics Section
             with st.expander("📊 Quick Statistics", expanded=False):
-                stat_cols = st.columns(5)  # Changed to 5 columns to include sector stats
+                stat_cols = st.columns(4)  # Changed back to 4 columns - removed sector stats
                 
                 with stat_cols[0]:
                     st.markdown("**📈 Score Distribution**")
@@ -6747,62 +6667,6 @@ def main():
                         )
                     else:
                         st.text("No trend data available")
-                
-                # New 5th column for Sector Intelligence
-                with stat_cols[4]:
-                    st.markdown("**🧠 Sector Intelligence**")
-                    if 'sector' in display_df.columns:
-                        sector_counts = display_df['sector'].value_counts()
-                        total_stocks = len(display_df)
-                        
-                        # Calculate sector diversity and concentration
-                        top_sector = sector_counts.iloc[0] if len(sector_counts) > 0 else 0
-                        concentration_pct = (top_sector / total_stocks * 100) if total_stocks > 0 else 0
-                        
-                        # Count sectors by strategy type
-                        conservative_sectors = 0
-                        aggressive_sectors = 0
-                        gem_sectors = 0
-                        
-                        for sector in sector_counts.index:
-                            sector_meta = CONFIG.SECTOR_STOCK_COUNTS.get(sector, {})
-                            # Safety check for sector metadata
-                            if not isinstance(sector_meta, dict):
-                                sector_meta = {"count": 100}
-                            expected_count = sector_meta.get('count', 100)
-                            
-                            if expected_count >= 400:
-                                conservative_sectors += 1
-                            elif expected_count >= 30:
-                                aggressive_sectors += 1
-                            else:
-                                gem_sectors += 1
-                        
-                        sector_stats = {
-                            'Total Sectors': f"{len(sector_counts)}",
-                            'Top Sector': f"{sector_counts.index[0] if len(sector_counts) > 0 else 'N/A'}",
-                            'Concentration': f"{concentration_pct:.0f}%",
-                            '🛡️ Conservative': f"{conservative_sectors}",
-                            '🚀 Alpha-Seeking': f"{aggressive_sectors}",
-                            '💎 Gem-Mining': f"{gem_sectors}"
-                        }
-                        
-                        sector_df = pd.DataFrame(
-                            list(sector_stats.items()),
-                            columns=['Metric', 'Value']
-                        )
-                        
-                        st.dataframe(
-                            sector_df,
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                'Metric': st.column_config.TextColumn('Metric', width="medium"),
-                                'Value': st.column_config.TextColumn('Value', width="small")
-                            }
-                        )
-                    else:
-                        st.text("No sector data available")
             
             # Top Patterns Section
             with st.expander("🎯 Top Patterns Detected", expanded=False):
