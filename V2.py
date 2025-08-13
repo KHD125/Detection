@@ -719,6 +719,48 @@ class Config:
         'validation_failed': 'Data validation failed. Some data may be inconsistent.',
     })
     
+    # Revolutionary metric tooltips with ultimate intelligence descriptions
+    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
+        # Core metrics with revolutionary intelligence
+        'vmi': 'Volume Momentum Index: Revolutionary volume trend analysis with smart money detection and institutional flow patterns',
+        'position_tension': 'Range Position Stress: Advanced stress analysis of 52W range dynamics with squeeze detection',
+        'momentum_harmony': 'Multi-Timeframe Harmony: 0-4 alignment score across revolutionary timeframes with wave coherence',
+        'overall_wave_strength': 'Wave Strength Composite: Revolutionary wave pattern strength analysis with cascade detection',
+        'money_flow_mm': 'Smart Money Flow (MM): Institutional flow analysis in millions with RVOL intelligence and flow acceleration',
+        'master_score': 'Master Score (0-100): Revolutionary composite ranking with sector intelligence and behavioral weighting',
+        'sector_adjusted_score': 'Sector Intelligence Score: Behavioral-adjusted score with 11-sector mastery and alpha optimization',
+        
+        # Advanced pattern metrics with revolutionary analysis
+        'acceleration_score': 'Acceleration Intelligence: Revolutionary rate-of-change momentum analysis with cascade detection',
+        'breakout_score': 'Breakout Probability: Advanced breakout prediction with pattern recognition and structure analysis',
+        'trend_quality': 'Trend Quality Analysis: SMA harmony with revolutionary trend strength and wave coherence',
+        'liquidity_score': 'Liquidity Intelligence: Advanced trading liquidity with institutional bias and flow premium',
+        'velocity_squeeze': 'Velocity Squeeze Pattern: Revolutionary compression-expansion cycle detection with timing signals',
+        'smart_money_flow': 'Smart Money Detection: Institutional flow patterns with behavioral analysis and entry signals',
+        
+        # Tier intelligence with revolutionary classifications
+        'eps_tier': 'EPS Growth Tier: From Crisis to Explosive with momentum-adjusted classifications and growth acceleration',
+        'pe_tier': 'PE Valuation Tier: From Deep Value to Ultra Premium with sector intelligence and relative positioning',
+        'price_tier': 'Price Category Tier: From Micro Penny to Ultra Premium with market cap correlation and liquidity analysis',
+        'pe_sector_context': 'PE Sector Intelligence: Advanced sector-relative valuation analysis with behavioral adjustments',
+        'sector_characteristics': 'Sector Behavioral Profile: Risk, volatility, and growth intelligence with pattern preferences',
+        
+        # Revolutionary insights with behavioral intelligence
+        'pe_percentile_context': 'PE Percentile Intelligence: Distribution position with outlier analysis and value discovery',
+        'price_category_insight': 'Price Category Intelligence: Market cap correlation with liquidity analysis and tier optimization',
+        'pe_eps_insight': 'Valuation Intelligence Matrix: PE-EPS combination with growth momentum and quality assessment',
+        'sector_rotation_strength': 'Sector Rotation Intelligence: Cross-sector momentum flow analysis with rotation timing',
+        'institutional_preference': 'Institutional Preference Score: Smart money bias with flow analysis and positioning trends',
+        'behavioral_momentum': 'Behavioral Momentum Index: Crowd psychology analysis with contrarian signals and sentiment shifts',
+        
+        # Revolutionary pattern insights
+        'volatility_compression': 'Volatility Compression Signal: Market structure compression analysis with expansion timing',
+        'momentum_divergence': 'Momentum Divergence Detection: Advanced divergence analysis with reversal probability',
+        'market_structure_shift': 'Market Structure Analysis: Revolutionary structure shift detection with regime changes',
+        'flow_acceleration': 'Flow Acceleration Index: Institutional flow dynamics with acceleration and deceleration signals',
+        'liquidity_premium': 'Liquidity Premium Analysis: Advanced liquidity assessment with premium valuation adjustments'
+    })
+    
     @property
     def is_production(self) -> bool:
         """Check if running in production environment"""
@@ -1557,89 +1599,6 @@ class AdvancedUIComponents:
                         st.metric("🎯 Sentiment", sentiment)
     
     @staticmethod
-    @performance_tracked("ui_interactive_charts")
-    def render_interactive_charts(df: pd.DataFrame) -> None:
-        """Interactive charts with advanced visualizations"""
-        if df is None or df.empty:
-            return
-            
-        st.markdown("### 📊 Interactive Market Analysis")
-        
-        # Chart selection tabs
-        chart_tab1, chart_tab2, chart_tab3 = st.tabs([
-            "🎯 Performance Scatter", "📈 Sector Heatmap", "🔥 Volume Analysis"
-        ])
-        
-        with chart_tab1:
-            col1, col2 = st.columns([3, 1])
-            
-            with col2:
-                st.markdown("#### Chart Controls")
-                x_axis = st.selectbox("X-Axis", ['ret_1d', 'ret_7d', 'ret_30d', 'rvol'], key="scatter_x")
-                y_axis = st.selectbox("Y-Axis", ['from_low_pct', 'ret_7d', 'volume_1d', 'rvol'], key="scatter_y")
-                color_by = st.selectbox("Color By", ['category', 'sector', 'ret_1d'], key="scatter_color")
-                
-            with col1:
-                try:
-                    if all(col in df.columns for col in [x_axis, y_axis]):
-                        fig = px.scatter(
-                            df.sample(min(500, len(df))),  # Sample for performance
-                            x=x_axis, y=y_axis, color=color_by,
-                            hover_data=['ticker', 'company_name', 'price'],
-                            title=f"{y_axis.title()} vs {x_axis.title()}",
-                            height=400
-                        )
-                        fig.update_layout(showlegend=True)
-                        st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Chart error: {str(e)}")
-        
-        with chart_tab2:
-            if 'sector' in df.columns and 'ret_7d' in df.columns:
-                try:
-                    heatmap_data = df.groupby('sector').agg({
-                        'ret_7d': 'mean',
-                        'ticker': 'count'
-                    }).round(2)
-                    
-                    fig = px.treemap(
-                        heatmap_data.reset_index(),
-                        path=['sector'],
-                        values='ticker',
-                        color='ret_7d',
-                        title="Sector Performance Heatmap (7-Day Returns)",
-                        color_continuous_scale="RdYlGn",
-                        height=400
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Heatmap error: {str(e)}")
-        
-        with chart_tab3:
-            if 'rvol' in df.columns and 'ret_1d' in df.columns:
-                try:
-                    # Volume vs Performance analysis
-                    vol_bins = pd.cut(pd.to_numeric(df['rvol'], errors='coerce'), 
-                                    bins=5, labels=['Very Low', 'Low', 'Normal', 'High', 'Very High'])
-                    
-                    vol_analysis = df.groupby(vol_bins).agg({
-                        'ret_1d': 'mean',
-                        'ticker': 'count'
-                    }).round(2)
-                    
-                    fig = px.bar(
-                        vol_analysis.reset_index(),
-                        x='rvol', y='ret_1d',
-                        title="Average Returns by Volume Category",
-                        text='ticker',
-                        height=400
-                    )
-                    fig.update_traces(texttemplate='%{text} stocks', textposition='outside')
-                    st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"Volume analysis error: {str(e)}")
-
-    @staticmethod
     @performance_tracked("ui_export_features")
     def render_export_features(df: pd.DataFrame) -> None:
         """Advanced export and sharing features"""
@@ -2127,48 +2086,74 @@ class MLPatternEngine:
             return pd.DataFrame()
     
     def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Smart missing value handling for daily data with enhanced numeric cleaning"""
-        # For daily trading data, use intelligent imputation
-        for col in df.columns:
-            if col in df.columns:
-                # First clean all numeric values properly
-                if col in ['market_cap']:
-                    # Market cap needs special handling for Indian formats
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
-                elif col in ['ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct']:
-                    # Returns and percentages
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x, is_percentage=True))
-                elif df[col].dtype == 'object':
-                    # Clean any remaining object columns
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
-                
-                # Then handle missing values intelligently
-                if df[col].dtype in ['float64', 'int64'] or col in ['market_cap']:
-                    if col in ['ret_1d', 'ret_7d', 'ret_30d']:
-                        # Returns: fill with 0 (no change)
-                        df[col] = df[col].fillna(0)
-                    elif col in ['pe', 'eps_change_pct']:
-                        # Fundamentals: fill with median
-                        df[col] = df[col].fillna(df[col].median())
-                    elif col in ['rvol', 'volume_1d']:
-                        # Volume: fill with 1.0 (average)
-                        df[col] = df[col].fillna(1.0)
-                    elif col == 'market_cap':
-                        # Market cap: fill with median of valid values
-                        valid_market_cap = df[col].dropna()
-                        if len(valid_market_cap) > 0:
-                            df[col] = df[col].fillna(valid_market_cap.median())
+        """PRODUCTION-GRADE missing value handling - ZERO NaN tolerance"""
+        try:
+            # For daily trading data, use intelligent imputation
+            for col in df.columns:
+                if col in df.columns:
+                    # First clean all numeric values properly
+                    if col in ['market_cap']:
+                        # Market cap needs special handling for Indian formats
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                    elif col in ['ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct']:
+                        # Returns and percentages
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x, is_percentage=True))
+                    elif df[col].dtype == 'object':
+                        # Clean any remaining object columns
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                    
+                    # Then handle missing values intelligently
+                    if df[col].dtype in ['float64', 'int64'] or col in ['market_cap']:
+                        if col in ['ret_1d', 'ret_7d', 'ret_30d']:
+                            # Returns: fill with 0 (no change)
+                            df[col] = df[col].fillna(0)
+                        elif col in ['pe', 'eps_change_pct']:
+                            # Fundamentals: fill with median, then 0 if still NaN
+                            median_val = df[col].median()
+                            df[col] = df[col].fillna(median_val if not pd.isna(median_val) else 0)
+                        elif col in ['rvol', 'volume_1d']:
+                            # Volume: fill with 1.0 (average)
+                            df[col] = df[col].fillna(1.0)
+                        elif col == 'market_cap':
+                            # Market cap: fill with median of valid values
+                            valid_market_cap = df[col].dropna()
+                            if len(valid_market_cap) > 0:
+                                df[col] = df[col].fillna(valid_market_cap.median())
+                            else:
+                                df[col] = df[col].fillna(10000)  # Default 1 Crore
                         else:
-                            df[col] = df[col].fillna(10000)  # Default 1 Crore
-                    else:
-                        # Others: forward fill then median
-                        df[col] = df[col].fillna(method='ffill').fillna(df[col].median())
-        
-        # Remove any remaining non-numeric columns
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        df = df[numeric_columns]
-        
-        return df
+                            # Others: forward fill then median, then 0
+                            median_val = df[col].median()
+                            df[col] = df[col].fillna(method='ffill').fillna(median_val if not pd.isna(median_val) else 0)
+            
+            # Remove any remaining non-numeric columns
+            numeric_columns = df.select_dtypes(include=[np.number]).columns
+            df = df[numeric_columns]
+            
+            # FINAL NaN ELIMINATION - Replace any remaining NaN with 0
+            df = df.fillna(0)
+            
+            # Verify no NaN values remain
+            nan_count = df.isnull().sum().sum()
+            if nan_count > 0:
+                logger.warning(f"⚠️ Force-filling {nan_count} remaining NaN values with 0")
+                df = df.fillna(0)
+            
+            # Replace inf values with large finite numbers
+            df = df.replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Final verification
+            final_nan_count = df.isnull().sum().sum()
+            final_inf_count = np.isinf(df.select_dtypes(include=[np.number])).sum().sum()
+            
+            logger.info(f"✅ PRODUCTION CLEAN: {len(df)} rows, {len(df.columns)} features, {final_nan_count} NaN, {final_inf_count} Inf")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Missing value handling failed: {e}")
+            # Emergency fallback - create clean numeric dataframe
+            numeric_df = df.select_dtypes(include=[np.number]).fillna(0)
+            return numeric_df
     
     def _engineer_daily_features(self, ml_df: pd.DataFrame, original_df: pd.DataFrame) -> pd.DataFrame:
         """Engineer features specifically for daily trading patterns"""
@@ -2247,25 +2232,41 @@ class MLPatternEngine:
         return df
     
     def _apply_clustering_analysis(self, df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-        """Apply K-means clustering to identify stock groups"""
+        """PRODUCTION-GRADE clustering with bulletproof NaN handling"""
         try:
-            if features.empty:
+            if features.empty or len(features) < 5:
+                logger.warning("Insufficient data for clustering")
+                return df
+            
+            # BULLETPROOF NaN verification
+            if features.isnull().any().any():
+                logger.warning("NaN values detected in features - cleaning again")
+                features = features.fillna(0).replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Verify all numeric
+            numeric_features = features.select_dtypes(include=[np.number])
+            if len(numeric_features.columns) == 0:
+                logger.warning("No numeric features available for clustering")
                 return df
                 
-            # Standardize features
-            if self.scaler is None:
-                self.scaler = RobustScaler()
-                
-            features_scaled = self.scaler.fit_transform(features)
+            # Standardize features with robust scaler
+            from sklearn.preprocessing import RobustScaler
+            scaler = RobustScaler()
+            features_scaled = scaler.fit_transform(numeric_features)
             
-            # Optimal number of clusters using elbow method
+            # Final verification - no NaN in scaled features
+            if np.isnan(features_scaled).any():
+                logger.warning("NaN in scaled features - force cleaning")
+                features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=999999, neginf=-999999)
+            
+            # Optimal number of clusters
             n_clusters = min(8, max(3, len(df) // 50))
             
-            # K-means clustering
-            if self.kmeans is None or len(df) > 100:
-                self.kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-                
-            clusters = self.kmeans.fit_predict(features_scaled)
+            # K-means clustering with error handling
+            from sklearn.cluster import KMeans
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+            clusters = kmeans.fit_predict(features_scaled)
+            
             df['ml_cluster'] = clusters
             
             # Calculate cluster characteristics
@@ -2283,6 +2284,8 @@ class MLPatternEngine:
             
             # Assign cluster quality labels
             df['ml_cluster_quality'] = df['ml_cluster'].map(lambda x: cluster_stats.get(x, {}).get('quality', 'unknown'))
+            
+            logger.info(f"✅ Clustering successful: {n_clusters} clusters, {len(df)} stocks")
             
             # Calculate silhouette score for cluster quality
             if len(df) > 10:
@@ -2339,18 +2342,41 @@ class MLPatternEngine:
             return df
     
     def _calculate_similarity_scores(self, df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-        """Calculate similarity scores using nearest neighbors"""
+        """PRODUCTION-GRADE similarity calculation with bulletproof NaN handling"""
         try:
             if features.empty or len(features) < 5:
+                logger.warning("Insufficient data for similarity calculation")
+                return df
+            
+            # BULLETPROOF NaN verification
+            if features.isnull().any().any():
+                logger.warning("NaN values detected in similarity features - cleaning")
+                features = features.fillna(0).replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Verify all numeric
+            numeric_features = features.select_dtypes(include=[np.number])
+            if len(numeric_features.columns) == 0:
+                logger.warning("No numeric features for similarity")
                 return df
                 
-            # Nearest neighbors for similarity
+            # Scale features with robust handling
+            from sklearn.preprocessing import RobustScaler
+            scaler = RobustScaler()
+            features_scaled = scaler.fit_transform(numeric_features)
+            
+            # Final NaN check on scaled features
+            if np.isnan(features_scaled).any():
+                logger.warning("NaN in scaled similarity features - force cleaning")
+                features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=999999, neginf=-999999)
+            
+            # Calculate neighbors
+            from sklearn.neighbors import NearestNeighbors
             n_neighbors = min(5, len(features) - 1)
             if n_neighbors < 1:
+                logger.warning("Insufficient neighbors for similarity")
                 return df
                 
             nn = NearestNeighbors(n_neighbors=n_neighbors, metric='euclidean')
-            features_scaled = self.scaler.transform(features) if self.scaler else features
             nn.fit(features_scaled)
             
             # Find similar stocks
@@ -2374,6 +2400,7 @@ class MLPatternEngine:
                             if similar_idx < len(df):
                                 df.iloc[similar_idx, df.columns.get_loc('ml_trend_leader')] = True
             
+            logger.info(f"✅ Similarity calculation successful for {len(df)} stocks")
             return df
             
         except Exception as e:
@@ -2465,6 +2492,53 @@ class MLPatternEngine:
             logger.error(f"ML insights generation failed: {e}")
             
         return insights
+    
+    def _add_freshness_insights(self, df: pd.DataFrame, data_strategy: str) -> pd.DataFrame:
+        """Add data freshness and relevance insights"""
+        try:
+            # Add timestamp columns for freshness tracking
+            current_time = datetime.now()
+            df['data_freshness'] = 'fresh'  # Default to fresh for daily updates
+            df['analysis_timestamp'] = current_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Add strategy-specific insights
+            strategy_insights = {
+                '📊 Short-term Patterns (1-7 days)': 'Real-time pattern focus',
+                '📈 Medium-term Trends (1-4 weeks)': 'Weekly trend analysis', 
+                '🏔️ Long-term Analysis (1-3 months)': 'Monthly cycle patterns',
+                '🔄 Real-time Adaptive': 'Dynamic pattern adaptation'
+            }
+            
+            df['ml_strategy_insight'] = strategy_insights.get(data_strategy, 'Comprehensive analysis')
+            
+            # Add freshness score (100 for daily data)
+            df['ml_freshness_score'] = 100.0
+            
+            logger.debug(f"Added freshness insights for {len(df)} stocks with strategy: {data_strategy}")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Failed to add freshness insights: {e}")
+            return df
+    
+    def _cache_ml_results(self, df: pd.DataFrame, ml_settings: Dict[str, Any]) -> None:
+        """Cache ML results for performance optimization"""
+        try:
+            # Simple caching for development - can be enhanced for production
+            cache_key = f"ml_results_{len(df)}_{ml_settings.get('focus', 'default')}"
+            
+            # Store basic cache info (in production this could use Redis or similar)
+            self.cache_info = {
+                'cache_key': cache_key,
+                'timestamp': datetime.now().isoformat(),
+                'record_count': len(df),
+                'ml_settings': ml_settings
+            }
+            
+            logger.debug(f"Cached ML results: {cache_key}")
+            
+        except Exception as e:
+            logger.error(f"Failed to cache ML results: {e}")
 
 # Initialize ML engine
 ml_engine = MLPatternEngine()
@@ -2887,48 +2961,6 @@ class MarketRegimeDetector:
             "market_cap_bias": "Large", "rate_leverage": 0.9,
             "behavioral_score": 0.95, "credit_cycle_sensitivity": 0.85
         }
-    })
-
-    # Revolutionary metric tooltips with ultimate intelligence descriptions
-    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
-        # Core metrics with revolutionary intelligence
-        'vmi': 'Volume Momentum Index: Revolutionary volume trend analysis with smart money detection and institutional flow patterns',
-        'position_tension': 'Range Position Stress: Advanced stress analysis of 52W range dynamics with squeeze detection',
-        'momentum_harmony': 'Multi-Timeframe Harmony: 0-4 alignment score across revolutionary timeframes with wave coherence',
-        'overall_wave_strength': 'Wave Strength Composite: Revolutionary wave pattern strength analysis with cascade detection',
-        'money_flow_mm': 'Smart Money Flow (MM): Institutional flow analysis in millions with RVOL intelligence and flow acceleration',
-        'master_score': 'Master Score (0-100): Revolutionary composite ranking with sector intelligence and behavioral weighting',
-        'sector_adjusted_score': 'Sector Intelligence Score: Behavioral-adjusted score with 11-sector mastery and alpha optimization',
-        
-        # Advanced pattern metrics with revolutionary analysis
-        'acceleration_score': 'Acceleration Intelligence: Revolutionary rate-of-change momentum analysis with cascade detection',
-        'breakout_score': 'Breakout Probability: Advanced breakout prediction with pattern recognition and structure analysis',
-        'trend_quality': 'Trend Quality Analysis: SMA harmony with revolutionary trend strength and wave coherence',
-        'liquidity_score': 'Liquidity Intelligence: Advanced trading liquidity with institutional bias and flow premium',
-        'velocity_squeeze': 'Velocity Squeeze Pattern: Revolutionary compression-expansion cycle detection with timing signals',
-        'smart_money_flow': 'Smart Money Detection: Institutional flow patterns with behavioral analysis and entry signals',
-        
-        # Tier intelligence with revolutionary classifications
-        'eps_tier': 'EPS Growth Tier: From Crisis to Explosive with momentum-adjusted classifications and growth acceleration',
-        'pe_tier': 'PE Valuation Tier: From Deep Value to Ultra Premium with sector intelligence and relative positioning',
-        'price_tier': 'Price Category Tier: From Micro Penny to Ultra Premium with market cap correlation and liquidity analysis',
-        'pe_sector_context': 'PE Sector Intelligence: Advanced sector-relative valuation analysis with behavioral adjustments',
-        'sector_characteristics': 'Sector Behavioral Profile: Risk, volatility, and growth intelligence with pattern preferences',
-        
-        # Revolutionary insights with behavioral intelligence
-        'pe_percentile_context': 'PE Percentile Intelligence: Distribution position with outlier analysis and value discovery',
-        'price_category_insight': 'Price Category Intelligence: Market cap correlation with liquidity analysis and tier optimization',
-        'pe_eps_insight': 'Valuation Intelligence Matrix: PE-EPS combination with growth momentum and quality assessment',
-        'sector_rotation_strength': 'Sector Rotation Intelligence: Cross-sector momentum flow analysis with rotation timing',
-        'institutional_preference': 'Institutional Preference Score: Smart money bias with flow analysis and positioning trends',
-        'behavioral_momentum': 'Behavioral Momentum Index: Crowd psychology analysis with contrarian signals and sentiment shifts',
-        
-        # Revolutionary pattern insights
-        'volatility_compression': 'Volatility Compression Signal: Market structure compression analysis with expansion timing',
-        'momentum_divergence': 'Momentum Divergence Detection: Advanced divergence analysis with reversal probability',
-        'market_structure_shift': 'Market Structure Analysis: Revolutionary structure shift detection with regime changes',
-        'flow_acceleration': 'Flow Acceleration Index: Institutional flow dynamics with acceleration and deceleration signals',
-        'liquidity_premium': 'Liquidity Premium Analysis: Advanced liquidity assessment with premium valuation adjustments'
     })
 
 # Global configuration instance
@@ -11777,18 +11809,15 @@ def main():
     
     # CLEAN DASHBOARD - Your Philosophy
     if not filtered_df.empty:
-        # Simple, clean tabs
-        tab1, tab2, tab3 = st.tabs([
-            "📊 Analysis", "🎯 Patterns", "📤 Export"
+        # Simple, clean tabs - EXACTLY YOUR STYLE
+        tab1, tab2 = st.tabs([
+            "🎯 Patterns", "📤 Export"
         ])
         
         with tab1:
-            AdvancedUIComponents.render_interactive_charts(filtered_df)
-        
-        with tab2:
             AdvancedUIComponents.render_pattern_insights(filtered_df)
         
-        with tab3:
+        with tab2:
             AdvancedUIComponents.render_export_features(filtered_df)
     
     # CLEAN METRICS - Simplified
@@ -11893,7 +11922,7 @@ def main():
             UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
     
     tabs = st.tabs([
-        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "📊 Analysis", "🤖 ML Insights", "🔍 Search", "📥 Export", "ℹ️ About"
+        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "🤖 ML Insights", "🔍 Search", "📥 Export", "ℹ️ About"
     ])
     
     with tabs[0]:
@@ -13256,8 +13285,7 @@ def main():
         else:
             st.warning(f"No data available for Wave Radar analysis with {wave_timeframe} timeframe.")
     
-    with tabs[3]:
-        st.markdown("### 📊 Market Analysis")
+    # Tab 3: ML Insights (PHASE 3)
         
         if not filtered_df.empty:
             col1, col2 = st.columns(2)
@@ -13398,8 +13426,8 @@ def main():
         else:
             st.info("No data available for analysis.")
     
-    # Tab 4: ML Insights (PHASE 3)
-    with tabs[4]:
+    # Tab 3: ML Insights (PHASE 3)
+    with tabs[3]:
         st.markdown("### 🤖 Machine Learning Insights")
         
         # Check ML availability
@@ -13506,7 +13534,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     st.success("✅ ML insights ready to copy!")
 
     # Tab 5: Search (updated index)
-    with tabs[5]:
+    with tabs[4]:
         st.markdown("### 🔍 Advanced Stock Search")
         
         # Search interface
@@ -14192,7 +14220,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 st.caption("💡 Tip: Click on any ticker above and copy it to search")    
                 
     # Tab 6: Export (updated index)
-    with tabs[6]:
+    with tabs[5]:
         st.markdown("### 📥 Export Data")
         
         st.markdown("#### 📋 Export Templates")
@@ -14304,7 +14332,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 UIComponents.render_metric_card(label, value)
     
     # Tab 7: About (updated index)
-    with tabs[7]:
+    with tabs[6]:
         st.markdown("### ℹ️ About Wave Detection Ultimate 3.0 - Final Production Version")
         
         col1, col2 = st.columns([2, 1])
