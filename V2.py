@@ -2204,15 +2204,12 @@ class MLPatternEngine:
             if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
                 # Simple trend classification based on momentum
                 df['trend_prediction'] = 'Neutral'
-                
                 # Bullish signals
                 bullish_mask = (df['ret_1d'] > 1) & (df['ret_7d'] > 3) & (df['rvol'] > 1.2)
                 df.loc[bullish_mask, 'trend_prediction'] = 'Bullish'
-                
                 # Bearish signals  
                 bearish_mask = (df['ret_1d'] < -1) & (df['ret_7d'] < -3)
                 df.loc[bearish_mask, 'trend_prediction'] = 'Bearish'
-                
                 # Calculate confidence
                 df['trend_confidence'] = 50  # Base confidence
                 df.loc[bullish_mask, 'trend_confidence'] = np.minimum(
@@ -2221,35 +2218,9 @@ class MLPatternEngine:
                 df.loc[bearish_mask, 'trend_confidence'] = np.minimum(
                     95, 50 + abs(df.loc[bearish_mask, 'ret_7d']) * 2
                 )
-                
         except Exception as e:
             logger.error(f"Trend prediction failed: {e}")
-            
         return df
-            features = df[available_cols].copy()
-            
-            # Handle missing values
-            features = features.fillna(features.median())
-            
-            # Feature engineering
-            if 'ret_1d' in features.columns and 'ret_7d' in features.columns:
-                features['momentum_acceleration'] = features['ret_1d'] - (features['ret_7d'] / 7)
-            
-            if 'volume_1d' in features.columns and 'rvol' in features.columns:
-                features['volume_momentum'] = features['rvol'] * np.log1p(features['volume_1d'])
-            
-            if 'from_low_pct' in features.columns and 'from_high_pct' in features.columns:
-                features['range_position'] = features['from_low_pct'] / (features['from_low_pct'] - features['from_high_pct'] + 1e-6)
-            
-            # Remove infinite and extreme values
-            features = features.replace([np.inf, -np.inf], np.nan)
-            features = features.fillna(features.median())
-            
-            return features
-            
-        except Exception as e:
-            logger.error(f"Feature preparation failed: {e}")
-            return pd.DataFrame()
     
     def _apply_clustering_analysis(self, df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
         """Apply K-means clustering to identify stock groups"""
