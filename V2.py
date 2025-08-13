@@ -1537,66 +1537,7 @@ class AdvancedUIComponents:
     
     @staticmethod
     @performance_tracked("ui_pattern_insights")
-    def render_pattern_insights(df: pd.DataFrame) -> None:
-        """Advanced pattern insights with visualizations"""
-        if df is None or df.empty:
-            return
-            
-        st.markdown("### 🎯 Pattern Intelligence Dashboard")
-        
-        # Pattern detection summary
-        pattern_col1, pattern_col2, pattern_col3 = st.columns(3)
-        
-        with pattern_col1:
-            with st.container():
-                st.markdown("#### 🔥 Hot Patterns")
-                # Mock pattern data - replace with actual pattern detection
-                hot_patterns = [
-                    ("🚀 Breakout Ready", 45),
-                    ("💎 Volume Surge", 32), 
-                    ("⚡ Momentum Wave", 28)
-                ]
-                
-                for pattern, count in hot_patterns:
-                    st.metric(pattern, f"{count} stocks")
-        
-        with pattern_col2:
-            with st.container():
-                st.markdown("#### 📊 Sector Leaders")
-                # Sector rotation insights
-                if 'sector' in df.columns and 'ret_7d' in df.columns:
-                    sector_perf = df.groupby('sector')['ret_7d'].agg(['mean', 'count']).round(2)
-                    top_sectors = sector_perf.nlargest(3, 'mean')
-                    
-                    for sector, data in top_sectors.iterrows():
-                        st.metric(
-                            f"🏭 {sector[:15]}...", 
-                            f"{data['mean']:.1f}%",
-                            delta=f"{data['count']} stocks"
-                        )
-        
-        with pattern_col3:
-            with st.container():
-                st.markdown("#### ⚡ Market Pulse")
-                
-                # Market strength indicators
-                if 'ret_1d' in df.columns:
-                    ret_1d_clean = pd.to_numeric(df['ret_1d'], errors='coerce').dropna()
-                    if len(ret_1d_clean) > 0:
-                        avg_return = ret_1d_clean.mean()
-                        volatility = ret_1d_clean.std()
-                        
-                        st.metric("📈 Avg Return", f"{avg_return:.2f}%")
-                        st.metric("📊 Volatility", f"{volatility:.2f}%")
-                        
-                        # Market sentiment
-                        if avg_return > 1:
-                            sentiment = "🟢 Bullish"
-                        elif avg_return > -1:
-                            sentiment = "🟡 Neutral"
-                        else:
-                            sentiment = "🔴 Bearish"
-                        st.metric("🎯 Sentiment", sentiment)
+
     
     @staticmethod
     @performance_tracked("ui_export_features")
@@ -11806,19 +11747,6 @@ def main():
                 FilterEngine.clear_all_filters()
                 SessionStateManager.clear_filters()
                 st.rerun()
-    
-    # CLEAN DASHBOARD - Your Philosophy
-    if not filtered_df.empty:
-        # Simple, clean tabs - EXACTLY YOUR STYLE
-        tab1, tab2 = st.tabs([
-            "🎯 Patterns", "📤 Export"
-        ])
-        
-        with tab1:
-            AdvancedUIComponents.render_pattern_insights(filtered_df)
-        
-        with tab2:
-            AdvancedUIComponents.render_export_features(filtered_df)
     
     # CLEAN METRICS - Simplified
     st.markdown("### 📊 Market Overview")
