@@ -156,29 +156,64 @@ class DataValidator:
         if df is None or df.empty:
             errors.append("DataFrame is empty or None")
             return False, errors, warnings
+        
+        # Print column info for debugging
+        logger.info(f"DataFrame columns: {list(df.columns)}")
+        
+        # Find actual column names (flexible matching)
+        actual_columns = df.columns.tolist()
+        
+        # Map common variations
+        column_mapping = {
+            'ticker': ['ticker', 'symbol', 'stock_symbol', 'scrip_code'],
+            'price': ['price', 'ltp', 'last_price', 'close_price', 'current_price'],
+            'volume_1d': ['volume_1d', 'volume', 'vol', 'daily_volume']
+        }
+        
+        # Check for critical columns with flexible matching
+        found_critical = {}
+        for critical_col in CONFIG.CRITICAL_COLUMNS:
+            found = False
+            if critical_col in column_mapping:
+                for variant in column_mapping[critical_col]:
+                    matching_cols = [col for col in actual_columns if variant.lower() in col.lower()]
+                    if matching_cols:
+                        found_critical[critical_col] = matching_cols[0]
+                        found = True
+                        break
+            else:
+                if critical_col in actual_columns:
+                    found_critical[critical_col] = critical_col
+                    found = True
             
-        # Check critical columns
-        missing_critical = [col for col in CONFIG.CRITICAL_COLUMNS if col not in df.columns]
-        if missing_critical:
-            errors.append(f"Missing critical columns: {missing_critical}")
+            if not found:
+                warnings.append(f"Critical column '{critical_col}' not found")
+        
+        # Data quality checks - be more lenient
+        price_col = found_critical.get('price')
+        if price_col and price_col in df.columns:
+            # First try to clean a sample to see what we're dealing with
+            sample_prices = df[price_col].head(10)
+            logger.info(f"Sample price values: {sample_prices.tolist()}")
             
-        # Check important columns
-        missing_important = [col for col in CONFIG.IMPORTANT_COLUMNS if col not in df.columns]
-        if missing_important:
-            warnings.append(f"Missing columns (degraded experience): {missing_important}")
+            # Clean the price column
+            cleaned_prices = df[price_col].apply(DataValidator.clean_numeric_value)
+            price_issues = cleaned_prices.isna().sum()
             
-        # Data quality checks
-        if 'price' in df.columns:
-            price_issues = pd.to_numeric(df['price'], errors='coerce').isna().sum()
-            if price_issues > len(df) * 0.1:  # More than 10% bad prices
-                errors.append(f"Too many invalid price values: {price_issues}")
-                
+            logger.info(f"Price validation: {len(df) - price_issues}/{len(df)} valid prices")
+            
+            # Only error if more than 50% are invalid (was 10%)
+            if price_issues > len(df) * 0.5:
+                errors.append(f"Too many invalid price values: {price_issues}/{len(df)}")
+            elif price_issues > len(df) * 0.1:
+                warnings.append(f"Some invalid price values: {price_issues}/{len(df)}")
+        
         return len(errors) == 0, errors, warnings
     
     @staticmethod
     def clean_numeric_value(value, is_percentage: bool = False) -> float:
         """Clean and convert numeric values including Indian formats"""
-        if pd.isna(value) or value == '':
+        if pd.isna(value) or value == '' or value is None:
             return np.nan
             
         if isinstance(value, (int, float)):
@@ -187,17 +222,27 @@ class DataValidator:
         if isinstance(value, str):
             # Remove common prefixes and clean
             cleaned = str(value).strip()
+            
+            # Handle common non-numeric indicators
+            if cleaned.lower() in ['na', 'n/a', '-', 'nil', 'null', '']:
+                return np.nan
+            
+            # Remove currency symbols and spaces
             cleaned = re.sub(r'[₹$,\s]', '', cleaned)
             
+            # Handle negative values in parentheses
+            if cleaned.startswith('(') and cleaned.endswith(')'):
+                cleaned = '-' + cleaned[1:-1]
+            
             # Handle Indian formats (Crores, Lakhs)
-            if 'Cr' in cleaned or 'crore' in cleaned.lower():
+            if any(x in cleaned.lower() for x in ['cr', 'crore']):
                 number = re.sub(r'[Ccrore\s]', '', cleaned, flags=re.IGNORECASE)
                 try:
                     return float(number) * 10000000  # 1 Crore = 10 Million
                 except:
                     return np.nan
                     
-            if 'L' in cleaned or 'lakh' in cleaned.lower():
+            if any(x in cleaned.lower() for x in ['l', 'lakh']):
                 number = re.sub(r'[Llakh\s]', '', cleaned, flags=re.IGNORECASE)
                 try:
                     return float(number) * 100000  # 1 Lakh = 100K
@@ -211,11 +256,25 @@ class DataValidator:
                     return float(number)
                 except:
                     return np.nan
+            
+            # Handle scientific notation
+            if 'e' in cleaned.lower():
+                try:
+                    return float(cleaned)
+                except:
+                    return np.nan
                     
-            # Regular number
+            # Regular number - try direct conversion
             try:
                 return float(cleaned)
             except:
+                # Last resort - extract numeric part
+                numeric_match = re.search(r'-?\d+\.?\d*', cleaned)
+                if numeric_match:
+                    try:
+                        return float(numeric_match.group())
+                    except:
+                        return np.nan
                 return np.nan
                 
         return np.nan
@@ -279,17 +338,48 @@ class DataLoader:
     @staticmethod
     @performance_tracked("data_loading")
     def load_from_sheets(sheet_id: str, gid: str = None) -> pd.DataFrame:
-        """Load data from Google Sheets"""
+        """Load data from Google Sheets with improved error handling"""
         try:
-            if gid:
+            # Clean sheet_id - extract from URL if needed
+            if 'docs.google.com' in sheet_id:
+                # Extract sheet ID from full URL
+                match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', sheet_id)
+                if match:
+                    sheet_id = match.group(1)
+                else:
+                    raise ValueError("Cannot extract sheet ID from URL")
+            
+            # Build URL
+            if gid and gid != '0':
                 url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
             else:
                 url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
                 
-            df = pd.read_csv(url)
+            logger.info(f"Loading from URL: {url}")
+            
+            # Load with timeout and error handling
+            import requests
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            
+            # Check if we got HTML (error page) instead of CSV
+            content_type = response.headers.get('content-type', '')
+            if 'html' in content_type:
+                raise ValueError("Received HTML instead of CSV - check sheet permissions or ID")
+            
+            # Parse CSV
+            from io import StringIO
+            df = pd.read_csv(StringIO(response.text))
+            
+            if df.empty:
+                raise ValueError("Sheet appears to be empty")
+                
             logger.info(f"📊 Loaded {len(df)} rows from Google Sheets")
             return df
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error loading from Google Sheets: {e}")
+            raise Exception(f"Network error: {str(e)}")
         except Exception as e:
             logger.error(f"Failed to load from Google Sheets: {e}")
             raise Exception(f"Google Sheets loading failed: {str(e)}")
@@ -306,6 +396,67 @@ class DataLoader:
         except Exception as e:
             logger.error(f"Failed to load uploaded file: {e}")
             raise Exception(f"File upload failed: {str(e)}")
+    
+    @staticmethod
+    def _normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+        """Normalize column names to expected format"""
+        
+        # Common column mappings
+        column_mapping = {
+            # Symbol/Ticker variations
+            'symbol': ['ticker', 'stock_symbol', 'scrip_code', 'symbol', 'scrip'],
+            # Price variations  
+            'price': ['ltp', 'last_price', 'close_price', 'current_price', 'price'],
+            # Company name variations
+            'company_name': ['name', 'company', 'stock_name', 'company_name'],
+            # Volume variations
+            'volume_1d': ['volume', 'vol', 'daily_volume', 'volume_1d'],
+            # Return variations
+            'ret_1d': ['1d_return', 'daily_return', 'ret_1d', '1d%'],
+            'ret_7d': ['7d_return', 'weekly_return', 'ret_7d', '7d%'],
+            'ret_30d': ['30d_return', 'monthly_return', 'ret_30d', '30d%'],
+            # Other important fields
+            'rvol': ['relative_volume', 'rvol', 'rel_vol'],
+            'from_low_pct': ['from_52w_low', 'from_low', 'from_low_pct'],
+            'from_high_pct': ['from_52w_high', 'from_high', 'from_high_pct'],
+            'pe': ['pe_ratio', 'pe', 'p/e'],
+            'category': ['market_cap', 'cap', 'category'],
+            'sector': ['sector', 'industry_sector'],
+            'industry': ['industry', 'sub_sector']
+        }
+        
+        # Create reverse mapping
+        normalized_df = df.copy()
+        original_columns = df.columns.tolist()
+        
+        for target_col, variations in column_mapping.items():
+            found = False
+            for variation in variations:
+                # Look for exact match (case insensitive)
+                matching_cols = [col for col in original_columns if col.lower() == variation.lower()]
+                if matching_cols:
+                    normalized_df = normalized_df.rename(columns={matching_cols[0]: target_col})
+                    found = True
+                    break
+                
+                # Look for partial match if no exact match
+                if not found:
+                    matching_cols = [col for col in original_columns if variation.lower() in col.lower()]
+                    if matching_cols:
+                        normalized_df = normalized_df.rename(columns={matching_cols[0]: target_col})
+                        found = True
+                        break
+        
+        # Log column mapping
+        renamed_cols = []
+        for old_col, new_col in zip(df.columns, normalized_df.columns):
+            if old_col != new_col:
+                renamed_cols.append(f"{old_col} → {new_col}")
+        
+        if renamed_cols:
+            logger.info(f"Column mapping: {'; '.join(renamed_cols)}")
+        
+        return normalized_df
 
 # ============================================
 # RANKING ENGINE
@@ -466,7 +617,10 @@ def load_and_process_data(source_type: str, **kwargs) -> Tuple[pd.DataFrame, dat
         if not is_valid:
             raise ValueError(f"Data validation failed: {errors}")
         
-        # Step 3: Clean numeric columns
+        # Step 3: Auto-detect and map column names
+        df = DataLoader._normalize_column_names(df)
+        
+        # Step 4: Clean numeric columns
         numeric_columns = ['price', 'ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'volume_1d', 
                           'from_low_pct', 'from_high_pct', 'pe', 'eps_change_pct']
         
@@ -474,13 +628,13 @@ def load_and_process_data(source_type: str, **kwargs) -> Tuple[pd.DataFrame, dat
             if col in df.columns:
                 df[col] = df[col].apply(DataValidator.clean_numeric_value)
         
-        # Step 4: Calculate Master Score
+        # Step 5: Calculate Master Score
         df = RankingEngine.calculate_master_score(df)
         
-        # Step 5: Detect patterns
+        # Step 6: Detect patterns
         df = PatternDetector.detect_patterns(df)
         
-        # Step 6: Sort by rank
+        # Step 7: Sort by rank
         df = df.sort_values('rank').reset_index(drop=True)
         
         # Step 7: Add processing metadata
@@ -651,39 +805,54 @@ class UIComponents:
             st.warning("No stocks match current filters")
             return
         
-        # Display columns configuration
+        # Display columns configuration with fallbacks
         display_columns = {
             'rank': '#',
-            'symbol': 'Symbol',
+            'symbol': 'Symbol', 
             'company_name': 'Company',
             'price': 'Price',
             'ret_1d': '1D%',
-            'ret_7d': '7D%',
+            'ret_7d': '7D%', 
             'rvol': 'RVOL',
             'master_score': 'Score',
             'patterns': 'Patterns'
         }
         
-        # Filter available columns
-        available_cols = [col for col in display_columns.keys() if col in df.columns]
+        # Find available columns with flexible matching
+        available_cols = []
+        for col_key, display_name in display_columns.items():
+            if col_key in df.columns:
+                available_cols.append(col_key)
+            else:
+                # Try to find similar column
+                similar_cols = [col for col in df.columns if col_key.lower() in col.lower()]
+                if similar_cols:
+                    available_cols.append(similar_cols[0])
+                    display_columns[similar_cols[0]] = display_name
+        
+        # If no symbol column found, use first column
+        if not any('symbol' in col.lower() for col in available_cols):
+            if len(df.columns) > 0:
+                first_col = df.columns[0]
+                available_cols.insert(1, first_col)
+                display_columns[first_col] = 'Symbol'
+        
+        # Create display dataframe
         display_df = df[available_cols].copy()
         
         # Rename columns
         display_df = display_df.rename(columns=display_columns)
         
         # Format numeric columns
-        if 'Price' in display_df.columns:
-            display_df['Price'] = display_df['Price'].apply(lambda x: f"₹{x:,.0f}" if pd.notna(x) else "-")
-        
-        for col in ['1D%', '7D%']:
-            if col in display_df.columns:
+        for col in display_df.columns:
+            if 'Price' in col and col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"₹{x:,.0f}" if pd.notna(x) and x != 0 else "-")
+            elif '%' in col and col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "-")
-        
-        if 'RVOL' in display_df.columns:
-            display_df['RVOL'] = display_df['RVOL'].apply(lambda x: f"{x:.1f}x" if pd.notna(x) else "-")
-        
-        if 'Score' in display_df.columns:
-            display_df['Score'] = display_df['Score'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "-")
+            elif 'RVOL' in col and col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}x" if pd.notna(x) else "-")
+            elif 'Score' in col and col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "-")
         
         # Display table
         st.dataframe(
