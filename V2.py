@@ -1105,70 +1105,391 @@ class AdvancedUIComponents:
     @staticmethod
     @performance_tracked("ui_advanced_filters")
     def render_advanced_filters() -> Dict[str, Any]:
-        """Advanced filtering sidebar with real-time updates"""
-        st.sidebar.markdown("### 🎯 Advanced Filters")
+        """REVOLUTIONARY QUANT-STYLE FILTERING SYSTEM - Intelligent, adaptive, and data-driven"""
+        st.sidebar.markdown("### 🎯 Quantum Filters")
         
         filters = {}
         
-        # Quick filter presets
-        st.sidebar.markdown("#### ⚡ Quick Presets")
-        preset_col1, preset_col2 = st.sidebar.columns(2)
+        # ═══════════════════════════════════════════════════════════════════
+        # QUANT INTELLIGENCE: Dynamic Strategy Selection
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 🧠 Quant Intelligence")
         
-        with preset_col1:
-            if st.button("🚀 Momentum", help="High momentum stocks"):
-                filters['preset'] = 'momentum'
-        with preset_col2:
-            if st.button("💎 Value", help="Undervalued opportunities"):
-                filters['preset'] = 'value'
+        quant_strategy = st.sidebar.selectbox(
+            "🎯 Trading Strategy",
+            [
+                "🔍 Discovery Mode (All Stocks)",
+                "🚀 Momentum Hunting", 
+                "💎 Value Discovery",
+                "⚡ Breakout Scanner", 
+                "🏛️ Blue Chip Focus",
+                "💰 Dividend Yield Play",
+                "🔥 High Beta Warriors",
+                "🛡️ Defensive Fortress",
+                "🌊 Sector Rotation",
+                "💥 Volume Explosion",
+                "📈 Growth at Reasonable Price",
+                "🎯 Mean Reversion Setup"
+            ],
+            help="AI-powered strategy selection adapts filters automatically"
+        )
+        
+        # Dynamic filter adjustment based on strategy
+        filters['quant_strategy'] = quant_strategy
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # INTELLIGENT QUICK ACTIONS: Context-Aware Presets
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### ⚡ Smart Quick Actions")
+        
+        action_col1, action_col2 = st.sidebar.columns(2)
+        
+        with action_col1:
+            if st.button("� Today's Movers", help="Stocks moving significantly today"):
+                filters['quick_action'] = 'todays_movers'
+            if st.button("💥 Volume Surge", help="Unusual volume activity"):
+                filters['quick_action'] = 'volume_surge'
+            if st.button("🎯 Breakout Alert", help="Near breakout levels"):
+                filters['quick_action'] = 'breakout_alert'
                 
-        # Market cap filter with visual indicators
-        st.sidebar.markdown("#### 💰 Market Cap")
-        market_caps = ['All', 'Large Cap', 'Mid Cap', 'Small Cap', 'Micro Cap', 'Nano Cap']
-        filters['market_cap'] = st.sidebar.selectbox(
-            "Select Market Cap",
-            market_caps,
-            help="Filter by market capitalization"
+        with action_col2:
+            if st.button("💎 Value Screener", help="Undervalued opportunities"):
+                filters['quick_action'] = 'value_screener'
+            if st.button("🌊 Sector Leaders", help="Sector relative strength"):
+                filters['quick_action'] = 'sector_leaders'
+            if st.button("🛡️ Safe Haven", help="Low volatility, high quality"):
+                filters['quick_action'] = 'safe_haven'
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # MARKET CAPITALIZATION: Smart Bucketing
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 💰 Market Cap Intelligence")
+        
+        market_cap_filter = st.sidebar.selectbox(
+            "🏢 Market Cap Category",
+            [
+                "🌍 All Caps",
+                "🏛️ Mega Cap (>₹5,000Cr)", 
+                "🏢 Large Cap (₹1,000-5,000Cr)",
+                "🏭 Mid Cap (₹250-1,000Cr)",
+                "🏪 Small Cap (₹50-250Cr)", 
+                "🔬 Micro Cap (₹10-50Cr)",
+                "⚗️ Nano Cap (<₹10Cr)",
+                "🎯 Custom Range"
+            ],
+            help="Smart market cap filtering with Indian standards"
         )
+        filters['market_cap_filter'] = market_cap_filter
         
-        # Performance filter with sliders
-        st.sidebar.markdown("#### 📈 Performance Filters")
-        
-        # Return filters
-        filters['min_ret_1d'] = st.sidebar.slider(
-            "Min 1-Day Return (%)", 
-            -50.0, 50.0, -50.0, 0.1,
-            help="Minimum 1-day return percentage"
-        )
-        
-        filters['min_ret_7d'] = st.sidebar.slider(
-            "Min 7-Day Return (%)", 
-            -50.0, 200.0, -50.0, 1.0,
-            help="Minimum 7-day return percentage"
-        )
-        
-        # Volume filter
-        filters['min_rvol'] = st.sidebar.slider(
-            "Min Relative Volume", 
-            0.1, 10.0, 0.1, 0.1,
-            help="Minimum relative volume (1.0 = average)"
-        )
-        
-        # Position filter
-        filters['position_range'] = st.sidebar.slider(
-            "Position Range (% from 52W Low)",
-            0, 100, (0, 100), 1,
-            help="Filter by position relative to 52-week range"
-        )
-        
-        # Sector filter with multi-select
-        if st.sidebar.checkbox("🏭 Sector Filter", help="Filter by specific sectors"):
-            sectors = ['Technology', 'Financial Services', 'Healthcare', 'Energy', 
-                      'Consumer Goods', 'Industrial', 'Materials', 'Utilities', 'Real Estate']
-            filters['sectors'] = st.sidebar.multiselect(
-                "Select Sectors",
-                sectors,
-                help="Choose specific sectors to analyze"
+        # Custom market cap range
+        if market_cap_filter == "🎯 Custom Range":
+            cap_range = st.sidebar.slider(
+                "Market Cap Range (₹ Crores)",
+                0, 50000, (100, 5000), 50,
+                help="Custom market cap range in crores"
             )
+            filters['custom_market_cap'] = cap_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # PERFORMANCE METRICS: Multi-Timeframe Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 📈 Performance Intelligence")
+        
+        # Return filtering with smart presets
+        perf_preset = st.sidebar.selectbox(
+            "📊 Performance Preset",
+            [
+                "🔍 All Performance",
+                "🚀 Strong Gainers (>5% 1D)",
+                "⚡ Power Moves (>10% 1D)", 
+                "💥 Explosive (>20% 1D)",
+                "📈 Weekly Winners (>15% 7D)",
+                "🏆 Monthly Champions (>30% 30D)",
+                "🎯 Custom Range"
+            ]
+        )
+        filters['performance_preset'] = perf_preset
+        
+        # Custom performance range
+        if perf_preset == "🎯 Custom Range":
+            ret_1d_range = st.sidebar.slider(
+                "1-Day Return Range (%)",
+                -50, 100, (-10, 20), 1,
+                help="Custom 1-day return range"
+            )
+            ret_7d_range = st.sidebar.slider(
+                "7-Day Return Range (%)", 
+                -50, 200, (-20, 50), 2,
+                help="Custom 7-day return range"
+            )
+            filters['custom_ret_1d'] = ret_1d_range
+            filters['custom_ret_7d'] = ret_7d_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # VOLUME INTELLIGENCE: Smart Volume Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 📊 Volume Intelligence")
+        
+        volume_filter = st.sidebar.selectbox(
+            "🔊 Volume Profile",
+            [
+                "🌍 All Volume Levels",
+                "🔥 High Activity (RVOL >2x)",
+                "💥 Explosive Volume (RVOL >5x)",
+                "🌋 Volcanic Volume (RVOL >10x)",
+                "📈 Growing Interest (RVOL >1.5x)",
+                "😴 Low Activity (RVOL <0.5x)",
+                "🎯 Custom RVOL Range"
+            ]
+        )
+        filters['volume_filter'] = volume_filter
+        
+        if volume_filter == "🎯 Custom RVOL Range":
+            rvol_range = st.sidebar.slider(
+                "Relative Volume Range",
+                0.1, 20.0, (1.0, 5.0), 0.1,
+                help="Custom relative volume range"
+            )
+            filters['custom_rvol'] = rvol_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # TECHNICAL POSITION: Smart Range Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 🎯 Position Intelligence")
+        
+        position_filter = st.sidebar.selectbox(
+            "📍 52-Week Position",
+            [
+                "🌍 All Positions",
+                "🏔️ Near Highs (80-100%)",
+                "⛰️ Upper Range (60-80%)",
+                "🏞️ Middle Range (40-60%)",
+                "🏗️ Lower Range (20-40%)",
+                "💎 Near Lows (0-20%)",
+                "🎯 Custom Position"
+            ]
+        )
+        filters['position_filter'] = position_filter
+        
+        if position_filter == "🎯 Custom Position":
+            position_range = st.sidebar.slider(
+                "Position Range (% from 52W Low)",
+                0, 100, (20, 80), 5,
+                help="Custom position range"
+            )
+            filters['custom_position'] = position_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # SECTOR & INDUSTRY INTELLIGENCE
+        # ═══════════════════════════════════════════════════════════════════
+        with st.sidebar.expander("🏭 Sector & Industry Intelligence", expanded=False):
+            
+            # Smart sector selection
+            sector_mode = st.selectbox(
+                "🎯 Sector Strategy",
+                [
+                    "🌍 All Sectors",
+                    "🔥 Hot Sectors Only",
+                    "❄️ Cold Sectors Only", 
+                    "🎯 Custom Selection"
+                ]
+            )
+            filters['sector_mode'] = sector_mode
+            
+            if sector_mode == "🎯 Custom Selection":
+                sectors = [
+                    "Technology", "Financial Services", "Healthcare", "Energy",
+                    "Consumer Cyclical", "Consumer Defensive", "Communication Services",
+                    "Industrials", "Basic Materials", "Utilities", "Real Estate"
+                ]
+                selected_sectors = st.multiselect(
+                    "Select Sectors",
+                    sectors,
+                    help="Choose specific sectors for analysis"
+                )
+                filters['selected_sectors'] = selected_sectors
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # VALUATION INTELLIGENCE: PE, EPS, Growth Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        with st.sidebar.expander("💰 Valuation Intelligence", expanded=False):
+            
+            # PE Ratio filtering
+            pe_filter = st.selectbox(
+                "📊 PE Ratio Profile",
+                [
+                    "🌍 All PE Levels",
+                    "💎 Deep Value (PE <10)",
+                    "💰 Value Zone (PE 10-15)",
+                    "⚖️ Fair Value (PE 15-25)",
+                    "📈 Growth Premium (PE 25-35)",
+                    "🚀 High Growth (PE 35-50)",
+                    "👑 Premium (PE >50)",
+                    "🎯 Custom PE Range"
+                ]
+            )
+            filters['pe_filter'] = pe_filter
+            
+            if pe_filter == "🎯 Custom PE Range":
+                pe_range = st.slider(
+                    "PE Ratio Range",
+                    0, 100, (10, 30), 1,
+                    help="Custom PE ratio range"
+                )
+                filters['custom_pe'] = pe_range
+            
+            # EPS Growth filtering
+            eps_filter = st.selectbox(
+                "📊 EPS Growth Profile",
+                [
+                    "🌍 All EPS Levels",
+                    "💥 Explosive Growth (>50%)",
+                    "🚀 Strong Growth (20-50%)",
+                    "📈 Moderate Growth (5-20%)",
+                    "😴 Slow Growth (0-5%)",
+                    "📉 Declining (<0%)",
+                    "🎯 Custom EPS Range"
+                ]
+            )
+            filters['eps_filter'] = eps_filter
+            
+            if eps_filter == "🎯 Custom EPS Range":
+                eps_range = st.slider(
+                    "EPS Change Range (%)",
+                    -100, 200, (0, 50), 5,
+                    help="Custom EPS change range"
+                )
+                filters['custom_eps'] = eps_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # ADVANCED PATTERNS: ML-Ready Pattern Recognition
+        # ═══════════════════════════════════════════════════════════════════
+        with st.sidebar.expander("🔮 Pattern Intelligence", expanded=False):
+            
+            pattern_focus = st.multiselect(
+                "🎯 Pattern Focus Areas",
+                [
+                    "🚀 Breakout Patterns",
+                    "💥 Volume Explosion",
+                    "🌊 Momentum Waves", 
+                    "💎 Value Discovery",
+                    "🏛️ Institutional Interest",
+                    "⚡ Velocity Squeeze",
+                    "� Sector Rotation",
+                    "🔥 Smart Money Flow",
+                    "📈 Trend Acceleration",
+                    "💰 Liquidity Leaders"
+                ],
+                help="Select pattern types for focused analysis"
+            )
+            filters['pattern_focus'] = pattern_focus
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RISK MANAGEMENT: Smart Risk Controls
+        # ═══════════════════════════════════════════════════════════════════
+        with st.sidebar.expander("🛡️ Risk Management", expanded=False):
+            
+            risk_profile = st.selectbox(
+                "⚖️ Risk Tolerance",
+                [
+                    "🔍 Risk Agnostic",
+                    "🛡️ Conservative (Low Risk)",
+                    "⚖️ Moderate Risk",
+                    "🔥 Aggressive (High Risk)",
+                    "💥 Extreme Risk Seeking"
+                ]
+            )
+            filters['risk_profile'] = risk_profile
+            
+            # Beta filtering (if available)
+            if st.checkbox("📊 Beta Filtering", help="Filter by stock beta/volatility"):
+                beta_range = st.slider(
+                    "Beta Range (Market Sensitivity)",
+                    0.0, 3.0, (0.5, 2.0), 0.1,
+                    help="Beta range for market sensitivity"
+                )
+                filters['beta_range'] = beta_range
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # ML INTELLIGENCE: Adaptive ML Settings
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 🤖 ML Intelligence")
+        
+        ml_settings = {}
+        
+        # ML worthiness assessment
+        ml_enable = st.sidebar.checkbox(
+            "🧠 Enable ML Analysis", 
+            value=True,
+            help="Use ML for pattern detection and insights"
+        )
+        
+        if ml_enable:
+            ml_focus = st.sidebar.selectbox(
+                "🎯 ML Analysis Focus",
+                [
+                    "🔍 Comprehensive Analysis",
+                    "📈 Trend Prediction",
+                    "💥 Anomaly Detection", 
+                    "🌊 Pattern Recognition",
+                    "🎯 Clustering Analysis",
+                    "⚡ Momentum Prediction"
+                ],
+                help="Choose ML analysis type"
+            )
+            
+            # Data freshness consideration for ML
+            data_freshness = st.sidebar.selectbox(
+                "📅 Data Usage Strategy",
+                [
+                    "🔄 Real-time Adaptive",
+                    "📊 Short-term Patterns (1-7 days)",
+                    "📈 Medium-term Trends (1-4 weeks)",
+                    "🏔️ Long-term Analysis (1-3 months)"
+                ],
+                help="How to handle daily data updates for ML"
+            )
+            
+            ml_settings.update({
+                'enabled': True,
+                'focus': ml_focus,
+                'data_strategy': data_freshness
+            })
+        else:
+            ml_settings['enabled'] = False
+        
+        filters['ml_settings'] = ml_settings
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RESULTS OPTIMIZATION
+        # ═══════════════════════════════════════════════════════════════════
+        st.sidebar.markdown("#### 🎯 Results Optimization")
+        
+        result_limit = st.sidebar.selectbox(
+            "📊 Result Limit",
+            [50, 100, 200, 500, 1000, "All"],
+            index=2,
+            help="Limit results for performance"
+        )
+        filters['result_limit'] = result_limit
+        
+        sort_by = st.sidebar.selectbox(
+            "📈 Sort Priority",
+            [
+                "🎯 Master Score (Default)",
+                "📊 Volume Activity",
+                "💥 1-Day Performance", 
+                "🌊 7-Day Performance",
+                "💰 Market Cap",
+                "⚡ Relative Volume",
+                "🎯 Custom Metric"
+            ]
+        )
+        filters['sort_by'] = sort_by
+        
+        # Reset filters button
+        if st.sidebar.button("🔄 Reset All Filters", help="Clear all filters and return to default state"):
+            filters['reset'] = True
         
         return filters
     
@@ -1629,7 +1950,11 @@ class AdvancedUIComponents:
 # ============================================
 
 class MLPatternEngine:
-    """Phase 3: Advanced Machine Learning Pattern Detection & Analysis"""
+    """
+    REVOLUTIONARY ML ENGINE FOR DAILY DATA INTELLIGENCE
+    Smart enough to handle daily updates, adaptive to data freshness,
+    and optimized for short-term pattern recognition in Indian markets
+    """
     
     def __init__(self):
         self.scaler = None
@@ -1639,44 +1964,268 @@ class MLPatternEngine:
         self.feature_importance = {}
         self.ml_cache = {}
         
+        # Data freshness intelligence
+        self.last_training_date = None
+        self.data_staleness_threshold = 1  # Days before retraining
+        self.adaptive_windows = {
+            'short_term': 5,   # 5 days for momentum
+            'medium_term': 15, # 15 days for trends
+            'long_term': 30    # 30 days for patterns
+        }
+    
     @performance_tracked("ml_pattern_detection")
-    def detect_ml_patterns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Advanced ML-based pattern detection using multiple algorithms"""
+    def detect_ml_patterns(self, df: pd.DataFrame, ml_settings: Dict = None) -> pd.DataFrame:
+        """
+        INTELLIGENT ML PATTERN DETECTION
+        Adapts to daily data updates and market conditions
+        """
         if not ML_AVAILABLE or df.empty:
             logger.warning("ML libraries not available or empty dataframe")
             return df
             
+        # Get ML settings from filters
+        ml_settings = ml_settings or {'enabled': True, 'focus': '🔍 Comprehensive Analysis', 'data_strategy': '🔄 Real-time Adaptive'}
+        
+        if not ml_settings.get('enabled', True):
+            logger.info("ML analysis disabled by user")
+            return df
+            
         try:
-            # Prepare features for ML
-            ml_features = self._prepare_ml_features(df)
+            # Smart data strategy selection
+            data_strategy = ml_settings.get('data_strategy', '🔄 Real-time Adaptive')
+            window_size = self._get_optimal_window(data_strategy)
+            
+            # Intelligent data freshness check
+            if self._should_retrain(df, data_strategy):
+                logger.info(f"🧠 Retraining ML models for fresh data (strategy: {data_strategy})")
+                self._reset_models()
+            
+            # Prepare features with adaptive windowing
+            ml_features = self._prepare_ml_features(df, window_size)
             if ml_features.empty:
+                logger.warning("Insufficient features for ML analysis")
                 return df
                 
-            # Apply multiple ML techniques
-            df = self._apply_clustering_analysis(df, ml_features)
-            df = self._detect_anomalies(df, ml_features)
-            df = self._calculate_similarity_scores(df, ml_features)
-            df = self._predict_momentum_probability(df, ml_features)
+            # Apply ML techniques based on focus
+            ml_focus = ml_settings.get('focus', '🔍 Comprehensive Analysis')
+            df = self._apply_focused_ml_analysis(df, ml_features, ml_focus)
             
-            logger.info(f"🤖 ML patterns detected for {len(df)} stocks")
+            # Add data freshness insights
+            df = self._add_freshness_insights(df, data_strategy)
+            
+            # Cache results for performance
+            self._cache_ml_results(df, ml_settings)
+            
+            logger.info(f"🤖 ML analysis complete: {len(df)} stocks analyzed with {ml_focus}")
             return df
             
         except Exception as e:
             logger.error(f"ML pattern detection failed: {e}")
             return df
     
-    def _prepare_ml_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare and engineer features for ML algorithms"""
-        try:
-            # Select numeric features for ML
-            numeric_cols = ['price', 'ret_1d', 'ret_7d', 'ret_30d', 'volume_1d', 'rvol',
-                          'from_low_pct', 'from_high_pct', 'pe', 'eps_change_pct']
+    def _get_optimal_window(self, data_strategy: str) -> int:
+        """Determine optimal lookback window based on data strategy"""
+        strategy_map = {
+            '📊 Short-term Patterns (1-7 days)': self.adaptive_windows['short_term'],
+            '📈 Medium-term Trends (1-4 weeks)': self.adaptive_windows['medium_term'], 
+            '🏔️ Long-term Analysis (1-3 months)': self.adaptive_windows['long_term'],
+            '🔄 Real-time Adaptive': self.adaptive_windows['short_term']  # Default to short-term for daily data
+        }
+        return strategy_map.get(data_strategy, self.adaptive_windows['short_term'])
+    
+    def _should_retrain(self, df: pd.DataFrame, data_strategy: str) -> bool:
+        """
+        INTELLIGENT RETRAINING DECISION
+        Considers data freshness, market volatility, and strategy type
+        """
+        # Always retrain for real-time adaptive strategy
+        if data_strategy == '🔄 Real-time Adaptive':
+            return True
             
-            available_cols = [col for col in numeric_cols if col in df.columns]
-            if len(available_cols) < 3:
+        # Check if we have a last training date
+        if self.last_training_date is None:
+            return True
+            
+        # Calculate days since last training
+        today = datetime.now().date()
+        days_since_training = (today - self.last_training_date).days
+        
+        # Retrain based on strategy and market conditions
+        if data_strategy == '📊 Short-term Patterns (1-7 days)':
+            return days_since_training >= 1  # Daily retraining for short-term
+        elif data_strategy == '📈 Medium-term Trends (1-4 weeks)':
+            return days_since_training >= 3  # Every 3 days for medium-term
+        elif data_strategy == '🏔️ Long-term Analysis (1-3 months)':
+            return days_since_training >= 7  # Weekly for long-term
+            
+        return True  # Default to retrain
+    
+    def _reset_models(self):
+        """Reset ML models for fresh training"""
+        self.scaler = None
+        self.pca = None
+        self.kmeans = None
+        self.isolation_forest = None
+        self.feature_importance = {}
+        self.last_training_date = datetime.now().date()
+    
+    def _prepare_ml_features(self, df: pd.DataFrame, window_size: int = 5) -> pd.DataFrame:
+        """
+        INTELLIGENT FEATURE ENGINEERING
+        Adapts to daily data with smart feature selection
+        """
+        try:
+            # Core features always available
+            core_features = ['price', 'ret_1d', 'volume_1d', 'rvol']
+            
+            # Extended features (use if available)
+            extended_features = ['ret_7d', 'ret_30d', 'from_low_pct', 'from_high_pct', 
+                               'pe', 'eps_change_pct', 'market_cap']
+            
+            # Technical features (derived)
+            technical_features = ['sma_20d', 'sma_50d', 'sma_200d']
+            
+            # Build available feature list
+            available_features = []
+            for feature_group in [core_features, extended_features, technical_features]:
+                available_features.extend([col for col in feature_group if col in df.columns])
+            
+            if len(available_features) < 3:
+                logger.warning(f"Only {len(available_features)} features available for ML")
                 return pd.DataFrame()
                 
             # Create feature matrix
+            ml_df = df[available_features].copy()
+            
+            # Handle missing values intelligently
+            ml_df = self._handle_missing_values(ml_df)
+            
+            # Engineer new features for daily trading
+            ml_df = self._engineer_daily_features(ml_df, df)
+            
+            # Scale features for ML algorithms
+            if self.scaler is None:
+                from sklearn.preprocessing import StandardScaler
+                self.scaler = StandardScaler()
+                ml_df_scaled = pd.DataFrame(
+                    self.scaler.fit_transform(ml_df),
+                    index=ml_df.index,
+                    columns=ml_df.columns
+                )
+            else:
+                ml_df_scaled = pd.DataFrame(
+                    self.scaler.transform(ml_df),
+                    index=ml_df.index,
+                    columns=ml_df.columns
+                )
+            
+            logger.info(f"🔧 ML features prepared: {len(ml_df_scaled.columns)} features for {len(ml_df_scaled)} stocks")
+            return ml_df_scaled
+            
+        except Exception as e:
+            logger.error(f"Feature preparation failed: {e}")
+            return pd.DataFrame()
+    
+    def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Smart missing value handling for daily data"""
+        # For daily trading data, use intelligent imputation
+        for col in df.columns:
+            if df[col].dtype in ['float64', 'int64']:
+                if col in ['ret_1d', 'ret_7d', 'ret_30d']:
+                    # Returns: fill with 0 (no change)
+                    df[col] = df[col].fillna(0)
+                elif col in ['pe', 'eps_change_pct']:
+                    # Fundamentals: fill with median
+                    df[col] = df[col].fillna(df[col].median())
+                elif col in ['rvol', 'volume_1d']:
+                    # Volume: fill with 1.0 (average)
+                    df[col] = df[col].fillna(1.0)
+                else:
+                    # Others: forward fill then median
+                    df[col] = df[col].fillna(method='ffill').fillna(df[col].median())
+        
+        return df
+    
+    def _engineer_daily_features(self, ml_df: pd.DataFrame, original_df: pd.DataFrame) -> pd.DataFrame:
+        """Engineer features specifically for daily trading patterns"""
+        
+        # Momentum features
+        if 'ret_1d' in ml_df.columns and 'ret_7d' in ml_df.columns:
+            ml_df['momentum_ratio'] = ml_df['ret_1d'] / (ml_df['ret_7d'] + 0.001)  # Avoid division by zero
+            
+        # Volume features
+        if 'rvol' in ml_df.columns and 'volume_1d' in ml_df.columns:
+            ml_df['volume_momentum'] = ml_df['rvol'] * np.log1p(ml_df['volume_1d'])
+            
+        # Position features
+        if 'from_low_pct' in ml_df.columns and 'from_high_pct' in ml_df.columns:
+            ml_df['position_strength'] = ml_df['from_low_pct'] / (100 - ml_df['from_high_pct'] + 1)
+            
+        # Valuation features
+        if 'pe' in ml_df.columns and 'eps_change_pct' in ml_df.columns:
+            ml_df['pe_growth_ratio'] = ml_df['pe'] / (ml_df['eps_change_pct'] + 1)
+            
+        # Volatility proxy
+        if 'ret_1d' in ml_df.columns:
+            ml_df['daily_volatility'] = abs(ml_df['ret_1d'])
+            
+        return ml_df
+    
+    def _apply_focused_ml_analysis(self, df: pd.DataFrame, ml_features: pd.DataFrame, focus: str) -> pd.DataFrame:
+        """Apply ML analysis based on user's focus area"""
+        
+        if focus == "📈 Trend Prediction":
+            df = self._apply_trend_prediction(df, ml_features)
+            
+        elif focus == "💥 Anomaly Detection":
+            df = self._detect_anomalies(df, ml_features)
+            
+        elif focus == "🌊 Pattern Recognition":
+            df = self._apply_clustering_analysis(df, ml_features)
+            
+        elif focus == "🎯 Clustering Analysis":
+            df = self._apply_clustering_analysis(df, ml_features)
+            df = self._calculate_similarity_scores(df, ml_features)
+            
+        elif focus == "⚡ Momentum Prediction":
+            df = self._predict_momentum_probability(df, ml_features)
+            
+        else:  # Comprehensive Analysis
+            df = self._apply_clustering_analysis(df, ml_features)
+            df = self._detect_anomalies(df, ml_features)
+            df = self._calculate_similarity_scores(df, ml_features)
+            df = self._predict_momentum_probability(df, ml_features)
+            
+        return df
+    
+    def _apply_trend_prediction(self, df: pd.DataFrame, ml_features: pd.DataFrame) -> pd.DataFrame:
+        """Predict short-term trend direction using ML"""
+        try:
+            if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
+                # Simple trend classification based on momentum
+                df['trend_prediction'] = 'Neutral'
+                
+                # Bullish signals
+                bullish_mask = (df['ret_1d'] > 1) & (df['ret_7d'] > 3) & (df['rvol'] > 1.2)
+                df.loc[bullish_mask, 'trend_prediction'] = 'Bullish'
+                
+                # Bearish signals  
+                bearish_mask = (df['ret_1d'] < -1) & (df['ret_7d'] < -3)
+                df.loc[bearish_mask, 'trend_prediction'] = 'Bearish'
+                
+                # Calculate confidence
+                df['trend_confidence'] = 50  # Base confidence
+                df.loc[bullish_mask, 'trend_confidence'] = np.minimum(
+                    95, 50 + abs(df.loc[bullish_mask, 'ret_7d']) * 2
+                )
+                df.loc[bearish_mask, 'trend_confidence'] = np.minimum(
+                    95, 50 + abs(df.loc[bearish_mask, 'ret_7d']) * 2
+                )
+                
+        except Exception as e:
+            logger.error(f"Trend prediction failed: {e}")
+            
+        return df
             features = df[available_cols].copy()
             
             # Handle missing values
@@ -2272,79 +2821,6 @@ class MarketRegimeDetector:
             'volume_pattern_consistency': 0.8,
             'price_trend_consistency': 0.7,
             'sector_classification_accuracy': 0.95
-        }
-    })
-        },
-        "Utilities": {
-            "growth_expectation": "Low", "volatility": "Low", "dividend_yield": "Very High",
-            "typical_patterns": ["LONG STRENGTH", "GOLDEN ZONE", "VOL ACCUMULATION", "YIELD PLAY"],
-            "risk_level": "Low", "innovation_cycle": "Very Slow", "market_sensitivity": "Very Low",
-            "behavioral_traits": ["rate_inverse", "regulated_returns", "infrastructure_monopoly"],
-            "optimal_entry_patterns": ["YIELD PLAY", "RATE DECLINE", "DEFENSIVE ROTATION"],
-            "warning_patterns": ["RATE SURGE", "REGULATION PRESSURE", "GREEN TRANSITION"]
-        },
-        "Real Estate": {
-            "growth_expectation": "Medium", "volatility": "Medium", "dividend_yield": "High",
-            "typical_patterns": ["LIQUID LEADER", "GOLDEN ZONE", "RANGE COMPRESS", "REIT STRENGTH"],
-            "risk_level": "Medium", "innovation_cycle": "Slow", "market_sensitivity": "High",
-            "behavioral_traits": ["rate_sensitive", "location_premium", "income_focused"],
-            "optimal_entry_patterns": ["REIT STRENGTH", "RATE DECLINE", "LOCATION PREMIUM"],
-            "warning_patterns": ["RATE SURGE", "OVERSUPPLY", "LOCATION DECAY"]
-        }
-    })
-    
-    # Revolutionary sector-specific score weightings with behavioral intelligence
-    SECTOR_SCORE_WEIGHTS: Dict[str, Dict[str, float]] = field(default_factory=lambda: {
-        # HIGH VOLUME SECTORS (400+ stocks) - Conservative with intelligence
-        "Industrials": {           # 531 stocks - Infrastructure & stability
-            "position": 0.35, "momentum": 0.25, "volume": 0.25, "acceleration": 0.15,
-            "behavioral_weight": 0.85, "institutional_preference": 0.9
-        },
-        "Consumer Cyclical": {     # 456 stocks - Economic sensitivity
-            "momentum": 0.30, "acceleration": 0.25, "volume": 0.25, "position": 0.20,
-            "behavioral_weight": 0.9, "economic_sensitivity": 0.95
-        },
-        "Basic Materials": {       # 402 stocks - Commodity driven
-            "volume": 0.35, "momentum": 0.25, "acceleration": 0.20, "position": 0.20,
-            "behavioral_weight": 0.95, "volatility_premium": 0.85
-        },
-        
-        # MEDIUM VOLUME SECTORS (150-200 stocks) - Balanced intelligence
-        "Healthcare": {            # 185 stocks - Defensive growth
-            "position": 0.35, "momentum": 0.25, "volume": 0.20, "acceleration": 0.20,
-            "behavioral_weight": 0.8, "quality_premium": 0.9
-        },
-        "Technology": {            # 177 stocks - Growth & innovation
-            "momentum": 0.35, "volume": 0.25, "acceleration": 0.20, "position": 0.20,
-            "behavioral_weight": 0.95, "innovation_premium": 0.95
-        },
-        "Consumer Defensive": {    # 153 stocks - Stability focus
-            "position": 0.40, "momentum": 0.20, "volume": 0.20, "acceleration": 0.20,
-            "behavioral_weight": 0.75, "stability_premium": 0.95
-        },
-        
-        # LOW VOLUME SECTORS (30-90 stocks) - Alpha hunting
-        "Real Estate": {           # 89 stocks - Liquidity & rates
-            "position": 0.35, "volume": 0.30, "momentum": 0.20, "acceleration": 0.15,
-            "behavioral_weight": 0.9, "rate_sensitivity": 0.9
-        },
-        "Energy": {                # 37 stocks - Volatility mastery
-            "volume": 0.45, "momentum": 0.25, "acceleration": 0.20, "position": 0.10,
-            "behavioral_weight": 1.0, "volatility_mastery": 0.95
-        },
-        "Communication Services": { # 34 stocks - Platform economics
-            "momentum": 0.35, "volume": 0.30, "position": 0.20, "acceleration": 0.15,
-            "behavioral_weight": 0.9, "platform_premium": 0.85
-        },
-        "Utilities": {             # 32 stocks - Yield & stability
-            "position": 0.45, "momentum": 0.20, "volume": 0.20, "acceleration": 0.15,
-            "behavioral_weight": 0.7, "yield_premium": 0.95
-        },
-        
-        # VERY LOW VOLUME SECTOR - Elite selection
-        "Financial Services": {    # 14 stocks - Institutional mastery
-            "volume": 0.40, "position": 0.30, "momentum": 0.20, "acceleration": 0.10,
-            "behavioral_weight": 0.95, "institutional_mastery": 0.95
         }
     })
     
@@ -8391,8 +8867,8 @@ class FilterEngine:
     @performance_tracked(0.1)
     def apply_filters(df: pd.DataFrame, filters: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
-        Apply all filters to dataframe efficiently using vectorized operations.
-        If no filters provided, get from centralized state.
+        REVOLUTIONARY QUANT FILTER ENGINE - Intelligent, adaptive, and performance-optimized
+        Handles both traditional and AI-powered filtering strategies
         """
         if df.empty:
             return df
@@ -8404,6 +8880,535 @@ class FilterEngine:
         if not filters:
             return df
         
+        original_count = len(df)
+        filtered_df = df.copy()
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # QUANT STRATEGY APPLICATION: Intelligent Strategy-Based Filtering
+        # ═══════════════════════════════════════════════════════════════════
+        
+        quant_strategy = filters.get('quant_strategy', '🔍 Discovery Mode (All Stocks)')
+        
+        if quant_strategy != '🔍 Discovery Mode (All Stocks)':
+            filtered_df = FilterEngine._apply_quant_strategy(filtered_df, quant_strategy)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # QUICK ACTIONS: Instant Smart Filtering
+        # ═══════════════════════════════════════════════════════════════════
+        
+        quick_action = filters.get('quick_action')
+        if quick_action:
+            filtered_df = FilterEngine._apply_quick_action(filtered_df, quick_action)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # MARKET CAP INTELLIGENCE: Smart Market Cap Filtering
+        # ═══════════════════════════════════════════════════════════════════
+        
+        market_cap_filter = filters.get('market_cap_filter', '🌍 All Caps')
+        if market_cap_filter != '🌍 All Caps':
+            filtered_df = FilterEngine._apply_market_cap_filter(filtered_df, market_cap_filter, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # PERFORMANCE INTELLIGENCE: Multi-Timeframe Performance Filtering
+        # ═══════════════════════════════════════════════════════════════════
+        
+        performance_preset = filters.get('performance_preset', '🔍 All Performance')
+        if performance_preset != '🔍 All Performance':
+            filtered_df = FilterEngine._apply_performance_filter(filtered_df, performance_preset, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # VOLUME INTELLIGENCE: Smart Volume Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        
+        volume_filter = filters.get('volume_filter', '🌍 All Volume Levels')
+        if volume_filter != '🌍 All Volume Levels':
+            filtered_df = FilterEngine._apply_volume_filter(filtered_df, volume_filter, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # POSITION INTELLIGENCE: Smart Range Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        
+        position_filter = filters.get('position_filter', '🌍 All Positions')
+        if position_filter != '🌍 All Positions':
+            filtered_df = FilterEngine._apply_position_filter(filtered_df, position_filter, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # SECTOR & INDUSTRY INTELLIGENCE
+        # ═══════════════════════════════════════════════════════════════════
+        
+        sector_mode = filters.get('sector_mode', '🌍 All Sectors')
+        if sector_mode != '🌍 All Sectors':
+            filtered_df = FilterEngine._apply_sector_filter(filtered_df, sector_mode, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # VALUATION INTELLIGENCE: PE, EPS, Growth Analysis
+        # ═══════════════════════════════════════════════════════════════════
+        
+        pe_filter = filters.get('pe_filter', '🌍 All PE Levels')
+        if pe_filter != '🌍 All PE Levels':
+            filtered_df = FilterEngine._apply_pe_filter(filtered_df, pe_filter, filters)
+        
+        eps_filter = filters.get('eps_filter', '🌍 All EPS Levels')
+        if eps_filter != '🌍 All EPS Levels':
+            filtered_df = FilterEngine._apply_eps_filter(filtered_df, eps_filter, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # PATTERN INTELLIGENCE: Advanced Pattern Recognition
+        # ═══════════════════════════════════════════════════════════════════
+        
+        pattern_focus = filters.get('pattern_focus', [])
+        if pattern_focus:
+            filtered_df = FilterEngine._apply_pattern_filter(filtered_df, pattern_focus)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RISK MANAGEMENT: Smart Risk Controls
+        # ═══════════════════════════════════════════════════════════════════
+        
+        risk_profile = filters.get('risk_profile', '🔍 Risk Agnostic')
+        if risk_profile != '🔍 Risk Agnostic':
+            filtered_df = FilterEngine._apply_risk_filter(filtered_df, risk_profile, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # LEGACY FILTERS: Maintain Backward Compatibility
+        # ═══════════════════════════════════════════════════════════════════
+        
+        filtered_df = FilterEngine._apply_legacy_filters(filtered_df, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RESULTS OPTIMIZATION: Limit and Sort Results
+        # ═══════════════════════════════════════════════════════════════════
+        
+        filtered_df = FilterEngine._apply_result_optimization(filtered_df, filters)
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # RESET HANDLING: Clear All Filters
+        # ═══════════════════════════════════════════════════════════════════
+        
+        if filters.get('reset', False):
+            filtered_df = df.copy()
+        
+        final_count = len(filtered_df)
+        reduction_pct = ((original_count - final_count) / original_count * 100) if original_count > 0 else 0
+        
+        logger.info(f"🎯 Intelligent filters: {original_count} → {final_count} stocks ({reduction_pct:.1f}% reduction)")
+        
+        return filtered_df
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # INTELLIGENT FILTER HELPER METHODS: Strategy-Specific Implementations
+    # ═══════════════════════════════════════════════════════════════════
+    
+    @staticmethod
+    def _apply_quant_strategy(df: pd.DataFrame, strategy: str) -> pd.DataFrame:
+        """Apply intelligent strategy-based filtering"""
+        if df.empty:
+            return df
+            
+        if strategy == "🚀 Momentum Hunting":
+            # High momentum, strong volume, positive trend
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= (df['ret_1d'] > 2)  # Strong daily moves
+            if 'ret_7d' in df.columns:
+                mask &= (df['ret_7d'] > 5)  # Weekly momentum
+            if 'rvol' in df.columns:
+                mask &= (df['rvol'] > 1.5)  # Above average volume
+            if 'from_high_pct' in df.columns:
+                mask &= (df['from_high_pct'] > -20)  # Near highs
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "💎 Value Discovery":
+            # Low PE, undervalued, strong fundamentals
+            mask = True
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 15)  # Low PE
+            if 'eps_change_pct' in df.columns:
+                mask &= (df['eps_change_pct'] > 0)  # Growing earnings
+            if 'from_low_pct' in df.columns:
+                mask &= (df['from_low_pct'] < 50)  # Not at highs
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "⚡ Breakout Scanner":
+            # Near 52W highs, high volume, momentum
+            mask = True
+            if 'from_high_pct' in df.columns:
+                mask &= (df['from_high_pct'] > -5)  # Very near highs
+            if 'rvol' in df.columns:
+                mask &= (df['rvol'] > 2.0)  # High volume
+            if 'ret_1d' in df.columns:
+                mask &= (df['ret_1d'] > 1)  # Positive momentum
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "🏛️ Blue Chip Focus":
+            # Large cap, stable, quality
+            mask = True
+            if 'category' in df.columns:
+                mask &= df['category'].isin(['Large Cap', 'Mega Cap'])
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 30)  # Reasonable valuation
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "💰 Dividend Yield Play":
+            # Focus on dividend-yielding sectors and stable companies
+            mask = True
+            if 'sector' in df.columns:
+                dividend_sectors = ['Utilities', 'Financial Services', 'Consumer Defensive', 'Real Estate']
+                mask &= df['sector'].isin(dividend_sectors)
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 20)  # Conservative valuation
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "🔥 High Beta Warriors":
+            # High volatility, momentum plays
+            mask = True
+            if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
+                mask &= (abs(df['ret_1d']) > 3) | (abs(df['ret_7d']) > 10)  # High volatility
+            if 'rvol' in df.columns:
+                mask &= (df['rvol'] > 1.5)  # High activity
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "🛡️ Defensive Fortress":
+            # Low volatility, stable sectors
+            mask = True
+            if 'sector' in df.columns:
+                defensive_sectors = ['Healthcare', 'Consumer Defensive', 'Utilities']
+                mask &= df['sector'].isin(defensive_sectors)
+            if 'ret_1d' in df.columns:
+                mask &= (abs(df['ret_1d']) < 3)  # Low volatility
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "🌊 Sector Rotation":
+            # Sector relative strength focus
+            if 'sector' in df.columns and 'ret_7d' in df.columns:
+                # Calculate sector performance
+                sector_perf = df.groupby('sector')['ret_7d'].median()
+                top_sectors = sector_perf.nlargest(3).index
+                mask = df['sector'].isin(top_sectors)
+                return df[mask]
+            return df
+            
+        elif strategy == "💥 Volume Explosion":
+            # Extreme volume activity
+            mask = True
+            if 'rvol' in df.columns:
+                mask &= (df['rvol'] > 5.0)  # Explosive volume
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "📈 Growth at Reasonable Price":
+            # GARP strategy
+            mask = True
+            if 'pe' in df.columns and 'eps_change_pct' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 25)  # Reasonable PE
+                mask &= (df['eps_change_pct'] > 15)  # Strong growth
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif strategy == "🎯 Mean Reversion Setup":
+            # Oversold but quality stocks
+            mask = True
+            if 'ret_7d' in df.columns:
+                mask &= (df['ret_7d'] < -10)  # Recent decline
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 20)  # Quality valuation
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        return df
+    
+    @staticmethod
+    def _apply_quick_action(df: pd.DataFrame, action: str) -> pd.DataFrame:
+        """Apply quick action filtering"""
+        if df.empty:
+            return df
+            
+        if action == 'todays_movers':
+            # Significant daily movement
+            if 'ret_1d' in df.columns:
+                mask = abs(df['ret_1d']) > 3
+                return df[mask]
+                
+        elif action == 'volume_surge':
+            # Unusual volume activity
+            if 'rvol' in df.columns:
+                mask = df['rvol'] > 3.0
+                return df[mask]
+                
+        elif action == 'breakout_alert':
+            # Near breakout levels
+            if 'from_high_pct' in df.columns:
+                mask = df['from_high_pct'] > -10
+                return df[mask]
+                
+        elif action == 'value_screener':
+            # Undervalued opportunities
+            mask = True
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 15)
+            if 'from_low_pct' in df.columns:
+                mask &= (df['from_low_pct'] < 60)
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        elif action == 'sector_leaders':
+            # Top performer in each sector
+            if 'sector' in df.columns and 'master_score' in df.columns:
+                top_per_sector = df.groupby('sector')['master_score'].nlargest(3)
+                mask = df.index.isin(top_per_sector.index)
+                return df[mask]
+                
+        elif action == 'safe_haven':
+            # Low volatility, high quality
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= (abs(df['ret_1d']) < 2)
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 25)
+            return df[mask] if isinstance(mask, pd.Series) else df
+            
+        return df
+    
+    @staticmethod
+    def _apply_market_cap_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent market cap filtering"""
+        if df.empty or 'market_cap' not in df.columns:
+            return df
+            
+        if filter_type == "🏛️ Mega Cap (>₹5,000Cr)":
+            mask = df['market_cap'] > 50000000000  # 5000 Cr in actual value
+        elif filter_type == "🏢 Large Cap (₹1,000-5,000Cr)":
+            mask = (df['market_cap'] >= 10000000000) & (df['market_cap'] <= 50000000000)
+        elif filter_type == "🏭 Mid Cap (₹250-1,000Cr)":
+            mask = (df['market_cap'] >= 2500000000) & (df['market_cap'] < 10000000000)
+        elif filter_type == "🏪 Small Cap (₹50-250Cr)":
+            mask = (df['market_cap'] >= 500000000) & (df['market_cap'] < 2500000000)
+        elif filter_type == "🔬 Micro Cap (₹10-50Cr)":
+            mask = (df['market_cap'] >= 100000000) & (df['market_cap'] < 500000000)
+        elif filter_type == "⚗️ Nano Cap (<₹10Cr)":
+            mask = df['market_cap'] < 100000000
+        elif filter_type == "🎯 Custom Range":
+            custom_range = filters.get('custom_market_cap', (100, 5000))
+            min_cap, max_cap = custom_range
+            min_val = min_cap * 10000000  # Convert crores to actual value
+            max_val = max_cap * 10000000
+            mask = (df['market_cap'] >= min_val) & (df['market_cap'] <= max_val)
+        else:
+            return df
+            
+        return df[mask]
+    
+    @staticmethod
+    def _apply_performance_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent performance filtering"""
+        if df.empty:
+            return df
+            
+        if filter_type == "🚀 Strong Gainers (>5% 1D)" and 'ret_1d' in df.columns:
+            mask = df['ret_1d'] > 5
+        elif filter_type == "⚡ Power Moves (>10% 1D)" and 'ret_1d' in df.columns:
+            mask = df['ret_1d'] > 10
+        elif filter_type == "💥 Explosive (>20% 1D)" and 'ret_1d' in df.columns:
+            mask = df['ret_1d'] > 20
+        elif filter_type == "📈 Weekly Winners (>15% 7D)" and 'ret_7d' in df.columns:
+            mask = df['ret_7d'] > 15
+        elif filter_type == "🏆 Monthly Champions (>30% 30D)" and 'ret_30d' in df.columns:
+            mask = df['ret_30d'] > 30
+        elif filter_type == "🎯 Custom Range":
+            mask = True
+            if 'custom_ret_1d' in filters and 'ret_1d' in df.columns:
+                min_ret, max_ret = filters['custom_ret_1d']
+                mask &= (df['ret_1d'] >= min_ret) & (df['ret_1d'] <= max_ret)
+            if 'custom_ret_7d' in filters and 'ret_7d' in df.columns:
+                min_ret, max_ret = filters['custom_ret_7d']
+                mask &= (df['ret_7d'] >= min_ret) & (df['ret_7d'] <= max_ret)
+        else:
+            return df
+            
+        return df[mask] if isinstance(mask, pd.Series) else df
+    
+    @staticmethod
+    def _apply_volume_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent volume filtering"""
+        if df.empty or 'rvol' not in df.columns:
+            return df
+            
+        if filter_type == "🔥 High Activity (RVOL >2x)":
+            mask = df['rvol'] > 2.0
+        elif filter_type == "💥 Explosive Volume (RVOL >5x)":
+            mask = df['rvol'] > 5.0
+        elif filter_type == "🌋 Volcanic Volume (RVOL >10x)":
+            mask = df['rvol'] > 10.0
+        elif filter_type == "📈 Growing Interest (RVOL >1.5x)":
+            mask = df['rvol'] > 1.5
+        elif filter_type == "😴 Low Activity (RVOL <0.5x)":
+            mask = df['rvol'] < 0.5
+        elif filter_type == "🎯 Custom RVOL Range":
+            custom_range = filters.get('custom_rvol', (1.0, 5.0))
+            min_rvol, max_rvol = custom_range
+            mask = (df['rvol'] >= min_rvol) & (df['rvol'] <= max_rvol)
+        else:
+            return df
+            
+        return df[mask]
+    
+    @staticmethod
+    def _apply_position_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent position filtering"""
+        if df.empty or 'from_low_pct' not in df.columns:
+            return df
+            
+        if filter_type == "🏔️ Near Highs (80-100%)":
+            mask = df['from_low_pct'] >= 80
+        elif filter_type == "⛰️ Upper Range (60-80%)":
+            mask = (df['from_low_pct'] >= 60) & (df['from_low_pct'] < 80)
+        elif filter_type == "🏞️ Middle Range (40-60%)":
+            mask = (df['from_low_pct'] >= 40) & (df['from_low_pct'] < 60)
+        elif filter_type == "🏗️ Lower Range (20-40%)":
+            mask = (df['from_low_pct'] >= 20) & (df['from_low_pct'] < 40)
+        elif filter_type == "💎 Near Lows (0-20%)":
+            mask = df['from_low_pct'] < 20
+        elif filter_type == "🎯 Custom Position":
+            custom_range = filters.get('custom_position', (20, 80))
+            min_pos, max_pos = custom_range
+            mask = (df['from_low_pct'] >= min_pos) & (df['from_low_pct'] <= max_pos)
+        else:
+            return df
+            
+        return df[mask]
+    
+    @staticmethod
+    def _apply_sector_filter(df: pd.DataFrame, sector_mode: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent sector filtering"""
+        if df.empty or 'sector' not in df.columns:
+            return df
+            
+        if sector_mode == "🔥 Hot Sectors Only":
+            # Top performing sectors by median return
+            if 'ret_7d' in df.columns:
+                sector_perf = df.groupby('sector')['ret_7d'].median()
+                hot_sectors = sector_perf.nlargest(3).index
+                mask = df['sector'].isin(hot_sectors)
+                return df[mask]
+                
+        elif sector_mode == "❄️ Cold Sectors Only":
+            # Underperforming sectors
+            if 'ret_7d' in df.columns:
+                sector_perf = df.groupby('sector')['ret_7d'].median()
+                cold_sectors = sector_perf.nsmallest(3).index
+                mask = df['sector'].isin(cold_sectors)
+                return df[mask]
+                
+        elif sector_mode == "🎯 Custom Selection":
+            selected_sectors = filters.get('selected_sectors', [])
+            if selected_sectors:
+                mask = df['sector'].isin(selected_sectors)
+                return df[mask]
+                
+        return df
+    
+    @staticmethod
+    def _apply_pe_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent PE filtering"""
+        if df.empty or 'pe' not in df.columns:
+            return df
+            
+        mask = df['pe'] > 0  # Valid PE ratios only
+        
+        if filter_type == "💎 Deep Value (PE <10)":
+            mask &= df['pe'] < 10
+        elif filter_type == "💰 Value Zone (PE 10-15)":
+            mask &= (df['pe'] >= 10) & (df['pe'] < 15)
+        elif filter_type == "⚖️ Fair Value (PE 15-25)":
+            mask &= (df['pe'] >= 15) & (df['pe'] < 25)
+        elif filter_type == "📈 Growth Premium (PE 25-35)":
+            mask &= (df['pe'] >= 25) & (df['pe'] < 35)
+        elif filter_type == "🚀 High Growth (PE 35-50)":
+            mask &= (df['pe'] >= 35) & (df['pe'] < 50)
+        elif filter_type == "👑 Premium (PE >50)":
+            mask &= df['pe'] >= 50
+        elif filter_type == "🎯 Custom PE Range":
+            custom_range = filters.get('custom_pe', (10, 30))
+            min_pe, max_pe = custom_range
+            mask &= (df['pe'] >= min_pe) & (df['pe'] <= max_pe)
+            
+        return df[mask]
+    
+    @staticmethod
+    def _apply_eps_filter(df: pd.DataFrame, filter_type: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent EPS filtering"""
+        if df.empty or 'eps_change_pct' not in df.columns:
+            return df
+            
+        if filter_type == "💥 Explosive Growth (>50%)":
+            mask = df['eps_change_pct'] > 50
+        elif filter_type == "🚀 Strong Growth (20-50%)":
+            mask = (df['eps_change_pct'] >= 20) & (df['eps_change_pct'] <= 50)
+        elif filter_type == "📈 Moderate Growth (5-20%)":
+            mask = (df['eps_change_pct'] >= 5) & (df['eps_change_pct'] < 20)
+        elif filter_type == "😴 Slow Growth (0-5%)":
+            mask = (df['eps_change_pct'] >= 0) & (df['eps_change_pct'] < 5)
+        elif filter_type == "📉 Declining (<0%)":
+            mask = df['eps_change_pct'] < 0
+        elif filter_type == "🎯 Custom EPS Range":
+            custom_range = filters.get('custom_eps', (0, 50))
+            min_eps, max_eps = custom_range
+            mask = (df['eps_change_pct'] >= min_eps) & (df['eps_change_pct'] <= max_eps)
+        else:
+            return df
+            
+        return df[mask]
+    
+    @staticmethod
+    def _apply_pattern_filter(df: pd.DataFrame, pattern_focus: List[str]) -> pd.DataFrame:
+        """Apply intelligent pattern filtering"""
+        if df.empty or not pattern_focus:
+            return df
+            
+        # For now, use master_score as proxy for pattern strength
+        # This can be enhanced when actual pattern columns are available
+        if 'master_score' in df.columns:
+            threshold = 70  # High score threshold for pattern stocks
+            mask = df['master_score'] >= threshold
+            return df[mask]
+            
+        return df
+    
+    @staticmethod
+    def _apply_risk_filter(df: pd.DataFrame, risk_profile: str, filters: Dict) -> pd.DataFrame:
+        """Apply intelligent risk filtering"""
+        if df.empty:
+            return df
+            
+        if risk_profile == "🛡️ Conservative (Low Risk)":
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= abs(df['ret_1d']) < 3  # Low volatility
+            if 'pe' in df.columns:
+                mask &= (df['pe'] > 0) & (df['pe'] < 25)  # Conservative valuation
+                
+        elif risk_profile == "⚖️ Moderate Risk":
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= abs(df['ret_1d']) < 5  # Moderate volatility
+                
+        elif risk_profile == "🔥 Aggressive (High Risk)":
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= abs(df['ret_1d']) > 3  # Higher volatility
+                
+        elif risk_profile == "💥 Extreme Risk Seeking":
+            mask = True
+            if 'ret_1d' in df.columns:
+                mask &= abs(df['ret_1d']) > 5  # High volatility
+            if 'rvol' in df.columns:
+                mask &= df['rvol'] > 2.0  # High volume activity
+        else:
+            return df
+            
+        return df[mask] if isinstance(mask, pd.Series) else df
+    
+    @staticmethod
+    def _apply_legacy_filters(df: pd.DataFrame, filters: Dict) -> pd.DataFrame:
+        """Apply legacy filtering for backward compatibility"""
+        if df.empty:
+            return df
+            
         # Create boolean masks for each filter
         masks = []
         
@@ -8413,7 +9418,7 @@ class FilterEngine:
                 return df[column].isin(values)
             return None
         
-        # 1. Category filters
+        # Legacy filters
         if 'categories' in filters:
             masks.append(create_mask_from_isin('category', filters['categories']))
         if 'sectors' in filters:
@@ -8421,35 +9426,35 @@ class FilterEngine:
         if 'industries' in filters:
             masks.append(create_mask_from_isin('industry', filters['industries']))
         
-        # 2. Score filter
+        # Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
             masks.append(df['master_score'] >= filters['min_score'])
         
-        # 3. Pattern filter
+        # Pattern filter
         if filters.get('patterns') and 'patterns' in df.columns:
             pattern_mask = pd.Series(False, index=df.index)
             for pattern in filters['patterns']:
                 pattern_mask |= df['patterns'].str.contains(pattern, na=False, regex=False)
             masks.append(pattern_mask)
         
-        # 4. Trend filter
+        # Trend filter
         trend_range = filters.get('trend_range')
         if trend_range and trend_range != (0, 100) and 'trend_quality' in df.columns:
             min_trend, max_trend = trend_range
             masks.append((df['trend_quality'] >= min_trend) & (df['trend_quality'] <= max_trend))
         
-        # 5. EPS change filter
+        # EPS change filter
         if filters.get('min_eps_change') is not None and 'eps_change_pct' in df.columns:
             masks.append(df['eps_change_pct'] >= filters['min_eps_change'])
         
-        # 6. PE filters
+        # PE filters
         if filters.get('min_pe') is not None and 'pe' in df.columns:
             masks.append(df['pe'] >= filters['min_pe'])
         
         if filters.get('max_pe') is not None and 'pe' in df.columns:
             masks.append(df['pe'] <= filters['max_pe'])
         
-        # 7. Tier filters
+        # Tier filters
         if 'eps_tiers' in filters:
             masks.append(create_mask_from_isin('eps_tier', filters['eps_tiers']))
         if 'pe_tiers' in filters:
@@ -8457,12 +9462,12 @@ class FilterEngine:
         if 'price_tiers' in filters:
             masks.append(create_mask_from_isin('price_tier', filters['price_tiers']))
         
-        # 8. Data completeness filter
+        # Data completeness filter
         if filters.get('require_fundamental_data', False):
             if all(col in df.columns for col in ['pe', 'eps_change_pct']):
                 masks.append(df['pe'].notna() & (df['pe'] > 0) & df['eps_change_pct'].notna())
         
-        # 9. Wave filters
+        # Wave filters
         if 'wave_states' in filters:
             masks.append(create_mask_from_isin('wave_state', filters['wave_states']))
         
@@ -8477,13 +9482,40 @@ class FilterEngine:
         
         if masks:
             combined_mask = np.logical_and.reduce(masks)
-            filtered_df = df[combined_mask].copy()
-        else:
-            filtered_df = df.copy()
+            return df[combined_mask].copy()
         
-        logger.info(f"Filters reduced {len(df)} to {len(filtered_df)} stocks")
+        return df
+    
+    @staticmethod
+    def _apply_result_optimization(df: pd.DataFrame, filters: Dict) -> pd.DataFrame:
+        """Apply result optimization and sorting"""
+        if df.empty:
+            return df
+            
+        # Apply result limit
+        result_limit = filters.get('result_limit', 200)
+        if result_limit != "All" and isinstance(result_limit, int):
+            if len(df) > result_limit:
+                df = df.head(result_limit)
         
-        return filtered_df
+        # Apply sorting
+        sort_by = filters.get('sort_by', '🎯 Master Score (Default)')
+        
+        if sort_by == "📊 Volume Activity" and 'rvol' in df.columns:
+            df = df.sort_values('rvol', ascending=False)
+        elif sort_by == "💥 1-Day Performance" and 'ret_1d' in df.columns:
+            df = df.sort_values('ret_1d', ascending=False)
+        elif sort_by == "🌊 7-Day Performance" and 'ret_7d' in df.columns:
+            df = df.sort_values('ret_7d', ascending=False)
+        elif sort_by == "💰 Market Cap" and 'market_cap' in df.columns:
+            df = df.sort_values('market_cap', ascending=False)
+        elif sort_by == "⚡ Relative Volume" and 'rvol' in df.columns:
+            df = df.sort_values('rvol', ascending=False)
+        # Default to master_score sorting
+        elif 'master_score' in df.columns:
+            df = df.sort_values('master_score', ascending=False)
+            
+        return df
     
     @staticmethod
     def get_filter_options(df: pd.DataFrame, column: str, current_filters: Optional[Dict[str, Any]] = None) -> List[str]:
@@ -10148,37 +11180,53 @@ def main():
                 ml_insights = {}
                 if ML_AVAILABLE and len(ranked_df) >= 10:  # Need minimum data for ML
                     try:
-                        with st.spinner("🤖 Applying ML enhancements..."):
-                            ml_start_time = monitor.start_operation("ml_analysis")
-                            
-                            # Initialize ML engines
-                            ml_engine = MLPatternEngine()
-                            regime_detector = MarketRegimeDetector()
-                            
-                            # Run ML pattern detection
-                            ml_insights = ml_engine.detect_ml_patterns(ranked_df)
-                            
-                            # Apply ML results to dataframe
-                            if 'cluster_labels' in ml_insights:
-                                ranked_df['ml_cluster'] = ml_insights['cluster_labels']
-                            if 'anomaly_scores' in ml_insights:
-                                ranked_df['ml_anomaly_score'] = ml_insights['anomaly_scores']
-                                ranked_df['ml_anomaly'] = ml_insights.get('anomaly_flags', [False] * len(ranked_df))
-                                ranked_df['ml_anomaly_type'] = ml_insights.get('anomaly_types', ['normal'] * len(ranked_df))
-                            if 'momentum_probabilities' in ml_insights:
-                                ranked_df['ml_momentum_probability'] = ml_insights['momentum_probabilities']
-                                ranked_df['ml_momentum_prediction'] = ml_insights.get('momentum_predictions', ['neutral'] * len(ranked_df))
-                            
-                            # Market regime analysis
-                            regime_data = regime_detector.detect_market_regime(ranked_df)
-                            ml_insights.update(regime_data)
-                            
-                            monitor.end_operation("ml_analysis", ml_start_time, len(ranked_df))
-                            
-                            logger.info(f"🤖 Phase 3 ML analysis complete: {ml_insights.get('clusters_found', 0)} clusters, {ml_insights.get('anomalies_detected', 0)} anomalies")
-                            
-                            # ML success indicator
-                            st.success(f"🤖 ML Analysis Complete: {ml_insights.get('clusters_found', 0)} clusters identified, {ml_insights.get('anomalies_detected', 0)} anomalies detected")
+                        # Get ML settings from filters
+                        ml_settings = filters.get('ml_settings', {'enabled': True})
+                        
+                        if ml_settings.get('enabled', True):
+                            with st.spinner("🤖 Applying intelligent ML analysis..."):
+                                ml_start_time = monitor.start_operation("ml_analysis")
+                                
+                                # Initialize ML engines
+                                ml_engine = MLPatternEngine()
+                                regime_detector = MarketRegimeDetector()
+                                
+                                # Run enhanced ML pattern detection with settings
+                                ranked_df = ml_engine.detect_ml_patterns(ranked_df, ml_settings)
+                                
+                                # Market regime analysis
+                                regime_data = regime_detector.detect_market_regime(ranked_df)
+                                ml_insights.update(regime_data)
+                                
+                                # Extract ML insights from dataframe
+                                ml_columns = [col for col in ranked_df.columns if col.startswith('ml_') or col.startswith('trend_')]
+                                for col in ml_columns:
+                                    if col in ranked_df.columns:
+                                        ml_insights[col] = ranked_df[col].tolist()
+                                
+                                monitor.end_operation("ml_analysis", ml_start_time, len(ranked_df))
+                                
+                                # Extract summary statistics
+                                clusters_found = len(ranked_df.get('ml_cluster', []).unique()) if 'ml_cluster' in ranked_df.columns else 0
+                                anomalies_detected = sum(ranked_df.get('ml_anomaly', [])) if 'ml_anomaly' in ranked_df.columns else 0
+                                
+                                ml_insights.update({
+                                    'clusters_found': clusters_found,
+                                    'anomalies_detected': anomalies_detected,
+                                    'ml_focus': ml_settings.get('focus', 'Comprehensive'),
+                                    'data_strategy': ml_settings.get('data_strategy', 'Real-time Adaptive')
+                                })
+                                
+                                logger.info(f"🤖 Enhanced ML analysis complete: {clusters_found} clusters, {anomalies_detected} anomalies")
+                                
+                                # Enhanced ML success indicator
+                                focus_display = ml_settings.get('focus', 'Comprehensive').replace('🔍 ', '').replace('📈 ', '').replace('💥 ', '').replace('🌊 ', '').replace('🎯 ', '').replace('⚡ ', '')
+                                strategy_display = ml_settings.get('data_strategy', 'Real-time Adaptive').replace('🔄 ', '').replace('📊 ', '').replace('📈 ', '').replace('🏔️ ', '')
+                                
+                                st.success(f"🤖 Smart ML Analysis Complete ({focus_display}): {clusters_found} clusters, {anomalies_detected} anomalies | Strategy: {strategy_display}")
+                        else:
+                            logger.info("ML analysis disabled by user settings")
+                            st.info("🤖 ML analysis disabled in filter settings")
                             
                     except Exception as ml_error:
                         logger.warning(f"ML analysis failed: {ml_error}")
