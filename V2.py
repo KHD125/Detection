@@ -2127,22 +2127,46 @@ class MLPatternEngine:
             return pd.DataFrame()
     
     def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Smart missing value handling for daily data"""
+        """Smart missing value handling for daily data with enhanced numeric cleaning"""
         # For daily trading data, use intelligent imputation
         for col in df.columns:
-            if df[col].dtype in ['float64', 'int64']:
-                if col in ['ret_1d', 'ret_7d', 'ret_30d']:
-                    # Returns: fill with 0 (no change)
-                    df[col] = df[col].fillna(0)
-                elif col in ['pe', 'eps_change_pct']:
-                    # Fundamentals: fill with median
-                    df[col] = df[col].fillna(df[col].median())
-                elif col in ['rvol', 'volume_1d']:
-                    # Volume: fill with 1.0 (average)
-                    df[col] = df[col].fillna(1.0)
-                else:
-                    # Others: forward fill then median
-                    df[col] = df[col].fillna(method='ffill').fillna(df[col].median())
+            if col in df.columns:
+                # First clean all numeric values properly
+                if col in ['market_cap']:
+                    # Market cap needs special handling for Indian formats
+                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                elif col in ['ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct']:
+                    # Returns and percentages
+                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x, is_percentage=True))
+                elif df[col].dtype == 'object':
+                    # Clean any remaining object columns
+                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                
+                # Then handle missing values intelligently
+                if df[col].dtype in ['float64', 'int64'] or col in ['market_cap']:
+                    if col in ['ret_1d', 'ret_7d', 'ret_30d']:
+                        # Returns: fill with 0 (no change)
+                        df[col] = df[col].fillna(0)
+                    elif col in ['pe', 'eps_change_pct']:
+                        # Fundamentals: fill with median
+                        df[col] = df[col].fillna(df[col].median())
+                    elif col in ['rvol', 'volume_1d']:
+                        # Volume: fill with 1.0 (average)
+                        df[col] = df[col].fillna(1.0)
+                    elif col == 'market_cap':
+                        # Market cap: fill with median of valid values
+                        valid_market_cap = df[col].dropna()
+                        if len(valid_market_cap) > 0:
+                            df[col] = df[col].fillna(valid_market_cap.median())
+                        else:
+                            df[col] = df[col].fillna(10000)  # Default 1 Crore
+                    else:
+                        # Others: forward fill then median
+                        df[col] = df[col].fillna(method='ffill').fillna(df[col].median())
+        
+        # Remove any remaining non-numeric columns
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
+        df = df[numeric_columns]
         
         return df
     
@@ -3404,7 +3428,7 @@ class DataValidator:
     @staticmethod
     def clean_numeric_value(value: Any, is_percentage: bool = False, bounds: Optional[Tuple[float, float]] = None) -> Optional[float]:
         """
-        Cleans, converts, and validates a single numeric value.
+        Enhanced numeric value cleaner with support for Indian currency formats
         
         Args:
             value (Any): The value to clean.
@@ -3414,7 +3438,6 @@ class DataValidator:
         Returns:
             Optional[float]: The cleaned float value, or np.nan if invalid.
         """
-        # FIX: Removed col_name parameter that was not used
         if pd.isna(value) or value == '' or value is None:
             return np.nan
         
@@ -3426,11 +3449,31 @@ class DataValidator:
             if cleaned.upper() in ['', '-', 'N/A', 'NA', 'NAN', 'NONE', '#VALUE!', '#ERROR!', '#DIV/0!', 'INF', '-INF']:
                 return np.nan
             
+            # Handle Indian currency units (Crores, Lakhs)
+            multiplier = 1.0
+            cleaned_upper = cleaned.upper()
+            
+            if 'CR' in cleaned_upper or 'CRORE' in cleaned_upper:
+                multiplier = 10000000  # 1 Crore = 10 Million
+                cleaned = cleaned.upper().replace('CR', '').replace('CRORE', '').replace('CRORES', '')
+            elif 'L' in cleaned_upper or 'LAKH' in cleaned_upper:
+                multiplier = 100000  # 1 Lakh = 100,000
+                cleaned = cleaned.upper().replace('L', '').replace('LAKH', '').replace('LAKHS', '')
+            elif 'K' in cleaned_upper:
+                multiplier = 1000  # 1K = 1,000
+                cleaned = cleaned.upper().replace('K', '')
+            elif 'M' in cleaned_upper:
+                multiplier = 1000000  # 1M = 1 Million
+                cleaned = cleaned.upper().replace('M', '')
+            elif 'B' in cleaned_upper:
+                multiplier = 1000000000  # 1B = 1 Billion
+                cleaned = cleaned.upper().replace('B', '')
+            
             # Remove symbols and spaces
             cleaned = cleaned.replace('₹', '').replace('$', '').replace(',', '').replace(' ', '').replace('%', '')
             
-            # Convert to float
-            result = float(cleaned)
+            # Convert to float and apply multiplier
+            result = float(cleaned) * multiplier
             
             # Apply bounds if specified
             if bounds:
