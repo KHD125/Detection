@@ -485,6 +485,101 @@ class Config:
         "vacuum": 85,
     })
     
+    # Tier classifications for EPS, PE, and Price
+    TIERS: Dict[str, Dict[str, Tuple[float, float, str, str]]] = field(default_factory=lambda: {
+        'eps': {
+            'Loss': (-float('inf'), 0, '🔴', 'Negative earnings'),
+            'Low': (0, 10, '🟡', 'Low earnings'),
+            'Moderate': (10, 50, '🟢', 'Moderate earnings'),
+            'High': (50, 100, '🔵', 'High earnings'),
+            'Exceptional': (100, float('inf'), '🟣', 'Exceptional earnings')
+        },
+        'pe': {
+            'Loss': (-float('inf'), 0, '🔴', 'Loss making'),
+            'Value': (0, 15, '🟢', 'Value stock'),
+            'Fair': (15, 25, '🟡', 'Fair valuation'),
+            'Premium': (25, 50, '🟠', 'Premium valuation'),
+            'Expensive': (50, float('inf'), '🔴', 'Expensive')
+        },
+        'price': {
+            'Penny': (0, 10, '🔴', 'Penny stock'),
+            'Low': (10, 100, '🟡', 'Low price'),
+            'Mid': (100, 500, '🟢', 'Mid price'),
+            'High': (500, 2000, '🔵', 'High price'),
+            'Premium': (2000, float('inf'), '🟣', 'Premium price')
+        }
+    })
+    
+    # Tier colors for UI display
+    TIER_COLORS: Dict[str, Dict[str, str]] = field(default_factory=lambda: {
+        'eps': {
+            'Loss': '#FF6B6B',
+            'Low': '#FFD93D',
+            'Moderate': '#6BCF7F',
+            'High': '#4ECDC4',
+            'Exceptional': '#A8E6CF'
+        },
+        'pe': {
+            'Loss': '#FF6B6B',
+            'Value': '#6BCF7F',
+            'Fair': '#FFD93D',
+            'Premium': '#FFB347',
+            'Expensive': '#FF6B6B'
+        },
+        'price': {
+            'Penny': '#FF6B6B',
+            'Low': '#FFD93D',
+            'Mid': '#6BCF7F',
+            'High': '#4ECDC4',
+            'Premium': '#A8E6CF'
+        }
+    })
+    
+    # Sector score weights for composite scoring
+    SECTOR_SCORE_WEIGHTS: Dict[str, Dict[str, float]] = field(default_factory=lambda: {
+        'Technology': {'momentum': 0.4, 'volume': 0.3, 'breakout': 0.3},
+        'Healthcare': {'momentum': 0.3, 'volume': 0.35, 'breakout': 0.35},
+        'Financial Services': {'momentum': 0.35, 'volume': 0.35, 'breakout': 0.3},
+        'Consumer Goods': {'momentum': 0.3, 'volume': 0.4, 'breakout': 0.3},
+        'Industrial': {'momentum': 0.35, 'volume': 0.3, 'breakout': 0.35},
+        'Energy': {'momentum': 0.4, 'volume': 0.4, 'breakout': 0.2},
+        'Materials': {'momentum': 0.35, 'volume': 0.35, 'breakout': 0.3},
+        'Real Estate': {'momentum': 0.3, 'volume': 0.3, 'breakout': 0.4},
+        'Utilities': {'momentum': 0.25, 'volume': 0.35, 'breakout': 0.4},
+        'Telecommunications': {'momentum': 0.3, 'volume': 0.35, 'breakout': 0.35},
+        'Consumer Services': {'momentum': 0.35, 'volume': 0.35, 'breakout': 0.3}
+    })
+    
+    # Sector stock counts and metadata  
+    SECTOR_STOCK_COUNTS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        'Technology': {'expected_count': 300, 'volatility': 'High', 'growth_stage': 'Growth'},
+        'Healthcare': {'expected_count': 250, 'volatility': 'Medium', 'growth_stage': 'Stable'},
+        'Financial Services': {'expected_count': 200, 'volatility': 'Medium', 'growth_stage': 'Mature'},
+        'Consumer Goods': {'expected_count': 180, 'volatility': 'Low', 'growth_stage': 'Stable'},
+        'Industrial': {'expected_count': 150, 'volatility': 'Medium', 'growth_stage': 'Cyclical'},
+        'Energy': {'expected_count': 120, 'volatility': 'High', 'growth_stage': 'Cyclical'},
+        'Materials': {'expected_count': 100, 'volatility': 'High', 'growth_stage': 'Cyclical'},
+        'Real Estate': {'expected_count': 80, 'volatility': 'Medium', 'growth_stage': 'Defensive'},
+        'Utilities': {'expected_count': 60, 'volatility': 'Low', 'growth_stage': 'Defensive'},
+        'Telecommunications': {'expected_count': 50, 'volatility': 'Low', 'growth_stage': 'Mature'},
+        'Consumer Services': {'expected_count': 160, 'volatility': 'Medium', 'growth_stage': 'Growth'}
+    })
+    
+    # Sector PE contexts for valuation analysis
+    SECTOR_PE_CONTEXTS: Dict[str, Dict[str, float]] = field(default_factory=lambda: {
+        'Technology': {'low': 15.0, 'avg': 25.0, 'high': 40.0, 'premium': 60.0},
+        'Healthcare': {'low': 12.0, 'avg': 20.0, 'high': 30.0, 'premium': 45.0},
+        'Financial Services': {'low': 8.0, 'avg': 12.0, 'high': 18.0, 'premium': 25.0},
+        'Consumer Goods': {'low': 10.0, 'avg': 16.0, 'high': 25.0, 'premium': 35.0},
+        'Industrial': {'low': 12.0, 'avg': 18.0, 'high': 28.0, 'premium': 40.0},
+        'Energy': {'low': 8.0, 'avg': 15.0, 'high': 25.0, 'premium': 40.0},
+        'Materials': {'low': 10.0, 'avg': 16.0, 'high': 25.0, 'premium': 35.0},
+        'Real Estate': {'low': 12.0, 'avg': 18.0, 'high': 30.0, 'premium': 45.0},
+        'Utilities': {'low': 14.0, 'avg': 18.0, 'high': 25.0, 'premium': 30.0},
+        'Telecommunications': {'low': 10.0, 'avg': 15.0, 'high': 22.0, 'premium': 30.0},
+        'Consumer Services': {'low': 12.0, 'avg': 20.0, 'high': 30.0, 'premium': 45.0}
+    })
+    
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
         'price': (0.01, 1_000_000),
