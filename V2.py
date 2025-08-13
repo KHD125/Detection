@@ -220,6 +220,31 @@ except ImportError:
     perf_logger.info("System startup complete - Memory monitoring unavailable")
 
 # ============================================
+# COMPATIBILITY FIX FOR PERFORMANCE DECORATORS
+# ============================================
+
+# Create a minimal PerformanceMonitor class for compatibility
+class PerformanceMonitor:
+    @staticmethod
+    def timer(category=None):
+        """Compatible timer decorator that just returns the function"""
+        def decorator(func):
+            return func
+        return decorator
+    
+    @staticmethod
+    def start_operation(name):
+        return time.perf_counter()
+        
+    @staticmethod
+    def end_operation(name, start_time, count=0):
+        elapsed = time.perf_counter() - start_time
+        return elapsed
+
+# Create monitor instance for compatibility
+monitor = PerformanceMonitor()
+
+# ============================================
 # PRODUCTION PERFORMANCE MONITORING
 # ============================================
 
@@ -2678,7 +2703,6 @@ class MemoryOptimizer:
     """Smart memory optimization for DataFrames and large objects"""
     
     @staticmethod
-    @PerformanceMonitor.timer('data_operations')
     def optimize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         """Intelligent DataFrame memory optimization"""
         if df.empty:
@@ -3089,7 +3113,7 @@ class DataProcessor:
     """
     
     @staticmethod
-    @PerformanceMonitor.timer(target_time=1.0)
+    @performance_tracked(1.0)
     def process_dataframe(df: pd.DataFrame, metadata: Dict[str, Any]) -> pd.DataFrame:
         """
         Main pipeline to validate, clean, and prepare the raw DataFrame.
@@ -3690,7 +3714,7 @@ class AdvancedMetrics:
         return df
     
     @staticmethod 
-    @PerformanceMonitor.timer(target_time=0.5)
+    @performance_tracked(0.5)
     def calculate_all_metrics(df: pd.DataFrame) -> pd.DataFrame:
         """
         🚀 REVOLUTIONARY ADVANCED METRICS CALCULATOR
@@ -4157,7 +4181,6 @@ class AdvancedMetrics:
             return "💥 BREAKING"
     
     @staticmethod
-    @PerformanceMonitor.timer('calculations')
     def _calculate_momentum_intelligence(df: pd.DataFrame) -> pd.DataFrame:
         """
         🎯 MULTI-TIMEFRAME MOMENTUM INTELLIGENCE
@@ -5818,7 +5841,7 @@ class RankingEngine:
     """
 
     @staticmethod
-    @PerformanceMonitor.timer(target_time=0.5)
+    @performance_tracked(0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculates all component scores, a composite master score, and ranks the stocks.
@@ -6457,7 +6480,7 @@ class PatternDetector:
     }
 
     @staticmethod
-    @PerformanceMonitor.timer(target_time=0.3)
+    @performance_tracked(0.3)
     def detect_all_patterns_optimized(df: pd.DataFrame) -> pd.DataFrame:
         """
         Detects all trading patterns using highly efficient vectorized operations.
@@ -8252,7 +8275,7 @@ class FilterEngine:
         return filters
     
     @staticmethod
-    @PerformanceMonitor.timer(target_time=0.1)
+    @performance_tracked(0.1)
     def apply_filters(df: pd.DataFrame, filters: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         Apply all filters to dataframe efficiently using vectorized operations.
@@ -8469,7 +8492,7 @@ class SearchEngine:
     """Optimized search functionality"""
     
     @staticmethod
-    @PerformanceMonitor.timer(target_time=0.05)
+    @performance_tracked(0.05)
     def search_stocks(df: pd.DataFrame, query: str) -> pd.DataFrame:
         """Search stocks with optimized performance"""
         
@@ -8538,7 +8561,7 @@ class ExportEngine:
     """Handle all export operations"""
     
     @staticmethod
-    @PerformanceMonitor.timer(target_time=1.0)
+    @performance_tracked(1.0)
     def create_excel_report(df: pd.DataFrame, template: str = 'full') -> BytesIO:
         """Create comprehensive Excel report"""
         
