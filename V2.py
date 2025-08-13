@@ -10884,7 +10884,7 @@ def main():
     
     # PHASE 2: Advanced sidebar with intelligent filters
     with st.sidebar:
-        st.markdown("### ⚡ PHASE 2 Controls")
+        st.markdown("### 🎯 Wave Detection Filters")
         
         # Performance status indicator
         if MEMORY_MONITORING:
@@ -10918,15 +10918,6 @@ def main():
                 st.success("🎯 System optimized!")
                 time.sleep(0.5)
                 st.rerun()
-        
-        # Advanced filters toggle
-        st.markdown("---")
-        enable_advanced = st.checkbox("🎯 Advanced Filters", value=False, 
-                                     help="Enable professional-grade filtering")
-        
-        filters = {}
-        if enable_advanced:
-            filters = AdvancedUIComponents.render_advanced_filters()
         
         # Data source selection with visual feedback
         st.markdown("---")
@@ -11319,8 +11310,109 @@ def main():
         show_fundamentals = (display_mode == "Hybrid (Technical + Fundamentals)")
         
         st.markdown("---")
+        st.markdown("### 🎯 Smart Filters")
         
-        # CRITICAL: Define callback functions BEFORE widgets
+        # Quick Score Filter
+        score_filter = st.selectbox(
+            "Master Score Filter",
+            options=[
+                "All Scores",
+                "Elite (90+)",
+                "Premium (80+)", 
+                "Quality (70+)",
+                "Good (60+)"
+            ],
+            index=0,
+            help="Quick score-based filtering"
+        )
+        
+        if score_filter != "All Scores":
+            score_ranges = {
+                "Elite (90+)": 90,
+                "Premium (80+)": 80,
+                "Quality (70+)": 70,
+                "Good (60+)": 60
+            }
+            filters['min_score'] = score_ranges[score_filter]
+        
+        # Volume Activity Filter
+        volume_filter = st.selectbox(
+            "Volume Activity",
+            options=[
+                "Any Volume",
+                "Above Average (1.2x+)",
+                "High Activity (1.5x+)",
+                "Volume Surge (2x+)",
+                "Extreme Volume (3x+)"
+            ],
+            index=0,
+            help="Filter by volume activity level"
+        )
+        
+        if volume_filter != "Any Volume":
+            volume_ranges = {
+                "Above Average (1.2x+)": 1.2,
+                "High Activity (1.5x+)": 1.5,
+                "Volume Surge (2x+)": 2.0,
+                "Extreme Volume (3x+)": 3.0
+            }
+            filters['min_rvol'] = volume_ranges[volume_filter]
+        
+        # Market Cap Filter
+        market_cap_filter = st.multiselect(
+            "Market Cap Categories",
+            options=["Large Cap", "Mid Cap", "Small Cap", "Micro Cap"],
+            default=[],
+            help="Filter by company size (empty = all)"
+        )
+        
+        if market_cap_filter:
+            filters['categories'] = market_cap_filter
+        
+        # Sector Filter
+        if 'sector' in ranked_df_display.columns:
+            available_sectors = sorted(ranked_df_display['sector'].dropna().unique())
+            selected_sectors = st.multiselect(
+                "Sectors",
+                options=available_sectors,
+                default=[],
+                help="Filter by business sector (empty = all)"
+            )
+            
+            if selected_sectors:
+                filters['sectors'] = selected_sectors
+        
+        # Performance Filter
+        performance_filter = st.selectbox(
+            "Performance Filter",
+            options=[
+                "Any Performance",
+                "Positive Today (>0%)",
+                "Strong Day (>2%)",
+                "Big Move (>5%)",
+                "Explosive (>10%)"
+            ],
+            index=0,
+            help="Filter by daily performance"
+        )
+        
+        if performance_filter != "Any Performance":
+            perf_ranges = {
+                "Positive Today (>0%)": 0,
+                "Strong Day (>2%)": 2,
+                "Big Move (>5%)": 5,
+                "Explosive (>10%)": 10
+            }
+            filters['min_return'] = perf_ranges[performance_filter]
+        
+        # Clear Filters Button
+        if st.button("🔄 Clear All Filters", help="Reset all filters to default"):
+            st.session_state.filter_state = {}
+            st.rerun()
+        
+        st.markdown("---")
+        
+        # (Complex callback system removed - using simple filters above)
         def sync_categories():
             if 'category_multiselect' in st.session_state:
                 st.session_state.filter_state['categories'] = st.session_state.category_multiselect
