@@ -2169,48 +2169,74 @@ class MLPatternEngine:
             return pd.DataFrame()
     
     def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Smart missing value handling for daily data with enhanced numeric cleaning"""
-        # For daily trading data, use intelligent imputation
-        for col in df.columns:
-            if col in df.columns:
-                # First clean all numeric values properly
-                if col in ['market_cap']:
-                    # Market cap needs special handling for Indian formats
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
-                elif col in ['ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct']:
-                    # Returns and percentages
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x, is_percentage=True))
-                elif df[col].dtype == 'object':
-                    # Clean any remaining object columns
-                    df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
-                
-                # Then handle missing values intelligently
-                if df[col].dtype in ['float64', 'int64'] or col in ['market_cap']:
-                    if col in ['ret_1d', 'ret_7d', 'ret_30d']:
-                        # Returns: fill with 0 (no change)
-                        df[col] = df[col].fillna(0)
-                    elif col in ['pe', 'eps_change_pct']:
-                        # Fundamentals: fill with median
-                        df[col] = df[col].fillna(df[col].median())
-                    elif col in ['rvol', 'volume_1d']:
-                        # Volume: fill with 1.0 (average)
-                        df[col] = df[col].fillna(1.0)
-                    elif col == 'market_cap':
-                        # Market cap: fill with median of valid values
-                        valid_market_cap = df[col].dropna()
-                        if len(valid_market_cap) > 0:
-                            df[col] = df[col].fillna(valid_market_cap.median())
+        """PRODUCTION-GRADE missing value handling - ZERO NaN tolerance"""
+        try:
+            # For daily trading data, use intelligent imputation
+            for col in df.columns:
+                if col in df.columns:
+                    # First clean all numeric values properly
+                    if col in ['market_cap']:
+                        # Market cap needs special handling for Indian formats
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                    elif col in ['ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct']:
+                        # Returns and percentages
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x, is_percentage=True))
+                    elif df[col].dtype == 'object':
+                        # Clean any remaining object columns
+                        df[col] = df[col].apply(lambda x: DataValidator.clean_numeric_value(x))
+                    
+                    # Then handle missing values intelligently
+                    if df[col].dtype in ['float64', 'int64'] or col in ['market_cap']:
+                        if col in ['ret_1d', 'ret_7d', 'ret_30d']:
+                            # Returns: fill with 0 (no change)
+                            df[col] = df[col].fillna(0)
+                        elif col in ['pe', 'eps_change_pct']:
+                            # Fundamentals: fill with median, then 0 if still NaN
+                            median_val = df[col].median()
+                            df[col] = df[col].fillna(median_val if not pd.isna(median_val) else 0)
+                        elif col in ['rvol', 'volume_1d']:
+                            # Volume: fill with 1.0 (average)
+                            df[col] = df[col].fillna(1.0)
+                        elif col == 'market_cap':
+                            # Market cap: fill with median of valid values
+                            valid_market_cap = df[col].dropna()
+                            if len(valid_market_cap) > 0:
+                                df[col] = df[col].fillna(valid_market_cap.median())
+                            else:
+                                df[col] = df[col].fillna(10000)  # Default 1 Crore
                         else:
-                            df[col] = df[col].fillna(10000)  # Default 1 Crore
-                    else:
-                        # Others: forward fill then median
-                        df[col] = df[col].fillna(method='ffill').fillna(df[col].median())
-        
-        # Remove any remaining non-numeric columns
-        numeric_columns = df.select_dtypes(include=[np.number]).columns
-        df = df[numeric_columns]
-        
-        return df
+                            # Others: forward fill then median, then 0
+                            median_val = df[col].median()
+                            df[col] = df[col].fillna(method='ffill').fillna(median_val if not pd.isna(median_val) else 0)
+            
+            # Remove any remaining non-numeric columns
+            numeric_columns = df.select_dtypes(include=[np.number]).columns
+            df = df[numeric_columns]
+            
+            # FINAL NaN ELIMINATION - Replace any remaining NaN with 0
+            df = df.fillna(0)
+            
+            # Verify no NaN values remain
+            nan_count = df.isnull().sum().sum()
+            if nan_count > 0:
+                logger.warning(f"⚠️ Force-filling {nan_count} remaining NaN values with 0")
+                df = df.fillna(0)
+            
+            # Replace inf values with large finite numbers
+            df = df.replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Final verification
+            final_nan_count = df.isnull().sum().sum()
+            final_inf_count = np.isinf(df.select_dtypes(include=[np.number])).sum().sum()
+            
+            logger.info(f"✅ PRODUCTION CLEAN: {len(df)} rows, {len(df.columns)} features, {final_nan_count} NaN, {final_inf_count} Inf")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Missing value handling failed: {e}")
+            # Emergency fallback - create clean numeric dataframe
+            numeric_df = df.select_dtypes(include=[np.number]).fillna(0)
+            return numeric_df
     
     def _engineer_daily_features(self, ml_df: pd.DataFrame, original_df: pd.DataFrame) -> pd.DataFrame:
         """Engineer features specifically for daily trading patterns"""
@@ -2289,25 +2315,41 @@ class MLPatternEngine:
         return df
     
     def _apply_clustering_analysis(self, df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-        """Apply K-means clustering to identify stock groups"""
+        """PRODUCTION-GRADE clustering with bulletproof NaN handling"""
         try:
-            if features.empty:
+            if features.empty or len(features) < 5:
+                logger.warning("Insufficient data for clustering")
+                return df
+            
+            # BULLETPROOF NaN verification
+            if features.isnull().any().any():
+                logger.warning("NaN values detected in features - cleaning again")
+                features = features.fillna(0).replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Verify all numeric
+            numeric_features = features.select_dtypes(include=[np.number])
+            if len(numeric_features.columns) == 0:
+                logger.warning("No numeric features available for clustering")
                 return df
                 
-            # Standardize features
-            if self.scaler is None:
-                self.scaler = RobustScaler()
-                
-            features_scaled = self.scaler.fit_transform(features)
+            # Standardize features with robust scaler
+            from sklearn.preprocessing import RobustScaler
+            scaler = RobustScaler()
+            features_scaled = scaler.fit_transform(numeric_features)
             
-            # Optimal number of clusters using elbow method
+            # Final verification - no NaN in scaled features
+            if np.isnan(features_scaled).any():
+                logger.warning("NaN in scaled features - force cleaning")
+                features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=999999, neginf=-999999)
+            
+            # Optimal number of clusters
             n_clusters = min(8, max(3, len(df) // 50))
             
-            # K-means clustering
-            if self.kmeans is None or len(df) > 100:
-                self.kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-                
-            clusters = self.kmeans.fit_predict(features_scaled)
+            # K-means clustering with error handling
+            from sklearn.cluster import KMeans
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+            clusters = kmeans.fit_predict(features_scaled)
+            
             df['ml_cluster'] = clusters
             
             # Calculate cluster characteristics
@@ -2325,6 +2367,8 @@ class MLPatternEngine:
             
             # Assign cluster quality labels
             df['ml_cluster_quality'] = df['ml_cluster'].map(lambda x: cluster_stats.get(x, {}).get('quality', 'unknown'))
+            
+            logger.info(f"✅ Clustering successful: {n_clusters} clusters, {len(df)} stocks")
             
             # Calculate silhouette score for cluster quality
             if len(df) > 10:
@@ -2381,18 +2425,41 @@ class MLPatternEngine:
             return df
     
     def _calculate_similarity_scores(self, df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-        """Calculate similarity scores using nearest neighbors"""
+        """PRODUCTION-GRADE similarity calculation with bulletproof NaN handling"""
         try:
             if features.empty or len(features) < 5:
+                logger.warning("Insufficient data for similarity calculation")
+                return df
+            
+            # BULLETPROOF NaN verification
+            if features.isnull().any().any():
+                logger.warning("NaN values detected in similarity features - cleaning")
+                features = features.fillna(0).replace([np.inf, -np.inf], [999999, -999999])
+            
+            # Verify all numeric
+            numeric_features = features.select_dtypes(include=[np.number])
+            if len(numeric_features.columns) == 0:
+                logger.warning("No numeric features for similarity")
                 return df
                 
-            # Nearest neighbors for similarity
+            # Scale features with robust handling
+            from sklearn.preprocessing import RobustScaler
+            scaler = RobustScaler()
+            features_scaled = scaler.fit_transform(numeric_features)
+            
+            # Final NaN check on scaled features
+            if np.isnan(features_scaled).any():
+                logger.warning("NaN in scaled similarity features - force cleaning")
+                features_scaled = np.nan_to_num(features_scaled, nan=0.0, posinf=999999, neginf=-999999)
+            
+            # Calculate neighbors
+            from sklearn.neighbors import NearestNeighbors
             n_neighbors = min(5, len(features) - 1)
             if n_neighbors < 1:
+                logger.warning("Insufficient neighbors for similarity")
                 return df
                 
             nn = NearestNeighbors(n_neighbors=n_neighbors, metric='euclidean')
-            features_scaled = self.scaler.transform(features) if self.scaler else features
             nn.fit(features_scaled)
             
             # Find similar stocks
@@ -2416,6 +2483,7 @@ class MLPatternEngine:
                             if similar_idx < len(df):
                                 df.iloc[similar_idx, df.columns.get_loc('ml_trend_leader')] = True
             
+            logger.info(f"✅ Similarity calculation successful for {len(df)} stocks")
             return df
             
         except Exception as e:
