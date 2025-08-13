@@ -1680,7 +1680,8 @@ class UIComponents:
                 csv_data,
                 f"wave_detection_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                 "text/csv",
-                use_container_width=True
+                use_container_width=True,
+                key="export_csv_main"
             )
         
         with col2:
@@ -1693,7 +1694,8 @@ class UIComponents:
                 symbol_list,
                 f"top_10_symbols_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                 "text/plain",
-                use_container_width=True
+                use_container_width=True,
+                key="export_symbols_main"
             )
 
 # ============================================
@@ -2190,7 +2192,8 @@ def main():
                             "Download Advanced Report (JSON)",
                             json.dumps(report_data, indent=2),
                             f"wave_detection_advanced_report_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                            "application/json"
+                            "application/json",
+                            key="export_json_radar"
                         )
                 
                 with export_col2:
@@ -2221,7 +2224,8 @@ def main():
                             "Download Smart Watchlist",
                             watchlist_text,
                             f"smart_watchlist_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            "text/plain"
+                            "text/plain",
+                            key="export_watchlist_radar"
                         )
         
         with tab7:
@@ -2365,7 +2369,8 @@ def main():
                         "Download Report (JSON)",
                         json.dumps(report_data, indent=2),
                         f"wave_detection_report_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                        "application/json"
+                        "application/json",
+                        key="export_json_tab5"
                     )
             
             with col2:
@@ -2377,7 +2382,8 @@ def main():
                         "Download Watchlist",
                         watchlist,
                         f"watchlist_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                        "text/plain"
+                        "text/plain",
+                        key="export_watchlist_tab5"
                     )
     
     else:
