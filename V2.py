@@ -580,6 +580,98 @@ class Config:
         'Consumer Services': {'low': 12.0, 'avg': 20.0, 'high': 30.0, 'premium': 45.0}
     })
     
+    # Sector characteristics with behavioral intelligence
+    SECTOR_CHARACTERISTICS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        "Technology": {
+            "growth_expectation": "High", "volatility": "High", "dividend_yield": "Low",
+            "typical_patterns": ["ACCELERATING", "VOL EXPLOSION", "MOMENTUM WAVE", "VELOCITY SQUEEZE"],
+            "risk_level": "High", "innovation_cycle": "Fast", "market_sensitivity": "High",
+            "behavioral_traits": ["momentum_driven", "growth_focused", "volatility_embracing"],
+            "optimal_entry_patterns": ["SMART MONEY", "INSTITUTIONAL", "BREAKOUT"],
+            "warning_patterns": ["VAMPIRE", "CAPITULATION", "VOL IMPLOSION"]
+        },
+        "Healthcare": {
+            "growth_expectation": "Stable", "volatility": "Medium", "dividend_yield": "Medium",
+            "typical_patterns": ["LONG STRENGTH", "QUALITY LEADER", "STEALTH", "GOLDEN ZONE"],
+            "risk_level": "Medium", "innovation_cycle": "Long", "market_sensitivity": "Low",
+            "behavioral_traits": ["defensive_growth", "quality_focused", "stability_seeking"],
+            "optimal_entry_patterns": ["QUALITY LEADER", "LONG STRENGTH", "STEALTH"],
+            "warning_patterns": ["MOMENTUM DIVERGE", "RANGE COMPRESS", "WEAK VOLUME"]
+        },
+        "Financial Services": {
+            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "High",
+            "typical_patterns": ["INSTITUTIONAL", "LIQUID LEADER", "VAMPIRE", "SMART MONEY"],
+            "risk_level": "High", "innovation_cycle": "Medium", "market_sensitivity": "Very High",
+            "behavioral_traits": ["cycle_dependent", "rate_sensitive", "institutional_heavy"],
+            "optimal_entry_patterns": ["INSTITUTIONAL", "LIQUID LEADER", "SMART MONEY"],
+            "warning_patterns": ["VAMPIRE", "CAPITULATION", "SECTOR WEAKNESS"]
+        },
+        "Consumer Goods": {
+            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "Medium",
+            "typical_patterns": ["ROTATION LEADER", "MOMENTUM WAVE", "RANGE COMPRESS", "SECTOR ROTATION"],
+            "risk_level": "High", "innovation_cycle": "Medium", "market_sensitivity": "Very High",
+            "behavioral_traits": ["economic_sensitive", "seasonal_patterns", "consumer_driven"],
+            "optimal_entry_patterns": ["ROTATION LEADER", "MOMENTUM WAVE", "SECTOR ROTATION"],
+            "warning_patterns": ["ECONOMIC FEAR", "RANGE COMPRESS", "WEAK CONSUMER"]
+        },
+        "Industrial": {
+            "growth_expectation": "Cyclical", "volatility": "Medium", "dividend_yield": "Medium",
+            "typical_patterns": ["PYRAMID", "INSTITUTIONAL", "BREAKOUT", "INFRASTRUCTURE"],
+            "risk_level": "Medium", "innovation_cycle": "Medium", "market_sensitivity": "High",
+            "behavioral_traits": ["infrastructure_dependent", "capex_driven", "global_trade_sensitive"],
+            "optimal_entry_patterns": ["INFRASTRUCTURE", "PYRAMID", "INSTITUTIONAL"],
+            "warning_patterns": ["TRADE PRESSURE", "CAPEX CUTS", "RECESSION FEAR"]
+        },
+        "Energy": {
+            "growth_expectation": "Cyclical", "volatility": "Very High", "dividend_yield": "High",
+            "typical_patterns": ["VOL EXPLOSION", "VAMPIRE", "CAPITULATION", "COMMODITY SURGE"],
+            "risk_level": "Very High", "innovation_cycle": "Slow", "market_sensitivity": "Extreme",
+            "behavioral_traits": ["commodity_driven", "geopolitical_sensitive", "boom_bust_cycles"],
+            "optimal_entry_patterns": ["COMMODITY SURGE", "ENERGY ROTATION", "CRISIS BUYING"],
+            "warning_patterns": ["COMMODITY COLLAPSE", "VAMPIRE", "TRANSITION PRESSURE"]
+        },
+        "Materials": {
+            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "Medium",
+            "typical_patterns": ["VOL EXPLOSION", "MOMENTUM DIVERGE", "VACUUM", "MATERIALS SURGE"],
+            "risk_level": "High", "innovation_cycle": "Slow", "market_sensitivity": "Very High",
+            "behavioral_traits": ["demand_driven", "china_dependent", "input_cost_sensitive"],
+            "optimal_entry_patterns": ["MATERIALS SURGE", "DEMAND RECOVERY", "CHINA STRENGTH"],
+            "warning_patterns": ["DEMAND COLLAPSE", "CHINA WEAKNESS", "OVERCAPACITY"]
+        },
+        "Utilities": {
+            "growth_expectation": "Low", "volatility": "Low", "dividend_yield": "Very High",
+            "typical_patterns": ["LONG STRENGTH", "GOLDEN ZONE", "VOL ACCUMULATION", "YIELD PLAY"],
+            "risk_level": "Low", "innovation_cycle": "Very Slow", "market_sensitivity": "Very Low",
+            "behavioral_traits": ["rate_inverse", "regulated_returns", "infrastructure_monopoly"],
+            "optimal_entry_patterns": ["YIELD PLAY", "RATE DECLINE", "DEFENSIVE ROTATION"],
+            "warning_patterns": ["RATE SURGE", "REGULATION PRESSURE", "GREEN TRANSITION"]
+        },
+        "Real Estate": {
+            "growth_expectation": "Medium", "volatility": "Medium", "dividend_yield": "High",
+            "typical_patterns": ["LIQUID LEADER", "GOLDEN ZONE", "RANGE COMPRESS", "REIT STRENGTH"],
+            "risk_level": "Medium", "innovation_cycle": "Slow", "market_sensitivity": "High",
+            "behavioral_traits": ["rate_sensitive", "location_premium", "income_focused"],
+            "optimal_entry_patterns": ["REIT STRENGTH", "RATE DECLINE", "LOCATION PREMIUM"],
+            "warning_patterns": ["RATE SURGE", "OVERSUPPLY", "LOCATION DECAY"]
+        },
+        "Telecommunications": {
+            "growth_expectation": "Medium", "volatility": "Medium", "dividend_yield": "Medium",
+            "typical_patterns": ["LIQUID LEADER", "MOMENTUM WAVE", "STEALTH", "TECH CROSSOVER"],
+            "risk_level": "Medium", "innovation_cycle": "Fast", "market_sensitivity": "Medium",
+            "behavioral_traits": ["content_driven", "platform_economics", "network_effects"],
+            "optimal_entry_patterns": ["LIQUID LEADER", "MOMENTUM WAVE", "PLATFORM STRENGTH"],
+            "warning_patterns": ["REGULATION FEAR", "CONTENT PRESSURE", "PLATFORM DECAY"]
+        },
+        "Consumer Services": {
+            "growth_expectation": "Low", "volatility": "Low", "dividend_yield": "High",
+            "typical_patterns": ["QUALITY LEADER", "LONG STRENGTH", "GOLDEN ZONE", "DEFENSIVE STRENGTH"],
+            "risk_level": "Low", "innovation_cycle": "Slow", "market_sensitivity": "Low",
+            "behavioral_traits": ["stability_premium", "dividend_focused", "recession_resistant"],
+            "optimal_entry_patterns": ["QUALITY LEADER", "LONG STRENGTH", "DEFENSIVE ROTATION"],
+            "warning_patterns": ["GROWTH ROTATION", "YIELD PRESSURE", "INFLATION PRESSURE"]
+        }
+    })
+    
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
         'price': (0.01, 1_000_000),
@@ -2182,80 +2274,6 @@ class MarketRegimeDetector:
             'sector_classification_accuracy': 0.95
         }
     })
-    
-    # Revolutionary sector characteristics with behavioral intelligence
-    SECTOR_CHARACTERISTICS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "Technology": {
-            "growth_expectation": "High", "volatility": "High", "dividend_yield": "Low",
-            "typical_patterns": ["ACCELERATING", "VOL EXPLOSION", "MOMENTUM WAVE", "VELOCITY SQUEEZE"],
-            "risk_level": "High", "innovation_cycle": "Fast", "market_sensitivity": "High",
-            "behavioral_traits": ["momentum_driven", "growth_focused", "volatility_embracing"],
-            "optimal_entry_patterns": ["SMART MONEY", "INSTITUTIONAL", "BREAKOUT"],
-            "warning_patterns": ["VAMPIRE", "CAPITULATION", "VOL IMPLOSION"]
-        },
-        "Healthcare": {
-            "growth_expectation": "Stable", "volatility": "Medium", "dividend_yield": "Medium",
-            "typical_patterns": ["LONG STRENGTH", "QUALITY LEADER", "STEALTH", "GOLDEN ZONE"],
-            "risk_level": "Medium", "innovation_cycle": "Long", "market_sensitivity": "Low",
-            "behavioral_traits": ["defensive_growth", "quality_focused", "stability_seeking"],
-            "optimal_entry_patterns": ["QUALITY LEADER", "LONG STRENGTH", "STEALTH"],
-            "warning_patterns": ["MOMENTUM DIVERGE", "RANGE COMPRESS", "WEAK VOLUME"]
-        },
-        "Financial Services": {
-            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "High",
-            "typical_patterns": ["INSTITUTIONAL", "LIQUID LEADER", "VAMPIRE", "SMART MONEY"],
-            "risk_level": "High", "innovation_cycle": "Medium", "market_sensitivity": "Very High",
-            "behavioral_traits": ["cycle_dependent", "rate_sensitive", "institutional_heavy"],
-            "optimal_entry_patterns": ["INSTITUTIONAL", "LIQUID LEADER", "SMART MONEY"],
-            "warning_patterns": ["VAMPIRE", "CAPITULATION", "SECTOR WEAKNESS"]
-        },
-        "Consumer Cyclical": {
-            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "Medium",
-            "typical_patterns": ["ROTATION LEADER", "MOMENTUM WAVE", "RANGE COMPRESS", "SECTOR ROTATION"],
-            "risk_level": "High", "innovation_cycle": "Medium", "market_sensitivity": "Very High",
-            "behavioral_traits": ["economic_sensitive", "seasonal_patterns", "consumer_driven"],
-            "optimal_entry_patterns": ["ROTATION LEADER", "MOMENTUM WAVE", "SECTOR ROTATION"],
-            "warning_patterns": ["ECONOMIC FEAR", "RANGE COMPRESS", "WEAK CONSUMER"]
-        },
-        "Consumer Defensive": {
-            "growth_expectation": "Low", "volatility": "Low", "dividend_yield": "High",
-            "typical_patterns": ["QUALITY LEADER", "LONG STRENGTH", "GOLDEN ZONE", "DEFENSIVE STRENGTH"],
-            "risk_level": "Low", "innovation_cycle": "Slow", "market_sensitivity": "Low",
-            "behavioral_traits": ["stability_premium", "dividend_focused", "recession_resistant"],
-            "optimal_entry_patterns": ["QUALITY LEADER", "LONG STRENGTH", "DEFENSIVE ROTATION"],
-            "warning_patterns": ["GROWTH ROTATION", "YIELD PRESSURE", "INFLATION PRESSURE"]
-        },
-        "Communication Services": {
-            "growth_expectation": "Medium", "volatility": "Medium", "dividend_yield": "Medium",
-            "typical_patterns": ["LIQUID LEADER", "MOMENTUM WAVE", "STEALTH", "TECH CROSSOVER"],
-            "risk_level": "Medium", "innovation_cycle": "Fast", "market_sensitivity": "Medium",
-            "behavioral_traits": ["content_driven", "platform_economics", "network_effects"],
-            "optimal_entry_patterns": ["LIQUID LEADER", "MOMENTUM WAVE", "PLATFORM STRENGTH"],
-            "warning_patterns": ["REGULATION FEAR", "CONTENT PRESSURE", "PLATFORM DECAY"]
-        },
-        "Energy": {
-            "growth_expectation": "Cyclical", "volatility": "Very High", "dividend_yield": "High",
-            "typical_patterns": ["VOL EXPLOSION", "VAMPIRE", "CAPITULATION", "COMMODITY SURGE"],
-            "risk_level": "Very High", "innovation_cycle": "Slow", "market_sensitivity": "Extreme",
-            "behavioral_traits": ["commodity_driven", "geopolitical_sensitive", "boom_bust_cycles"],
-            "optimal_entry_patterns": ["COMMODITY SURGE", "ENERGY ROTATION", "CRISIS BUYING"],
-            "warning_patterns": ["COMMODITY COLLAPSE", "VAMPIRE", "TRANSITION PRESSURE"]
-        },
-        "Industrials": {
-            "growth_expectation": "Cyclical", "volatility": "Medium", "dividend_yield": "Medium",
-            "typical_patterns": ["PYRAMID", "INSTITUTIONAL", "BREAKOUT", "INFRASTRUCTURE"],
-            "risk_level": "Medium", "innovation_cycle": "Medium", "market_sensitivity": "High",
-            "behavioral_traits": ["infrastructure_dependent", "capex_driven", "global_trade_sensitive"],
-            "optimal_entry_patterns": ["INFRASTRUCTURE", "PYRAMID", "INSTITUTIONAL"],
-            "warning_patterns": ["TRADE PRESSURE", "CAPEX CUTS", "RECESSION FEAR"]
-        },
-        "Basic Materials": {
-            "growth_expectation": "Cyclical", "volatility": "High", "dividend_yield": "Medium",
-            "typical_patterns": ["VOL EXPLOSION", "MOMENTUM DIVERGE", "VACUUM", "MATERIALS SURGE"],
-            "risk_level": "High", "innovation_cycle": "Slow", "market_sensitivity": "Very High",
-            "behavioral_traits": ["demand_driven", "china_dependent", "input_cost_sensitive"],
-            "optimal_entry_patterns": ["MATERIALS SURGE", "DEMAND RECOVERY", "CHINA STRENGTH"],
-            "warning_patterns": ["DEMAND COLLAPSE", "CHINA WEAKNESS", "OVERCAPACITY"]
         },
         "Utilities": {
             "growth_expectation": "Low", "volatility": "Low", "dividend_yield": "Very High",
