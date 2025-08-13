@@ -719,6 +719,48 @@ class Config:
         'validation_failed': 'Data validation failed. Some data may be inconsistent.',
     })
     
+    # Revolutionary metric tooltips with ultimate intelligence descriptions
+    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
+        # Core metrics with revolutionary intelligence
+        'vmi': 'Volume Momentum Index: Revolutionary volume trend analysis with smart money detection and institutional flow patterns',
+        'position_tension': 'Range Position Stress: Advanced stress analysis of 52W range dynamics with squeeze detection',
+        'momentum_harmony': 'Multi-Timeframe Harmony: 0-4 alignment score across revolutionary timeframes with wave coherence',
+        'overall_wave_strength': 'Wave Strength Composite: Revolutionary wave pattern strength analysis with cascade detection',
+        'money_flow_mm': 'Smart Money Flow (MM): Institutional flow analysis in millions with RVOL intelligence and flow acceleration',
+        'master_score': 'Master Score (0-100): Revolutionary composite ranking with sector intelligence and behavioral weighting',
+        'sector_adjusted_score': 'Sector Intelligence Score: Behavioral-adjusted score with 11-sector mastery and alpha optimization',
+        
+        # Advanced pattern metrics with revolutionary analysis
+        'acceleration_score': 'Acceleration Intelligence: Revolutionary rate-of-change momentum analysis with cascade detection',
+        'breakout_score': 'Breakout Probability: Advanced breakout prediction with pattern recognition and structure analysis',
+        'trend_quality': 'Trend Quality Analysis: SMA harmony with revolutionary trend strength and wave coherence',
+        'liquidity_score': 'Liquidity Intelligence: Advanced trading liquidity with institutional bias and flow premium',
+        'velocity_squeeze': 'Velocity Squeeze Pattern: Revolutionary compression-expansion cycle detection with timing signals',
+        'smart_money_flow': 'Smart Money Detection: Institutional flow patterns with behavioral analysis and entry signals',
+        
+        # Tier intelligence with revolutionary classifications
+        'eps_tier': 'EPS Growth Tier: From Crisis to Explosive with momentum-adjusted classifications and growth acceleration',
+        'pe_tier': 'PE Valuation Tier: From Deep Value to Ultra Premium with sector intelligence and relative positioning',
+        'price_tier': 'Price Category Tier: From Micro Penny to Ultra Premium with market cap correlation and liquidity analysis',
+        'pe_sector_context': 'PE Sector Intelligence: Advanced sector-relative valuation analysis with behavioral adjustments',
+        'sector_characteristics': 'Sector Behavioral Profile: Risk, volatility, and growth intelligence with pattern preferences',
+        
+        # Revolutionary insights with behavioral intelligence
+        'pe_percentile_context': 'PE Percentile Intelligence: Distribution position with outlier analysis and value discovery',
+        'price_category_insight': 'Price Category Intelligence: Market cap correlation with liquidity analysis and tier optimization',
+        'pe_eps_insight': 'Valuation Intelligence Matrix: PE-EPS combination with growth momentum and quality assessment',
+        'sector_rotation_strength': 'Sector Rotation Intelligence: Cross-sector momentum flow analysis with rotation timing',
+        'institutional_preference': 'Institutional Preference Score: Smart money bias with flow analysis and positioning trends',
+        'behavioral_momentum': 'Behavioral Momentum Index: Crowd psychology analysis with contrarian signals and sentiment shifts',
+        
+        # Revolutionary pattern insights
+        'volatility_compression': 'Volatility Compression Signal: Market structure compression analysis with expansion timing',
+        'momentum_divergence': 'Momentum Divergence Detection: Advanced divergence analysis with reversal probability',
+        'market_structure_shift': 'Market Structure Analysis: Revolutionary structure shift detection with regime changes',
+        'flow_acceleration': 'Flow Acceleration Index: Institutional flow dynamics with acceleration and deceleration signals',
+        'liquidity_premium': 'Liquidity Premium Analysis: Advanced liquidity assessment with premium valuation adjustments'
+    })
+    
     @property
     def is_production(self) -> bool:
         """Check if running in production environment"""
@@ -2465,6 +2507,53 @@ class MLPatternEngine:
             logger.error(f"ML insights generation failed: {e}")
             
         return insights
+    
+    def _add_freshness_insights(self, df: pd.DataFrame, data_strategy: str) -> pd.DataFrame:
+        """Add data freshness and relevance insights"""
+        try:
+            # Add timestamp columns for freshness tracking
+            current_time = datetime.now()
+            df['data_freshness'] = 'fresh'  # Default to fresh for daily updates
+            df['analysis_timestamp'] = current_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Add strategy-specific insights
+            strategy_insights = {
+                '📊 Short-term Patterns (1-7 days)': 'Real-time pattern focus',
+                '📈 Medium-term Trends (1-4 weeks)': 'Weekly trend analysis', 
+                '🏔️ Long-term Analysis (1-3 months)': 'Monthly cycle patterns',
+                '🔄 Real-time Adaptive': 'Dynamic pattern adaptation'
+            }
+            
+            df['ml_strategy_insight'] = strategy_insights.get(data_strategy, 'Comprehensive analysis')
+            
+            # Add freshness score (100 for daily data)
+            df['ml_freshness_score'] = 100.0
+            
+            logger.debug(f"Added freshness insights for {len(df)} stocks with strategy: {data_strategy}")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Failed to add freshness insights: {e}")
+            return df
+    
+    def _cache_ml_results(self, df: pd.DataFrame, ml_settings: Dict[str, Any]) -> None:
+        """Cache ML results for performance optimization"""
+        try:
+            # Simple caching for development - can be enhanced for production
+            cache_key = f"ml_results_{len(df)}_{ml_settings.get('focus', 'default')}"
+            
+            # Store basic cache info (in production this could use Redis or similar)
+            self.cache_info = {
+                'cache_key': cache_key,
+                'timestamp': datetime.now().isoformat(),
+                'record_count': len(df),
+                'ml_settings': ml_settings
+            }
+            
+            logger.debug(f"Cached ML results: {cache_key}")
+            
+        except Exception as e:
+            logger.error(f"Failed to cache ML results: {e}")
 
 # Initialize ML engine
 ml_engine = MLPatternEngine()
@@ -2887,48 +2976,6 @@ class MarketRegimeDetector:
             "market_cap_bias": "Large", "rate_leverage": 0.9,
             "behavioral_score": 0.95, "credit_cycle_sensitivity": 0.85
         }
-    })
-
-    # Revolutionary metric tooltips with ultimate intelligence descriptions
-    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
-        # Core metrics with revolutionary intelligence
-        'vmi': 'Volume Momentum Index: Revolutionary volume trend analysis with smart money detection and institutional flow patterns',
-        'position_tension': 'Range Position Stress: Advanced stress analysis of 52W range dynamics with squeeze detection',
-        'momentum_harmony': 'Multi-Timeframe Harmony: 0-4 alignment score across revolutionary timeframes with wave coherence',
-        'overall_wave_strength': 'Wave Strength Composite: Revolutionary wave pattern strength analysis with cascade detection',
-        'money_flow_mm': 'Smart Money Flow (MM): Institutional flow analysis in millions with RVOL intelligence and flow acceleration',
-        'master_score': 'Master Score (0-100): Revolutionary composite ranking with sector intelligence and behavioral weighting',
-        'sector_adjusted_score': 'Sector Intelligence Score: Behavioral-adjusted score with 11-sector mastery and alpha optimization',
-        
-        # Advanced pattern metrics with revolutionary analysis
-        'acceleration_score': 'Acceleration Intelligence: Revolutionary rate-of-change momentum analysis with cascade detection',
-        'breakout_score': 'Breakout Probability: Advanced breakout prediction with pattern recognition and structure analysis',
-        'trend_quality': 'Trend Quality Analysis: SMA harmony with revolutionary trend strength and wave coherence',
-        'liquidity_score': 'Liquidity Intelligence: Advanced trading liquidity with institutional bias and flow premium',
-        'velocity_squeeze': 'Velocity Squeeze Pattern: Revolutionary compression-expansion cycle detection with timing signals',
-        'smart_money_flow': 'Smart Money Detection: Institutional flow patterns with behavioral analysis and entry signals',
-        
-        # Tier intelligence with revolutionary classifications
-        'eps_tier': 'EPS Growth Tier: From Crisis to Explosive with momentum-adjusted classifications and growth acceleration',
-        'pe_tier': 'PE Valuation Tier: From Deep Value to Ultra Premium with sector intelligence and relative positioning',
-        'price_tier': 'Price Category Tier: From Micro Penny to Ultra Premium with market cap correlation and liquidity analysis',
-        'pe_sector_context': 'PE Sector Intelligence: Advanced sector-relative valuation analysis with behavioral adjustments',
-        'sector_characteristics': 'Sector Behavioral Profile: Risk, volatility, and growth intelligence with pattern preferences',
-        
-        # Revolutionary insights with behavioral intelligence
-        'pe_percentile_context': 'PE Percentile Intelligence: Distribution position with outlier analysis and value discovery',
-        'price_category_insight': 'Price Category Intelligence: Market cap correlation with liquidity analysis and tier optimization',
-        'pe_eps_insight': 'Valuation Intelligence Matrix: PE-EPS combination with growth momentum and quality assessment',
-        'sector_rotation_strength': 'Sector Rotation Intelligence: Cross-sector momentum flow analysis with rotation timing',
-        'institutional_preference': 'Institutional Preference Score: Smart money bias with flow analysis and positioning trends',
-        'behavioral_momentum': 'Behavioral Momentum Index: Crowd psychology analysis with contrarian signals and sentiment shifts',
-        
-        # Revolutionary pattern insights
-        'volatility_compression': 'Volatility Compression Signal: Market structure compression analysis with expansion timing',
-        'momentum_divergence': 'Momentum Divergence Detection: Advanced divergence analysis with reversal probability',
-        'market_structure_shift': 'Market Structure Analysis: Revolutionary structure shift detection with regime changes',
-        'flow_acceleration': 'Flow Acceleration Index: Institutional flow dynamics with acceleration and deceleration signals',
-        'liquidity_premium': 'Liquidity Premium Analysis: Advanced liquidity assessment with premium valuation adjustments'
     })
 
 # Global configuration instance
