@@ -2941,13 +2941,17 @@ class FilterEngine:
         
         # 9. Wave filters
         if 'wave_states' in filters:
-            masks.append(create_mask_from_isin('wave_state', filters['wave_states']))
+            selected_states = filters['wave_states']
+            if selected_states and "🎯 Custom Range" not in selected_states:
+                masks.append(create_mask_from_isin('wave_state', selected_states))
         
-        wave_strength_range = filters.get('wave_strength_range')
-        if wave_strength_range and wave_strength_range != (0, 100) and 'overall_wave_strength' in df.columns:
-            min_ws, max_ws = wave_strength_range
-            masks.append((df['overall_wave_strength'] >= min_ws) & 
-                        (df['overall_wave_strength'] <= max_ws))
+        # Custom wave strength range filter (only if "🎯 Custom Range" is selected)
+        if 'wave_states' in filters and "🎯 Custom Range" in filters['wave_states']:
+            wave_strength_range = filters.get('wave_strength_range')
+            if wave_strength_range and wave_strength_range != (0, 100) and 'overall_wave_strength' in df.columns:
+                min_ws, max_ws = wave_strength_range
+                masks.append((df['overall_wave_strength'] >= min_ws) & 
+                            (df['overall_wave_strength'] <= max_ws))
         
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
@@ -4867,12 +4871,15 @@ def main():
         st.markdown("#### 🌊 Wave Filters")
         wave_states_options = FilterEngine.get_filter_options(ranked_df_display, 'wave_state', filters)
         
+        # Add custom range option to wave states
+        wave_states_with_custom = wave_states_options + ["🎯 Custom Range"]
+        
         selected_wave_states = st.multiselect(
             "Wave State",
-            options=wave_states_options,
+            options=wave_states_with_custom,
             default=st.session_state.filter_state.get('wave_states', []),
             placeholder="Select wave states (empty = All)",
-            help="Filter by the detected 'Wave State'",
+            help="Filter by the detected 'Wave State' or use custom range",
             key="wave_states_multiselect",
             on_change=sync_wave_states  # SYNC ON CHANGE
         )
@@ -4880,7 +4887,11 @@ def main():
         if selected_wave_states:
             filters['wave_states'] = selected_wave_states
         
-        if 'overall_wave_strength' in ranked_df_display.columns:
+        # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
+        custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
+        if custom_wave_range_selected and 'overall_wave_strength' in ranked_df_display.columns:
+            st.write("📊 **Custom Wave Strength Range Filter**")
+            
             min_strength = float(ranked_df_display['overall_wave_strength'].min())
             max_strength = float(ranked_df_display['overall_wave_strength'].max())
             
@@ -4899,12 +4910,12 @@ def main():
             )
             
             wave_strength_range = st.slider(
-                "Overall Wave Strength",
+                "🎯 Overall Wave Strength Range",
                 min_value=slider_min_val,
                 max_value=slider_max_val,
                 value=current_wave_range,
                 step=1,
-                help="Filter by the calculated 'Overall Wave Strength' score",
+                help="Filter by the calculated 'Overall Wave Strength' score (0-100)",
                 key="wave_strength_slider",
                 on_change=sync_wave_strength  # SYNC ON CHANGE
             )
