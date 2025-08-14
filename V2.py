@@ -194,6 +194,15 @@ class Config:
             "1000-2500": (1000, 2500),
             "2500-5000": (2500, 5000),
             "5000+": (5000, float('inf'))
+        },
+        "eps_change_pct": {
+            "Heavy Loss (< -50%)": (-float('inf'), -50),
+            "Loss (-50% to -10%)": (-50, -10),
+            "Slight Decline (-10% to 0%)": (-10, 0),
+            "Low Growth (0% to 20%)": (0, 20),
+            "Good Growth (20% to 50%)": (20, 50),
+            "High Growth (50% to 100%)": (50, 100),
+            "Explosive Growth (> 100%)": (100, float('inf'))
         }
     })
     
@@ -727,6 +736,11 @@ class DataProcessor:
         
         if 'price' in df.columns:
             df['price_tier'] = df['price'].apply(lambda x: classify_tier(x, CONFIG.TIERS['price']))
+        
+        if 'eps_change_pct' in df.columns:
+            df['eps_change_tier'] = df['eps_change_pct'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['eps_change_pct'])
+            )
         
         return df
         
@@ -2407,7 +2421,7 @@ class FilterEngine:
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
-                'min_eps_change': None,
+                'eps_change_tiers': [],
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
@@ -2446,7 +2460,7 @@ class FilterEngine:
         if filters.get('eps_tiers'): count += 1
         if filters.get('pe_tiers'): count += 1
         if filters.get('price_tiers'): count += 1
-        if filters.get('min_eps_change') is not None: count += 1
+        if filters.get('eps_change_tiers'): count += 1
         if filters.get('min_pe') is not None: count += 1
         if filters.get('max_pe') is not None: count += 1
         if filters.get('require_fundamental_data'): count += 1
@@ -2473,7 +2487,7 @@ class FilterEngine:
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
-            'min_eps_change': None,
+            'eps_change_tiers': [],
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
@@ -2653,8 +2667,8 @@ class FilterEngine:
             filters['pe_tiers'] = state['pe_tiers']
         if state.get('price_tiers'):
             filters['price_tiers'] = state['price_tiers']
-        if state.get('min_eps_change') is not None:
-            filters['min_eps_change'] = state['min_eps_change']
+        if state.get('eps_change_tiers'):
+            filters['eps_change_tiers'] = state['eps_change_tiers']
         if state.get('min_pe') is not None:
             filters['min_pe'] = state['min_pe']
         if state.get('max_pe') is not None:
@@ -2719,9 +2733,9 @@ class FilterEngine:
             min_trend, max_trend = trend_range
             masks.append((df['trend_quality'] >= min_trend) & (df['trend_quality'] <= max_trend))
         
-        # 5. EPS change filter
-        if filters.get('min_eps_change') is not None and 'eps_change_pct' in df.columns:
-            masks.append(df['eps_change_pct'] >= filters['min_eps_change'])
+        # 5. EPS change filter - Now using tiers instead of min value
+        if 'eps_change_tiers' in filters:
+            masks.append(create_mask_from_isin('eps_change_tier', filters['eps_change_tiers']))
         
         # 6. PE filters
         if filters.get('min_pe') is not None and 'pe' in df.columns:
@@ -2790,6 +2804,7 @@ class FilterEngine:
             'eps_tier': 'eps_tiers',
             'pe_tier': 'pe_tiers',
             'price_tier': 'price_tiers',
+            'eps_change_tier': 'eps_change_tiers',
             'wave_state': 'wave_states'
         }
         
@@ -2830,7 +2845,7 @@ class FilterEngine:
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
-            'min_eps_change': None,
+            'eps_change_tiers': [],
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
@@ -3522,8 +3537,8 @@ class SessionStateManager:
                 filters['pe_tiers'] = state['pe_tiers']
             if state.get('price_tiers'):
                 filters['price_tiers'] = state['price_tiers']
-            if state.get('min_eps_change') is not None:
-                filters['min_eps_change'] = state['min_eps_change']
+            if state.get('eps_change_tiers'):
+                filters['eps_change_tiers'] = state['eps_change_tiers']
             if state.get('min_pe') is not None:
                 filters['min_pe'] = state['min_pe']
             if state.get('max_pe') is not None:
@@ -3550,16 +3565,7 @@ class SessionStateManager:
             if st.session_state.get('min_score', 0) > 0:
                 filters['min_score'] = st.session_state['min_score']
             
-            # EPS change filter
-            if st.session_state.get('min_eps_change'):
-                value = st.session_state['min_eps_change']
-                if isinstance(value, str) and value.strip():
-                    try:
-                        filters['min_eps_change'] = float(value)
-                    except ValueError:
-                        pass
-                elif isinstance(value, (int, float)):
-                    filters['min_eps_change'] = float(value)
+            # EPS change filter - REMOVED (now using tiers)
             
             # PE filters
             if st.session_state.get('min_pe'):
@@ -3590,7 +3596,8 @@ class SessionStateManager:
             for key, filter_name in [
                 ('eps_tier_filter', 'eps_tiers'),
                 ('pe_tier_filter', 'pe_tiers'),
-                ('price_tier_filter', 'price_tiers')
+                ('price_tier_filter', 'price_tiers'),
+                ('eps_change_tier_filter', 'eps_change_tiers')
             ]:
                 if st.session_state.get(key) and st.session_state[key]:
                     filters[filter_name] = st.session_state[key]
@@ -3652,8 +3659,8 @@ class SessionStateManager:
         # Clear individual legacy filter keys
         filter_keys = [
             'category_filter', 'sector_filter', 'industry_filter', 'eps_tier_filter',
-            'pe_tier_filter', 'price_tier_filter', 'patterns', 'min_score', 'trend_filter',
-            'min_eps_change', 'min_pe', 'max_pe', 'require_fundamental_data',
+            'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
+            'min_pe', 'max_pe', 'require_fundamental_data',
             'quick_filter', 'quick_filter_applied', 'wave_states_filter',
             'wave_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
@@ -3681,7 +3688,7 @@ class SessionStateManager:
                     if key == 'min_score':
                         st.session_state[key] = 0
                     else:
-                        st.session_state[key] = None if key in ['min_eps_change', 'min_pe', 'max_pe'] else 0
+                        st.session_state[key] = None if key in ['min_pe', 'max_pe'] else 0
                 else:
                     st.session_state[key] = None
         
@@ -3825,7 +3832,7 @@ class SessionStateManager:
             ('eps_tiers', 'eps_tier_filter'),
             ('pe_tiers', 'pe_tier_filter'),
             ('price_tiers', 'price_tier_filter'),
-            ('min_eps_change', 'min_eps_change'),
+            ('eps_change_tiers', 'eps_change_tier_filter'),
             ('min_pe', 'min_pe'),
             ('max_pe', 'max_pe'),
             ('require_fundamental_data', 'require_fundamental_data'),
@@ -3859,7 +3866,7 @@ class SessionStateManager:
             if state.get('eps_tiers'): count += 1
             if state.get('pe_tiers'): count += 1
             if state.get('price_tiers'): count += 1
-            if state.get('min_eps_change') is not None: count += 1
+            if state.get('eps_change_tiers'): count += 1
             if state.get('min_pe') is not None: count += 1
             if state.get('max_pe') is not None: count += 1
             if state.get('require_fundamental_data'): count += 1
@@ -3877,7 +3884,7 @@ class SessionStateManager:
                 ('eps_tier_filter', lambda x: x and len(x) > 0),
                 ('pe_tier_filter', lambda x: x and len(x) > 0),
                 ('price_tier_filter', lambda x: x and len(x) > 0),
-                ('min_eps_change', lambda x: x is not None and str(x).strip() != ''),
+                ('eps_change_tier_filter', lambda x: x and len(x) > 0),
                 ('min_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
@@ -4545,16 +4552,9 @@ def main():
                 if 'price_tier_multiselect' in st.session_state:
                     st.session_state.filter_state['price_tiers'] = st.session_state.price_tier_multiselect
             
-            def sync_eps_change():
-                if 'eps_change_input' in st.session_state:
-                    value = st.session_state.eps_change_input
-                    if value.strip():
-                        try:
-                            st.session_state.filter_state['min_eps_change'] = float(value)
-                        except ValueError:
-                            st.session_state.filter_state['min_eps_change'] = None
-                    else:
-                        st.session_state.filter_state['min_eps_change'] = None
+            def sync_eps_change_tier():
+                if 'eps_change_tier_multiselect' in st.session_state:
+                    st.session_state.filter_state['eps_change_tiers'] = st.session_state.eps_change_tier_multiselect
             
             def sync_min_pe():
                 if 'min_pe_input' in st.session_state:
@@ -4586,7 +4586,8 @@ def main():
             for tier_type, col_name, filter_key, sync_func in [
                 ('eps_tiers', 'eps_tier', 'eps_tiers', sync_eps_tier),
                 ('pe_tiers', 'pe_tier', 'pe_tiers', sync_pe_tier),
-                ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier)
+                ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier),
+                ('eps_change_tiers', 'eps_change_tier', 'eps_change_tiers', sync_eps_change_tier)
             ]:
                 if col_name in ranked_df_display.columns:
                     tier_options = FilterEngine.get_filter_options(ranked_df_display, col_name, filters)
@@ -4603,28 +4604,20 @@ def main():
                     if selected_tiers:
                         filters[tier_type] = selected_tiers
             
-            # EPS change filter
-            if 'eps_change_pct' in ranked_df_display.columns:
-                current_eps_change = st.session_state.filter_state.get('min_eps_change')
-                eps_change_str = str(current_eps_change) if current_eps_change is not None else ""
-                
-                eps_change_input = st.text_input(
-                    "Min EPS Change %",
-                    value=eps_change_str,
-                    placeholder="e.g. -50 or leave empty",
-                    help="Enter minimum EPS growth percentage",
-                    key="eps_change_input",
-                    on_change=sync_eps_change  # SYNC ON CHANGE
+            # EPS change tier filter
+            if 'eps_change_tier' in ranked_df_display.columns:
+                # EPS Change Tier Filter
+                eps_change_tiers = st.multiselect(
+                    "EPS Change Tier",
+                    options=CONFIG.TIERS['eps_change_tiers'],
+                    default=st.session_state.eps_change_tiers,
+                    key='eps_change_tiers_widget',
+                    on_change=sync_eps_change_tier,
+                    help="Select EPS change tiers to include"
                 )
                 
-                if eps_change_input.strip():
-                    try:
-                        eps_change_val = float(eps_change_input)
-                        filters['min_eps_change'] = eps_change_val
-                    except ValueError:
-                        st.error("Please enter a valid number for EPS change")
-                else:
-                    st.session_state.filter_state['min_eps_change'] = None
+                if eps_change_tiers:
+                    filters['eps_change_tiers'] = eps_change_tiers
             
             # PE filters (only in hybrid mode)
             if show_fundamentals and 'pe' in ranked_df_display.columns:
