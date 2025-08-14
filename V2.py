@@ -203,6 +203,27 @@ class Config:
             "Good Growth (20% to 50%)": (20, 50),
             "High Growth (50% to 100%)": (50, 100),
             "Explosive Growth (> 100%)": (100, float('inf'))
+        },
+        "position_tiers": {
+            "💎 Near Lows (0-20%)": (0, 20),
+            "🏗️ Lower Range (20-40%)": (20, 40),
+            "🏞️ Middle Range (40-60%)": (40, 60),
+            "⛰️ Upper Range (60-80%)": (60, 80),
+            "🏔️ Near Highs (80-100%)": (80, 100)
+        },
+        "performance_tiers": {
+            "🚀 Strong Gainers (>5% 1D)": ("ret_1d", 5),
+            "⚡ Power Moves (>10% 1D)": ("ret_1d", 10),
+            "💥 Explosive (>20% 1D)": ("ret_1d", 20),
+            "📈 Weekly Winners (>15% 7D)": ("ret_7d", 15),
+            "🏆 Monthly Champions (>30% 30D)": ("ret_30d", 30)
+        },
+        "volume_tiers": {
+            "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
+            "🔥 High Activity (RVOL >2x)": ("rvol", 2.0),
+            "💥 Explosive Volume (RVOL >5x)": ("rvol", 5.0),
+            "🌋 Volcanic Volume (RVOL >10x)": ("rvol", 10.0),
+            "😴 Low Activity (RVOL <0.5x)": ("rvol", 0.5, "below")
         }
     })
     
@@ -740,6 +761,86 @@ class DataProcessor:
         if 'eps_change_pct' in df.columns:
             df['eps_change_tier'] = df['eps_change_pct'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['eps_change_pct'])
+            )
+        
+        # Position tier classification (based on from_low_pct or calculate from price data)
+        if 'from_low_pct' in df.columns:
+            # Use existing from_low_pct column (already 0-100%)
+            df['position_pct'] = df['from_low_pct'].apply(
+                lambda x: min(100, max(0, x)) if pd.notna(x) else None
+            )
+            df['position_tier'] = df['position_pct'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
+            )
+            logger.info(f"Position tiers created from from_low_pct. Sample tiers: {df['position_tier'].value_counts().head()}")
+        
+        # Performance tier classifications - Unified approach
+        if any(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+            # Convert to percentage for classification
+            if 'ret_1d' in df.columns:
+                df['ret_1d_pct'] = df['ret_1d'] * 100
+            if 'ret_7d' in df.columns:
+                df['ret_7d_pct'] = df['ret_7d'] * 100
+            if 'ret_30d' in df.columns:
+                df['ret_30d_pct'] = df['ret_30d'] * 100
+            
+            # Unified performance tier classification
+            def classify_performance(row):
+                ret_1d = row.get('ret_1d', 0) if pd.notna(row.get('ret_1d')) else 0
+                ret_7d = row.get('ret_7d', 0) if pd.notna(row.get('ret_7d')) else 0
+                ret_30d = row.get('ret_30d', 0) if pd.notna(row.get('ret_30d')) else 0
+                
+                # Check for explosive daily moves first (highest priority)
+                if ret_1d > 20:
+                    return "💥 Explosive (>20% 1D)"
+                elif ret_1d > 10:
+                    return "⚡ Power Moves (>10% 1D)"
+                elif ret_1d > 5:
+                    return "🚀 Strong Gainers (>5% 1D)"
+                elif ret_30d > 30:
+                    return "🏆 Monthly Champions (>30% 30D)"
+                elif ret_7d > 15:
+                    return "📈 Weekly Winners (>15% 7D)"
+                else:
+                    return "Standard"
+            
+            df['performance_tier'] = df.apply(classify_performance, axis=1)
+            logger.info(f"Performance tiers created. Sample tiers: {df['performance_tier'].value_counts().head()}")
+            
+        # Volume tier classification
+        if 'rvol' in df.columns:
+            def classify_volume(row):
+                rvol = row.get('rvol', 1.0) if pd.notna(row.get('rvol')) else 1.0
+                
+                if rvol >= 10.0:
+                    return "🌋 Volcanic Volume (RVOL >10x)"
+                elif rvol >= 5.0:
+                    return "💥 Explosive Volume (RVOL >5x)"
+                elif rvol >= 2.0:
+                    return "🔥 High Activity (RVOL >2x)"
+                elif rvol >= 1.5:
+                    return "📈 Growing Interest (RVOL >1.5x)"
+                elif rvol < 0.5:
+                    return "😴 Low Activity (RVOL <0.5x)"
+                else:
+                    return "Standard Volume"
+            
+            df['volume_tier'] = df.apply(classify_volume, axis=1)
+            logger.info(f"Volume tiers created. Sample tiers: {df['volume_tier'].value_counts().head()}")
+            
+        elif 'position_tension' in df.columns:
+            # Convert position_tension to percentage from 52W low (0-100%)
+            df['position_pct'] = df['position_tension'].apply(
+                lambda x: min(100, max(0, x * 100)) if pd.notna(x) else None
+            )
+            df['position_tier'] = df['position_pct'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
+            )
+        elif all(col in df.columns for col in ['price', 'low_52w', 'high_52w']):
+            # Calculate position percentage from price data
+            df['position_pct'] = ((df['price'] - df['low_52w']) / (df['high_52w'] - df['low_52w']) * 100).clip(0, 100)
+            df['position_tier'] = df['position_pct'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
         
         return df
@@ -2422,6 +2523,13 @@ class FilterEngine:
                 'pe_tiers': [],
                 'price_tiers': [],
                 'eps_change_tiers': [],
+                'position_tiers': [],
+                'position_range': (0, 100),
+                'performance_tiers': [],
+                'performance_custom_range': False,
+                'performance_1d_range': (-100, 100),
+                'performance_7d_range': (-100, 100),
+                'performance_30d_range': (-100, 100),
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
@@ -2494,7 +2602,16 @@ class FilterEngine:
             'wave_states': [],
             'wave_strength_range': (0, 100),
             'quick_filter': None,
-            'quick_filter_applied': False
+            'quick_filter_applied': False,
+            'performance_tiers': [],
+            'performance_custom_range': (-100, 500),
+            'ret_1d_range': (-50.0, 100.0),
+            'ret_7d_range': (-50.0, 200.0),
+            'ret_30d_range': (-50.0, 500.0),
+            'position_tiers': [],
+            'position_range': (0, 100),
+            'volume_tiers': [],
+            'rvol_range': (0.1, 20.0)
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -2504,9 +2621,13 @@ class FilterEngine:
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
             'patterns_multiselect', 'wave_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
+            'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
+            'volume_tier_multiselect',
             
             # Slider widgets
-            'min_score_slider', 'wave_strength_slider',
+            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
+            'ret_1d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
+            'position_range_slider', 'rvol_range_slider',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select',
@@ -2736,6 +2857,67 @@ class FilterEngine:
         # 5. EPS change filter - Now using tiers instead of min value
         if 'eps_change_tiers' in filters:
             masks.append(create_mask_from_isin('eps_change_tier', filters['eps_change_tiers']))
+        
+        # 5.5. Position Intelligence filters
+        if 'position_tiers' in filters:
+            selected_tiers = filters['position_tiers']
+            if selected_tiers and "🎯 Custom Range" not in selected_tiers:
+                masks.append(create_mask_from_isin('position_tier', selected_tiers))
+        
+        # Custom position range filter (only if "🎯 Custom Range" is selected)
+        if 'position_tiers' in filters and "🎯 Custom Range" in filters['position_tiers']:
+            if 'position_range' in filters:
+                position_range = filters['position_range']
+                if 'position_pct' in df.columns:
+                    masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
+        
+        # 5.6. Performance Intelligence filters
+        if 'performance_tiers' in filters:
+            selected_tiers = filters['performance_tiers']
+            if selected_tiers and "🎯 Custom Range" not in selected_tiers:
+                masks.append(create_mask_from_isin('performance_tier', selected_tiers))
+        
+        # Custom performance range filter (only if "🎯 Custom Range" is selected)
+        if 'performance_tiers' in filters and "🎯 Custom Range" in filters['performance_tiers']:
+            # Individual range filters for each timeframe
+            if 'ret_1d_range' in filters and 'ret_1d' in df.columns:
+                range_val = filters['ret_1d_range']
+                masks.append(df['ret_1d'].between(range_val[0], range_val[1], inclusive='both'))
+            
+            if 'ret_7d_range' in filters and 'ret_7d' in df.columns:
+                range_val = filters['ret_7d_range']
+                masks.append(df['ret_7d'].between(range_val[0], range_val[1], inclusive='both'))
+            
+            if 'ret_30d_range' in filters and 'ret_30d' in df.columns:
+                range_val = filters['ret_30d_range']
+                masks.append(df['ret_30d'].between(range_val[0], range_val[1], inclusive='both'))
+            
+            # Legacy support for old performance_custom_range
+            if 'performance_custom_range' in filters:
+                perf_range = filters['performance_custom_range']
+                # Apply Custom Range to any available return percentage column
+                perf_masks = []
+                for col in ['ret_1d', 'ret_7d', 'ret_30d']:
+                    if col in df.columns:
+                        perf_masks.append(df[col].between(perf_range[0], perf_range[1], inclusive='both'))
+                if perf_masks:
+                    # Use OR logic - stock qualifies if it meets the range in ANY timeframe
+                    combined_mask = perf_masks[0]
+                    for mask in perf_masks[1:]:
+                        combined_mask = combined_mask | mask
+                    masks.append(combined_mask)
+        
+        # 5.7. Volume Intelligence filters
+        if 'volume_tiers' in filters:
+            selected_tiers = filters['volume_tiers']
+            if selected_tiers and "🎯 Custom RVOL Range" not in selected_tiers:
+                masks.append(create_mask_from_isin('volume_tier', selected_tiers))
+        
+        # Custom RVOL range filter (only if "🎯 Custom RVOL Range" is selected)
+        if 'volume_tiers' in filters and "🎯 Custom RVOL Range" in filters['volume_tiers']:
+            if 'rvol_range' in filters and 'rvol' in df.columns:
+                rvol_range_val = filters['rvol_range']
+                masks.append(df['rvol'].between(rvol_range_val[0], rvol_range_val[1], inclusive='both'))
         
         # 6. PE filters
         if filters.get('min_pe') is not None and 'pe' in df.columns:
@@ -3456,6 +3638,11 @@ class SessionStateManager:
             'eps_tier_filter': [],
             'pe_tier_filter': [],
             'price_tier_filter': [],
+            'eps_change_tiers': [],
+            'position_tiers': [],
+            'position_range': (0, 100),
+            'performance_tiers': [],
+            'performance_custom_range': (-100, 500),
             'min_eps_change': "",
             'min_pe': "",
             'max_pe': "",
@@ -3492,6 +3679,11 @@ class SessionStateManager:
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
+                'eps_change_tiers': [],
+                'position_tiers': [],
+                'position_range': (0, 100),
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
                 'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
@@ -4354,6 +4546,38 @@ def main():
             if 'min_score_slider' in st.session_state:
                 st.session_state.filter_state['min_score'] = st.session_state.min_score_slider
         
+        def sync_position_tier():
+            if 'position_tier_multiselect' in st.session_state:
+                st.session_state.filter_state['position_tiers'] = st.session_state.position_tier_multiselect
+        
+        def sync_position_range():
+            if 'position_range_slider' in st.session_state:
+                st.session_state.filter_state['position_range'] = st.session_state.position_range_slider
+        
+        def sync_performance_tier():
+            if 'performance_tier_multiselect' in st.session_state:
+                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect
+        
+        def sync_performance_custom_range():
+            # Sync individual range sliders
+            if 'ret_1d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_1d_range'] = st.session_state.ret_1d_range_slider
+            if 'ret_7d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_7d_range'] = st.session_state.ret_7d_range_slider
+            if 'ret_30d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_30d_range'] = st.session_state.ret_30d_range_slider
+            # Legacy support
+            if 'performance_custom_range_slider' in st.session_state:
+                st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
+        
+        def sync_volume_tier():
+            if 'volume_tier_multiselect' in st.session_state:
+                st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect
+        
+        def sync_rvol_range():
+            if 'rvol_range_slider' in st.session_state:
+                st.session_state.filter_state['rvol_range'] = st.session_state.rvol_range_slider
+        
         def sync_patterns():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
@@ -4440,6 +4664,157 @@ def main():
         
         if min_score > 0:
             filters['min_score'] = min_score
+        
+        # 📈 Performance Intelligence Filter
+        if any(col in ranked_df_display.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+            st.subheader("📈 Performance Intelligence")
+            
+            # Unified performance tier dropdown
+            performance_options = [
+                "🚀 Strong Gainers (>5% 1D)",
+                "⚡ Power Moves (>10% 1D)",
+                "💥 Explosive (>20% 1D)",
+                "📈 Weekly Winners (>15% 7D)",
+                "🏆 Monthly Champions (>30% 30D)",
+                "🎯 Custom Range"
+            ]
+            
+            performance_tiers = st.multiselect(
+                "📈 Performance Filter",
+                options=performance_options,
+                default=st.session_state.filter_state.get('performance_tiers', []),
+                key='performance_tier_multiselect',
+                on_change=sync_performance_tier,
+                help="Select performance categories or use Custom Range"
+            )
+            
+            if performance_tiers:
+                filters['performance_tiers'] = performance_tiers
+            
+            # Show custom range sliders when "🎯 Custom Range" is selected
+            custom_range_selected = any("Custom Range" in tier for tier in performance_tiers)
+            if custom_range_selected:
+                st.write("📊 **Custom Performance Range Filters**")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    ret_1d_range = st.slider(
+                        "1-Day Return Range (%)",
+                        min_value=-50.0,
+                        max_value=100.0,
+                        value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
+                        step=1.0,
+                        help="Filter stocks by 1-day return percentage",
+                        key="ret_1d_range_slider",
+                        on_change=sync_performance_custom_range
+                    )
+                
+                with col2:
+                    ret_7d_range = st.slider(
+                        "7-Day Return Range (%)",
+                        min_value=-50.0,
+                        max_value=200.0,
+                        value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
+                        step=1.0,
+                        help="Filter stocks by 7-day return percentage",
+                        key="ret_7d_range_slider",
+                        on_change=sync_performance_custom_range
+                    )
+                
+                with col3:
+                    ret_30d_range = st.slider(
+                        "30-Day Return Range (%)",
+                        min_value=-50.0,
+                        max_value=500.0,
+                        value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
+                        step=1.0,
+                        help="Filter stocks by 30-day return percentage",
+                        key="ret_30d_range_slider",
+                        on_change=sync_performance_custom_range
+                    )
+                
+                # Store the custom ranges if they're not default values
+                if ret_1d_range != (-50.0, 100.0):
+                    filters['ret_1d_range'] = ret_1d_range
+                if ret_7d_range != (-50.0, 200.0):
+                    filters['ret_7d_range'] = ret_7d_range
+                if ret_30d_range != (-50.0, 500.0):
+                    filters['ret_30d_range'] = ret_30d_range
+        
+        # 📊 Volume Intelligence Filter
+        if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
+            st.subheader("📊 Volume Intelligence")
+            
+            # Volume tier multiselect with custom range option
+            volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
+            volume_tiers = st.multiselect(
+                "🌊 Volume Activity Tiers",
+                options=volume_tier_options,
+                default=st.session_state.filter_state.get('volume_tiers', []),
+                key='volume_tier_multiselect',
+                on_change=sync_volume_tier,
+                help="Select volume activity levels based on RVOL or use custom range"
+            )
+            
+            if volume_tiers:
+                filters['volume_tiers'] = volume_tiers
+            
+            # Show custom RVOL range slider only when "🎯 Custom RVOL Range" is selected
+            custom_rvol_range_selected = any("Custom RVOL Range" in tier for tier in volume_tiers)
+            if custom_rvol_range_selected:
+                st.write("📊 **Custom RVOL Range Filter**")
+                
+                rvol_range = st.slider(
+                    "🎯 Custom RVOL Range (Relative Volume)",
+                    min_value=0.1,
+                    max_value=20.0,
+                    value=st.session_state.filter_state.get('rvol_range', (0.1, 20.0)),
+                    step=0.1,
+                    help="Filter by custom relative volume range (1.0 = average volume)",
+                    key="rvol_range_slider",
+                    on_change=sync_rvol_range
+                )
+                
+                if rvol_range != (0.1, 20.0):
+                    filters['rvol_range'] = rvol_range
+        
+        # 🎯 Position Intelligence Filter
+        if 'position_tier' in ranked_df_display.columns or 'from_low_pct' in ranked_df_display.columns:
+            st.subheader("🎯 Position Intelligence")
+            
+            # Position tier multiselect with custom range option
+            position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Range"]
+            position_tiers = st.multiselect(
+                "🌍 Position Tiers",
+                options=position_tier_options,
+                default=st.session_state.filter_state.get('position_tiers', []),
+                key='position_tier_multiselect',
+                on_change=sync_position_tier,
+                help="Select position ranges based on 52-week range or use custom range"
+            )
+            
+            if position_tiers:
+                filters['position_tiers'] = position_tiers
+            
+            # Show custom range slider only when "🎯 Custom Range" is selected
+            custom_position_range_selected = any("Custom Range" in tier for tier in position_tiers)
+            if custom_position_range_selected:
+                st.write("📊 **Custom Position Range Filter**")
+                
+                position_range = st.slider(
+                    "🎯 Custom Position Range (% from 52W Low)",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('position_range', (0, 100)),
+                    step=1,
+                    help="Filter by custom position percentage from 52-week low",
+                    key="position_range_slider",
+                    on_change=sync_position_range
+                )
+                
+                if position_range != (0, 100):
+                    filters['position_range'] = position_range
         
         # Pattern filter with callback
         all_patterns = set()
@@ -4553,8 +4928,8 @@ def main():
                     st.session_state.filter_state['price_tiers'] = st.session_state.price_tier_multiselect
             
             def sync_eps_change_tier():
-                if 'eps_change_tier_multiselect' in st.session_state:
-                    st.session_state.filter_state['eps_change_tiers'] = st.session_state.eps_change_tier_multiselect
+                if 'eps_change_tiers_widget' in st.session_state:
+                    st.session_state.filter_state['eps_change_tiers'] = st.session_state.eps_change_tiers_widget
             
             def sync_min_pe():
                 if 'min_pe_input' in st.session_state:
@@ -4586,8 +4961,7 @@ def main():
             for tier_type, col_name, filter_key, sync_func in [
                 ('eps_tiers', 'eps_tier', 'eps_tiers', sync_eps_tier),
                 ('pe_tiers', 'pe_tier', 'pe_tiers', sync_pe_tier),
-                ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier),
-                ('eps_change_tiers', 'eps_change_tier', 'eps_change_tiers', sync_eps_change_tier)
+                ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier)
             ]:
                 if col_name in ranked_df_display.columns:
                     tier_options = FilterEngine.get_filter_options(ranked_df_display, col_name, filters)
@@ -4609,8 +4983,8 @@ def main():
                 # EPS Change Tier Filter
                 eps_change_tiers = st.multiselect(
                     "EPS Change Tier",
-                    options=CONFIG.TIERS['eps_change_tiers'],
-                    default=st.session_state.eps_change_tiers,
+                    options=list(CONFIG.TIERS['eps_change_pct'].keys()),
+                    default=st.session_state.filter_state.get('eps_change_tiers', []),
                     key='eps_change_tiers_widget',
                     on_change=sync_eps_change_tier,
                     help="Select EPS change tiers to include"
