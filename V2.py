@@ -83,12 +83,13 @@ class Config:
     # Critical columns (app fails without these)
     CRITICAL_COLUMNS: List[str] = field(default_factory=lambda: ['ticker', 'price', 'volume_1d'])
     
-    # Important columns (degraded experience without) - FIX: REMOVED DUPLICATES
+    # Important columns (degraded experience without) - ENHANCED with all return periods
     IMPORTANT_COLUMNS: List[str] = field(default_factory=lambda: [
         'category', 'sector', 'industry',
         'rvol', 'pe', 'eps_current', 'eps_change_pct',
         'sma_20d', 'sma_50d', 'sma_200d',
-        'ret_1d', 'ret_7d', 'ret_30d', 'from_low_pct', 'from_high_pct',
+        'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y',
+        'from_low_pct', 'from_high_pct',
         'vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d',
         'vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d',
         'vol_ratio_90d_180d'
@@ -212,11 +213,22 @@ class Config:
             "🏔️ Near Highs (80-100%)": (80, 100)
         },
         "performance_tiers": {
+            # Short-term momentum (Intraday to Weekly)
             "🚀 Strong Gainers (>5% 1D)": ("ret_1d", 5),
             "⚡ Power Moves (>10% 1D)": ("ret_1d", 10),
             "💥 Explosive (>20% 1D)": ("ret_1d", 20),
+            "🌟 3-Day Surge (>8% 3D)": ("ret_3d", 8),
             "📈 Weekly Winners (>15% 7D)": ("ret_7d", 15),
-            "🏆 Monthly Champions (>30% 30D)": ("ret_30d", 30)
+            
+            # Medium-term growth (Monthly to Quarterly)
+            "🏆 Monthly Champions (>30% 30D)": ("ret_30d", 30),
+            "🎯 Quarterly Stars (>50% 3M)": ("ret_3m", 50),
+            "💎 Half-Year Heroes (>75% 6M)": ("ret_6m", 75),
+            
+            # Long-term performance (Annual to Multi-year)
+            "🌙 Annual Winners (>100% 1Y)": ("ret_1y", 100),
+            "👑 Multi-Year Champions (>200% 3Y)": ("ret_3y", 200),
+            "🏛️ Long-Term Legends (>300% 5Y)": ("ret_5y", 300)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -775,37 +787,69 @@ class DataProcessor:
             logger.info(f"Position tiers created from from_low_pct. Sample tiers: {df['position_tier'].value_counts().head()}")
         
         # Performance tier classifications - Unified approach
-        if any(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-            # Convert to percentage for classification
-            if 'ret_1d' in df.columns:
-                df['ret_1d_pct'] = df['ret_1d'] * 100
-            if 'ret_7d' in df.columns:
-                df['ret_7d_pct'] = df['ret_7d'] * 100
-            if 'ret_30d' in df.columns:
-                df['ret_30d_pct'] = df['ret_30d'] * 100
+        # Enhanced performance tier classification with ALL return periods
+        available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in df.columns]
+        if available_return_cols:
+            # Convert to percentage for classification (if needed - most are already in %)
+            for col in available_return_cols:
+                if col in df.columns:
+                    # Check if values are in decimal format (e.g., 0.05 for 5%)
+                    sample_vals = df[col].dropna().head(100)
+                    if len(sample_vals) > 0 and sample_vals.abs().max() < 1.0:
+                        df[f'{col}_pct'] = df[col] * 100
+                    else:
+                        df[f'{col}_pct'] = df[col]  # Already in percentage
             
-            # Unified performance tier classification
+            # Enhanced performance tier classification with ALL timeframes
             def classify_performance(row):
-                ret_1d = row.get('ret_1d', 0) if pd.notna(row.get('ret_1d')) else 0
-                ret_7d = row.get('ret_7d', 0) if pd.notna(row.get('ret_7d')) else 0
-                ret_30d = row.get('ret_30d', 0) if pd.notna(row.get('ret_30d')) else 0
+                # Get all return values (handle both percentage and decimal formats)
+                returns = {}
+                for col in available_return_cols:
+                    val = row.get(col, 0) if pd.notna(row.get(col)) else 0
+                    # Use percentage version if available, otherwise raw value
+                    pct_col = f'{col}_pct'
+                    if pct_col in row:
+                        returns[col] = row.get(pct_col, 0) if pd.notna(row.get(pct_col)) else 0
+                    else:
+                        returns[col] = val
                 
-                # Check for explosive daily moves first (highest priority)
-                if ret_1d > 20:
+                # Priority-based classification (explosive short-term first, then longer-term)
+                
+                # Explosive short-term moves (highest priority)
+                if 'ret_1d' in returns and returns['ret_1d'] > 20:
                     return "💥 Explosive (>20% 1D)"
-                elif ret_1d > 10:
+                elif 'ret_1d' in returns and returns['ret_1d'] > 10:
                     return "⚡ Power Moves (>10% 1D)"
-                elif ret_1d > 5:
+                elif 'ret_1d' in returns and returns['ret_1d'] > 5:
                     return "🚀 Strong Gainers (>5% 1D)"
-                elif ret_30d > 30:
-                    return "🏆 Monthly Champions (>30% 30D)"
-                elif ret_7d > 15:
+                
+                # Short-term momentum
+                elif 'ret_3d' in returns and returns['ret_3d'] > 8:
+                    return "🌟 3-Day Surge (>8% 3D)"
+                elif 'ret_7d' in returns and returns['ret_7d'] > 15:
                     return "📈 Weekly Winners (>15% 7D)"
+                elif 'ret_30d' in returns and returns['ret_30d'] > 30:
+                    return "🏆 Monthly Champions (>30% 30D)"
+                
+                # Medium-term performance
+                elif 'ret_3m' in returns and returns['ret_3m'] > 50:
+                    return "🎯 Quarterly Stars (>50% 3M)"
+                elif 'ret_6m' in returns and returns['ret_6m'] > 75:
+                    return "� Half-Year Heroes (>75% 6M)"
+                
+                # Long-term performance
+                elif 'ret_1y' in returns and returns['ret_1y'] > 100:
+                    return "🌙 Annual Winners (>100% 1Y)"
+                elif 'ret_3y' in returns and returns['ret_3y'] > 200:
+                    return "👑 Multi-Year Champions (>200% 3Y)"
+                elif 'ret_5y' in returns and returns['ret_5y'] > 300:
+                    return "🏛️ Long-Term Legends (>300% 5Y)"
+                
                 else:
                     return "Standard"
             
             df['performance_tier'] = df.apply(classify_performance, axis=1)
-            logger.info(f"Performance tiers created. Sample tiers: {df['performance_tier'].value_counts().head()}")
+            logger.info(f"Enhanced performance tiers created with {len(available_return_cols)} timeframes. Sample tiers: {df['performance_tier'].value_counts().head()}")
             
         # Volume tier classification
         if 'rvol' in df.columns:
@@ -2606,8 +2650,14 @@ class FilterEngine:
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'ret_1d_range': (-50.0, 100.0),
+            'ret_3d_range': (-50.0, 150.0),
             'ret_7d_range': (-50.0, 200.0),
             'ret_30d_range': (-50.0, 500.0),
+            'ret_3m_range': (-70.0, 300.0),
+            'ret_6m_range': (-80.0, 500.0),
+            'ret_1y_range': (-90.0, 1000.0),
+            'ret_3y_range': (-95.0, 2000.0),
+            'ret_5y_range': (-99.0, 5000.0),
             'position_tiers': [],
             'position_range': (0, 100),
             'volume_tiers': [],
@@ -2626,7 +2676,8 @@ class FilterEngine:
             
             # Slider widgets
             'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
-            'ret_1d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
+            'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
+            'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
             
             # Selectbox widgets
@@ -2874,23 +2925,96 @@ class FilterEngine:
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
             selected_tiers = filters['performance_tiers']
-            if selected_tiers and "🎯 Custom Range" not in selected_tiers:
+            # Only apply preset tier filtering if "Custom Range" is not selected
+            custom_range_in_tiers = any("Custom Range" in tier for tier in selected_tiers) if selected_tiers else False
+            if selected_tiers and not custom_range_in_tiers:
                 masks.append(create_mask_from_isin('performance_tier', selected_tiers))
         
-        # Custom performance range filter (only if "🎯 Custom Range" is selected)
-        if 'performance_tiers' in filters and "🎯 Custom Range" in filters['performance_tiers']:
-            # Individual range filters for each timeframe
+        # Custom performance range filter (only apply if actual range filters are modified from defaults)
+        custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
+        
+        if custom_range_selected:
+            # Define default ranges for each timeframe
+            default_ranges = {
+                'ret_1d_range': (-50.0, 100.0),
+                'ret_3d_range': (-50.0, 150.0),
+                'ret_7d_range': (-50.0, 200.0),
+                'ret_30d_range': (-50.0, 500.0),
+                'ret_3m_range': (-70.0, 1000.0),
+                'ret_6m_range': (-80.0, 2000.0),
+                'ret_1y_range': (-90.0, 5000.0),
+                'ret_3y_range': (-95.0, 10000.0),
+                'ret_5y_range': (-99.0, 20000.0)
+            }
+            
+            # Only apply filters for ranges that have been modified from defaults
+            active_custom_ranges = []
+            
+            # Short-term performance ranges
             if 'ret_1d_range' in filters and 'ret_1d' in df.columns:
                 range_val = filters['ret_1d_range']
-                masks.append(df['ret_1d'].between(range_val[0], range_val[1], inclusive='both'))
+                if range_val != default_ranges['ret_1d_range']:
+                    masks.append(df['ret_1d'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_1d_range')
+            
+            if 'ret_3d_range' in filters and 'ret_3d' in df.columns:
+                range_val = filters['ret_3d_range']
+                if range_val != default_ranges['ret_3d_range']:
+                    masks.append(df['ret_3d'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_3d_range')
             
             if 'ret_7d_range' in filters and 'ret_7d' in df.columns:
                 range_val = filters['ret_7d_range']
-                masks.append(df['ret_7d'].between(range_val[0], range_val[1], inclusive='both'))
+                if range_val != default_ranges['ret_7d_range']:
+                    masks.append(df['ret_7d'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_7d_range')
             
             if 'ret_30d_range' in filters and 'ret_30d' in df.columns:
                 range_val = filters['ret_30d_range']
-                masks.append(df['ret_30d'].between(range_val[0], range_val[1], inclusive='both'))
+                if range_val != default_ranges['ret_30d_range']:
+                    masks.append(df['ret_30d'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_30d_range')
+            
+            # Medium-term performance ranges
+            if 'ret_3m_range' in filters and 'ret_3m' in df.columns:
+                range_val = filters['ret_3m_range']
+                if range_val != default_ranges['ret_3m_range']:
+                    masks.append(df['ret_3m'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_3m_range')
+            
+            if 'ret_6m_range' in filters and 'ret_6m' in df.columns:
+                range_val = filters['ret_6m_range']
+                if range_val != default_ranges['ret_6m_range']:
+                    masks.append(df['ret_6m'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_6m_range')
+            
+            # Long-term performance ranges
+            if 'ret_1y_range' in filters and 'ret_1y' in df.columns:
+                range_val = filters['ret_1y_range']
+                if range_val != default_ranges['ret_1y_range']:
+                    masks.append(df['ret_1y'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_1y_range')
+            
+            if 'ret_3y_range' in filters and 'ret_3y' in df.columns:
+                range_val = filters['ret_3y_range']
+                if range_val != default_ranges['ret_3y_range']:
+                    masks.append(df['ret_3y'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_3y_range')
+            
+            if 'ret_5y_range' in filters and 'ret_5y' in df.columns:
+                range_val = filters['ret_5y_range']
+                if range_val != default_ranges['ret_5y_range']:
+                    masks.append(df['ret_5y'].between(range_val[0], range_val[1], inclusive='both'))
+                    active_custom_ranges.append('ret_5y_range')
+            
+            # CRITICAL FIX: If Custom Range is selected but no ranges are modified,
+            # don't apply any performance filtering (show all stocks)
+            # This prevents the "0 stocks" issue when just selecting Custom Range
+            if not active_custom_ranges:
+                # No custom ranges are active, so don't filter by performance
+                pass  # This effectively shows all stocks for performance filtering
+            else:
+                logger.info(f"Active custom ranges: {active_custom_ranges}")
             
             # Legacy support for old performance_custom_range
             if 'performance_custom_range' in filters:
@@ -4563,13 +4687,25 @@ def main():
                 st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect
         
         def sync_performance_custom_range():
-            # Sync individual range sliders
+            # Sync individual range sliders for all timeframes
             if 'ret_1d_range_slider' in st.session_state:
                 st.session_state.filter_state['ret_1d_range'] = st.session_state.ret_1d_range_slider
+            if 'ret_3d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3d_range'] = st.session_state.ret_3d_range_slider
             if 'ret_7d_range_slider' in st.session_state:
                 st.session_state.filter_state['ret_7d_range'] = st.session_state.ret_7d_range_slider
             if 'ret_30d_range_slider' in st.session_state:
                 st.session_state.filter_state['ret_30d_range'] = st.session_state.ret_30d_range_slider
+            if 'ret_3m_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3m_range'] = st.session_state.ret_3m_range_slider
+            if 'ret_6m_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_6m_range'] = st.session_state.ret_6m_range_slider
+            if 'ret_1y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_1y_range'] = st.session_state.ret_1y_range_slider
+            if 'ret_3y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3y_range'] = st.session_state.ret_3y_range_slider
+            if 'ret_5y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_5y_range'] = st.session_state.ret_5y_range_slider
             # Legacy support
             if 'performance_custom_range_slider' in st.session_state:
                 st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
@@ -4670,17 +4806,30 @@ def main():
             filters['min_score'] = min_score
         
         # 📈 Performance Intelligence Filter
-        if any(col in ranked_df_display.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+        available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+        if available_return_cols:
             st.subheader("📈 Performance Intelligence")
             
-            # Unified performance tier dropdown
+            # Unified performance tier dropdown with all timeframes
             performance_options = [
+                # Short-term momentum
                 "🚀 Strong Gainers (>5% 1D)",
-                "⚡ Power Moves (>10% 1D)",
+                "⚡ Power Moves (>10% 1D)", 
                 "💥 Explosive (>20% 1D)",
+                "🌟 3-Day Surge (>8% 3D)",
                 "📈 Weekly Winners (>15% 7D)",
+                
+                # Medium-term growth
                 "🏆 Monthly Champions (>30% 30D)",
-                "🎯 Custom Range"
+                "🎯 Quarterly Stars (>50% 3M)",
+                "💎 Half-Year Heroes (>75% 6M)",
+                
+                # Long-term performance  
+                "� Annual Winners (>100% 1Y)",
+                "👑 Multi-Year Champions (>200% 3Y)",
+                "🏛️ Long-Term Legends (>300% 5Y)",
+                
+                "�🎯 Custom Range"
             ]
             
             performance_tiers = st.multiselect(
@@ -4689,7 +4838,7 @@ def main():
                 default=st.session_state.filter_state.get('performance_tiers', []),
                 key='performance_tier_multiselect',
                 on_change=sync_performance_tier,
-                help="Select performance categories or use Custom Range"
+                help="Select performance categories or use Custom Range for precise control"
             )
             
             if performance_tiers:
@@ -4698,53 +4847,154 @@ def main():
             # Show custom range sliders when "🎯 Custom Range" is selected
             custom_range_selected = any("Custom Range" in tier for tier in performance_tiers)
             if custom_range_selected:
-                st.write("📊 **Custom Performance Range Filters**")
+                st.write("📊 **Multi-Timeframe Performance Range Filters**")
                 
+                # Short-term performance (1D to 30D)
+                st.write("🚀 **Short-Term Performance**")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if 'ret_1d' in available_return_cols:
+                        ret_1d_range = st.slider(
+                            "1-Day Return (%)",
+                            min_value=-50.0,
+                            max_value=100.0,
+                            value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
+                            step=1.0,
+                            help="Filter by 1-day return percentage",
+                            key="ret_1d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1d_range != (-50.0, 100.0):
+                            filters['ret_1d_range'] = ret_1d_range
+                
+                with col2:
+                    if 'ret_3d' in available_return_cols:
+                        ret_3d_range = st.slider(
+                            "3-Day Return (%)",
+                            min_value=-50.0,
+                            max_value=150.0,
+                            value=st.session_state.filter_state.get('ret_3d_range', (-50.0, 150.0)),
+                            step=1.0,
+                            help="Filter by 3-day return percentage",
+                            key="ret_3d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3d_range != (-50.0, 150.0):
+                            filters['ret_3d_range'] = ret_3d_range
+                
+                with col3:
+                    if 'ret_7d' in available_return_cols:
+                        ret_7d_range = st.slider(
+                            "7-Day Return (%)",
+                            min_value=-50.0,
+                            max_value=200.0,
+                            value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
+                            step=1.0,
+                            help="Filter by 7-day return percentage",
+                            key="ret_7d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_7d_range != (-50.0, 200.0):
+                            filters['ret_7d_range'] = ret_7d_range
+                
+                with col4:
+                    if 'ret_30d' in available_return_cols:
+                        ret_30d_range = st.slider(
+                            "30-Day Return (%)",
+                            min_value=-50.0,
+                            max_value=500.0,
+                            value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
+                            step=1.0,
+                            help="Filter by 30-day return percentage",
+                            key="ret_30d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_30d_range != (-50.0, 500.0):
+                            filters['ret_30d_range'] = ret_30d_range
+                
+                # Medium-term performance (3M to 6M)
+                st.write("💎 **Medium-Term Performance**")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if 'ret_3m' in available_return_cols:
+                        ret_3m_range = st.slider(
+                            "3-Month Return (%)",
+                            min_value=-70.0,
+                            max_value=300.0,
+                            value=st.session_state.filter_state.get('ret_3m_range', (-70.0, 300.0)),
+                            step=5.0,
+                            help="Filter by 3-month return percentage",
+                            key="ret_3m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3m_range != (-70.0, 300.0):
+                            filters['ret_3m_range'] = ret_3m_range
+                
+                with col2:
+                    if 'ret_6m' in available_return_cols:
+                        ret_6m_range = st.slider(
+                            "6-Month Return (%)",
+                            min_value=-80.0,
+                            max_value=2000.0,
+                            value=st.session_state.filter_state.get('ret_6m_range', (-80.0, 2000.0)),
+                            step=10.0,
+                            help="Filter by 6-month return percentage",
+                            key="ret_6m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_6m_range != (-80.0, 2000.0):
+                            filters['ret_6m_range'] = ret_6m_range
+                
+                # Long-term performance (1Y to 5Y)
+                st.write("🏛️ **Long-Term Performance**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    ret_1d_range = st.slider(
-                        "1-Day Return Range (%)",
-                        min_value=-50.0,
-                        max_value=100.0,
-                        value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
-                        step=1.0,
-                        help="Filter stocks by 1-day return percentage",
-                        key="ret_1d_range_slider",
-                        on_change=sync_performance_custom_range
-                    )
+                    if 'ret_1y' in available_return_cols:
+                        ret_1y_range = st.slider(
+                            "1-Year Return (%)",
+                            min_value=-90.0,
+                            max_value=5000.0,
+                            value=st.session_state.filter_state.get('ret_1y_range', (-90.0, 5000.0)),
+                            step=25.0,
+                            help="Filter by 1-year return percentage",
+                            key="ret_1y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1y_range != (-90.0, 5000.0):
+                            filters['ret_1y_range'] = ret_1y_range
                 
                 with col2:
-                    ret_7d_range = st.slider(
-                        "7-Day Return Range (%)",
-                        min_value=-50.0,
-                        max_value=200.0,
-                        value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
-                        step=1.0,
-                        help="Filter stocks by 7-day return percentage",
-                        key="ret_7d_range_slider",
-                        on_change=sync_performance_custom_range
-                    )
+                    if 'ret_3y' in available_return_cols:
+                        ret_3y_range = st.slider(
+                            "3-Year Return (%)",
+                            min_value=-95.0,
+                            max_value=10000.0,
+                            value=st.session_state.filter_state.get('ret_3y_range', (-95.0, 10000.0)),
+                            step=50.0,
+                            help="Filter by 3-year return percentage",
+                            key="ret_3y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3y_range != (-95.0, 10000.0):
+                            filters['ret_3y_range'] = ret_3y_range
                 
                 with col3:
-                    ret_30d_range = st.slider(
-                        "30-Day Return Range (%)",
-                        min_value=-50.0,
-                        max_value=500.0,
-                        value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
-                        step=1.0,
-                        help="Filter stocks by 30-day return percentage",
-                        key="ret_30d_range_slider",
-                        on_change=sync_performance_custom_range
-                    )
-                
-                # Store the custom ranges if they're not default values
-                if ret_1d_range != (-50.0, 100.0):
-                    filters['ret_1d_range'] = ret_1d_range
-                if ret_7d_range != (-50.0, 200.0):
-                    filters['ret_7d_range'] = ret_7d_range
-                if ret_30d_range != (-50.0, 500.0):
-                    filters['ret_30d_range'] = ret_30d_range
+                    if 'ret_5y' in available_return_cols:
+                        ret_5y_range = st.slider(
+                            "5-Year Return (%)",
+                            min_value=-99.0,
+                            max_value=20000.0,
+                            value=st.session_state.filter_state.get('ret_5y_range', (-99.0, 20000.0)),
+                            step=100.0,
+                            help="Filter by 5-year return percentage",
+                            key="ret_5y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_5y_range != (-99.0, 20000.0):
+                            filters['ret_5y_range'] = ret_5y_range
         
         # 📊 Volume Intelligence Filter
         if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
