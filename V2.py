@@ -1774,7 +1774,7 @@ class PatternDetector:
             (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
             (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
         )
-            patterns.append(('� LIQUID LEADER', mask))        # 10. Long-term Strength
+        patterns.append(('💸 LIQUID LEADER', mask))
         mask = get_col_safe('long_term_strength', 0) >= CONFIG.PATTERN_THRESHOLDS.get('long_strength', 80)
         patterns.append(('💪 LONG STRENGTH', mask))
         
@@ -1785,14 +1785,14 @@ class PatternDetector:
         # ========== FUNDAMENTAL PATTERNS (12-16) ==========
         
         # 12. Value Momentum - Low PE with high score
-        pe = get_col_safe('pe')
-        mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
-        patterns.append(('� VALUE MOMENTUM', mask))
+    pe = get_col_safe('pe')
+    mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
+    patterns.append(('💠 VALUE MOMENTUM', mask))
         
         # 13. Earnings Rocket - High EPS growth with acceleration
-        eps_change_pct = get_col_safe('eps_change_pct')
-        mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
-        patterns.append(('� EARNINGS ROCKET', mask))
+    eps_change_pct = get_col_safe('eps_change_pct')
+    mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
+    patterns.append(('🚀 EARNINGS ROCKET', mask))
 
         # 14. Quality Leader - Good PE, EPS growth, and percentile
         if all(col in df.columns for col in ['pe', 'eps_change_pct', 'percentile']):
@@ -1818,7 +1818,7 @@ class PatternDetector:
             (get_col_safe('volume_score', 0) >= 70) & 
             (get_col_safe('momentum_score', 0) >= 60)
         )
-            patterns.append(('� 52W HIGH APPROACH', mask))        # 18. 52W Low Bounce
+        patterns.append(('🎲 52W HIGH APPROACH', mask))
         mask = (
             (get_col_safe('from_low_pct', 100) < 20) & 
             (get_col_safe('acceleration_score', 0) >= 80) & 
@@ -1861,7 +1861,7 @@ class PatternDetector:
                     index=df.index
                 ).fillna(100)
             mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
-            patterns.append(('� RANGE COMPRESS', mask))
+            patterns.append(('🎪 RANGE COMPRESS', mask))
 
         # ========== INTELLIGENCE PATTERNS (23-25) ==========
         
@@ -2088,7 +2088,7 @@ class PatternDetector:
                 (get_col_safe('vol_ratio_30d_180d', 1) > get_col_safe('vol_ratio_90d_180d', 1)) &   # Sustained interest
                 (get_col_safe('ret_7d', 0) > 2)                                                      # Price following
             )
-            patterns.append(('�️ VOLUME WAVE', mask))
+            patterns.append(('🌪️ VOLUME WAVE', mask))
         
         # 40. INSTITUTIONAL ACCUMULATION - Smart money detection
         if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
@@ -2144,7 +2144,7 @@ class PatternDetector:
                 (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
                 (get_col_safe('rvol', 0) > 1.5)                              # Volume interest
             )
-            patterns.append(('� PULLBACK SUPPORT', mask))
+            patterns.append(('🎭 PULLBACK SUPPORT', mask))
         
         # 44. COILED SPRING - Range compression with pressure
         if all(col in df.columns for col in ['from_high_pct', 'from_low_pct', 'high_52w', 'low_52w', 'vol_ratio_7d_90d', 'ret_7d']):
@@ -2188,7 +2188,7 @@ class PatternDetector:
                 (get_col_safe('ret_1d', 0) > 1) &                            # Starting to bounce
                 (get_col_safe('rvol', 0) > 1.5)                              # Interest building
             )
-            patterns.append(('� OVERSOLD QUALITY', mask))
+            patterns.append(('💍 OVERSOLD QUALITY', mask))
 
         # ========== PROFESSIONAL ENHANCED PATTERNS (47-52) ==========
         
@@ -2304,7 +2304,7 @@ class PatternDetector:
                 # Technical position
                 price.notna() & sma_20d.notna() & (price > sma_20d)          # Above trend
             )
-            patterns.append(('� ENHANCED EARNINGS SURPRISE', mask))
+            patterns.append(('📈 ENHANCED EARNINGS SURPRISE', mask))
         
         # 51. ROTATION LEADER ENHANCED - Multi-timeframe sector leadership
         if all(col in df.columns for col in ['sector', 'ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'vol_ratio_30d_90d']):
@@ -2356,7 +2356,7 @@ class PatternDetector:
                 # Position
                 price.notna() & sma_20d.notna() & (price > sma_20d)
             )
-            patterns.append(('� GARP BREAKOUT', mask))
+            patterns.append(('💎 GARP BREAKOUT', mask))
 
         # ========== ADVANCED TECHNICAL INDICATORS (53-54) ==========
         
@@ -2452,7 +2452,7 @@ class PatternDetector:
                 (from_low_pct > 10) &  # Not at absolute lows
                 (get_col_safe('from_high_pct', -100) > -25)  # Room to run
             )
-            patterns.append(('� MOMENTUM QUALITY SCORE', mask))
+            patterns.append(('🏅 MOMENTUM QUALITY SCORE', mask))
 
         # 55. PRICE DEVIATION ANALYSIS - Enhanced VWAP alternative  
         if all(col in df.columns for col in ['price', 'sma_20d', 'sma_50d', 'sma_200d', 'volume_30d', 'volume_90d', 'ret_7d', 'ret_30d']):
