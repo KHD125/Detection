@@ -3229,7 +3229,7 @@ class PatternDetector:
         # 67. 🕰️ INFORMATION DECAY ARBITRAGE - Advanced information theory application  
         # Professional Use: Exploit information processing inefficiencies across timeframes
         # Strategy: Position ahead of market's delayed information processing and decay patterns
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'from_high_pct', 'from_low_pct', 'pe', 'eps_change_pct', 'price', 'sma_50d']):
+        try:
             # Information decay modeling with enhanced mathematical precision
             SHORT_HALFLIFE = 3.5    # days - empirically derived from market microstructure
             MEDIUM_HALFLIFE = 14    # days - institutional response time
@@ -3278,11 +3278,15 @@ class PatternDetector:
                 arbitrage_setup
             )
             patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', mask))
+        except Exception as e:
+            # Fallback pattern if advanced calculation fails
+            mask = pd.Series(False, index=df.index)
+            patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', mask))
 
         # 68. 🧩 ENTROPY COMPRESSION - Minimum entropy state detection with phase transition prediction
         # Professional Use: Identify unsustainable market order states before volatility expansion  
         # Strategy: Mathematical prediction of volatility expansion events using information entropy
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d', 'vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'from_high_pct', 'from_low_pct', 'price', 'sma_20d', 'sma_50d', 'rvol', 'eps_change_pct']):
+        try:
             ret_1d, ret_3d, ret_7d = get_col_safe('ret_1d', 0), get_col_safe('ret_3d', 0), get_col_safe('ret_7d', 0)
             
             # Calculate information entropy metrics using Shannon entropy principles
@@ -3334,11 +3338,15 @@ class PatternDetector:
                 (catalyst_potential >= 50)
             )
             patterns.append(('🧩 ENTROPY COMPRESSION', mask))
+        except Exception as e:
+            # Fallback pattern if advanced calculation fails
+            mask = pd.Series(False, index=df.index)
+            patterns.append(('🧩 ENTROPY COMPRESSION', mask))
 
         # 69. 🌪️ VOLATILITY PHASE SHIFT - Thermodynamic volatility regime transition detection
         # Professional Use: Early detection of volatility regime transitions before options pricing adjusts
         # Strategy: Pre-position for volatility state changes using thermodynamic principles
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'from_high_pct', 'from_low_pct', 'price', 'sma_20d', 'sma_50d', 'rvol', 'pe']):
+        try:
             ret_1d, ret_7d, ret_30d, ret_3m = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0), get_col_safe('ret_3m', 0)
             
             # Calculate volatility phase indicators using thermodynamic modeling
@@ -3391,6 +3399,10 @@ class PatternDetector:
                 (transition_probability >= 75) &
                 quality_filters
             )
+            patterns.append(('🌪️ VOLATILITY PHASE SHIFT', mask))
+        except Exception as e:
+            # Fallback pattern if advanced calculation fails
+            mask = pd.Series(False, index=df.index)
             patterns.append(('🌪️ VOLATILITY PHASE SHIFT', mask))
 
         # ============================================
