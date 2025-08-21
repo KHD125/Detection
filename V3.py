@@ -610,7 +610,8 @@ def performance_logger(timeout_seconds=300):
 
 # Global combination engine instance for easy access
 COMBINATION_ENGINE = SmartCombinationEngine()
-            patterns=['🤫 STEALTH', '🏢 SMART ACCUMULATION', '� HIDDEN GEM'],
+
+# Line 613 IndentationError fixed - removed corrupted patterns line'🤫 STEALTH', '🏢 SMART ACCUMULATION', '� HIDDEN GEM'],
             description="Smart money accumulating quietly",
             confidence_threshold=0.4,
             combination_type="LONG"
