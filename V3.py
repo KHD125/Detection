@@ -2035,12 +2035,12 @@ class PatternDetector:
         return summary_df 
         
 # ============================================
-# LEADERSHIP DENSITY ENGINE - ALL-TIME BEST APPROACH
+# ADVANCED SECTOR ENGINE - ENHANCED ANALYSIS APPROACH
 # ============================================
 
 class LeadershipDensityEngine:
     """
-    Revolutionary Leadership Density Index (LDI) approach for sector/industry/category analysis.
+    Advanced Leadership Density Index (LDI) approach for sector/industry/category analysis.
     
     This approach measures sector strength through leadership density rather than sampling bias.
     LDI = (Number of Market Leaders in Group) / (Total Stocks in Group) × 100
@@ -2541,7 +2541,7 @@ class MarketIntelligence:
         """
         Enhanced sector rotation detection using Leadership Density Index (LDI).
         
-        This revolutionary approach measures sector strength through leadership density
+        This advanced approach measures sector strength through leadership density
         rather than sampling bias, providing more accurate sector performance assessment.
         """
         if df.empty or 'sector' not in df.columns:
@@ -4031,7 +4031,7 @@ class UIComponents:
                         'Flow Score: %{y:.1f}<br>'
                         'LDI Score: %{customdata[0]:.1f}%<br>'
                         'Market Leaders: %{customdata[1]} of %{customdata[2]}<br>'
-                        'Leadership Density: %{customdata[3]}<br>'
+                        'LDI Score: %{customdata[3]}<br>'
                         'Elite Avg Score: %{customdata[4]:.1f}<br>'
                         'Quality: %{customdata[5]}<extra></extra>'
                     ) if all(col in top_10.columns for col in ['ldi_score', 'elite_avg_score', 'ldi_quality']) else (
@@ -4057,7 +4057,7 @@ class UIComponents:
                 ))
                 
                 # Dynamic title based on whether LDI is available
-                title = ("🔥 Leadership Density Sector Rotation Map - Revolutionary LDI Analysis" 
+                title = ("Enhanced Sector Rotation Map - Advanced LDI Analysis" 
                         if 'ldi_score' in top_10.columns 
                         else "Sector Rotation Map - Smart Money Flow")
                 
@@ -7308,7 +7308,7 @@ def main():
             
             st.markdown("---")
             
-            st.markdown("#### 🔥 Leadership Density Sector Performance")
+            st.markdown("####  🏢Enhanced Sector Performance")
             sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
             
             if not sector_overview_df_local.empty:
@@ -7324,7 +7324,7 @@ def main():
                 column_mapping = {
                     'flow_score': 'Enhanced Flow Score',
                     'ldi_score': 'LDI Score',
-                    'leadership_density': 'Leadership Density',
+                    'leadership_density': 'LDI Score',
                     'analyzed_stocks': 'Market Leaders',
                     'total_stocks': 'Total Stocks',
                     'avg_score': 'Avg Score',
@@ -7344,12 +7344,12 @@ def main():
                     column_config={
                         'LDI Score': st.column_config.NumberColumn(
                             'LDI Score',
-                            help="Leadership Density Index - % of market leaders in sector",
+                            help="Enhanced leadership score - % of market leaders in sector",
                             format="%.1f%%",
                             width="medium"
                         ),
                         'Leadership Density': st.column_config.TextColumn(
-                            'Leadership Density',
+                            'LDI Visual',
                             help="Visual representation of leadership concentration",
                             width="medium"
                         ),
@@ -7362,8 +7362,8 @@ def main():
                 )
                 
                 # Add enhanced explanation
-                st.info("� **Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
-                       "LDI = (Market Leaders in Sector / Total Stocks in Sector) × 100. Higher LDI = stronger sector leadership.")
+                st.info("� **Advanced Sector Analysis**: Uses advanced metrics to measure sector strength through market leader concentration. "
+                       "Enhanced scoring combines multiple factors for comprehensive sector evaluation.")
                 
                 # Add LDI insights
                 if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
@@ -7377,7 +7377,7 @@ def main():
             
             st.markdown("---")
             
-            st.markdown("#### 🔥 Leadership Density Industry Performance")
+            st.markdown("#### 🏭 Enhanced Industry Performance")
             industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
             
             if not industry_rotation.empty:
@@ -7396,7 +7396,7 @@ def main():
                     industry_rename_dict = {
                         'flow_score': 'Enhanced Flow Score',
                         'ldi_score': 'LDI Score', 
-                        'leadership_density': 'Leadership Density',
+                        'leadership_density': 'LDI Visual',
                         'analyzed_stocks': 'Market Leaders',
                         'total_stocks': 'Total Stocks',
                         'avg_score': 'Avg Score',
@@ -7418,12 +7418,12 @@ def main():
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
-                                help="Leadership Density Index - % of market leaders in industry",
+                                help="Enhanced leadership score - % of market leaders in industry",
                                 format="%.1f%%",
                                 width="medium"
                             ),
                             'Leadership Density': st.column_config.TextColumn(
-                                'Leadership Density',
+                                'LDI Visual',
                                 help="Visual representation of leadership concentration",
                                 width="medium"
                             )
@@ -7431,7 +7431,7 @@ def main():
                     )
                     
                     # Enhanced industry insights
-                    st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
+                    st.info("� **Enhanced Industry Analysis**: Shows leadership density across industries. "
                            "Industries with higher LDI scores have more market leaders per total stocks.")
                     
                 else:
@@ -7485,7 +7485,7 @@ def main():
                     # Rename for better UI
                     category_rename_dict = {
                         'ldi_score': 'LDI Score',
-                        'leadership_density': 'Leadership Density',
+                        'leadership_density': 'LDI Visual',
                         'leader_count': 'Market Leaders',
                         'total_stocks': 'Total Stocks',
                         'avg_score': 'Avg Score',
@@ -7503,12 +7503,12 @@ def main():
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
-                                help="Leadership Density Index - % of market leaders in category",
+                                help="Enhanced leadership score - % of market leaders in category",
                                 format="%.1f%%",
                                 width="medium"
                             ),
                             'Leadership Density': st.column_config.TextColumn(
-                                'Leadership Density',
+                                'LDI Visual',
                                 help="Visual representation of leadership concentration",
                                 width="medium"
                             )
