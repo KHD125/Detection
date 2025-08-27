@@ -1516,7 +1516,7 @@ class PatternDetector:
         '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
         '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
         '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
-        '🎯 PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
+        '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
         '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
 
@@ -2336,10 +2336,10 @@ class PatternDetector:
                     (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
                     (get_col_safe('rvol', 0) > 1.5)                              # Volume interest
                 )
-                patterns.append(('🎯 PULLBACK SUPPORT', ensure_series(mask)))
+                patterns.append(('🛡️ PULLBACK SUPPORT', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in PULLBACK SUPPORT pattern: {e}")
-            patterns.append(('🎯 PULLBACK SUPPORT', pd.Series(False, index=df.index)))
+            patterns.append(('🛡️ PULLBACK SUPPORT', pd.Series(False, index=df.index)))
 
         # 41. OVERSOLD QUALITY - Value opportunity identification
         try:
@@ -8812,7 +8812,7 @@ def main():
             - 🔄 TURNAROUND (Enhanced 5-Factor)
             - ⚠️ HIGH PE
             - 💹 GARP LEADER
-            - 🎯 PULLBACK SUPPORT
+            - 🛡️ PULLBACK SUPPORT
             - 💳 OVERSOLD QUALITY
             
             **Range Analysis (6)**
