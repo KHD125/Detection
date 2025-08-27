@@ -4719,13 +4719,13 @@ def main():
         # Control buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
+            if st.button("🔄 Refresh Data", type="primary", width="stretch"):
                 st.cache_data.clear()
                 st.session_state.last_refresh = datetime.now(timezone.utc)
                 st.rerun()
         
         with col2:
-            if st.button("🧹 Clear Cache", use_container_width=True):
+            if st.button("🧹 Clear Cache", width="stretch"):
                 st.cache_data.clear()
                 gc.collect()  # Force garbage collection
                 st.success("Cache cleared!")
@@ -4741,14 +4741,14 @@ def main():
         with data_source_col1:
             if st.button("📊 Google Sheets", 
                         type="primary" if st.session_state.data_source == "sheet" else "secondary", 
-                        use_container_width=True):
+                        width="stretch"):
                 st.session_state.data_source = "sheet"
                 st.rerun()
         
         with data_source_col2:
             if st.button("📁 Upload CSV", 
                         type="primary" if st.session_state.data_source == "upload" else "secondary", 
-                        use_container_width=True):
+                        width="stretch"):
                 st.session_state.data_source = "upload"
                 st.rerun()
 
@@ -4892,7 +4892,7 @@ def main():
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
         if st.button("🗑️ Clear All Filters", 
-                    use_container_width=True, 
+                    width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
             SessionStateManager.clear_filters()
             st.success("✅ All filters cleared!")
@@ -4963,31 +4963,31 @@ def main():
     quick_filter = st.session_state.get('quick_filter', None)
     
     with qa_col1:
-        if st.button("📈 Top Gainers", use_container_width=True):
+        if st.button("📈 Top Gainers", width="stretch"):
             st.session_state['quick_filter'] = 'top_gainers'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col2:
-        if st.button("🔥 Volume Surges", use_container_width=True):
+        if st.button("🔥 Volume Surges", width="stretch"):
             st.session_state['quick_filter'] = 'volume_surges'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col3:
-        if st.button("🎯 Breakout Ready", use_container_width=True):
+        if st.button("🎯 Breakout Ready", width="stretch"):
             st.session_state['quick_filter'] = 'breakout_ready'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col4:
-        if st.button("💎 Hidden Gems", use_container_width=True):
+        if st.button("💎 Hidden Gems", width="stretch"):
             st.session_state['quick_filter'] = 'hidden_gems'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col5:
-        if st.button("🌊 Show All", use_container_width=True):
+        if st.button("🌊 Show All", width="stretch"):
             st.session_state['quick_filter'] = None
             st.session_state['quick_filter_applied'] = False
             st.rerun()
@@ -5691,7 +5691,7 @@ def main():
         
         # Clear filters button - ENHANCED VERSION
         if st.button("🗑️ Clear All Filters", 
-                    use_container_width=True, 
+                    width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
             
@@ -6177,7 +6177,7 @@ def main():
             # Display the main dataframe with column configuration
             st.dataframe(
                 final_display_df,
-                use_container_width=True,
+                width="stretch",
                 height=min(600, len(final_display_df) * 35 + 50),
                 hide_index=True,
                 column_config=column_config
@@ -6207,7 +6207,7 @@ def main():
                         
                         st.dataframe(
                             stats_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="small"),
@@ -6234,7 +6234,7 @@ def main():
                         
                         st.dataframe(
                             ret_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="small"),
