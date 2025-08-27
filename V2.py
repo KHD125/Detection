@@ -1489,6 +1489,7 @@ class PatternDetector:
         '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
         '💪 LONG STRENGTH': {'importance_weight': 5, 'category': 'trend'},
         '📈 QUALITY TREND': {'importance_weight': 10, 'category': 'trend'},
+        '🧬 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
         '💎 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
         '📊 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
         '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
@@ -1645,7 +1646,7 @@ class PatternDetector:
     @staticmethod
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
-        Defines all 36 patterns using vectorized boolean masks.
+        Defines all 37 patterns using vectorized boolean masks.
         Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
@@ -1713,38 +1714,68 @@ class PatternDetector:
         # 11. Quality Trend - Strong SMA alignment
         mask = get_col_safe('trend_quality', 0) >= 80
         patterns.append(('📈 QUALITY TREND', mask))
-
-        # ========== FUNDAMENTAL PATTERNS (12-16) ==========
         
-        # 12. Value Momentum - Low PE with high score
+        # 12. Premium Momentum Grade - Genetic momentum pattern
+        try:
+            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
+            
+            # Genetic momentum template (successful pattern DNA)
+            momentum_dna_score = (
+                # Gene 1: Acceleration consistency (25 points)
+                np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
+                
+                # Gene 2: Progressive strength (30 points) 
+                np.where(ret_7d > (ret_30d / 4), 30, 0) +
+                
+                # Gene 3: Volume confirmation (20 points)
+                np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
+                
+                # Gene 4: Quality foundation (25 points)
+                np.where(get_col_safe('master_score', 0) >= 70, 25, 0)
+            )
+            
+            # Genetic pattern strength threshold
+            mask = (
+                (momentum_dna_score >= 75) &                     # Strong genetic match
+                (get_col_safe('from_low_pct', 0) > 15) &        # Not at bottom
+                (get_col_safe('from_high_pct', 0) > -15) &      # Room to run
+                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)     # Volume increasing
+            )
+        except Exception as e:
+            mask = pd.Series(False, index=df.index)
+        patterns.append(('🧬 PREMIUM MOMENTUM', mask))
+
+        # ========== FUNDAMENTAL PATTERNS (13-17) ==========
+        
+        # 13. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
         patterns.append(('💎 VALUE MOMENTUM', mask))
         
-        # 13. Earnings Rocket - High EPS growth with acceleration
+        # 14. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
         mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
         patterns.append(('📊 EARNINGS ROCKET', mask))
 
-        # 14. Quality Leader - Good PE, EPS growth, and percentile
+        # 15. Quality Leader - Good PE, EPS growth, and percentile
         if all(col in df.columns for col in ['pe', 'eps_change_pct', 'percentile']):
             pe, eps_change_pct, percentile = get_col_safe('pe'), get_col_safe('eps_change_pct'), get_col_safe('percentile')
             mask = pe.notna() & eps_change_pct.notna() & (pe.between(10, 25)) & (eps_change_pct > 20) & (percentile >= 80)
             patterns.append(('🏆 QUALITY LEADER', mask))
         
-        # 15. Turnaround Play - Massive EPS improvement
+        # 16. Turnaround Play - Massive EPS improvement
         eps_change_pct = get_col_safe('eps_change_pct')
         mask = eps_change_pct.notna() & (eps_change_pct > 100) & (get_col_safe('volume_score', 0) >= 60)
         patterns.append(('⚡ TURNAROUND', mask))
         
-        # 16. High PE Warning
+        # 17. High PE Warning
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 100)
         patterns.append(('⚠️ HIGH PE', mask))
 
-        # ========== RANGE PATTERNS (17-22) ==========
+        # ========== RANGE PATTERNS (18-23) ==========
         
-        # 17. 52W High Approach
+        # 18. 52W High Approach
         mask = (
             (get_col_safe('from_high_pct', -100) > -5) & 
             (get_col_safe('volume_score', 0) >= 70) & 
@@ -1752,7 +1783,7 @@ class PatternDetector:
         )
         patterns.append(('🎯 52W HIGH APPROACH', mask))
         
-        # 18. 52W Low Bounce
+        # 19. 52W Low Bounce
         mask = (
             (get_col_safe('from_low_pct', 100) < 20) & 
             (get_col_safe('acceleration_score', 0) >= 80) & 
@@ -1760,7 +1791,7 @@ class PatternDetector:
         )
         patterns.append(('🔄 52W LOW BOUNCE', mask))
         
-        # 19. Golden Zone - Optimal range position
+        # 20. Golden Zone - Optimal range position
         mask = (
             (get_col_safe('from_low_pct', 0) > 60) & 
             (get_col_safe('from_high_pct', 0) > -40) & 
@@ -1768,7 +1799,7 @@ class PatternDetector:
         )
         patterns.append(('👑 GOLDEN ZONE', mask))
         
-        # 20. Volume Accumulation
+        # 21. Volume Accumulation
         mask = (
             (get_col_safe('vol_ratio_30d_90d', 1) > 1.2) & 
             (get_col_safe('vol_ratio_90d_180d', 1) > 1.1) & 
@@ -1776,7 +1807,7 @@ class PatternDetector:
         )
         patterns.append(('📊 VOL ACCUMULATION', mask))
         
-        # 21. Momentum Divergence
+        # 22. Momentum Divergence
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'acceleration_score', 'rvol']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 daily_7d_pace = np.where(df['ret_7d'].fillna(0) != 0, df['ret_7d'].fillna(0) / 7, np.nan)
@@ -1788,7 +1819,7 @@ class PatternDetector:
             )
             patterns.append(('🔀 MOMENTUM DIVERGE', mask))
         
-        # 22. Range Compression
+        # 23. Range Compression
         if all(col in df.columns for col in ['high_52w', 'low_52w', 'from_low_pct']):
             high, low, from_low_pct = get_col_safe('high_52w'), get_col_safe('low_52w'), get_col_safe('from_low_pct')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1799,9 +1830,9 @@ class PatternDetector:
             mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
             patterns.append(('🎯 RANGE COMPRESS', mask))
 
-        # ========== INTELLIGENCE PATTERNS (23-25) ==========
+        # ========== INTELLIGENCE PATTERNS (24-26) ==========
         
-        # 23. Stealth Accumulator
+        # 24. Stealth Accumulator
         if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'from_low_pct', 'ret_7d', 'ret_30d']):
             ret_7d, ret_30d = get_col_safe('ret_7d'), get_col_safe('ret_30d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1817,7 +1848,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 24. Momentum Vampire
+        # 25. Momentum Vampire
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -1833,7 +1864,7 @@ class PatternDetector:
             )
             patterns.append(('🧛 VAMPIRE', mask))
         
-        # 25. Perfect Storm
+        # 26. Perfect Storm
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
             mask = (
                 (get_col_safe('momentum_harmony', 0) == 4) & 
@@ -1841,9 +1872,9 @@ class PatternDetector:
             )
             patterns.append(('⛈️ PERFECT STORM', mask))
 
-        # ========== REVERSAL & CONTINUATION PATTERNS (26-36) ==========
+        # ========== REVERSAL & CONTINUATION PATTERNS (27-37) ==========
         
-        # 26. BULL TRAP - Failed breakout/shorting opportunity
+        # 27. BULL TRAP - Failed breakout/shorting opportunity
         if all(col in df.columns for col in ['from_high_pct', 'ret_7d', 'volume_7d', 'volume_30d']):
             mask = (
                 (get_col_safe('from_high_pct', -100) > -5) &     # Was near 52W high
@@ -1852,7 +1883,7 @@ class PatternDetector:
             )
             patterns.append(('🪤 BULL TRAP', mask))
         
-        # 27. CAPITULATION BOTTOM - Panic selling exhaustion
+        # 28. CAPITULATION BOTTOM - Panic selling exhaustion
         if all(col in df.columns for col in ['ret_1d', 'from_low_pct', 'rvol', 'volume_1d', 'volume_90d']):
             mask = (
                 (get_col_safe('ret_1d', 0) < -7) &               # Huge down day
@@ -1862,7 +1893,7 @@ class PatternDetector:
             )
             patterns.append(('💣 CAPITULATION', mask))
         
-        # 28. RUNAWAY GAP - Continuation pattern
+        # 29. RUNAWAY GAP - Continuation pattern
         if all(col in df.columns for col in ['price', 'prev_close', 'ret_30d', 'rvol', 'from_high_pct']):
             price = get_col_safe('price', 0)
             prev_close = get_col_safe('prev_close', 1)
@@ -1882,7 +1913,7 @@ class PatternDetector:
             )
             patterns.append(('🏃 RUNAWAY GAP', mask))
         
-        # 29. ROTATION LEADER - First mover in sector rotation
+        # 30. ROTATION LEADER - First mover in sector rotation
         if all(col in df.columns for col in ['ret_7d', 'sector', 'rvol']):
             ret_7d = get_col_safe('ret_7d', 0)
             
@@ -1900,7 +1931,7 @@ class PatternDetector:
             )
             patterns.append(('🔄 ROTATION LEADER', mask))
         
-        # 30. DISTRIBUTION TOP - Smart money selling
+        # 31. DISTRIBUTION TOP - Smart money selling
         if all(col in df.columns for col in ['from_high_pct', 'rvol', 'ret_1d', 'ret_30d', 'volume_7d', 'volume_30d']):
             mask = (
                 (get_col_safe('from_high_pct', -100) > -10) &    # Near highs
@@ -1911,7 +1942,7 @@ class PatternDetector:
             )
             patterns.append(('⚠️ DISTRIBUTION', mask))
 
-        # 31. VELOCITY SQUEEZE
+        # 32. VELOCITY SQUEEZE
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_high_pct', 'from_low_pct', 'high_52w', 'low_52w']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 daily_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
@@ -1927,7 +1958,7 @@ class PatternDetector:
             )
             patterns.append(('🎯 VELOCITY SQUEEZE', mask))
         
-        # 32. VOLUME DIVERGENCE TRAP
+        # 33. VOLUME DIVERGENCE TRAP
         if all(col in df.columns for col in ['ret_30d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'from_high_pct']):
             mask = (
                 (df['ret_30d'] > 20) &
@@ -1937,7 +1968,7 @@ class PatternDetector:
             )
             patterns.append(('⚠️ VOLUME DIVERGENCE', mask))
         
-        # 33. GOLDEN CROSS MOMENTUM
+        # 34. GOLDEN CROSS MOMENTUM
         if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d', 'rvol', 'ret_7d', 'ret_30d']):
             mask = (
                 (df['sma_20d'] > df['sma_50d']) &
@@ -1948,7 +1979,7 @@ class PatternDetector:
             )
             patterns.append(('⚡ GOLDEN CROSS', mask))
         
-        # 34. MOMENTUM EXHAUSTION
+        # 35. MOMENTUM EXHAUSTION
         if all(col in df.columns for col in ['ret_7d', 'ret_1d', 'rvol', 'from_low_pct', 'price', 'sma_20d']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 sma_deviation = np.where(df['sma_20d'] > 0,
@@ -1967,7 +1998,7 @@ class PatternDetector:
             )
             patterns.append(('📉 EXHAUSTION', mask))
         
-        # 35. PYRAMID ACCUMULATION
+        # 36. PYRAMID ACCUMULATION
         if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d', 'ret_30d', 'from_low_pct']):
             mask = (
                 (df['vol_ratio_7d_90d'] > 1.1) &
@@ -1978,7 +2009,7 @@ class PatternDetector:
             )
             patterns.append(('🔺 PYRAMID', mask))
         
-        # 36. MOMENTUM VACUUM
+        # 37. MOMENTUM VACUUM
         if all(col in df.columns for col in ['ret_30d', 'ret_7d', 'ret_1d', 'rvol', 'from_low_pct']):
             mask = (
                 (df['ret_30d'] < -20) &
