@@ -2276,18 +2276,18 @@ class PatternDetector:
                 pe = get_col_safe('pe', 100)
                 
                 mask = (
-                    # Epic recovery from the depths - massive comeback
-                    (from_low_pct > 70) &
+                    # Strong recovery from significant lows - realistic comeback
+                    (from_low_pct > 40) &
                     
-                    # Fundamental turnaround - dramatic earnings transformation
-                    eps_change_pct.notna() & (eps_change_pct > 200) &
+                    # Substantial fundamental turnaround - achievable transformation
+                    eps_change_pct.notna() & (eps_change_pct > 75) &
                     
-                    # Volume explosion - institutional recognition
-                    (get_col_safe('rvol', 0) > 5) &
-                    (get_col_safe('vol_ratio_90d_180d', 1) > 2) &
+                    # Notable volume interest - institutional recognition
+                    (get_col_safe('rvol', 0) > 2.5) &
+                    (get_col_safe('vol_ratio_90d_180d', 1) > 1.4) &
                     
-                    # Quality confirmation - PE turning reasonable after turnaround
-                    pe.notna() & (pe > 0) & (pe < 50)
+                    # Quality confirmation - reasonable valuation after turnaround
+                    pe.notna() & (pe > 0) & (pe < 60)
                 )
                 patterns.append(('🔥 PHOENIX RISING', ensure_series(mask)))
         except Exception as e:
