@@ -489,7 +489,7 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     # If no match, return as is.
     return url_or_id.strip()
 
-@st.cache_data(ttl=CONFIG.CACHE_TTL, persist="disk", show_spinner=False)
+@st.cache_data(persist="disk", show_spinner=False)  # TTL not supported with persist="disk" 
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
                          sheet_id: str = None, gid: str = None,
                          data_version: str = "1.0") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
@@ -6273,7 +6273,7 @@ def main():
                             
                             st.dataframe(
                                 fund_df,
-                                use_container_width=True,
+                                width="stretch",
                                 hide_index=True,
                                 column_config={
                                     'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -6300,7 +6300,7 @@ def main():
                             
                             st.dataframe(
                                 vol_df,
-                                use_container_width=True,
+                                width="stretch",
                                 hide_index=True,
                                 column_config={
                                     'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -6326,7 +6326,7 @@ def main():
                         
                         st.dataframe(
                             trend_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -6368,7 +6368,7 @@ def main():
                         
                         st.dataframe(
                             patterns_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Pattern': st.column_config.TextColumn(
@@ -6724,7 +6724,7 @@ def main():
                 # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                 st.dataframe(
                     shift_display, 
-                    use_container_width=True, 
+                    width="stretch", 
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn(
@@ -6993,7 +6993,7 @@ def main():
                     # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                     st.dataframe(
                         emergence_df, 
-                        use_container_width=True, 
+                        width="stretch", 
                         hide_index=True,
                         column_config={
                             'Ticker': st.column_config.TextColumn(
