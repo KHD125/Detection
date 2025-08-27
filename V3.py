@@ -164,7 +164,7 @@ class Config:
     
     # Market categories (Indian market specific)
     MARKET_CATEGORIES: List[str] = field(default_factory=lambda: [
-        'Mega Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Micro Cap','Nano Cap'
+        'Mega Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Micro Cap'
     ])
     
     # Tier definitions with proper boundaries
@@ -257,410 +257,44 @@ class Config:
 CONFIG = Config()
 
 # ============================================
-# TRADING STRATEGY GROUPS CONFIGURATION
-# ============================================
-
-# SMART COMBINATION FILTER SYSTEM
-# ============================================
-
-@dataclass(frozen=True)
-class SmartCombinationFilter:
-    """Advanced pattern combination filter system for maximum edge"""
-    
-    COMBINATION_CATEGORIES: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "🚀 Ultimate Long Setups": {
-            "combinations": [
-                '🚀 ULTIMATE LONG SETUP',
-                '💎 HIDDEN CHAMPION', 
-                '🌊 TSUNAMI WAVE',
-                '⚡ VELOCITY MASTER',
-                '🏆 INSTITUTIONAL FAVORITE'
-            ],
-            "description": "Multi-pattern confluence for highest probability long opportunities",
-            "emoji": "🚀",
-            "type": "LONG"
-        },
-        "⚠️ Short Opportunities": {
-            "combinations": [
-                '⚠️ SHORT OPPORTUNITY',
-                '📉 DISTRIBUTION ALERT'
-            ],
-            "description": "Bear signals with multiple confirmation patterns",
-            "emoji": "⚠️", 
-            "type": "SHORT"
-        },
-        "🔄 Reversal Plays": {
-            "combinations": [
-                '🔄 REVERSAL PLAY',
-                '🔥 PHOENIX COMBO'
-            ],
-            "description": "Capitulation and reversal patterns with value confirmation",
-            "emoji": "🔄",
-            "type": "REVERSAL"
-        },
-        "🎯 Breakout Specialists": {
-            "combinations": [
-                '🎯 BREAKOUT MASTER',
-                '🌪️ COILED ENERGY'
-            ],
-            "description": "Compressed energy ready for explosive moves",
-            "emoji": "🎯",
-            "type": "BREAKOUT"
-        },
-        "📊 Earnings Champions": {
-            "combinations": [
-                '📊 EARNINGS ROCKET'
-            ],
-            "description": "Fundamental explosion with earnings momentum",
-            "emoji": "📊",
-            "type": "EARNINGS"
-        },
-        "⚡ Momentum Masters": {
-            "combinations": [
-                '🌀 MOMENTUM TORNADO'
-            ],
-            "description": "Advanced momentum analysis across multiple timeframes",
-            "emoji": "⚡",
-            "type": "MOMENTUM"
-        }
-    })
-    
-    def get_combination_by_category(self, category: str) -> List[str]:
-        """Get all combinations for a specific category"""
-        if category in self.COMBINATION_CATEGORIES:
-            return self.COMBINATION_CATEGORIES[category]["combinations"]
-        return []
-    
-    def get_all_combinations(self) -> List[str]:
-        """Get all available combinations"""
-        combinations = []
-        for category_data in self.COMBINATION_CATEGORIES.values():
-            combinations.extend(category_data["combinations"])
-        return combinations
-    
-    def get_category_info(self, category: str) -> Dict[str, Any]:
-        """Get full information about a category"""
-        return self.COMBINATION_CATEGORIES.get(category, {})
-    
-    def filter_combinations_by_type(self, combo_type: str) -> List[str]:
-        """Filter combinations by type (LONG, SHORT, REVERSAL, etc.)"""
-        filtered = []
-        for category_data in self.COMBINATION_CATEGORIES.values():
-            if category_data.get("type") == combo_type:
-                filtered.extend(category_data["combinations"])
-        return filtered
-
-# Global smart combination filter instance
-COMBINATION_FILTER = SmartCombinationFilter()
-
-# ============================================
-# PATTERN COMBINATION ENGINE
-# ============================================
-
-@dataclass
-class PatternCombination:
-    """Smart pattern combination with confluence scoring"""
-    name: str
-    emoji: str
-    patterns: List[str]
-    description: str
-    confidence_threshold: float = 0.7
-    combination_type: str = "LONG"  # LONG, SHORT, REVERSAL, BREAKOUT
-
-@dataclass
-class QuantumPatternCombination:
-    """
-    🧠 ULTIMATE PATTERN COMBINATION SYSTEM - QUANTUM INTELLIGENCE
-    Revolutionary multi-dimensional pattern fusion with mathematical sophistication
-    """
-    name: str
-    emoji: str
-    primary_patterns: List[str]          # Core required patterns (minimum 2)
-    synergy_patterns: List[str]          # Enhancing patterns (optional)
-    mathematical_weights: Dict[str, float]  # Individual pattern weights
-    synergy_multipliers: Dict[str, float]   # Pattern interaction multipliers
-    confidence_threshold: float = 0.75
-    combination_type: str = "LONG"
-    market_regime_boost: Dict[str, float] = None  # Regime-specific bonuses
-    volatility_scaling: bool = True
-    sector_momentum_factor: bool = True
-    time_decay_factor: float = 1.0      # Pattern freshness weighting
-    
-    def __post_init__(self):
-        if self.market_regime_boost is None:
-            self.market_regime_boost = {
-                "🔥 RISK-ON BULL": 1.2,
-                "🛡️ RISK-OFF DEFENSIVE": 0.8,
-                "⚡ VOLATILE OPPORTUNITY": 1.1,
-                "😴 RANGE-BOUND": 1.0
-            }
-
-@dataclass
-class CombinationFormula:
-    """Smart combination formula for pattern confluence detection"""
-    patterns: List[str]
-    formula: callable
-    description: str
-    confidence_threshold: float = 0.5
-    combination_type: str = "LONG"
-
-class SmartCombinationEngine:
-    """Advanced pattern combination engine for maximum edge"""
-    
-    COMBINATION_FORMULAS = {
-        "� HIDDEN GEM": CombinationFormula(
-            patterns=["📈 BULLISH ENGULFING", "🏺 CUP AND HANDLE", "🌟 MORNING STAR"],
-            formula=lambda p1, p2, p3: (p1 & p2) | (p1 & p3) | (p2 & p3),
-            description="Hidden Gem = Secret Bullish Convergence",
-            confidence_threshold=0.35,
-            combination_type="LONG"
-        ),
-        "💎 STEALTH ACCUMULATION": CombinationFormula(
-            patterns=["🔄 ASCENDING TRIANGLE", "🌟 MORNING STAR", "⚡ GAP UP"],
-            formula=lambda p1, p2, p3: p1 & (p2 | p3),
-            description="Stealth Accumulation = Smart Money Building",
-            confidence_threshold=0.35,
-            combination_type="LONG"
-        ),
-        "🚀 BREAKOUT MOMENTUM": CombinationFormula(
-            patterns=["🔺 BULLISH FLAG", "⚡ GAP UP", "💥 VOLUME SPIKE"],
-            formula=lambda p1, p2, p3: (p1 & p2) | (p1 & p3),
-            description="Breakout Momentum = Explosive Upside",
-            confidence_threshold=0.4,
-            combination_type="LONG"
-        ),
-        "⚡ POWER SURGE": CombinationFormula(
-            patterns=["📈 BULLISH ENGULFING", "💥 VOLUME SPIKE", "🎯 BREAKOUT"],
-            formula=lambda p1, p2, p3: p1 & p2 & p3,
-            description="Power Surge = Triple Confirmation",
-            confidence_threshold=0.5,
-            combination_type="LONG"
-        ),
-        "🌊 TREND WAVE": CombinationFormula(
-            patterns=["🔺 BULLISH FLAG", "📊 SUPPORT BOUNCE", "🏺 CUP AND HANDLE"],
-            formula=lambda p1, p2, p3: (p1 & p2) | (p2 & p3),
-            description="Trend Wave = Sustained Momentum",
-            confidence_threshold=0.35,
-            combination_type="LONG"
-        ),
-        "� PRECISION ENTRY": CombinationFormula(
-            patterns=["🌟 MORNING STAR", "📊 SUPPORT BOUNCE", "⚡ GAP UP"],
-            formula=lambda p1, p2, p3: p1 & (p2 | p3),
-            description="Precision Entry = Perfect Timing",
-            confidence_threshold=0.4,
-            combination_type="LONG"
-        ),
-        "🔥 MOMENTUM IGNITION": CombinationFormula(
-            patterns=["🔄 ASCENDING TRIANGLE", "💥 VOLUME SPIKE", "🎯 BREAKOUT"],
-            formula=lambda p1, p2, p3: (p1 | p2) & p3,
-            description="Momentum Ignition = Catalyst Activation",
-            confidence_threshold=0.45,
-            combination_type="LONG"
-        ),
-        "🌟 STELLAR SETUP": CombinationFormula(
-            patterns=["🏺 CUP AND HANDLE", "🔺 BULLISH FLAG", "📊 SUPPORT BOUNCE"],
-            formula=lambda p1, p2, p3: p1 & (p2 | p3),
-            description="Stellar Setup = Premium Pattern",
-            confidence_threshold=0.4,
-            combination_type="LONG"
-        ),
-        "🚨 DANGER ZONE": CombinationFormula(
-            patterns=["📉 BEARISH ENGULFING", "🕳️ GAP DOWN", "⬇️ BREAKDOWN"],
-            formula=lambda p1, p2, p3: (p1 & p2) | (p1 & p3) | (p2 & p3),
-            description="Danger Zone = Multiple Bear Signals",
-            confidence_threshold=0.35,
-            combination_type="SHORT"
-        ),
-        "🎳 TRIPLE STRIKE": CombinationFormula(
-            patterns=["📈 BULLISH ENGULFING", "🔺 BULLISH FLAG", "🌟 MORNING STAR"],
-            formula=lambda p1, p2, p3: (p1 & p2) | (p1 & p3) | (p2 & p3),
-            description="Triple Momentum Analysis = Unstoppable Force",
-            confidence_threshold=0.45,
-            combination_type="LONG"
-        )
-    }
-
-    @staticmethod
-    def evaluate_combinations(df: pd.DataFrame, pattern_results: List[Tuple[str, pd.Series]]) -> List[Tuple[str, pd.Series]]:
-        """
-        🧠 VERYVERYVERYVERY SMART COMBINATION EVALUATION
-        Enhanced to be much more intelligent and flexible in detecting combinations
-        """
-        if df.empty or not pattern_results:
-            return []
-        
-        try:
-            # Create pattern lookup for fast access
-            pattern_dict = {name: mask for name, mask in pattern_results}
-            
-            # Initialize combination results
-            combination_results = []
-            
-            for combo_key, combo in SmartCombinationEngine.COMBINATION_FORMULAS.items():
-                try:
-                    # 🧠 SMART APPROACH: Check each pattern individually
-                    pattern_scores = []
-                    available_patterns = []
-                    
-                    for pattern_name in combo.patterns:
-                        if pattern_name in pattern_dict:
-                            available_patterns.append(pattern_name)
-                            # Convert boolean mask to float scores
-                            pattern_scores.append(pattern_dict[pattern_name].astype(float))
-                    
-                    # 🎯 SMART LOGIC: Work with whatever patterns we have (minimum 1)
-                    if len(available_patterns) >= 1:
-                        
-                        # 📊 INTELLIGENT CONFLUENCE CALCULATION
-                        if len(pattern_scores) == 1:
-                            # Single pattern - direct score
-                            confluence_score = pattern_scores[0]
-                        else:
-                            # Multiple patterns - intelligent weighted average
-                            confluence_matrix = np.column_stack(pattern_scores)
-                            
-                            # Smart weighting: Earlier patterns more important
-                            weights = np.array([1.0 - (i * 0.1) for i in range(len(pattern_scores))])
-                            weights = np.maximum(weights, 0.3)  # Minimum weight 0.3
-                            weights = weights / weights.sum()  # Normalize
-                            
-                            # Calculate weighted confluence using smart formula
-                            confluence_score = combo.formula(pattern_scores) if hasattr(combo, 'formula') and callable(combo.formula) else np.average(confluence_matrix, axis=1, weights=weights)
-                        
-                        # 🚀 SMART ADJUSTMENTS
-                        # Bonus for pattern completeness
-                        completeness_ratio = len(available_patterns) / len(combo.patterns)
-                        completeness_bonus = 1.0 + (completeness_ratio - 0.5) * 0.4
-                        
-                        # Apply the bonus
-                        final_score = confluence_score * completeness_bonus
-                        
-                        # Apply the MUCH LOWER confidence threshold
-                        confident_mask = final_score >= combo.confidence_threshold
-                        
-                        if confident_mask.any():
-                            combination_name = f"{combo_key}"
-                            combination_results.append((combination_name, confident_mask))
-                            
-                            print(f"✅ {combo_key}: Found {confident_mask.sum()} opportunities")
-                            print(f"   Available: {available_patterns}")
-                            print(f"   Threshold: {combo.confidence_threshold}")
-                            
-                except Exception as e:
-                    print(f"⚠️ Error evaluating {combo_key}: {e}")
-                    continue
-            
-            return combination_results
-            
-        except Exception as e:
-            print(f"❌ SmartCombinationEngine evaluation error: {e}")
-            return []
-
-# END OF SmartCombinationEngine class - all methods complete
-
-
-# ====================================================================================================
-# 🧠 EXAMPLE USAGE / MAIN SCRIPT SECTION (if running directly)
-# ====================================================================================================
-
-if __name__ == "__main__":
-    print("� SmartCombinationEngine is ready for VERYVERYVERYVERY smart stock combination detection!")
-    print("� Use the enhanced combination engine with lowered confidence thresholds for better detection.")
-    print("✅ All 9 intelligent combination patterns implemented with smart confluence logic.")
-    pass
-
-
-# ====================================================================================================
-# 🎯 MAIN STREAMLIT APPLICATION CODE STARTS BELOW
-# ====================================================================================================
-
-
-# SmartCombinationEngine implementation complete above.
-# The corrupted duplicate main() content below has been removed for code cleanliness.
-# The actual main() function is properly implemented later in this file at line 7122.
-
-# Performance monitoring decorator
-def performance_logger(timeout_seconds=300):
-    """Performance logging decorator for monitoring function execution."""
-    import functools
-    import time
-    
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                result = func(*args, **kwargs)
-                elapsed = time.perf_counter() - start
-                print(f"✅ {func.__name__} completed in {elapsed:.2f}s")
-                return result
-            except Exception as e:
-                elapsed = time.perf_counter() - start
-                print(f"❌ {func.__name__} failed after {elapsed:.2f}s: {str(e)}")
-                raise
-        return wrapper
-    return decorator
-
-
-# Corrupted pattern combinations have been removed below for code cleanliness.
-# SmartCombinationEngine with 9 working combinations is implemented above at line 410.
-
-# === CRITICAL CORRUPTION CLEANED ===
-# Removed corrupted PatternCombination content that was causing IndentationErrors
-
-# Global combination engine instance for easy access
-COMBINATION_ENGINE = SmartCombinationEngine()
-
-
-# ============================================
-# PERFORMANCE MONITORING AND ADVANCED ENGINES
+# PERFORMANCE MONITORING
 # ============================================
 
 class PerformanceMonitor:
-    """Simple performance monitoring decorator"""
+    """Track and report performance metrics"""
     
     @staticmethod
-    def timer(target_time=1.0):
-        """Performance timing decorator"""
+    def timer(target_time: Optional[float] = None):
+        """Performance timing decorator with target comparison"""
         def decorator(func):
-            import functools
-            import time
-            @functools.wraps(func)
+            @wraps(func)
             def wrapper(*args, **kwargs):
                 start = time.perf_counter()
                 try:
                     result = func(*args, **kwargs)
                     elapsed = time.perf_counter() - start
-                    if elapsed > target_time:
-                        print(f"⚠️ {func.__name__} took {elapsed:.2f}s (target: {target_time}s)")
+                    
+                    # Log if exceeds target
+                    if target_time and elapsed > target_time:
+                        logger.warning(f"{func.__name__} took {elapsed:.2f}s (target: {target_time}s)")
+                    elif elapsed > 1.0:
+                        logger.info(f"{func.__name__} completed in {elapsed:.2f}s")
+                    
+                    # Store timing
+                    if 'performance_metrics' not in st.session_state:
+                        st.session_state.performance_metrics = {}
+                    st.session_state.performance_metrics[func.__name__] = elapsed
+                    
                     return result
                 except Exception as e:
                     elapsed = time.perf_counter() - start
-                    print(f"❌ {func.__name__} failed after {elapsed:.2f}s: {str(e)}")
+                    logger.error(f"{func.__name__} failed after {elapsed:.2f}s: {str(e)}")
                     raise
             return wrapper
         return decorator
 
-
-class UltimatePatternCombinationEngine:
-    """Advanced pattern combination engine with quantum-level analysis"""
-    
-    @staticmethod
-    def evaluate_quantum_combinations(df, pattern_results, market_regime="NORMAL", volatility_regime="MEDIUM"):
-        """Quantum-level combination evaluation - placeholder for advanced logic"""
-        # For now, return empty list - can be enhanced later
-        print("🌌 Quantum combinations evaluation placeholder - returning empty results")
-        return []
-
-
 # ============================================
-# MASSIVE CORRUPTION SUCCESSFULLY REMOVED
-# ============================================
-# ✅ SmartCombinationEngine is fully functional with 9 working combinations
-# ✅ Enhanced VERYVERYVERYVERY smart evaluation logic implemented
-# ✅ IndentationError at line 613 FIXED
-# ✅ All corrupted PatternCombination content removed
-
+# DATA VALIDATION AND SANITIZATION
 # ============================================
 
 class DataValidator:
@@ -1201,7 +835,7 @@ class DataProcessor:
                 elif 'ret_3m' in returns and returns['ret_3m'] > 50:
                     return "🎯 Quarterly Stars (>50% 3M)"
                 elif 'ret_6m' in returns and returns['ret_6m'] > 75:
-                    return "🏆 Half-Year Heroes (>75% 6M)"
+                    return "  Half-Year Heroes (>75% 6M)"
                 
                 # Long-term performance
                 elif 'ret_1y' in returns and returns['ret_1y'] > 100:
@@ -1844,23 +1478,26 @@ class PatternDetector:
 
     # Pattern metadata for intelligent confidence scoring
     PATTERN_METADATA = {
-        '🔥 CATEGORY LEADER': {'importance_weight': 10, 'category': 'momentum'},
+        '🔥 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
         '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
+        '🚀 ACCELERATING': {'importance_weight': 10, 'category': 'momentum'},
         '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
-        '⚡ VOLUME EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
+        '⚡ VOL EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
         '🎯 BREAKOUT': {'importance_weight': 10, 'category': 'technical'},
         '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
+        '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
         '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
         '💪 LONG STRENGTH': {'importance_weight': 5, 'category': 'trend'},
+        '📈 QUALITY TREND': {'importance_weight': 10, 'category': 'trend'},
         '💎 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
         '📊 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
         '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
         '⚡ TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
         '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
-        '🎯 52-WEEK HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
-        '🔄 52-WEEK LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
+        '🎯 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
+        '🔄 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
         '👑 GOLDEN ZONE': {'importance_weight': 5, 'category': 'range'},
-        '📊 VOLUME ACCUMULATION': {'importance_weight': 5, 'category': 'volume'},
+        '📊 VOL ACCUMULATION': {'importance_weight': 5, 'category': 'volume'},
         '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
         '🎯 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
         '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
@@ -1876,10 +1513,7 @@ class PatternDetector:
         '⚡ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
         '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
         '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
-        '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
-        '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'revolutionary'},
-        '🧩 ENTROPY COMPRESSION': {'importance_weight': 22, 'category': 'revolutionary'},
-        '🌪️ VOLATILITY PHASE SHIFT': {'importance_weight': 20, 'category': 'revolutionary'}
+        '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'}
     }
 
     @staticmethod
@@ -1887,7 +1521,6 @@ class PatternDetector:
     def detect_all_patterns_optimized(df: pd.DataFrame) -> pd.DataFrame:
         """
         Detects all trading patterns using highly efficient vectorized operations.
-        Enhanced with Adaptive Pattern Intelligence for contextual awareness.
         Returns a DataFrame with 'patterns' column and 'pattern_confidence' score.
         """
         if df.empty:
@@ -1895,24 +1528,12 @@ class PatternDetector:
             df['pattern_confidence'] = 0.0
             df['pattern_count'] = 0
             df['pattern_categories'] = ''
-            df['adaptive_intelligence_score'] = 0.0
             return df
         
-        logger.info(f"Starting adaptive pattern detection for {len(df)} stocks...")
+        logger.info(f"Starting pattern detection for {len(df)} stocks...")
         
         # Get all pattern definitions
         patterns_with_masks = PatternDetector._get_all_pattern_definitions(df)
-        
-        # 🧠 ADAPTIVE INTELLIGENCE: Get market context and adaptive weights
-        try:
-            adaptive_weights = AdaptivePatternIntelligence.get_adaptive_pattern_weights(df, patterns_with_masks)
-            market_context = AdaptivePatternIntelligence.calculate_market_context(df)
-            logger.info(f"Adaptive Intelligence: {market_context.get('regime', 'Unknown')} regime detected")
-        except Exception as e:
-            # Graceful fallback to standard processing
-            logger.warning(f"Adaptive intelligence fallback: {e}")
-            adaptive_weights = {name: 1.0 for name, _ in patterns_with_masks}
-            market_context = {"regime": "😴 RANGE-BOUND", "volatility_regime": "MEDIUM"}
         
         # Create pattern matrix for vectorized processing
         pattern_names = [name for name, _ in patterns_with_masks]
@@ -1921,13 +1542,7 @@ class PatternDetector:
         # Fill pattern matrix with detection results
         patterns_detected = 0
         for name, mask in patterns_with_masks:
-            if mask is not None and len(mask) > 0:
-                # Convert numpy array to pandas Series if needed
-                if isinstance(mask, np.ndarray):
-                    mask = pd.Series(mask, index=df.index)
-                elif hasattr(mask, 'empty') and mask.empty:
-                    continue
-                    
+            if mask is not None and not mask.empty:
                 pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
                 detected_count = mask.sum()
                 if detected_count > 0:
@@ -1948,162 +1563,15 @@ class PatternDetector:
             lambda row: PatternDetector._get_pattern_categories(row), axis=1
         )
         
-        # 🧠 ENHANCED: Calculate confidence score with adaptive intelligence
-        df = PatternDetector._calculate_adaptive_pattern_confidence(df, adaptive_weights, market_context)
+        # Calculate confidence score with FIXED calculation
+        df = PatternDetector._calculate_pattern_confidence(df)
         
-        # 🌌 ULTIMATE QUANTUM COMBINATIONS - REVOLUTIONARY PATTERN FUSION
-        try:
-            logger.info("🌌 Evaluating Ultimate Quantum Pattern Combinations...")
-            quantum_combinations = UltimatePatternCombinationEngine.evaluate_quantum_combinations(
-                df, patterns_with_masks, market_context
-            )
-            
-            if quantum_combinations:
-                # Add quantum combinations to pattern matrix
-                quantum_pattern_matrix = pd.DataFrame(False, index=df.index)
-                
-                for combo_name, combo_mask in quantum_combinations:
-                    if len(combo_mask) == len(df):
-                        quantum_pattern_matrix[combo_name] = combo_mask
-                        detected_count = combo_mask.sum()
-                        if detected_count > 0:
-                            logger.info(f"🌌 Quantum combination '{combo_name}' detected in {detected_count} stocks")
-                
-                # Merge quantum combinations with existing patterns
-                if not quantum_pattern_matrix.empty:
-                    # Add quantum patterns to existing pattern string
-                    quantum_pattern_strings = quantum_pattern_matrix.apply(
-                        lambda row: ' | '.join(row.index[row].tolist()), axis=1
-                    )
-                    
-                    # Combine with existing patterns
-                    df['patterns'] = df['patterns'].apply(
-                        lambda x: x if x else ''
-                    ) + quantum_pattern_strings.apply(
-                        lambda x: (' | ' + x) if x and not df.loc[quantum_pattern_strings[quantum_pattern_strings == x].index[0], 'patterns'] == '' else x
-                    ).fillna('')
-                    
-                    # Update pattern count
-                    df['pattern_count'] += quantum_pattern_matrix.sum(axis=1)
-                    
-                    # Add quantum combination categories
-                    quantum_categories = quantum_pattern_matrix.apply(
-                        lambda row: 'quantum' if row.any() else '', axis=1
-                    )
-                    
-                    # Merge categories
-                    df['pattern_categories'] = df['pattern_categories'].fillna('') + quantum_categories.apply(
-                        lambda x: (', quantum' if x and df.loc[quantum_categories[quantum_categories == x].index[0], 'pattern_categories'] else x) if x else ''
-                    ).fillna('')
-                    
-                    # Update adaptive intelligence score for quantum combinations
-                    quantum_bonus = quantum_pattern_matrix.sum(axis=1) * 15  # 15 point bonus per quantum combination
-                    df['adaptive_intelligence_score'] = df.get('adaptive_intelligence_score', 0) + quantum_bonus
-                    
-                    logger.info(f"🌌 Added {len(quantum_combinations)} quantum combinations with {quantum_pattern_matrix.sum().sum()} total detections")
-        
-        except Exception as e:
-            logger.warning(f"🌌 Quantum combination evaluation failed: {e}")
-        
-        # Log summary with adaptive intelligence insights
+        # Log summary
         stocks_with_patterns = (df['patterns'] != '').sum()
         avg_patterns_per_stock = df['pattern_count'].mean()
-        avg_adaptive_score = df.get('adaptive_intelligence_score', pd.Series([0])).mean()
-        
-        logger.info(f"Adaptive pattern detection complete: {patterns_detected} patterns found, "
+        logger.info(f"Pattern detection complete: {patterns_detected} patterns found, "
                    f"{stocks_with_patterns} stocks with patterns, "
-                   f"avg {avg_patterns_per_stock:.1f} patterns/stock, "
-                   f"adaptive boost: {avg_adaptive_score:.1f}")
-        
-        return df
-
-    @staticmethod
-    def _calculate_adaptive_pattern_confidence(df: pd.DataFrame, adaptive_weights: Dict[str, float], 
-                                             market_context: Dict[str, Any]) -> pd.DataFrame:
-        """
-        ENHANCED: Calculate confidence score with adaptive intelligence integration.
-        Now accounts for market context and dynamic pattern weighting.
-        """
-        
-        # Calculate maximum possible score for normalization
-        all_positive_weights = [
-            abs(meta['importance_weight']) 
-            for meta in PatternDetector.PATTERN_METADATA.values()
-            if meta['importance_weight'] > 0
-        ]
-        max_possible_score = sum(sorted(all_positive_weights, reverse=True)[:5])  # Top 5 patterns
-        
-        def calculate_adaptive_confidence(patterns_str):
-            """Calculate adaptive confidence for a single stock's patterns"""
-            if pd.isna(patterns_str) or patterns_str == '':
-                return 0.0, 0.0  # (standard_confidence, adaptive_score)
-            
-            patterns = [p.strip() for p in patterns_str.split(' | ')]
-            total_weight = 0
-            adaptive_total_weight = 0
-            pattern_categories = set()
-            
-            for pattern in patterns:
-                # Match pattern with metadata (handle emoji differences)
-                for key, meta in PatternDetector.PATTERN_METADATA.items():
-                    if pattern == key or pattern.replace(' ', '') == key.replace(' ', ''):
-                        base_weight = meta['importance_weight']
-                        adaptive_multiplier = adaptive_weights.get(pattern, 1.0)
-                        
-                        total_weight += base_weight
-                        adaptive_total_weight += base_weight * adaptive_multiplier
-                        pattern_categories.add(meta.get('category', 'unknown'))
-                        break
-            
-            # Bonus for diverse categories
-            category_bonus = len(pattern_categories) * 2
-            
-            # Calculate standard confidence
-            if max_possible_score > 0:
-                raw_confidence = (abs(total_weight) + category_bonus) / max_possible_score * 100
-                standard_confidence = 100 * (2 / (1 + np.exp(-raw_confidence/50)) - 1)
-                standard_confidence = min(100, max(0, standard_confidence))
-            else:
-                standard_confidence = 0.0
-            
-            # Calculate adaptive confidence
-            if max_possible_score > 0:
-                adaptive_raw = (abs(adaptive_total_weight) + category_bonus) / max_possible_score * 100
-                adaptive_confidence = 100 * (2 / (1 + np.exp(-adaptive_raw/50)) - 1)
-                adaptive_confidence = min(100, max(0, adaptive_confidence))
-                
-                # Calculate adaptive intelligence score (difference from standard)
-                adaptive_score = adaptive_confidence - standard_confidence
-            else:
-                adaptive_confidence = 0.0
-                adaptive_score = 0.0
-            
-            return adaptive_confidence, adaptive_score
-        
-        # Apply calculation to all rows
-        confidence_results = df['patterns'].apply(calculate_adaptive_confidence)
-        df['pattern_confidence'] = [result[0] for result in confidence_results]
-        df['adaptive_intelligence_score'] = [result[1] for result in confidence_results]
-        
-        # Round for clean display
-        df['pattern_confidence'] = df['pattern_confidence'].round(2)
-        df['adaptive_intelligence_score'] = df['adaptive_intelligence_score'].round(2)
-        
-        # Add confidence tier based on adaptive confidence
-        df['confidence_tier'] = pd.cut(
-            df['pattern_confidence'],
-            bins=[0, 25, 50, 75, 100],
-            labels=['Low', 'Medium', 'High', 'Very High'],
-            include_lowest=True
-        )
-        
-        # Add adaptive intelligence tier
-        df['adaptive_tier'] = pd.cut(
-            df['adaptive_intelligence_score'],
-            bins=[-np.inf, -5, 0, 5, np.inf],
-            labels=['Context Negative', 'Neutral', 'Context Positive', 'Context Strong'],
-            include_lowest=True
-        )
+                   f"avg {avg_patterns_per_stock:.1f} patterns/stock")
         
         return df
 
@@ -2177,95 +1645,8 @@ class PatternDetector:
     @staticmethod
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
-        ========================================================================================
-        PROFESSIONAL PATTERN DETECTION ENGINE - 69 INSTITUTIONAL-GRADE PATTERNS
-        ========================================================================================
-        
-        🏆 COMPREHENSIVE PATTERN LIBRARY FOR PROFESSIONAL TRADERS
-        
-        This engine detects 69 sophisticated trading patterns organized into 7 professional tiers:
-        
-        📊 TIER 1 (1-10): ELITE MOMENTUM & LEADERSHIP
-           - Core momentum and market leadership indicators
-           - Primary screening for high-conviction setups
-           - Professional Use: Portfolio core holdings and momentum strategies
-        
-        💰 TIER 2 (11-15): FUNDAMENTAL POWERHOUSE  
-           - Deep fundamental analysis with technical confirmation
-           - Growth, value, and quality-based pattern recognition
-           - Professional Use: Value investing and growth strategies with timing
-        
-        🎯 TIER 3 (16-21): PRECISION RANGE & POSITION
-           - Advanced technical patterns for optimal entry/exit timing
-           - Range analysis and position optimization strategies
-           - Professional Use: Swing trading and position accumulation
-        
-        🧠 TIER 4 (22-24): INTELLIGENCE & STEALTH
-           - Sophisticated market behavior and stealth accumulation detection
-           - Alpha generation through market inefficiency capture
-           - Professional Use: Early institutional flow detection
-        
-        ⚡ TIER 5 (25-35): REVERSAL & CONTINUATION
-           - Advanced reversal detection and trend persistence signals
-           - Counter-trend and trend-following strategy support
-           - Professional Use: Contrarian plays and trend continuation
-        
-        🚀 TIER 6 (36-63): ENHANCED MULTI-TIMEFRAME
-           - Revolutionary pattern combinations with mathematical precision
-           - Institutional-grade confluence and stacking systems
-           - Professional Use: Maximum alpha generation and risk management
-        
-        🧠 TIER 7 (67-69): REVOLUTIONARY QUANTUM INTELLIGENCE
-           - Advanced mathematical applications from information theory and physics
-           - Entropy analysis, information decay modeling, and phase transitions
-           - Professional Use: Elite institutional trading desks and quantitative research teams
-        
-        ========================================================================================
-        PROFESSIONAL IMPLEMENTATION NOTES:
-        ========================================================================================
-        
-        🔧 TECHNICAL ARCHITECTURE:
-           - All patterns use vectorized operations for maximum performance
-           - Safe mathematical operations prevent division by zero errors
-           - Production-grade error handling and data validation
-           - Sub-200ms execution target for real-time trading systems
-        
-        📈 STRATEGY INTEGRATION:
-           - Each pattern includes professional use cases and strategy guidelines
-           - Risk management signals integrated throughout (⚠️ patterns)
-           - Multi-timeframe analysis reduces false positive signals
-           - Confluence scoring for higher conviction setups
-        
-        ⚖️ RISK MANAGEMENT:
-           - Warning patterns provide early risk detection signals
-           - Position sizing guidance through pattern confidence scores
-           - Exit timing support through exhaustion and distribution patterns
-           - Sector rotation and market regime awareness built-in
-        
-        🎯 PERFORMANCE OPTIMIZATION:
-           - Pattern metadata includes importance weights for screening
-           - Category-based organization for systematic strategy development
-           - Intelligent thresholds based on extensive backtesting
-           - Production-ready for institutional trading environments
-        
-        ========================================================================================
-        PATTERN CLASSIFICATION SYSTEM:
-        ========================================================================================
-        
-        🔥 MOMENTUM PATTERNS: Category Leaders, Accelerating, Momentum Waves, Velocity Patterns
-        💎 VALUE PATTERNS: Hidden Gems, Value Momentum, GARP Leaders, Oversold Quality
-        📊 VOLUME PATTERNS: Volume Explosion, Institutional Flow, Volume Accumulation, Volume Waves
-        🎯 TECHNICAL PATTERNS: Breakouts, Range Analysis, Support/Resistance, Moving Averages
-        📈 FUNDAMENTAL PATTERNS: Earnings Rockets, Quality Leaders, Turnarounds, Growth Patterns
-        ⚠️ WARNING PATTERNS: Distribution, Exhaustion, Volume Divergence, High PE Warnings
-        🌊 CONFLUENCE PATTERNS: Perfect Storms, Multi-dimensional Scoring, Pattern Stacking
-        🧠 REVOLUTIONARY PATTERNS: Information Decay, Entropy Compression, Volatility Phase Shifts
-        
-        ========================================================================================
-        
-        Returns list of (pattern_name, mask) tuples for 69 professional trading patterns.
-        Each pattern is optimized for institutional-grade performance and reliability.
-        Revolutionary Tier 7 patterns apply advanced mathematics from information theory and physics.
+        Defines all 36 patterns using vectorized boolean masks.
+        Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
         
@@ -2275,140 +1656,111 @@ class PatternDetector:
                 return df[col_name].copy()
             return pd.Series(default_value, index=df.index)
 
-        # ========================================================================================
-        # 🏆 TIER 1: ELITE MOMENTUM & LEADERSHIP PATTERNS (1-11)
-        # These are the crown jewels - strongest momentum and leadership indicators
-        # Professional traders focus on these first for high-conviction setups
-        # ========================================================================================
+        # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
         
-        # 1. 🔥 CATEGORY LEADER - The undisputed champion in its market cap class
-        # Professional Use: Primary filter for finding sector dominance
-        # Strategy: Long-term hold with momentum trading overlay
+        # 1. Category Leader - Top in its market cap category
         mask = get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90)
-        patterns.append(('🔥 CATEGORY LEADER', mask))
+        patterns.append(('🔥 CAT LEADER', mask))
         
-        # 2. 💎 HIDDEN GEM - Undervalued leader with category strength but overall stealth mode
-        # Professional Use: Early-stage accumulation before institutional discovery
-        # Strategy: Position sizing before mainstream recognition
+        # 2. Hidden Gem - High category rank but low overall rank
         mask = (
             (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
             (get_col_safe('percentile', 100) < 70)
         )
         patterns.append(('💎 HIDDEN GEM', mask))
         
-        # 3. 🏦 INSTITUTIONAL - Smart money accumulation patterns detected
-        # Professional Use: Follow institutional flow for high-conviction entries
-        # Strategy: Align with institutional positioning for sustained moves
+        # 3. Accelerating - Strong momentum acceleration
+        mask = get_col_safe('acceleration_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('acceleration', 85)
+        patterns.append(('🚀 ACCELERATING', mask))
+        
+        # 4. Institutional - Volume patterns suggesting institutional buying
         mask = (
             (get_col_safe('volume_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('institutional', 75)) & 
             (get_col_safe('vol_ratio_90d_180d', 1) > 1.1)
         )
         patterns.append(('🏦 INSTITUTIONAL', mask))
         
-        # 4. ⚡ VOLUME EXPLOSION - Massive volume surge indicating major catalyst
-        # Professional Use: Breakout confirmation and news-driven moves
-        # Strategy: Quick scalping or breakout momentum plays
+        # 5. Volume Explosion - Extreme volume surge
         mask = get_col_safe('rvol', 0) > 3
-        patterns.append(('⚡ VOLUME EXPLOSION', mask))
+        patterns.append(('⚡ VOL EXPLOSION', mask))
         
-        # 6. 🎯 BREAKOUT - High-probability technical breakout setup
-        # Professional Use: Technical analysis primary entry signal
-        # Strategy: Range breakout with volume confirmation
+        # 6. Breakout Ready - High breakout probability
         mask = get_col_safe('breakout_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('breakout_ready', 80)
         patterns.append(('🎯 BREAKOUT', mask))
         
-        # 7. 👑 MARKET LEADER - Top 5% of all stocks in the universe
-        # Professional Use: Portfolio core holding and benchmark outperformance
-        # Strategy: Blue-chip momentum with premium allocation
+        # 7. Market Leader - Top overall percentile
         mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
         patterns.append(('👑 MARKET LEADER', mask))
         
-        # 8. 💰 LIQUID LEADER - High liquidity with superior performance
-        # Professional Use: Large position scaling without market impact
-        # Strategy: Institutional-size position building with liquidity buffer
+        # 8. Momentum Wave - Combined momentum and acceleration
+        mask = (
+            (get_col_safe('momentum_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('momentum_wave', 75)) & 
+            (get_col_safe('acceleration_score', 0) >= 70)
+        )
+        patterns.append(('🌊 MOMENTUM WAVE', mask))
+        
+        # 9. Liquid Leader - High liquidity and performance
         mask = (
             (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
             (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
         )
         patterns.append(('💰 LIQUID LEADER', mask))
         
-        # 9. 💪 LONG STRENGTH - Multi-year consistent outperformance trend
-        # Professional Use: Long-term portfolio allocation and wealth building
-        # Strategy: Core holding with compound growth focus
+        # 10. Long-term Strength
         mask = get_col_safe('long_term_strength', 0) >= CONFIG.PATTERN_THRESHOLDS.get('long_strength', 80)
         patterns.append(('💪 LONG STRENGTH', mask))
-
-        # ========================================================================================
-        # 💰 TIER 2: FUNDAMENTAL POWERHOUSE PATTERNS (10-14)
-        # Deep fundamental analysis combined with technical confirmation
-        # Professional traders use these for value-oriented and growth strategies
-        # ========================================================================================
         
-        # 10. 💎 VALUE MOMENTUM - Perfect GARP (Growth at Reasonable Price) setup
-        # Professional Use: Value investing with momentum confirmation
-        # Strategy: Long-term value accumulation with technical timing
+        # 11. Quality Trend - Strong SMA alignment
+        mask = get_col_safe('trend_quality', 0) >= 80
+        patterns.append(('📈 QUALITY TREND', mask))
+
+        # ========== FUNDAMENTAL PATTERNS (12-16) ==========
+        
+        # 12. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
         patterns.append(('💎 VALUE MOMENTUM', mask))
         
-        # 11. 📊 EARNINGS ROCKET - Explosive earnings growth with momentum confirmation
-        # Professional Use: Earnings momentum and growth acceleration strategies
-        # Strategy: Growth stock positioning with earnings catalyst timing
+        # 13. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
         mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
         patterns.append(('📊 EARNINGS ROCKET', mask))
 
-        # 12. 🏆 QUALITY LEADER - Premium fundamental quality with market recognition
-        # Professional Use: High-conviction core holdings for institutional portfolios
-        # Strategy: Blue-chip growth with sustainable competitive advantages
+        # 14. Quality Leader - Good PE, EPS growth, and percentile
         if all(col in df.columns for col in ['pe', 'eps_change_pct', 'percentile']):
             pe, eps_change_pct, percentile = get_col_safe('pe'), get_col_safe('eps_change_pct'), get_col_safe('percentile')
             mask = pe.notna() & eps_change_pct.notna() & (pe.between(10, 25)) & (eps_change_pct > 20) & (percentile >= 80)
             patterns.append(('🏆 QUALITY LEADER', mask))
         
-        # 13. ⚡ TURNAROUND - Massive fundamental improvement with volume confirmation
-        # Professional Use: Special situations and distressed-to-success strategies
-        # Strategy: Turnaround story with operational leverage and market recognition
+        # 15. Turnaround Play - Massive EPS improvement
         eps_change_pct = get_col_safe('eps_change_pct')
         mask = eps_change_pct.notna() & (eps_change_pct > 100) & (get_col_safe('volume_score', 0) >= 60)
         patterns.append(('⚡ TURNAROUND', mask))
         
-        # 14. ⚠️ HIGH PE - Valuation warning for risk management
-        # Professional Use: Risk management and position sizing adjustment
-        # Strategy: Reduce allocation or hedge expensive positions
+        # 16. High PE Warning
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 100)
         patterns.append(('⚠️ HIGH PE', mask))
 
-        # ========================================================================================
-        # 🎯 TIER 3: PRECISION RANGE & POSITION PATTERNS (15-20)
-        # Advanced technical patterns for precise entry/exit timing
-        # Professional traders use these for optimal positioning and risk/reward setups
-        # ========================================================================================
+        # ========== RANGE PATTERNS (17-22) ==========
         
-        # 15. 🎯 52-WEEK HIGH APPROACH - Breakout confirmation near resistance levels
-        # Professional Use: Momentum breakout strategies and new high momentum
-        # Strategy: Breakout trading with volume confirmation and trend continuation
+        # 17. 52W High Approach
         mask = (
             (get_col_safe('from_high_pct', -100) > -5) & 
             (get_col_safe('volume_score', 0) >= 70) & 
             (get_col_safe('momentum_score', 0) >= 60)
         )
-        patterns.append(('🎯 52-WEEK HIGH APPROACH', mask))
+        patterns.append(('🎯 52W HIGH APPROACH', mask))
         
-        # 17. 🔄 52-WEEK LOW BOUNCE - Reversal setup with strong acceleration
-        # Professional Use: Counter-trend reversal and oversold bounce strategies
-        # Strategy: Value buying at extreme lows with momentum confirmation
+        # 18. 52W Low Bounce
         mask = (
             (get_col_safe('from_low_pct', 100) < 20) & 
             (get_col_safe('acceleration_score', 0) >= 80) & 
             (get_col_safe('ret_30d', 0) > 10)
         )
-        patterns.append(('🔄 52-WEEK LOW BOUNCE', mask))
+        patterns.append(('🔄 52W LOW BOUNCE', mask))
         
-        # 18. 👑 GOLDEN ZONE - Optimal range position for sustained moves
-        # Professional Use: Swing trading and position accumulation strategies
-        # Strategy: Sweet spot positioning with trend alignment and room to run
+        # 19. Golden Zone - Optimal range position
         mask = (
             (get_col_safe('from_low_pct', 0) > 60) & 
             (get_col_safe('from_high_pct', 0) > -40) & 
@@ -2416,19 +1768,15 @@ class PatternDetector:
         )
         patterns.append(('👑 GOLDEN ZONE', mask))
         
-        # 18. 📊 VOLUME ACCUMULATION - Smart money building positions quietly
-        # Professional Use: Institutional accumulation detection and early positioning
-        # Strategy: Follow smart money flow before major moves
+        # 20. Volume Accumulation
         mask = (
             (get_col_safe('vol_ratio_30d_90d', 1) > 1.2) & 
             (get_col_safe('vol_ratio_90d_180d', 1) > 1.1) & 
             (get_col_safe('ret_30d', 0) > 5)
         )
-        patterns.append(('📊 VOLUME ACCUMULATION', mask))
+        patterns.append(('📊 VOL ACCUMULATION', mask))
         
-        # 19. 🔀 MOMENTUM DIVERGENCE - Advanced multi-timeframe momentum analysis
-        # Professional Use: Momentum acceleration detection and trend change signals
-        # Strategy: Capture momentum inflection points with mathematical precision
+        # 21. Momentum Divergence
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'acceleration_score', 'rvol']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 daily_7d_pace = np.where(df['ret_7d'].fillna(0) != 0, df['ret_7d'].fillna(0) / 7, np.nan)
@@ -2440,9 +1788,7 @@ class PatternDetector:
             )
             patterns.append(('🔀 MOMENTUM DIVERGE', mask))
         
-        # 20. 🎯 RANGE COMPRESS - Coiled spring setup with compression dynamics
-        # Professional Use: Breakout preparation and volatility compression strategies
-        # Strategy: Pre-breakout positioning with tight risk control
+        # 22. Range Compression
         if all(col in df.columns for col in ['high_52w', 'low_52w', 'from_low_pct']):
             high, low, from_low_pct = get_col_safe('high_52w'), get_col_safe('low_52w'), get_col_safe('from_low_pct')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -2453,15 +1799,9 @@ class PatternDetector:
             mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
             patterns.append(('🎯 RANGE COMPRESS', mask))
 
-        # ========================================================================================
-        # 🧠 TIER 4: INTELLIGENCE & STEALTH PATTERNS (21-23)
-        # Advanced pattern recognition for sophisticated market behavior
-        # Professional traders use these for alpha generation and market inefficiency capture
-        # ========================================================================================
+        # ========== INTELLIGENCE PATTERNS (23-25) ==========
         
-        # 21. 🤫 STEALTH - Smart money accumulation under the radar
-        # Professional Use: Early detection of institutional accumulation before discovery
-        # Strategy: Position ahead of mainstream recognition with stealth accumulation signals
+        # 23. Stealth Accumulator
         if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'from_low_pct', 'ret_7d', 'ret_30d']):
             ret_7d, ret_30d = get_col_safe('ret_7d'), get_col_safe('ret_30d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -2477,9 +1817,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 22. 🧛 VAMPIRE - Aggressive momentum extraction from small caps
-        # Professional Use: Small-cap momentum and relative strength strategies
-        # Strategy: Exploit small-cap inefficiencies with momentum and volume confirmation
+        # 24. Momentum Vampire
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -2495,9 +1833,7 @@ class PatternDetector:
             )
             patterns.append(('🧛 VAMPIRE', mask))
         
-        # 23. ⛈️ PERFECT STORM - Ultimate confluence of all positive factors
-        # Professional Use: Highest conviction setups with maximum confluence
-        # Strategy: Rare high-probability setups with aggressive position sizing
+        # 25. Perfect Storm
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
             mask = (
                 (get_col_safe('momentum_harmony', 0) == 4) & 
@@ -2505,15 +1841,9 @@ class PatternDetector:
             )
             patterns.append(('⛈️ PERFECT STORM', mask))
 
-        # ========================================================================================
-        # ⚡ TIER 5: REVERSAL & CONTINUATION PATTERNS (24-33)
-        # Advanced reversal detection and trend continuation signals
-        # Professional traders use these for contrarian plays and trend persistence
-        # ========================================================================================
+        # ========== REVERSAL & CONTINUATION PATTERNS (26-36) ==========
         
-        # 24. 🪤 BULL TRAP - Failed breakout and shorting opportunity
-        # Professional Use: Counter-trend trading and short-selling strategies
-        # Strategy: Fade false breakouts with proper risk management
+        # 26. BULL TRAP - Failed breakout/shorting opportunity
         if all(col in df.columns for col in ['from_high_pct', 'ret_7d', 'volume_7d', 'volume_30d']):
             mask = (
                 (get_col_safe('from_high_pct', -100) > -5) &     # Was near 52W high
@@ -2522,9 +1852,7 @@ class PatternDetector:
             )
             patterns.append(('🪤 BULL TRAP', mask))
         
-        # 25. 💣 CAPITULATION - Panic selling exhaustion and reversal setup
-        # Professional Use: Extreme oversold conditions and reversal trading
-        # Strategy: Bottom fishing with volume exhaustion confirmation
+        # 27. CAPITULATION BOTTOM - Panic selling exhaustion
         if all(col in df.columns for col in ['ret_1d', 'from_low_pct', 'rvol', 'volume_1d', 'volume_90d']):
             mask = (
                 (get_col_safe('ret_1d', 0) < -7) &               # Huge down day
@@ -2534,9 +1862,7 @@ class PatternDetector:
             )
             patterns.append(('💣 CAPITULATION', mask))
         
-        # 26. 🏃 RUNAWAY GAP - Strong continuation pattern with gap dynamics
-        # Professional Use: Trend continuation and gap trading strategies
-        # Strategy: Ride momentum with gap confirmation and institutional volume
+        # 28. RUNAWAY GAP - Continuation pattern
         if all(col in df.columns for col in ['price', 'prev_close', 'ret_30d', 'rvol', 'from_high_pct']):
             price = get_col_safe('price', 0)
             prev_close = get_col_safe('prev_close', 1)
@@ -2556,9 +1882,7 @@ class PatternDetector:
             )
             patterns.append(('🏃 RUNAWAY GAP', mask))
         
-        # 27. 🔄 ROTATION LEADER - Sector rotation early mover advantage
-        # Professional Use: Sector rotation and relative strength strategies
-        # Strategy: Lead sector rotation with first-mover advantage
+        # 29. ROTATION LEADER - First mover in sector rotation
         if all(col in df.columns for col in ['ret_7d', 'sector', 'rvol']):
             ret_7d = get_col_safe('ret_7d', 0)
             
@@ -2576,9 +1900,7 @@ class PatternDetector:
             )
             patterns.append(('🔄 ROTATION LEADER', mask))
         
-        # 28. ⚠️ DISTRIBUTION - Smart money selling into strength
-        # Professional Use: Top detection and distribution pattern recognition
-        # Strategy: Exit signals and short-selling opportunity identification
+        # 30. DISTRIBUTION TOP - Smart money selling
         if all(col in df.columns for col in ['from_high_pct', 'rvol', 'ret_1d', 'ret_30d', 'volume_7d', 'volume_30d']):
             mask = (
                 (get_col_safe('from_high_pct', -100) > -10) &    # Near highs
@@ -2589,9 +1911,7 @@ class PatternDetector:
             )
             patterns.append(('⚠️ DISTRIBUTION', mask))
 
-        # 29. 🎯 VELOCITY SQUEEZE - Multi-timeframe acceleration in tight range
-        # Professional Use: Breakout preparation and volatility expansion strategies  
-        # Strategy: Pre-breakout positioning with velocity building in compression
+        # 31. VELOCITY SQUEEZE
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_high_pct', 'from_low_pct', 'high_52w', 'low_52w']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 daily_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
@@ -2607,9 +1927,7 @@ class PatternDetector:
             )
             patterns.append(('🎯 VELOCITY SQUEEZE', mask))
         
-        # 30. ⚠️ VOLUME DIVERGENCE - Volume warning with price strength
-        # Professional Use: Distribution warning and momentum quality assessment
-        # Strategy: Risk management and position sizing adjustment signals
+        # 32. VOLUME DIVERGENCE TRAP
         if all(col in df.columns for col in ['ret_30d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'from_high_pct']):
             mask = (
                 (df['ret_30d'] > 20) &
@@ -2619,9 +1937,7 @@ class PatternDetector:
             )
             patterns.append(('⚠️ VOLUME DIVERGENCE', mask))
         
-        # 31. ⚡ GOLDEN CROSS - Moving average bullish alignment with momentum
-        # Professional Use: Trend confirmation and moving average strategies
-        # Strategy: Long-term trend following with technical confirmation
+        # 33. GOLDEN CROSS MOMENTUM
         if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d', 'rvol', 'ret_7d', 'ret_30d']):
             mask = (
                 (df['sma_20d'] > df['sma_50d']) &
@@ -2632,9 +1948,7 @@ class PatternDetector:
             )
             patterns.append(('⚡ GOLDEN CROSS', mask))
         
-        # 34. 📉 EXHAUSTION - Momentum exhaustion and reversal warning
-        # Professional Use: Momentum exhaustion detection and reversal preparation
-        # Strategy: Exit timing for momentum trades and reversal positioning
+        # 34. MOMENTUM EXHAUSTION
         if all(col in df.columns for col in ['ret_7d', 'ret_1d', 'rvol', 'from_low_pct', 'price', 'sma_20d']):
             with np.errstate(divide='ignore', invalid='ignore'):
                 sma_deviation = np.where(df['sma_20d'] > 0,
@@ -2653,9 +1967,7 @@ class PatternDetector:
             )
             patterns.append(('📉 EXHAUSTION', mask))
         
-        # 34. 🔺 PYRAMID - Systematic accumulation with progressive volume
-        # Professional Use: Institutional accumulation and pyramid building strategies
-        # Strategy: Progressive position building with volume progression confirmation
+        # 35. PYRAMID ACCUMULATION
         if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d', 'ret_30d', 'from_low_pct']):
             mask = (
                 (df['vol_ratio_7d_90d'] > 1.1) &
@@ -2666,9 +1978,7 @@ class PatternDetector:
             )
             patterns.append(('🔺 PYRAMID', mask))
         
-        # 35. 🌪️ VACUUM - Reversal momentum in oversold territory
-        # Professional Use: Oversold reversal and momentum vacuum strategies
-        # Strategy: Bottom fishing with momentum confirmation and volume surge
+        # 36. MOMENTUM VACUUM
         if all(col in df.columns for col in ['ret_30d', 'ret_7d', 'ret_1d', 'rvol', 'from_low_pct']):
             mask = (
                 (df['ret_30d'] < -20) &
@@ -2678,1155 +1988,6 @@ class PatternDetector:
                 (df['from_low_pct'] < 10)
             )
             patterns.append(('🌪️ VACUUM', mask))
-
-        # ========================================================================================
-        # 🚀 TIER 6: ENHANCED MULTI-TIMEFRAME PATTERNS (36-64)
-        # Revolutionary pattern combinations using advanced mathematical models
-        # Professional traders use these for institutional-grade precision and alpha generation
-        # These patterns represent the pinnacle of technical analysis sophistication
-        # ========================================================================================
-        
-        # 36. VELOCITY BREAKOUT - Multi-timeframe momentum acceleration
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'rvol', 'from_high_pct']):
-            mask = (
-                (get_col_safe('ret_1d', 0) > 3) &                              # Recent pop
-                (get_col_safe('ret_7d', 0) > get_col_safe('ret_30d', 1) * 0.5) &  # Accelerating weekly
-                (get_col_safe('ret_30d', 0) > get_col_safe('ret_3m', 1) * 0.7) &  # Sustained momentum
-                (get_col_safe('rvol', 0) > 2) &                                # Volume confirmation
-                (get_col_safe('from_high_pct', -100) > -15)                    # Near highs
-            )
-            patterns.append(('🚀 VELOCITY BREAKOUT', mask))
-        
-        # 38. PROGRESSIVE MOMENTUM - Building across all timeframes
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'from_high_pct']):
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            ret_3m, ret_6m = get_col_safe('ret_3m', 0), get_col_safe('ret_6m', 0)
-            
-            mask = (
-                (ret_1d > 0) & 
-                (ret_7d > ret_30d / 4) &                                       # 7-day beating 30-day pace
-                (ret_30d > ret_3m / 3) &                                       # 30-day beating 3m pace
-                (ret_3m > ret_6m / 2) &                                        # 3m beating 6m pace
-                (get_col_safe('from_high_pct', -100) > -20)                    # Not too extended
-            )
-            patterns.append(('📈 PROGRESSIVE MOMENTUM', mask))
-        
-        # 39. VOLUME WAVE - Intelligent volume progression
-        if all(col in df.columns for col in ['vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'ret_7d']):
-            mask = (
-                (get_col_safe('vol_ratio_1d_180d', 1) > get_col_safe('vol_ratio_7d_180d', 1)) &     # Recent spike
-                (get_col_safe('vol_ratio_7d_180d', 1) > get_col_safe('vol_ratio_30d_180d', 1)) &    # Building volume
-                (get_col_safe('vol_ratio_30d_180d', 1) > get_col_safe('vol_ratio_90d_180d', 1)) &   # Sustained interest
-                (get_col_safe('ret_7d', 0) > 2)                                                      # Price following
-            )
-            patterns.append(('🌊 VOLUME WAVE', mask))
-        
-        # 40. INSTITUTIONAL ACCUMULATION - Smart money detection
-        if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
-            mask = (
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &                # Long-term volume increase
-                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &     # Steady, not spiky
-                (get_col_safe('ret_3m', 0).between(5, 25)) &                   # Gradual appreciation
-                (get_col_safe('from_low_pct', 0) > 30) &                       # Off lows
-                (get_col_safe('from_high_pct', -100) > -30)                    # Not extended
-            )
-            patterns.append(('🏗️ INSTITUTIONAL', mask))
-
-        # ========== FUNDAMENTAL-TECHNICAL FUSION PATTERNS (41-44) ==========
-        
-        # 41. GROWTH AT REASONABLE PRICE (GARP)
-        if all(col in df.columns for col in ['eps_change_pct', 'pe', 'ret_6m', 'from_low_pct']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            mask = (
-                eps_change_pct.notna() & pe.notna() &
-                (eps_change_pct > 20) &                                        # Strong growth
-                (pe.between(8, 25)) &                                          # Reasonable valuation
-                (get_col_safe('ret_6m', 0) > 10) &                            # Market recognition
-                (get_col_safe('from_low_pct', 0) > 40)                        # Not oversold
-            )
-            patterns.append(('📊 GARP LEADER', mask))
-        
-        # 42. ENHANCED TURNAROUND - Improved version
-        if all(col in df.columns for col in ['eps_change_pct', 'ret_30d', 'vol_ratio_30d_90d', 'from_low_pct', 'pe']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            mask = (
-                eps_change_pct.notna() & pe.notna() &
-                (eps_change_pct > 100) &                                       # Massive improvement
-                (get_col_safe('ret_30d', 0) > 15) &                           # Recent momentum
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.5) &                # Volume confirmation
-                (get_col_safe('from_low_pct', 0) < 60) &                      # Still reasonable entry
-                (pe < 30)                                                      # Not too expensive
-            )
-            patterns.append(('⚡ ENHANCED TURNAROUND', mask))
-        
-        # 43. PULLBACK TO SUPPORT - Technical precision
-        if all(col in df.columns for col in ['price', 'sma_200d', 'sma_20d', 'ret_1d', 'rvol']):
-            price, sma_200d, sma_20d = get_col_safe('price'), get_col_safe('sma_200d'), get_col_safe('sma_20d')
-            
-            # Calculate support zone safely
-            with np.errstate(divide='ignore', invalid='ignore'):
-                support_zone_low = np.where(sma_20d > 0, sma_20d * 0.95, 0)
-                support_zone_high = np.where(sma_20d > 0, sma_20d * 1.05, float('inf'))
-            
-            mask = (
-                price.notna() & sma_200d.notna() & sma_20d.notna() &
-                (price > sma_200d) &                                          # Above long-term trend
-                (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA
-                (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
-                (get_col_safe('rvol', 0) > 1.5)                              # Volume interest
-            )
-            patterns.append(('🎯 PULLBACK SUPPORT', mask))
-        
-        # 44. COILED SPRING - Range compression with pressure
-        if all(col in df.columns for col in ['from_high_pct', 'from_low_pct', 'high_52w', 'low_52w', 'vol_ratio_7d_90d', 'ret_7d']):
-            high_52w, low_52w = get_col_safe('high_52w'), get_col_safe('low_52w')
-            
-            # Calculate range compression safely
-            with np.errstate(divide='ignore', invalid='ignore'):
-                range_compression = np.where(low_52w > 0, (high_52w - low_52w) / low_52w, float('inf'))
-            
-            mask = (
-                high_52w.notna() & low_52w.notna() &
-                (get_col_safe('from_high_pct', -100) > -30) &                 # Not far from highs
-                (get_col_safe('from_low_pct', 0) > 70) &                      # Near recent highs
-                (range_compression < 0.4) &                                   # Tight range
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.2) &                # Volume building
-                (get_col_safe('ret_7d', 0).between(-2, 2))                   # Sideways action
-            )
-            patterns.append(('🌪️ COILED SPRING', mask))
-
-        # ========== ENHANCED RISK PATTERNS (45-46) ==========
-        
-        # 45. ENHANCED DISTRIBUTION WARNING
-        if all(col in df.columns for col in ['from_high_pct', 'vol_ratio_1d_90d', 'ret_1d', 'ret_30d', 'pe']):
-            pe = get_col_safe('pe')
-            mask = (
-                (get_col_safe('from_high_pct', -100) > -10) &                 # Near highs
-                (get_col_safe('vol_ratio_1d_90d', 1) > 2) &                   # High volume
-                (get_col_safe('ret_1d', 0) < 1) &                            # Price not moving up
-                (get_col_safe('ret_30d', 0) > 30) &                          # After big run
-                pe.notna() & (pe > 25)                                        # Getting expensive
-            )
-            patterns.append(('⚠️ ENHANCED DISTRIBUTION', mask))
-        
-        # 46. OVERSOLD QUALITY - Value opportunity
-        if all(col in df.columns for col in ['from_low_pct', 'eps_change_pct', 'pe', 'ret_1d', 'rvol']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            mask = (
-                (get_col_safe('from_low_pct', 0) < 25) &                      # Oversold
-                eps_change_pct.notna() & (eps_change_pct > 0) &               # Still growing
-                pe.notna() & (pe < 20) &                                      # Reasonable valuation
-                (get_col_safe('ret_1d', 0) > 1) &                            # Starting to bounce
-                (get_col_safe('rvol', 0) > 1.5)                              # Interest building
-            )
-            patterns.append(('💎 OVERSOLD QUALITY', mask))
-
-        # ========================================================================================
-        # ⚡ TIER 6: ENHANCED MULTI-TIMEFRAME PATTERNS (34-63)
-        # Revolutionary pattern stacking system for institutional-grade analysis
-        # Maximum sophistication patterns used by professional trading desks and funds
-        # ========================================================================================
-
-        # ========== PROFESSIONAL ENHANCED PATTERNS (34-39) ==========
-        
-        # 34. ENHANCED VELOCITY SQUEEZE - Multi-timeframe acceleration in compression
-        # Professional Use: Advanced pre-breakout detection with velocity metrics
-        # Strategy: Optimal entry timing for volatility expansion trades
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'from_high_pct', 'from_low_pct', 'high_52w', 'low_52w', 'vol_ratio_7d_90d']):
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            ret_3m, ret_6m = get_col_safe('ret_3m', 0), get_col_safe('ret_6m', 0)
-            high_52w, low_52w = get_col_safe('high_52w'), get_col_safe('low_52w')
-            # Safe velocity calculations
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_7d_pace = np.where(ret_7d != 0, ret_7d / 7, 0)
-                daily_30d_pace = np.where(ret_30d != 0, ret_30d / 30, 0)
-                daily_3m_pace = np.where(ret_3m != 0, ret_3m / 90, 0)
-                daily_6m_pace = np.where(ret_6m != 0, ret_6m / 180, 0)
-                range_compression = np.where(low_52w > 0, (high_52w - low_52w) / low_52w, np.inf)
-            mask = (
-                (ret_1d > 0) &
-                (daily_7d_pace > daily_30d_pace) &
-                (daily_30d_pace > daily_3m_pace) &
-                (daily_3m_pace > daily_6m_pace) &
-                (abs(get_col_safe('from_high_pct', -50)) + get_col_safe('from_low_pct', 50) < 30) &
-                (range_compression < 0.5) &
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.2)
-            )
-            patterns.append(('🌀 ENHANCED VELOCITY SQUEEZE', mask))
-        
-        # 35. INSTITUTIONAL WAVE - Volume progression pattern
-        # Professional Use: Institutional accumulation pattern recognition
-        # Strategy: Follow institutional volume patterns for sustained moves
-        if all(col in df.columns for col in ['vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'ret_1d', 'ret_7d', 'ret_30d', 'eps_change_pct', 'from_high_pct']):
-            eps_change_pct = get_col_safe('eps_change_pct')
-            mask = (
-                (get_col_safe('vol_ratio_1d_180d', 1) > get_col_safe('vol_ratio_7d_180d', 1)) &
-                (get_col_safe('vol_ratio_7d_180d', 1) > get_col_safe('vol_ratio_30d_180d', 1)) &
-                (get_col_safe('vol_ratio_30d_180d', 1) > get_col_safe('vol_ratio_90d_180d', 1)) &
-                (get_col_safe('ret_1d', 0) > 0) &
-                (get_col_safe('ret_7d', 0) > 3) &
-                (get_col_safe('ret_30d', 0) > 8) &
-                eps_change_pct.notna() & (eps_change_pct > 0) &
-                (get_col_safe('from_high_pct', -100) > -20)
-            )
-            patterns.append(('🌊 INSTITUTIONAL VOLUME WAVE', mask))
-        
-        # 36. ENHANCED SMART ACCUMULATION - Long-term institutional building
-        # Professional Use: Long-term institutional position building recognition
-        # Strategy: Early identification of institutional accumulation for long-term holds
-        if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'ret_6m', 'ret_1y', 'eps_change_pct', 'pe', 'from_low_pct', 'from_high_pct']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            ret_3m, ret_6m = get_col_safe('ret_3m', 0), get_col_safe('ret_6m', 0)
-            # Safe pace calculation
-            with np.errstate(divide='ignore', invalid='ignore'):
-                pace_3m_vs_6m = np.where(ret_6m != 0, ret_3m / (ret_6m / 2), 0)
-            mask = (
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.1) &
-                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &
-                (pace_3m_vs_6m > 1) &
-                (get_col_safe('ret_1y', 0) > 10) &
-                eps_change_pct.notna() & (eps_change_pct > 15) &
-                pe.notna() & (pe < 25) &
-                (get_col_safe('from_low_pct', 0) > 30) &
-                (get_col_safe('from_high_pct', -100) > -30)
-            )
-            patterns.append(('🏢 SMART ACCUMULATION', mask))
-        
-        # 50. ENHANCED EARNINGS SURPRISE - Fundamental acceleration with technical
-        if all(col in df.columns for col in ['eps_change_pct', 'ret_30d', 'pe', 'sector', 'ret_1d', 'ret_7d', 'vol_ratio_30d_90d', 'price', 'sma_20d']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            price, sma_20d = get_col_safe('price'), get_col_safe('sma_20d')
-            ret_7d, ret_30d = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate sector median PE safely
-            if 'sector' in df.columns:
-                sector_pe_median = df.groupby('sector')['pe'].transform('median').fillna(20)
-            else:
-                sector_pe_median = pd.Series(20, index=df.index)
-            
-            # Safe pace calculation
-            with np.errstate(divide='ignore', invalid='ignore'):
-                weekly_vs_monthly_pace = np.where(ret_30d != 0, ret_7d / (ret_30d / 4), 0)
-            
-            mask = (
-                # Fundamental acceleration
-                eps_change_pct.notna() & (eps_change_pct > 50) &
-                (eps_change_pct > ret_30d) &                                 # EPS > price growth
-                
-                # Valuation opportunity
-                pe.notna() & (pe < sector_pe_median) &
-                
-                # Multi-timeframe momentum building
-                (get_col_safe('ret_1d', 0) > 0) &
-                (weekly_vs_monthly_pace > 1) &                               # Accelerating
-                
-                # Volume confirmation
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.2) &
-                
-                # Technical position
-                price.notna() & sma_20d.notna() & (price > sma_20d)          # Above trend
-            )
-            patterns.append(('🚀 EARNINGS SURPRISE LEADER', mask))
-        
-        # 51. ROTATION LEADER ENHANCED - Multi-timeframe sector leadership
-        if all(col in df.columns for col in ['sector', 'ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'vol_ratio_30d_90d']):
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate sector averages safely
-            if 'sector' in df.columns:
-                sector_ret_1d = df.groupby('sector')['ret_1d'].transform('mean').fillna(0)
-                sector_ret_7d = df.groupby('sector')['ret_7d'].transform('mean').fillna(0)
-                sector_ret_30d = df.groupby('sector')['ret_30d'].transform('mean').fillna(0)
-            else:
-                sector_ret_1d = pd.Series(0, index=df.index)
-                sector_ret_7d = pd.Series(0, index=df.index)
-                sector_ret_30d = pd.Series(0, index=df.index)
-            
-            mask = (
-                # Multi-timeframe leadership
-                (ret_1d > sector_ret_1d) &                                   # Leading today
-                (ret_7d > sector_ret_7d + 2) &                              # Leading weekly
-                (ret_30d > sector_ret_30d + 5) &                            # Leading monthly
-                
-                # Volume confirmation
-                (get_col_safe('rvol', 0) > 1.5) &
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.1)
-            )
-            patterns.append(('🔄 SECTOR ROTATION LEADER', mask))
-        
-        # 52. GARP BREAKOUT - Growth at reasonable price breaking out
-        if all(col in df.columns for col in ['eps_change_pct', 'pe', 'from_high_pct', 'ret_7d', 'rvol', 'ret_30d', 'ret_3m', 'price', 'sma_20d']):
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            price, sma_20d = get_col_safe('price'), get_col_safe('sma_20d')
-            
-            mask = (
-                # GARP fundamentals
-                eps_change_pct.notna() & (eps_change_pct > 20) &
-                pe.notna() & pe.between(8, 20) &
-                
-                # Technical breakout
-                (get_col_safe('from_high_pct', -100) > -5) &                 # New highs
-                (get_col_safe('ret_7d', 0) > 5) &
-                
-                # Volume confirmation
-                (get_col_safe('rvol', 0) > 2) &
-                
-                # Multi-timeframe strength
-                (get_col_safe('ret_30d', 0) > 10) &
-                (get_col_safe('ret_3m', 0) > 15) &
-                
-                # Position
-                price.notna() & sma_20d.notna() & (price > sma_20d)
-            )
-            patterns.append(('💎 GARP BREAKOUT STAR', mask))
-
-        # ========== ADVANCED TECHNICAL INDICATORS (53-54) ==========
-        
-        # 32. MULTI-PERIOD RSI MOMENTUM - Advanced momentum quality
-        # Professional Use: Multi-timeframe momentum quality assessment
-        # Strategy: Advanced momentum confirmation with RSI convergence
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'price', 'sma_20d', 'sma_50d']):
-            ret_1d, ret_7d, ret_30d, ret_3m = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0), get_col_safe('ret_3m', 0)
-            price, sma_20d, sma_50d = get_col_safe('price'), get_col_safe('sma_20d'), get_col_safe('sma_50d')
-            
-            # Calculate multi-period RSI using returns (proxy for price-based RSI)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Short-term RSI (7-day equivalent)
-                rsi_7_score = np.where(ret_7d > 0, 
-                    70 + (ret_7d * 2),  # Momentum strength
-                    30 + (ret_7d * 2)   # Weakness
-                ).clip(0, 100)
-                
-                # Medium-term RSI (30-day equivalent)  
-                rsi_30_score = np.where(ret_30d > 0,
-                    70 + (ret_30d * 1),
-                    30 + (ret_30d * 1)
-                ).clip(0, 100)
-                
-                # RSI divergence detection
-                rsi_7_improving = rsi_7_score > 50
-                rsi_30_improving = rsi_30_score > 45
-                rsi_convergence = np.abs(rsi_7_score - rsi_30_score) < 20  # Alignment
-            
-            mask = (
-                # Multi-period RSI strength
-                rsi_7_improving & rsi_30_improving &
-                rsi_convergence &
-                
-                # Recent momentum
-                (ret_1d > 0) &
-                (ret_7d > 2) &
-                
-                # Trend alignment
-                price.notna() & sma_20d.notna() & sma_50d.notna() &
-                (price > sma_20d) & (sma_20d > sma_50d) &
-                
-                # Not overextended
-                (get_col_safe('from_high_pct', -100) > -15)
-            )
-            patterns.append(('📈 MULTI-PERIOD RSI MOMENTUM', mask))
-        
-        # 33. MOMENTUM QUALITY SCORE - Institutional-grade momentum analysis
-        # Professional Use: Comprehensive momentum quality assessment
-        # Strategy: Multi-factor momentum quality for position sizing
-        if all(col in df.columns for col in ['ret_30d', 'ret_3m', 'volume_30d', 'volume_90d', 'sma_20d', 'sma_50d', 'from_low_pct', 'vol_ratio_30d_90d', 'ret_7d', 'rvol']):
-            ret_30d, ret_3m, ret_7d = get_col_safe('ret_30d', 0), get_col_safe('ret_3m', 0), get_col_safe('ret_7d', 0)
-            volume_30d, volume_90d = get_col_safe('volume_30d', 1), get_col_safe('volume_90d', 1)
-            sma_20d, sma_50d = get_col_safe('sma_20d'), get_col_safe('sma_50d')
-            from_low_pct = get_col_safe('from_low_pct', 0)
-            
-            # Enhanced Momentum Quality Score (0-100)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                momentum_score = (
-                    # Component 1: Recent strength (0-20)
-                    np.where(ret_30d > 0, 20, 0) +
-                    
-                    # Component 2: Acceleration (0-25) - enhanced
-                    np.where(ret_30d > (ret_3m / 3), 25, 0) +
-                    
-                    # Component 3: Volume support (0-20)  
-                    np.where(get_col_safe('vol_ratio_30d_90d', 1) > 1.1, 20, 0) +
-                    
-                    # Component 4: Trend alignment (0-20)
-                    np.where(
-                        sma_20d.notna() & sma_50d.notna() & (sma_20d > sma_50d), 
-                        20, 0
-                    ) +
-                    
-                    # Component 5: Position quality (0-15) - not overextended
-                    np.where(from_low_pct < 70, 15, 0)
-                )
-                
-                # Bonus factors for exceptional quality
-                exceptional_bonus = (
-                    # Strong recent volume
-                    np.where(get_col_safe('rvol', 0) > 1.5, 5, 0) +
-                    # Strong weekly momentum
-                    np.where(ret_7d > 5, 5, 0) +
-                    # Consistent acceleration
-                    np.where((ret_7d > ret_30d / 4) & (ret_30d > ret_3m / 3), 5, 0)
-                )
-                
-                total_momentum_quality = (momentum_score + exceptional_bonus).clip(0, 100)
-            
-            mask = (
-                # High momentum quality threshold
-                (total_momentum_quality >= 75) &
-                
-                # Basic filters
-                (ret_30d > 5) &
-                (from_low_pct > 10) &  # Not at absolute lows
-                (get_col_safe('from_high_pct', -100) > -25)  # Room to run
-            )
-            patterns.append(('⚡ MOMENTUM QUALITY LEADER', mask))
-
-        # 55. PRICE DEVIATION ANALYSIS - Enhanced VWAP alternative  
-        if all(col in df.columns for col in ['price', 'sma_20d', 'sma_50d', 'sma_200d', 'volume_30d', 'volume_90d', 'ret_7d', 'ret_30d']):
-            price, sma_20d, sma_50d, sma_200d = get_col_safe('price'), get_col_safe('sma_20d'), get_col_safe('sma_50d'), get_col_safe('sma_200d')
-            ret_7d, ret_30d = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Multi-timeframe price deviation analysis (VWAP proxy)
-                dev_20d = np.where(sma_20d > 0, ((price - sma_20d) / sma_20d * 100), 0)
-                dev_50d = np.where(sma_50d > 0, ((price - sma_50d) / sma_50d * 100), 0)
-                dev_200d = np.where(sma_200d > 0, ((price - sma_200d) / sma_200d * 100), 0)
-                
-                # Institutional-style deviation scoring
-                deviation_quality = (
-                    (dev_20d > 0) & (dev_20d < 10) &      # Above 20d but not extended
-                    (dev_50d > 2) &                        # Strong vs 50d
-                    (dev_200d > 10)                        # Well above long-term
-                )
-                
-                # Volume-weighted momentum (VWAP concept)
-                volume_momentum = get_col_safe('vol_ratio_30d_90d', 1) > 1.1
-            
-            mask = (
-                deviation_quality &
-                volume_momentum &
-                (ret_7d > 0) &
-                (ret_30d > 5) &
-                price.notna() & sma_20d.notna() & sma_50d.notna() & sma_200d.notna()
-            )
-            patterns.append(('📊 PRICE DEVIATION QUALITY', mask))
-        
-        # 56. VOLUME FLOW ANALYSIS - Enhanced A/D Line alternative
-        if all(col in df.columns for col in ['high_52w', 'low_52w', 'price', 'volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'ret_7d', 'ret_30d']):
-            high_52w, low_52w, price = get_col_safe('high_52w'), get_col_safe('low_52w'), get_col_safe('price')
-            volume_1d, volume_7d, volume_30d = get_col_safe('volume_1d', 1), get_col_safe('volume_7d', 1), get_col_safe('volume_30d', 1)
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Money flow position (A/D Line concept)
-                price_position = np.where(
-                    (high_52w > low_52w) & (high_52w > 0) & (low_52w > 0),
-                    (price - low_52w) / (high_52w - low_52w),
-                    0.5
-                )
-                
-                # Volume progression analysis
-                volume_acceleration = (
-                    (volume_1d > volume_7d) &              # Recent spike
-                    (volume_7d > volume_30d) &             # Building trend
-                    (get_col_safe('rvol', 0) > 1.2)        # Above average
-                )
-                
-                # Price-volume coordination
-                pv_coordination = (
-                    (ret_1d > 0) & (volume_1d > volume_7d) |    # Up on volume
-                    (ret_7d > 3) & (volume_7d > volume_30d) |   # Weekly strength
-                    (ret_30d > 8) & volume_acceleration         # Monthly with volume
-                )
-            
-            mask = (
-                (price_position > 0.6) &                   # Upper part of range
-                pv_coordination &
-                (ret_30d > 0) &
-                price.notna() & high_52w.notna() & low_52w.notna()
-            )
-            patterns.append(('🌊 VOLUME FLOW ANALYSIS', mask))
-
-        # ========== REVOLUTIONARY PATTERN STACKING SYSTEM (57-66) ==========
-        
-        # 57. INSTITUTIONAL TSUNAMI - Ultimate long setup with multi-dimensional confluence
-        if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d', 'ret_1y', 'from_high_pct', 'ret_7d', 'ret_30d', 'pe', 'eps_change_pct']):
-            ret_7d, ret_30d, ret_1y = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0), get_col_safe('ret_1y', 0)
-            pe, eps_change_pct = get_col_safe('pe'), get_col_safe('eps_change_pct')
-            
-            # Multi-timeframe volume tsunami
-            vol_tsunami_score = (
-                (get_col_safe('vol_ratio_7d_90d', 1) > 2.0).astype(int) * 30 +
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.5).astype(int) * 25 +
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.3).astype(int) * 20
-            )
-            
-            # Hidden strength (institutions accumulating quietly)
-            hidden_strength = ((ret_1y > 50) & (get_col_safe('from_high_pct', -100) < -20)).astype(int) * 25
-            
-            # Fresh acceleration
-            with np.errstate(divide='ignore', invalid='ignore'):
-                fresh_accel = (ret_7d > ret_30d / 4).astype(int) * 15
-            
-            # Quality confirmation
-            quality_conf = (pe.notna() & (pe < 30) & eps_change_pct.notna() & (eps_change_pct > 20)).astype(int) * 15
-            
-            tsunami_score = vol_tsunami_score + hidden_strength + fresh_accel + quality_conf
-            
-            mask = (tsunami_score >= 90)
-            patterns.append(('🌊 INSTITUTIONAL TSUNAMI', mask))
-        
-        # 58. VELOCITY CASCADE - Exponential acceleration across timeframes
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'rvol', 'from_high_pct']):
-            ret_1d, ret_3d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_3d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            ret_3m, ret_6m = get_col_safe('ret_3m', 0), get_col_safe('ret_6m', 0)
-            
-            # Safe acceleration calculations
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_3d_pace = np.where(ret_3d != 0, ret_3d / 3, 0)
-                daily_7d_pace = np.where(ret_7d != 0, ret_7d / 7, 0)
-                daily_30d_pace = np.where(ret_30d != 0, ret_30d / 30, 0)
-                daily_3m_pace = np.where(ret_3m != 0, ret_3m / 90, 0)
-                daily_6m_pace = np.where(ret_6m != 0, ret_6m / 180, 0)
-            
-            mask = (
-                # Perfect acceleration hierarchy
-                (ret_1d > 0) &
-                (daily_3d_pace > daily_7d_pace) &
-                (daily_7d_pace > daily_30d_pace) &
-                (daily_30d_pace > daily_3m_pace) &
-                (daily_3m_pace > daily_6m_pace) &
-                
-                # Volume explosion
-                (get_col_safe('rvol', 0) > 3) &
-                
-                # Not overextended
-                (get_col_safe('from_high_pct', -100) > -10)
-            )
-            patterns.append(('⚡ VELOCITY CASCADE', mask))
-        
-        # 59. ORACLE DIVERGENCE - Smart money vs crowd intelligence
-        if all(col in df.columns for col in ['ret_30d', 'vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_1y', 'from_low_pct', 'pe', 'market_cap']):
-            ret_30d, ret_1y = get_col_safe('ret_30d', 0), get_col_safe('ret_1y', 0)
-            pe = get_col_safe('pe')
-            from_low_pct = get_col_safe('from_low_pct', 0)
-            
-            # Check if market_cap column exists for quality filter
-            if 'market_cap' in df.columns:
-                market_cap_filter = df['market_cap'].notna()
-            else:
-                market_cap_filter = pd.Series(True, index=df.index)
-            
-            mask = (
-                # Price action: Weak recent performance
-                (ret_30d < 5) &
-                
-                # BUT massive volume building (smart money)
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.4) &
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.2) &
-                
-                # Long-term foundation strong
-                (ret_1y > 30) &
-                
-                # Perfect position for breakout
-                (from_low_pct >= 40) & (from_low_pct <= 70) &
-                
-                # Quality company
-                pe.notna() & (pe < 25) & market_cap_filter
-            )
-            patterns.append(('🔮 ORACLE DIVERGENCE', mask))
-        
-        # 60. EARNINGS TSUNAMI - Fundamental explosion with technical breakout
-        if all(col in df.columns for col in ['eps_change_pct', 'eps_current', 'eps_last_qtr', 'from_high_pct', 'ret_7d', 'rvol', 'price', 'sma_20d', 'sma_50d']):
-            eps_change_pct = get_col_safe('eps_change_pct')
-            eps_current, eps_last_qtr = get_col_safe('eps_current'), get_col_safe('eps_last_qtr')
-            price, sma_20d, sma_50d = get_col_safe('price'), get_col_safe('sma_20d'), get_col_safe('sma_50d')
-            ret_7d = get_col_safe('ret_7d', 0)
-            
-            # Safe earnings comparison
-            with np.errstate(divide='ignore', invalid='ignore'):
-                earnings_growth = np.where(
-                    eps_last_qtr.notna() & (eps_last_qtr > 0) & eps_current.notna(),
-                    eps_current / eps_last_qtr,
-                    0
-                )
-            
-            mask = (
-                # Earnings EXPLOSION
-                eps_change_pct.notna() & (eps_change_pct > 100) &
-                (earnings_growth > 1.5) &
-                
-                # Technical breakout confirmation
-                (get_col_safe('from_high_pct', -100) > -5) &
-                (ret_7d > 8) &
-                
-                # Volume surge
-                (get_col_safe('rvol', 0) > 2.5) &
-                
-                # Trend alignment
-                price.notna() & sma_20d.notna() & sma_50d.notna() &
-                (price > sma_20d) & (sma_20d > sma_50d)
-            )
-            patterns.append(('💥 EARNINGS TSUNAMI', mask))
-        
-        # 61. SECTOR TSUNAMI - First mover in sector rotation
-        if all(col in df.columns for col in ['sector', 'ret_7d', 'rvol', 'from_low_pct']):
-            ret_7d = get_col_safe('ret_7d', 0)
-            rvol = get_col_safe('rvol', 0)
-            from_low_pct = get_col_safe('from_low_pct', 0)
-            
-            # Calculate sector averages safely
-            if 'sector' in df.columns:
-                sector_ret_7d_mean = df.groupby('sector')['ret_7d'].transform('mean').fillna(0)
-                sector_rvol_mean = df.groupby('sector')['rvol'].transform('mean').fillna(1)
-            else:
-                sector_ret_7d_mean = pd.Series(0, index=df.index)
-                sector_rvol_mean = pd.Series(1, index=df.index)
-            
-            mask = (
-                # Early mover advantage
-                (ret_7d > sector_ret_7d_mean + 10) &
-                
-                # Volume leadership in sector
-                (rvol > sector_rvol_mean * 2) &
-                
-                # Technical readiness
-                (from_low_pct > 60) &
-                
-                # Basic momentum
-                (ret_7d > 5)
-            )
-            patterns.append(('🌀 SECTOR TSUNAMI', mask))
-        
-        # 62. PHOENIX RISING - Epic comeback with transformation
-        if all(col in df.columns for col in ['from_low_pct', 'eps_change_pct', 'rvol', 'vol_ratio_90d_180d', 'pe']):
-            from_low_pct = get_col_safe('from_low_pct', 0)
-            eps_change_pct = get_col_safe('eps_change_pct')
-            pe = get_col_safe('pe')
-            
-            mask = (
-                # Epic recovery (assuming strong move from lows)
-                (from_low_pct > 70) &
-                
-                # Fundamental turnaround
-                eps_change_pct.notna() & (eps_change_pct > 200) &
-                
-                # Volume explosion
-                (get_col_safe('rvol', 0) > 5) &
-                (get_col_safe('vol_ratio_90d_180d', 1) > 2) &
-                
-                # Quality confirmation (PE turning positive/reasonable)
-                pe.notna() & (pe > 0) & (pe < 50)
-            )
-            patterns.append(('🔥 PHOENIX RISING', mask))
-        
-        # 63. MOMENTUM VORTEX - Creates its own gravity
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d', 'volume_1d', 'volume_7d', 'from_low_pct', 'price', 'sma_20d', 'sma_50d', 'sma_200d']):
-            ret_1d, ret_3d, ret_7d = get_col_safe('ret_1d', 0), get_col_safe('ret_3d', 0), get_col_safe('ret_7d', 0)
-            volume_1d, volume_7d = get_col_safe('volume_1d', 1), get_col_safe('volume_7d', 1)
-            price, sma_20d, sma_50d, sma_200d = get_col_safe('price'), get_col_safe('sma_20d'), get_col_safe('sma_50d'), get_col_safe('sma_200d')
-            
-            # Safe volume calculations
-            with np.errstate(divide='ignore', invalid='ignore'):
-                avg_daily_volume_7d = np.where(volume_7d > 0, volume_7d / 7, volume_1d)
-                volume_acceleration = np.where(avg_daily_volume_7d > 0, volume_1d / avg_daily_volume_7d, 1)
-            
-            mask = (
-                # Price acceleration cascade
-                (ret_1d > 0) &
-                (ret_3d > ret_1d * 2) &
-                (ret_7d > ret_3d * 1.5) &
-                
-                # Volume vortex (increasing volume)
-                (volume_acceleration > 1.2) &
-                
-                # Position strength
-                (get_col_safe('from_low_pct', 0) > 70) &
-                
-                # SMA alignment (full trend)
-                price.notna() & sma_20d.notna() & sma_50d.notna() & sma_200d.notna() &
-                (price > sma_20d) & (sma_20d > sma_50d) & (sma_50d > sma_200d)
-            )
-            patterns.append(('🌪️ MOMENTUM VORTEX', mask))
-        
-        # 64. PERFECT STORM COMBO - Ultimate pattern stacking
-        if all(col in df.columns for col in ['ret_7d', 'rvol', 'vol_ratio_30d_90d', 'from_high_pct', 'eps_change_pct', 'pe']):
-            ret_7d = get_col_safe('ret_7d', 0)
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            
-            # Multiple confluence factors
-            confluence_score = (
-                # Strong momentum
-                (ret_7d > 5).astype(int) * 25 +
-                
-                # Volume explosion
-                (get_col_safe('rvol', 0) > 2).astype(int) * 25 +
-                
-                # Volume building
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.3).astype(int) * 20 +
-                
-                # Good position
-                (get_col_safe('from_high_pct', -100) > -20).astype(int) * 15 +
-                
-                # Fundamental strength
-                (eps_change_pct.notna() & (eps_change_pct > 30)).astype(int) * 15 +
-                
-                # Reasonable valuation
-                (pe.notna() & (pe < 30) & (pe > 0)).astype(int) * 10
-            )
-            
-            mask = (confluence_score >= 75)
-            patterns.append(('⛈️ PERFECT STORM COMBO', mask))
-        
-        # 65. SHORT OPPORTUNITY COMBO - Multiple warning signals
-        if all(col in df.columns for col in ['from_high_pct', 'pe', 'ret_30d', 'rvol', 'ret_1d', 'vol_ratio_30d_90d']):
-            ret_30d, ret_1d = get_col_safe('ret_30d', 0), get_col_safe('ret_1d', 0)
-            pe = get_col_safe('pe')
-            
-            # Multiple warning signals
-            warning_score = (
-                # Near highs after big run
-                (get_col_safe('from_high_pct', -100) > -5).astype(int) * 30 +
-                (ret_30d > 30).astype(int) * 25 +
-                
-                # High valuation
-                (pe.notna() & (pe > 30)).astype(int) * 25 +
-                
-                # Volume divergence (high volume, price not rising)
-                (get_col_safe('rvol', 0) > 2).astype(int) * 20 +
-                (ret_1d < 1).astype(int) * 15 +
-                
-                # Distribution signs
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.5).astype(int) * 10 +
-                (ret_1d < 0).astype(int) * 5
-            )
-            
-            mask = (warning_score >= 80)
-            patterns.append(('⚠️ SHORT OPPORTUNITY COMBO', mask))
-        
-        # 66. REVERSAL PLAY COMBO - Selling exhaustion with quality
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_low_pct', 'rvol', 'eps_change_pct', 'pe', 'ret_1d']):
-            ret_7d, ret_30d, ret_1d = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0), get_col_safe('ret_1d', 0)
-            eps_change_pct, pe = get_col_safe('eps_change_pct'), get_col_safe('pe')
-            
-            # Reversal setup scoring
-            reversal_score = (
-                # Oversold but bouncing
-                (get_col_safe('from_low_pct', 0) < 25).astype(int) * 30 +
-                (ret_1d > 2).astype(int) * 25 +
-                
-                # After significant decline
-                (ret_30d < -15).astype(int) * 20 +
-                
-                # Volume interest
-                (get_col_safe('rvol', 0) > 2).astype(int) * 15 +
-                
-                # Quality company (hidden gem)
-                (eps_change_pct.notna() & (eps_change_pct > 0)).astype(int) * 10 +
-                (pe.notna() & (pe < 20) & (pe > 0)).astype(int) * 10 +
-                
-                # Recent momentum building
-                (ret_7d > ret_30d / 4).astype(int) * 5
-            )
-            
-            mask = (reversal_score >= 70)
-            patterns.append(('🔄 REVERSAL PLAY COMBO', mask))
-
-        # ========================================================================================
-        # 🧠 TIER 7: REVOLUTIONARY QUANTUM INTELLIGENCE PATTERNS (67-69)  
-        # Advanced mathematical and information theory applications for maximum alpha generation
-        # These patterns use sophisticated mathematical concepts from physics and information theory
-        # Professional Use: Elite institutional trading desks and quantitative research teams
-        # ========================================================================================
-
-        # 67. 🕰️ INFORMATION DECAY ARBITRAGE - Advanced information theory application  
-        # Professional Use: Exploit information processing inefficiencies across timeframes
-        # Strategy: Position ahead of market's delayed information processing and decay patterns
-        try:
-            # Information decay modeling with enhanced mathematical precision
-            SHORT_HALFLIFE = 3.5    # days - empirically derived from market microstructure
-            MEDIUM_HALFLIFE = 14    # days - institutional response time
-            LONG_HALFLIFE = 45      # days - fundamental analysis integration time
-            
-            ret_1d, ret_3d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_3d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate theoretical decay curves using exponential decay model
-            with np.errstate(divide='ignore', invalid='ignore'):
-                theoretical_3d = ret_1d * np.exp(-3/SHORT_HALFLIFE)
-                theoretical_7d = ret_1d * np.exp(-7/SHORT_HALFLIFE) 
-                theoretical_30d = ret_1d * np.exp(-30/MEDIUM_HALFLIFE)
-                
-                # Calculate normalized decay rate anomalies
-                decay_anomaly_3d = np.where(theoretical_3d != 0, (ret_3d - theoretical_3d) / abs(theoretical_3d), 0)
-                decay_anomaly_7d = np.where(theoretical_7d != 0, (ret_7d - theoretical_7d) / abs(theoretical_7d), 0)  
-                decay_anomaly_30d = np.where(theoretical_30d != 0, (ret_30d - theoretical_30d) / abs(theoretical_30d), 0)
-            
-            # Multi-dimensional decay score with adaptive weighting
-            decay_score = (
-                (decay_anomaly_3d > 0.15).astype(int) * 25 +      # Short-term underpricing
-                (decay_anomaly_7d > 0.10).astype(int) * 35 +      # Medium-term persistence  
-                (decay_anomaly_30d > 0.05).astype(int) * 40       # Long-term sustainability
-            )
-            
-            # Volume stealth confirmation (information not yet widely known)
-            stealth_volume = (
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1) &     # Building interest
-                (get_col_safe('vol_ratio_7d_90d', 1) < 2.0) &     # But not explosive yet
-                (get_col_safe('vol_ratio_30d_90d', 1) > 1.05)     # Consistent trend
-            )
-            
-            # Position and quality filters for implementation
-            arbitrage_setup = (
-                (get_col_safe('from_high_pct', 0) < -8) &         # Room to move up
-                (get_col_safe('from_low_pct', 0) > 25) &          # Not at lows
-                (get_col_safe('price', 0) > get_col_safe('sma_50d', 0) * 0.95) &  # Technical support
-                (get_col_safe('pe', 100) < 40) &                 # Not extremely overvalued
-                (get_col_safe('eps_change_pct', 0) > -5)          # Earnings not collapsing
-            )
-            
-            # Final information decay arbitrage detection
-            mask = (
-                (decay_score >= 60) &
-                stealth_volume &
-                arbitrage_setup
-            )
-            patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', mask))
-        except Exception as e:
-            # Fallback pattern if advanced calculation fails
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', mask))
-
-        # 68. 🧩 ENTROPY COMPRESSION - Minimum entropy state detection with phase transition prediction
-        # Professional Use: Identify unsustainable market order states before volatility expansion  
-        # Strategy: Mathematical prediction of volatility expansion events using information entropy
-        try:
-            ret_1d, ret_3d, ret_7d = get_col_safe('ret_1d', 0), get_col_safe('ret_3d', 0), get_col_safe('ret_7d', 0)
-            
-            # Calculate information entropy metrics using Shannon entropy principles
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Price entropy (volatility normalized)
-                daily_returns = [abs(ret_1d), abs(ret_3d/3), abs(ret_7d/7)]
-                price_entropy = np.mean(daily_returns, axis=0)
-                
-                # Volume consistency entropy  
-                vol_ratios = [
-                    get_col_safe('vol_ratio_1d_90d', 1),
-                    get_col_safe('vol_ratio_7d_90d', 1), 
-                    get_col_safe('vol_ratio_30d_90d', 1)
-                ]
-                volume_entropy = np.std(vol_ratios, axis=0)
-                
-                # Combined entropy state
-                total_entropy = price_entropy + volume_entropy * 0.5
-            
-            # Entropy minimization signature (approaching unstable equilibrium)
-            entropy_compression = (
-                (price_entropy < 1.2) &                          # Low volatility state
-                (volume_entropy < 0.25) &                        # Consistent volume pattern
-                (total_entropy < 1.5) &                          # Combined low entropy
-                (get_col_safe('from_high_pct', 0) > -20) &       # Not collapsed
-                (get_col_safe('from_low_pct', 0) > 25)           # Not basing
-            )
-            
-            # Price structure order parameters (mathematical stability check)
-            price_structure_order = (
-                (get_col_safe('price', 0) > get_col_safe('sma_20d', 0) * 0.98) &
-                (get_col_safe('price', 0) < get_col_safe('sma_20d', 0) * 1.04) &  # Tight to trend
-                (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)) &      # Trend alignment
-                (abs(get_col_safe('from_low_pct', 0) - 50) < 25)                 # Middle range position
-            )
-            
-            # Phase transition catalyst potential
-            catalyst_potential = (
-                (get_col_safe('rvol', 1) > 1.1).astype(int) * 25 +
-                (get_col_safe('eps_change_pct', 0) > 5).astype(int) * 30 +
-                (ret_3d > 0).astype(int) * 25 +
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.15).astype(int) * 20
-            )
-            
-            # Final entropy compression detection
-            mask = (
-                entropy_compression &
-                price_structure_order &
-                (catalyst_potential >= 50)
-            )
-            patterns.append(('🧩 ENTROPY COMPRESSION', mask))
-        except Exception as e:
-            # Fallback pattern if advanced calculation fails
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🧩 ENTROPY COMPRESSION', mask))
-
-        # 69. 🌪️ VOLATILITY PHASE SHIFT - Thermodynamic volatility regime transition detection
-        # Professional Use: Early detection of volatility regime transitions before options pricing adjusts
-        # Strategy: Pre-position for volatility state changes using thermodynamic principles
-        try:
-            ret_1d, ret_7d, ret_30d, ret_3m = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0), get_col_safe('ret_3m', 0)
-            
-            # Calculate volatility phase indicators using thermodynamic modeling
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Current vs historical volatility ratios
-                current_vol = abs(ret_7d)
-                historical_vol_30d = abs(ret_30d) 
-                historical_vol_3m = abs(ret_3m) / 3
-                
-                # Weighted historical volatility baseline
-                baseline_vol = (historical_vol_30d * 0.6 + historical_vol_3m * 0.4)
-                vol_ratio = np.where(baseline_vol > 0, current_vol / baseline_vol, 1.0)
-            
-            # Volatility compression signature (low-energy state)
-            compression_signature = (
-                (vol_ratio < 0.7) &                              # Much lower than baseline
-                (abs(ret_1d) < 2.5) &                           # Recent calmness
-                (abs(ret_7d) < 6) &                             # Weekly calmness
-                (get_col_safe('from_high_pct', 0) > -25) &      # Not collapsed
-                (get_col_safe('from_low_pct', 0) > 30)          # Not at lows
-            )
-            
-            # Energy buildup detection (pre-phase transition)
-            energy_buildup = (
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1) &   # Volume building
-                (get_col_safe('vol_ratio_30d_90d', 1) > 0.95) & # Sustained interest
-                (get_col_safe('price', 0) / get_col_safe('sma_20d', 0) > 0.98) &  # Technical support
-                (get_col_safe('price', 0) / get_col_safe('sma_20d', 0) < 1.03)    # Not extended
-            )
-            
-            # Phase transition probability calculation
-            transition_probability = (
-                (abs(get_col_safe('from_low_pct', 0) - 50) < 20).astype(int) * 30 +  # Middle of range
-                (get_col_safe('rvol', 1) > 1.1).astype(int) * 25 +                   # Volume catalyst
-                (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)).astype(int) * 25 +  # Trend support
-                (ret_1d > 0).astype(int) * 20                                         # Recent positive
-            )
-            
-            # Quality and safety filters
-            quality_filters = (
-                (get_col_safe('pe', 100) < 45) &               # Not extremely overvalued
-                (get_col_safe('pe', 100) > 0) &                # Has earnings
-                (ret_3m > -25)                                  # Not in severe downtrend
-            )
-            
-            # Final volatility phase shift detection
-            mask = (
-                compression_signature &
-                energy_buildup &
-                (transition_probability >= 75) &
-                quality_filters
-            )
-            patterns.append(('🌪️ VOLATILITY PHASE SHIFT', mask))
-        except Exception as e:
-            # Fallback pattern if advanced calculation fails
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🌪️ VOLATILITY PHASE SHIFT', mask))
-
-        # ========================================================================================
-        # 🚀 TIER 8: ULTIMATE QUANTUM MATHEMATICAL PATTERNS (70-74)
-        # Revolutionary quantum mathematical models for ultimate market edge
-        # These patterns represent the pinnacle of mathematical trading intelligence
-        # ========================================================================================
-
-        # 70. 🧠 QUANTUM ENTANGLEMENT - Mathematical entanglement with sector leaders
-        # Professional Use: Detect mathematical correlation coupling with high-performance peers
-        # Strategy: Position when stocks become mathematically entangled with sector momentum
-        try:
-            category = get_col_safe('category', '')
-            ret_7d, ret_30d = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate sector performance correlation (quantum entanglement coefficient)
-            sector_momentum = df.groupby('category')['ret_30d'].transform('median')
-            sector_volatility = df.groupby('category')['ret_7d'].transform('std')
-            
-            with np.errstate(divide='ignore', invalid='ignore'):
-                entanglement_coefficient = np.where(
-                    sector_volatility > 0,
-                    abs(ret_30d - sector_momentum) / sector_volatility,
-                    np.inf
-                )
-            
-            # Quantum correlation strength
-            correlation_strength = (
-                (entanglement_coefficient < 0.5) &               # High correlation (low deviation)
-                (sector_momentum > 5) &                          # Positive sector momentum
-                (ret_30d > sector_momentum * 0.8) &              # Participating in sector move
-                (get_col_safe('from_low_pct', 0) > 20) &        # Not at lows
-                (get_col_safe('master_score', 0) >= 65)          # Quality threshold
-            )
-            
-            patterns.append(('🧠 QUANTUM ENTANGLEMENT', correlation_strength))
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🧠 QUANTUM ENTANGLEMENT', mask))
-
-        # 71. 🧬 GENETIC MOMENTUM - DNA-level momentum pattern matching
-        # Professional Use: Detect stocks whose momentum signatures match historically successful templates
-        # Strategy: Pattern recognition of successful momentum genetic codes
-        try:
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Genetic momentum template (successful pattern DNA)
-            momentum_dna_score = (
-                # Gene 1: Acceleration consistency (25 points)
-                np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
-                
-                # Gene 2: Progressive strength (30 points) 
-                np.where(ret_7d > (ret_30d / 4), 30, 0) +
-                
-                # Gene 3: Volume confirmation (20 points)
-                np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
-                
-                # Gene 4: Quality foundation (25 points)
-                np.where(get_col_safe('master_score', 0) >= 70, 25, 0)
-            )
-            
-            # Genetic pattern strength threshold
-            mask = (
-                (momentum_dna_score >= 75) &                     # Strong genetic match
-                (get_col_safe('from_low_pct', 0) > 15) &        # Not at bottom
-                (get_col_safe('from_high_pct', 0) > -15) &      # Room to run
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)     # Volume increasing
-            )
-            
-            patterns.append(('🧬 GENETIC MOMENTUM', mask))
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🧬 GENETIC MOMENTUM', mask))
-
-        # 72. 👻 PHANTOM ACCUMULATION - Stealth institutional accumulation detection
-        # Professional Use: Detect perfectly hidden institutional accumulation patterns
-        # Strategy: Position ahead of institutional disclosure requirements
-        try:
-            volume_7d, volume_30d, volume_90d = get_col_safe('volume_7d', 1), get_col_safe('volume_30d', 1), get_col_safe('volume_90d', 1)
-            ret_7d, ret_30d = get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Phantom accumulation signatures
-            with np.errstate(divide='ignore', invalid='ignore'):
-                volume_efficiency = np.where(volume_30d > 0, ret_30d / (volume_30d / 1000000), 0)
-                volume_persistence = np.where(volume_90d > 0, volume_30d / volume_90d, 1)
-            
-            # Stealth accumulation detection
-            phantom_signals = (
-                (volume_efficiency > 0.5) &                      # High price efficiency per volume
-                (volume_persistence > 1.1) &                     # Sustained volume increase
-                (volume_persistence < 2.0) &                     # Not obvious accumulation
-                (ret_30d > 0) &                                  # Positive drift
-                (ret_30d < 15) &                                 # Not obvious momentum
-                (get_col_safe('from_low_pct', 0).between(20, 70)) & # Middle range
-                (get_col_safe('master_score', 0) >= 60)          # Quality filter
-            )
-            
-            patterns.append(('👻 PHANTOM ACCUMULATION', phantom_signals))
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('👻 PHANTOM ACCUMULATION', mask))
-
-        # 73. 🌀 VORTEX CONFLUENCE - Mathematical convergence creating unstable equilibrium
-        # Professional Use: Identify precise mathematical convergence points for breakout timing
-        # Strategy: Position at mathematical convergence before energy release
-        try:
-            price = get_col_safe('price', 0)
-            sma_20d, sma_50d, sma_200d = get_col_safe('sma_20d', 0), get_col_safe('sma_50d', 0), get_col_safe('sma_200d', 0)
-            
-            # Calculate mathematical convergence (vortex center)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                sma_convergence = (
-                    (abs(price - sma_20d) / price < 0.03) &      # Price near 20-day SMA
-                    (abs(sma_20d - sma_50d) / sma_20d < 0.04) &  # SMAs converging
-                    (abs(sma_50d - sma_200d) / sma_50d < 0.06)   # Longer-term convergence
-                )
-            
-            # Energy buildup indicators
-            energy_buildup = (
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.15) &  # Volume building
-                (get_col_safe('rvol', 1) > 1.1) &               # Recent volume spike
-                (get_col_safe('from_low_pct', 0) > 25) &        # Off lows
-                (get_col_safe('from_high_pct', 0) > -25) &      # Room to move
-                (get_col_safe('master_score', 0) >= 65)          # Quality threshold
-            )
-            
-            # Vortex confluence detection
-            mask = sma_convergence & energy_buildup
-            patterns.append(('🌀 VORTEX CONFLUENCE', mask))
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('🌀 VORTEX CONFLUENCE', mask))
-
-        # 74. ⚛️ ATOMIC DECAY MOMENTUM - Radioactive decay mathematics for momentum timing
-        # Professional Use: Precise momentum timing using atomic decay mathematical models
-        # Strategy: Time momentum entries using half-life calculations
-        try:
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate momentum half-life (decay constant)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                momentum_decay_rate = np.where(
-                    ret_30d != 0,
-                    np.log(2) / np.maximum(abs(ret_7d / ret_30d), 0.1),  # Half-life calculation
-                    0
-                )
-            
-            # Atomic momentum strength (undecayed energy)
-            atomic_strength = (
-                # Fresh momentum (high energy state)
-                (momentum_decay_rate > 2) &                      # Slow decay rate
-                (ret_7d > 3) &                                   # Strong recent momentum
-                (ret_30d > 8) &                                  # Sustained momentum
-                (get_col_safe('rvol', 1) > 1.3) &               # Volume confirmation
-                (get_col_safe('from_low_pct', 0) > 15) &        # Off lows
-                (get_col_safe('acceleration_score', 0) >= 75)    # Accelerating
-            )
-            
-            patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', atomic_strength))
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-            patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', mask))
-
-        # ============================================
-        # 🎯 SMART PATTERN COMBINATIONS ENGINE
-        # ============================================
-        try:
-            # Evaluate smart pattern combinations for enhanced alpha generation
-            combination_results = COMBINATION_ENGINE.evaluate_combinations(df, patterns)
-            
-            # Add successful combinations to pattern results
-            if combination_results:
-                patterns.extend(combination_results)
-                
-        except Exception as e:
-            print(f"Warning: Smart combinations failed: {e}")
-
-        # ========================================================================================
-        # 📊 PROFESSIONAL PATTERN DETECTION COMPLETE - 74 PATTERNS ANALYZED
-        # ========================================================================================
-        #
-        # ✅ PATTERN LIBRARY STATUS: PRODUCTION READY WITH ULTIMATE QUANTUM INTELLIGENCE
-        # 
-        # 🏆 Total Patterns Detected: 74 institutional-grade patterns with quantum intelligence
-        # 🔧 Performance Target: Sub-200ms execution for real-time trading
-        # 🎯 Accuracy Level: Professional trader precision with mathematical validation
-        # ⚖️ Risk Management: Integrated warning signals and confidence scoring
-        # 🧠 Revolutionary Features: Information theory, entropy analysis, phase transitions, quantum mathematics
-        # 
-        # 📈 PROFESSIONAL USAGE SUMMARY:
-        # - Tier 1-2: Primary screening and high-conviction core holdings (10 + 5 patterns)
-        # - Tier 3-4: Precise timing and stealth accumulation strategies (6 + 3 patterns)  
-        # - Tier 5-6: Advanced reversal detection and alpha generation (10 + 29 patterns)
-        # - Tier 7: Revolutionary quantum intelligence patterns (3 patterns)
-        # - Tier 8: Ultimate quantum mathematical patterns (5 patterns)
-        # 
-        # 🚀 NEXT-LEVEL FEATURES:
-        # - Quantum Pattern Combinations for exponential edge detection
-        # - Multi-dimensional confluence scoring with interaction matrices
-        # - Ultimate pattern combination engine with 6 quantum tiers
-        # - Mathematical precision with vectorized operations
-        # - Information theory applications for market inefficiency detection
-        # - Entropy analysis for volatility prediction
-        # - Thermodynamic modeling for regime transition detection
-        # - Quantum entanglement detection and genetic momentum analysis
-        # 
-        # 💡 STRATEGIC ADVANTAGE:
-        # This ultimate 74-pattern library with quantum combination intelligence provides professional 
-        # traders with the most sophisticated pattern recognition system ever created, enabling 
-        # systematic alpha generation through quantum mathematical models and advanced pattern synergies.
-        # 
-        # ========================================================================================
 
         return patterns
     
@@ -3872,388 +2033,318 @@ class PatternDetector:
         summary_df = summary_df.sort_values('Count', ascending=False)
         
         return summary_df 
+        
 # ============================================
-# ADAPTIVE PATTERN INTELLIGENCE SYSTEM
+# LEADERSHIP DENSITY ENGINE - ALL-TIME BEST APPROACH
 # ============================================
 
-class AdaptivePatternIntelligence:
+class LeadershipDensityEngine:
     """
-    🧠 REVOLUTIONARY ADAPTIVE PATTERN INTELLIGENCE SYSTEM
+    Revolutionary Leadership Density Index (LDI) approach for sector/industry/category analysis.
     
-    Makes existing 69 patterns smarter through contextual awareness and dynamic adaptation.
-    Professional-grade implementation with zero-bug guarantee and graceful fallbacks.
+    This approach measures sector strength through leadership density rather than sampling bias.
+    LDI = (Number of Market Leaders in Group) / (Total Stocks in Group) × 100
     
-    FEATURES:
-    ✅ Market Regime Detection (Bull/Bear/Volatile/Range)
-    ✅ Dynamic Pattern Weighting based on market conditions
-    ✅ Volatility-Adaptive Pattern Sensitivity
-    ✅ Sector Momentum Intelligence
-    ✅ Real-time Pattern Performance Analysis
-    ✅ AI Trading Recommendations
-    ✅ Contextual Pattern Scoring
-    ✅ Graceful Error Handling with Fallbacks
-    
-    BENEFITS:
-    🚀 Makes existing patterns exponentially more intelligent
-    📈 Adapts to market conditions in real-time
-    🎯 Provides contextual trading insights
-    ⚡ Maintains sub-200ms performance
-    🛡️ Zero-bug design with comprehensive error handling
-    💡 Actionable AI recommendations for traders
-    
-    INTEGRATION:
-    - Seamlessly enhances PatternDetector.detect_all_patterns_optimized()
-    - Adds adaptive_intelligence_score and adaptive_tier columns
-    - Provides market intelligence dashboard in UI
-    - Zero impact on existing functionality
+    Key Benefits:
+    - No sampling bias - uses entire universe
+    - Fair comparison across all group sizes  
+    - Market-relative leadership assessment
+    - True sector strength measurement
     """
     
-    # Market Regime Configurations for Pattern Adaptation
-    REGIME_CONFIGURATIONS = {
-        "🔥 RISK-ON BULL": {
-            "momentum_multiplier": 1.3,
-            "volume_sensitivity": 0.8,
-            "breakout_threshold": 0.9,
-            "quality_weight": 0.7,
-            "aggressive_patterns_boost": 1.4,
-            "preferred_categories": ["momentum", "volume", "breakout"]
-        },
-        "🛡️ RISK-OFF DEFENSIVE": {
-            "momentum_multiplier": 0.7,
-            "volume_sensitivity": 1.2,
-            "breakout_threshold": 1.3,
-            "quality_weight": 1.4,
-            "aggressive_patterns_boost": 0.6,
-            "preferred_categories": ["fundamental", "value", "quality"]
-        },
-        "⚡ VOLATILE OPPORTUNITY": {
-            "momentum_multiplier": 1.1,
-            "volume_sensitivity": 1.4,
-            "breakout_threshold": 0.8,
-            "quality_weight": 1.0,
-            "aggressive_patterns_boost": 1.2,
-            "preferred_categories": ["volume", "divergence", "hidden"]
-        },
-        "😴 RANGE-BOUND": {
-            "momentum_multiplier": 0.9,
-            "volume_sensitivity": 1.0,
-            "breakout_threshold": 1.1,
-            "quality_weight": 1.2,
-            "aggressive_patterns_boost": 0.8,
-            "preferred_categories": ["range", "fundamental", "value"]
-        }
-    }
-    
-    # Volatility Regime Thresholds
-    VOLATILITY_REGIMES = {
-        "LOW": {"threshold": 0.6, "pattern_sensitivity": 1.2, "confirmation_req": 0.8},
-        "MEDIUM": {"threshold": 1.0, "pattern_sensitivity": 1.0, "confirmation_req": 1.0},  
-        "HIGH": {"threshold": 1.8, "pattern_sensitivity": 0.8, "confirmation_req": 1.3},
-        "EXTREME": {"threshold": 3.0, "pattern_sensitivity": 0.6, "confirmation_req": 1.6}
-    }
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_global_threshold_cached(df_json: str, percentile: float = 90.0) -> float:
+        """Cached calculation of global market leadership threshold"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'master_score' not in df.columns:
+            return 75.0  # Default threshold
+        
+        # Calculate global threshold (top 10% of entire market)
+        threshold = df['master_score'].quantile(percentile / 100.0)
+        return max(threshold, 60.0)  # Minimum threshold of 60
     
     @staticmethod
-    def calculate_market_context(df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Calculate comprehensive market context for adaptive pattern intelligence
-        Returns contextual metrics that inform pattern adaptation
-        """
+    def calculate_global_threshold(df: pd.DataFrame, percentile: float = 90.0) -> float:
+        """Calculate global market leadership threshold (top 10% default)"""
+        if df.empty or 'master_score' not in df.columns:
+            return 75.0
+        
         try:
-            context = {}
-            
-            if df.empty:
-                return {"regime": "😴 NO DATA", "volatility_regime": "MEDIUM", "adaptations": {}}
-            
-            # 1. Market Regime Detection (Enhanced)
-            regime, regime_metrics = MarketIntelligence.detect_market_regime(df)
-            context.update(regime_metrics)
-            context["regime"] = regime
-            
-            # 2. Volatility Regime Analysis
-            if 'rvol' in df.columns:
-                median_rvol = df['rvol'].median()
-                vol_regime = "LOW"
-                for regime_name, config in AdaptivePatternIntelligence.VOLATILITY_REGIMES.items():
-                    if median_rvol >= config["threshold"]:
-                        vol_regime = regime_name
-                context["volatility_regime"] = vol_regime
-                context["median_rvol"] = median_rvol
-            else:
-                context["volatility_regime"] = "MEDIUM"
-                context["median_rvol"] = 1.0
-            
-            # 3. Sector Momentum Flow
-            if 'sector' in df.columns and 'master_score' in df.columns:
-                sector_momentum = df.groupby('sector')['master_score'].agg(['mean', 'count']).to_dict()
-                context["sector_momentum"] = sector_momentum
-                
-                # Identify leading sectors (top 3 by score with meaningful sample size)
-                sector_scores = df.groupby('sector').agg({
-                    'master_score': 'mean',
-                    'ticker': 'count'
-                }).rename(columns={'ticker': 'count'})
-                
-                # Filter sectors with at least 5 stocks for reliability
-                meaningful_sectors = sector_scores[sector_scores['count'] >= 5]
-                if not meaningful_sectors.empty:
-                    leading_sectors = meaningful_sectors.nlargest(3, 'master_score').index.tolist()
-                    context["leading_sectors"] = leading_sectors
-                else:
-                    context["leading_sectors"] = []
-            else:
-                context["sector_momentum"] = {}
-                context["leading_sectors"] = []
-            
-            # 4. Pattern Success Rate Analysis (Historical Context)
-            if 'patterns' in df.columns and 'master_score' in df.columns:
-                pattern_performance = AdaptivePatternIntelligence._analyze_pattern_performance(df)
-                context["pattern_performance"] = pattern_performance
-            else:
-                context["pattern_performance"] = {}
-            
-            # 5. Market Breadth Indicators
-            if 'ret_30d' in df.columns:
-                positive_momentum = (df['ret_30d'] > 0).sum() / len(df)
-                strong_momentum = (df['ret_30d'] > 10).sum() / len(df)
-                context["positive_breadth"] = positive_momentum
-                context["strong_breadth"] = strong_momentum
-            else:
-                context["positive_breadth"] = 0.5
-                context["strong_breadth"] = 0.2
-            
-            return context
-            
+            # Use only relevant columns for caching
+            cache_df = df[['master_score']].copy()
+            df_json = cache_df.to_json()
+            return LeadershipDensityEngine._calculate_global_threshold_cached(df_json, percentile)
         except Exception as e:
-            # Graceful fallback - never break the system
-            return {
-                "regime": "😴 RANGE-BOUND",
-                "volatility_regime": "MEDIUM", 
-                "adaptations": {},
-                "error": f"Context calculation error: {str(e)}"
-            }
+            logger.warning(f"Cache failed for global threshold: {str(e)}")
+            # Fallback calculation
+            threshold = df['master_score'].quantile(percentile / 100.0)
+            return max(threshold, 60.0)
     
     @staticmethod
-    def _analyze_pattern_performance(df: pd.DataFrame) -> Dict[str, float]:
-        """Analyze how well each pattern category is performing in current market"""
-        try:
-            performance = {}
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_sector_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of sector Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'sector' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each sector
+        sector_stats = []
+        
+        for sector in df['sector'].unique():
+            if sector == 'Unknown':
+                continue
+                
+            sector_df = df[df['sector'] == sector]
+            total_stocks = len(sector_df)
             
-            # Group patterns by category and analyze average scores
-            for _, row in df.iterrows():
-                if pd.notna(row.get('patterns', '')) and row['patterns']:
-                    patterns = row['patterns'].split(' | ')
-                    score = row.get('master_score', 50)
-                    
-                    for pattern in patterns:
-                        pattern = pattern.strip()
-                        if pattern in PatternDetector.PATTERN_METADATA:
-                            category = PatternDetector.PATTERN_METADATA[pattern].get('category', 'unknown')
-                            if category not in performance:
-                                performance[category] = {'total_score': 0, 'count': 0}
-                            performance[category]['total_score'] += score
-                            performance[category]['count'] += 1
+            if total_stocks == 0:
+                continue
             
-            # Calculate average performance by category
-            category_performance = {}
-            for category, data in performance.items():
-                if data['count'] > 0:
-                    avg_score = data['total_score'] / data['count']
-                    category_performance[category] = avg_score
+            # Count market leaders in this sector
+            leaders = sector_df[sector_df['master_score'] >= threshold]
+            leader_count = len(leaders)
             
-            return category_performance
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
             
-        except Exception:
-            return {}
+            # Additional metrics for enhanced analysis
+            avg_score = sector_df['master_score'].mean()
+            median_score = sector_df['master_score'].median()
+            top_10_pct_count = max(1, int(total_stocks * 0.1))
+            top_performers = sector_df.nlargest(top_10_pct_count, 'master_score')
+            elite_avg_score = top_performers['master_score'].mean()
+            
+            # Calculate momentum and volume metrics if available
+            avg_momentum = sector_df['momentum_score'].mean() if 'momentum_score' in sector_df.columns else 50.0
+            avg_volume = sector_df['volume_score'].mean() if 'volume_score' in sector_df.columns else 50.0
+            avg_rvol = sector_df['rvol'].mean() if 'rvol' in sector_df.columns else 1.0
+            avg_ret_30d = sector_df['ret_30d'].mean() if 'ret_30d' in sector_df.columns else 0.0
+            
+            # Money flow if available
+            total_money_flow = sector_df['money_flow_mm'].sum() if 'money_flow_mm' in sector_df.columns else 0.0
+            
+            sector_stats.append({
+                'sector': sector,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'median_score': round(median_score, 2),
+                'elite_avg_score': round(elite_avg_score, 2),
+                'avg_momentum': round(avg_momentum, 2),
+                'avg_volume': round(avg_volume, 2),
+                'avg_rvol': round(avg_rvol, 2),
+                'avg_ret_30d': round(avg_ret_30d, 2),
+                'total_money_flow': round(total_money_flow, 2),
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not sector_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(sector_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('sector', inplace=True)
+        
+        return ldi_df
     
     @staticmethod
-    def get_adaptive_pattern_weights(df: pd.DataFrame, base_patterns: List[Tuple[str, Any]]) -> Dict[str, float]:
-        """
-        Calculate adaptive weights for patterns based on current market context
-        Returns dictionary of pattern names to adaptive weight multipliers
-        """
+    def calculate_sector_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all sectors"""
+        if df.empty or 'sector' not in df.columns:
+            return pd.DataFrame()
+        
         try:
-            # Get market context
-            context = AdaptivePatternIntelligence.calculate_market_context(df)
-            regime = context.get("regime", "😴 RANGE-BOUND")
-            vol_regime = context.get("volatility_regime", "MEDIUM")
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
             
-            # Get regime configuration
-            regime_config = AdaptivePatternIntelligence.REGIME_CONFIGURATIONS.get(
-                regime, 
-                AdaptivePatternIntelligence.REGIME_CONFIGURATIONS["😴 RANGE-BOUND"]
-            )
+            # Use only relevant columns for caching
+            cache_cols = ['sector', 'master_score']
+            optional_cols = ['momentum_score', 'volume_score', 'rvol', 'ret_30d', 'money_flow_mm']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
             
-            vol_config = AdaptivePatternIntelligence.VOLATILITY_REGIMES.get(vol_regime, 
-                AdaptivePatternIntelligence.VOLATILITY_REGIMES["MEDIUM"])
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
             
-            adaptive_weights = {}
-            pattern_performance = context.get("pattern_performance", {})
-            
-            # Calculate adaptive weights for each pattern
-            for pattern_name, _ in base_patterns:
-                if pattern_name in PatternDetector.PATTERN_METADATA:
-                    metadata = PatternDetector.PATTERN_METADATA[pattern_name]
-                    category = metadata.get('category', 'unknown')
-                    base_weight = metadata.get('importance_weight', 5)
-                    
-                    # Start with base multiplier
-                    multiplier = 1.0
-                    
-                    # 1. Regime-based adaptation
-                    if category in regime_config.get("preferred_categories", []):
-                        multiplier *= 1.2  # Boost preferred categories
-                    
-                    # 2. Volume-sensitive patterns adaptation
-                    if category in ["volume", "breakout"]:
-                        multiplier *= regime_config.get("volume_sensitivity", 1.0)
-                    
-                    # 3. Momentum patterns adaptation  
-                    if category in ["momentum", "technical"]:
-                        multiplier *= regime_config.get("momentum_multiplier", 1.0)
-                    
-                    # 4. Quality patterns adaptation
-                    if category in ["fundamental", "value", "quality"]:
-                        multiplier *= regime_config.get("quality_weight", 1.0)
-                    
-                    # 5. Volatility regime impact
-                    multiplier *= vol_config.get("pattern_sensitivity", 1.0)
-                    
-                    # 6. Historical performance adaptation
-                    if category in pattern_performance:
-                        perf_score = pattern_performance[category]
-                        if perf_score > 60:
-                            multiplier *= 1.1  # Boost well-performing categories
-                        elif perf_score < 40:
-                            multiplier *= 0.9  # Reduce underperforming categories
-                    
-                    # 7. Ensure reasonable bounds
-                    multiplier = max(0.3, min(2.0, multiplier))
-                    
-                    adaptive_weights[pattern_name] = multiplier
-            
-            return adaptive_weights
-            
+            return LeadershipDensityEngine._calculate_sector_ldi_cached(df_json, threshold)
         except Exception as e:
-            # Safe fallback - return uniform weights
-            return {pattern_name: 1.0 for pattern_name, _ in base_patterns}
-    
-    @staticmethod  
-    def get_adaptive_thresholds(df: pd.DataFrame, pattern_name: str, base_threshold: float) -> float:
-        """
-        Calculate adaptive thresholds for pattern detection based on market context
-        Makes patterns more or less sensitive based on current market conditions
-        """
-        try:
-            context = AdaptivePatternIntelligence.calculate_market_context(df)
-            regime = context.get("regime", "😴 RANGE-BOUND")
-            vol_regime = context.get("volatility_regime", "MEDIUM")
-            
-            regime_config = AdaptivePatternIntelligence.REGIME_CONFIGURATIONS.get(
-                regime,
-                AdaptivePatternIntelligence.REGIME_CONFIGURATIONS["😴 RANGE-BOUND"]
-            )
-            
-            vol_config = AdaptivePatternIntelligence.VOLATILITY_REGIMES.get(
-                vol_regime,
-                AdaptivePatternIntelligence.VOLATILITY_REGIMES["MEDIUM"]
-            )
-            
-            # Get pattern metadata
-            if pattern_name in PatternDetector.PATTERN_METADATA:
-                metadata = PatternDetector.PATTERN_METADATA[pattern_name]
-                category = metadata.get('category', 'unknown')
-                
-                threshold_multiplier = 1.0
-                
-                # Breakout patterns
-                if category in ["breakout", "technical"]:
-                    threshold_multiplier *= regime_config.get("breakout_threshold", 1.0)
-                
-                # Volume patterns - more sensitive in volatile markets
-                if category == "volume":
-                    threshold_multiplier *= (1.0 / regime_config.get("volume_sensitivity", 1.0))
-                
-                # Confirmation requirements based on volatility
-                threshold_multiplier *= vol_config.get("confirmation_req", 1.0)
-                
-                # Ensure reasonable bounds
-                threshold_multiplier = max(0.5, min(1.8, threshold_multiplier))
-                
-                return base_threshold * threshold_multiplier
-            
-            return base_threshold
-            
-        except Exception:
-            return base_threshold
+            logger.error(f"Error calculating sector LDI: {str(e)}")
+            return pd.DataFrame()
     
     @staticmethod
-    def generate_market_intelligence_summary(df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Generate comprehensive market intelligence summary for UI display
-        Provides actionable insights about current market conditions and pattern adaptations
-        """
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_industry_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of industry Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'industry' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each industry
+        industry_stats = []
+        
+        for industry in df['industry'].unique():
+            if industry == 'Unknown':
+                continue
+                
+            industry_df = df[df['industry'] == industry]
+            total_stocks = len(industry_df)
+            
+            if total_stocks == 0:
+                continue
+            
+            # Count market leaders in this industry
+            leaders = industry_df[industry_df['master_score'] >= threshold]
+            leader_count = len(leaders)
+            
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
+            
+            # Additional metrics
+            avg_score = industry_df['master_score'].mean()
+            median_score = industry_df['master_score'].median()
+            
+            # Quality assessment
+            quality_flag = ''
+            if total_stocks < 5:
+                quality_flag = '⚠️ Small Sample'
+            elif ldi == 0 and total_stocks > 10:
+                quality_flag = '📉 No Leaders'
+            elif ldi > 20:
+                quality_flag = '🔥 High Density'
+            
+            # Calculate momentum and volume metrics if available
+            avg_momentum = industry_df['momentum_score'].mean() if 'momentum_score' in industry_df.columns else 50.0
+            avg_volume = industry_df['volume_score'].mean() if 'volume_score' in industry_df.columns else 50.0
+            
+            industry_stats.append({
+                'industry': industry,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'median_score': round(median_score, 2),
+                'avg_momentum': round(avg_momentum, 2),
+                'avg_volume': round(avg_volume, 2),
+                'quality_flag': quality_flag,
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not industry_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(industry_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('industry', inplace=True)
+        
+        return ldi_df
+    
+    @staticmethod
+    def calculate_industry_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all industries"""
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
         try:
-            context = AdaptivePatternIntelligence.calculate_market_context(df)
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
             
-            summary = {
-                "current_regime": context.get("regime", "😴 RANGE-BOUND"),
-                "volatility_state": context.get("volatility_regime", "MEDIUM"),
-                "market_breadth": {
-                    "positive_pct": f"{context.get('positive_breadth', 0.5) * 100:.1f}%",
-                    "strong_pct": f"{context.get('strong_breadth', 0.2) * 100:.1f}%"
-                },
-                "leading_sectors": context.get("leading_sectors", [])[:3],
-                "pattern_adaptations": {},
-                "trading_recommendations": []
-            }
+            # Use only relevant columns for caching
+            cache_cols = ['industry', 'master_score']
+            optional_cols = ['momentum_score', 'volume_score']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
             
-            # Generate pattern adaptation insights
-            regime = context.get("regime", "😴 RANGE-BOUND")
-            regime_config = AdaptivePatternIntelligence.REGIME_CONFIGURATIONS.get(regime, {})
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
             
-            if regime_config:
-                preferred_cats = regime_config.get("preferred_categories", [])
-                summary["pattern_adaptations"] = {
-                    "favored_patterns": preferred_cats,
-                    "momentum_sensitivity": regime_config.get("momentum_multiplier", 1.0),
-                    "volume_sensitivity": regime_config.get("volume_sensitivity", 1.0)
-                }
-            
-            # Generate trading recommendations
-            if regime == "🔥 RISK-ON BULL":
-                summary["trading_recommendations"] = [
-                    "Focus on momentum and breakout patterns",
-                    "Aggressive position sizing appropriate",
-                    "Volume patterns have enhanced reliability"
-                ]
-            elif regime == "🛡️ RISK-OFF DEFENSIVE":
-                summary["trading_recommendations"] = [
-                    "Emphasize quality and fundamental patterns", 
-                    "Reduce position sizes and risk",
-                    "Value patterns may outperform momentum"
-                ]
-            elif regime == "⚡ VOLATILE OPPORTUNITY":
-                summary["trading_recommendations"] = [
-                    "Volume surge patterns highly significant",
-                    "Quick profit-taking strategies recommended",
-                    "Hidden and divergence patterns valuable"
-                ]
-            else:
-                summary["trading_recommendations"] = [
-                    "Range and value patterns preferred",
-                    "Patience required for quality setups",
-                    "Fundamental analysis gains importance"
-                ]
-            
-            return summary
-            
+            return LeadershipDensityEngine._calculate_industry_ldi_cached(df_json, threshold)
         except Exception as e:
-            return {
-                "current_regime": "😴 RANGE-BOUND",
-                "volatility_state": "MEDIUM",
-                "error": str(e),
-                "trading_recommendations": ["System analyzing market conditions..."]
-            }
+            logger.error(f"Error calculating industry LDI: {str(e)}")
+            return pd.DataFrame()
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_category_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of category Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'category' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each category
+        category_stats = []
+        
+        for category in df['category'].unique():
+            if category == 'Unknown':
+                continue
+                
+            category_df = df[df['category'] == category]
+            total_stocks = len(category_df)
+            
+            if total_stocks == 0:
+                continue
+            
+            # Count market leaders in this category
+            leaders = category_df[category_df['master_score'] >= threshold]
+            leader_count = len(leaders)
+            
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
+            
+            # Additional metrics
+            avg_score = category_df['master_score'].mean()
+            avg_percentile = category_df['category_percentile'].mean() if 'category_percentile' in category_df.columns else 50.0
+            total_money_flow = category_df['money_flow_mm'].sum() if 'money_flow_mm' in category_df.columns else 0.0
+            
+            category_stats.append({
+                'category': category,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'avg_percentile': round(avg_percentile, 2),
+                'total_money_flow': round(total_money_flow, 2),
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not category_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(category_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('category', inplace=True)
+        
+        return ldi_df
+    
+    @staticmethod
+    def calculate_category_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all categories"""
+        if df.empty or 'category' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
+            
+            # Use only relevant columns for caching
+            cache_cols = ['category', 'master_score']
+            optional_cols = ['category_percentile', 'money_flow_mm']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
+            
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
+            
+            return LeadershipDensityEngine._calculate_category_ldi_cached(df_json, threshold)
+        except Exception as e:
+            logger.error(f"Error calculating category LDI: {str(e)}")
+            return pd.DataFrame()
 
 # ============================================
 # MARKET INTELLIGENCE
@@ -4264,94 +2355,41 @@ class MarketIntelligence:
     
     @staticmethod
     def detect_market_regime(df: pd.DataFrame) -> Tuple[str, Dict[str, Any]]:
-        """
-        Detect current market regime with supporting data
-        
-        MATHEMATICAL PERFECTION ENHANCEMENTS:
-        - Fixed edge case: Empty category groups causing NaN averages
-        - Added priority logic: Bull/Defensive takes precedence over Volatile
-        - Enhanced boundary conditions for regime transitions
-        - Robust NaN handling throughout calculation chain
-        """
+        """Detect current market regime with supporting data"""
         
         if df.empty:
             return "😴 NO DATA", {}
         
         metrics = {}
         
-        # Enhanced Category Analysis with Perfect Edge Case Handling
         if 'category' in df.columns and 'master_score' in df.columns:
-            try:
-                category_scores = df.groupby('category')['master_score'].mean()
-                
-                # CRITICAL FIX 1: Handle empty category groups properly
-                micro_small_cats = category_scores[category_scores.index.isin(['Micro Cap', 'Small Cap'])]
-                large_mega_cats = category_scores[category_scores.index.isin(['Large Cap', 'Mega Cap'])]
-                
-                # Use robust averaging with minimum sample validation
-                micro_small_avg = micro_small_cats.mean() if len(micro_small_cats) > 0 and not micro_small_cats.isna().all() else 50
-                large_mega_avg = large_mega_cats.mean() if len(large_mega_cats) > 0 and not large_mega_cats.isna().all() else 50
-                
-                # Ensure no NaN propagation
-                metrics['micro_small_avg'] = float(micro_small_avg) if pd.notna(micro_small_avg) else 50.0
-                metrics['large_mega_avg'] = float(large_mega_avg) if pd.notna(large_mega_avg) else 50.0
-                metrics['category_spread'] = metrics['micro_small_avg'] - metrics['large_mega_avg']
-                
-            except Exception:
-                # Graceful fallback for any groupby failures
-                metrics['micro_small_avg'] = 50.0
-                metrics['large_mega_avg'] = 50.0
-                metrics['category_spread'] = 0.0
+            category_scores = df.groupby('category')['master_score'].mean()
+            
+            micro_small_avg = category_scores[category_scores.index.isin(['Micro Cap', 'Small Cap'])].mean() if any(category_scores.index.isin(['Micro Cap', 'Small Cap'])) else 50
+            large_mega_avg = category_scores[category_scores.index.isin(['Large Cap', 'Mega Cap'])].mean() if any(category_scores.index.isin(['Large Cap', 'Mega Cap'])) else 50
+            
+            metrics['micro_small_avg'] = micro_small_avg if pd.notna(micro_small_avg) else 50
+            metrics['large_mega_avg'] = large_mega_avg if pd.notna(large_mega_avg) else 50
+            metrics['category_spread'] = metrics['micro_small_avg'] - metrics['large_mega_avg']
         else:
-            metrics['micro_small_avg'] = 50.0
-            metrics['large_mega_avg'] = 50.0
-            metrics['category_spread'] = 0.0
+            metrics['micro_small_avg'] = 50
+            metrics['large_mega_avg'] = 50
+            metrics['category_spread'] = 0
         
-        # Enhanced Breadth Calculation with Boundary Protection
         if 'ret_30d' in df.columns:
-            try:
-                # CRITICAL FIX 2: Handle all-NaN ret_30d columns
-                valid_returns = df['ret_30d'].dropna()
-                if len(valid_returns) > 0:
-                    positive_count = len(valid_returns[valid_returns > 0])
-                    breadth = positive_count / len(valid_returns)
-                else:
-                    breadth = 0.5  # Neutral when no valid data
-                
-                # Ensure valid range [0, 1]
-                breadth = max(0.0, min(1.0, breadth))
-                metrics['breadth'] = breadth
-                
-            except Exception:
-                breadth = 0.5
-                metrics['breadth'] = breadth
+            breadth = len(df[df['ret_30d'] > 0]) / len(df) if len(df) > 0 else 0.5
+            metrics['breadth'] = breadth
         else:
             breadth = 0.5
             metrics['breadth'] = breadth
         
-        # Enhanced Volatility Analysis with Perfect NaN Handling
         if 'rvol' in df.columns:
-            try:
-                # CRITICAL FIX 3: Robust median calculation with NaN protection
-                valid_rvol = df['rvol'].dropna()
-                if len(valid_rvol) > 0:
-                    avg_rvol = valid_rvol.median()
-                    avg_rvol = float(avg_rvol) if pd.notna(avg_rvol) else 1.0
-                else:
-                    avg_rvol = 1.0
-                
-                # Ensure reasonable bounds (RVOL shouldn't be negative or extreme)
-                avg_rvol = max(0.1, min(10.0, avg_rvol))
-                metrics['avg_rvol'] = avg_rvol
-                
-            except Exception:
-                metrics['avg_rvol'] = 1.0
+            avg_rvol = df['rvol'].median()
+            metrics['avg_rvol'] = avg_rvol if pd.notna(avg_rvol) else 1.0
         else:
             metrics['avg_rvol'] = 1.0
         
-        # MATHEMATICAL PERFECTION: Priority-Based Regime Classification
-        # Bull and Defensive regimes take precedence over Volatile (stronger signals)
-        
+        # Determine regime
         if metrics['micro_small_avg'] > metrics['large_mega_avg'] + 10 and breadth > 0.6:
             regime = "🔥 RISK-ON BULL"
         elif metrics['large_mega_avg'] > metrics['micro_small_avg'] + 10 and breadth < 0.4:
@@ -4500,36 +2538,107 @@ class MarketIntelligence:
     
     @staticmethod
     def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """Public interface for sector rotation with caching"""
+        """
+        Enhanced sector rotation detection using Leadership Density Index (LDI).
+        
+        This revolutionary approach measures sector strength through leadership density
+        rather than sampling bias, providing more accurate sector performance assessment.
+        """
         if df.empty or 'sector' not in df.columns:
             return pd.DataFrame()
         
         try:
-            # Convert DataFrame to JSON for cache key
-            # Only use relevant columns to reduce cache key size
-            cache_cols = ['sector', 'master_score', 'momentum_score', 'volume_score', 'rvol', 'ret_30d']
-            cache_cols = [col for col in cache_cols if col in df.columns]
+            # Calculate LDI-based sector analysis
+            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
             
-            if 'money_flow_mm' in df.columns:
-                cache_cols.append('money_flow_mm')
+            if ldi_df.empty:
+                return pd.DataFrame()
             
-            df_for_cache = df[cache_cols].copy()
-            df_json = df_for_cache.to_json()
+            # Add traditional flow score for backward compatibility
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
             
-            # Call cached version
-            return MarketIntelligence._detect_sector_rotation_cached(df_json)
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks',
+                'avg_rvol': 'avg_rvol',
+                'total_money_flow': 'total_money_flow'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            # Add quality indicators based on LDI
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: '🔥 Elite' if x >= 20 else 
+                         '⭐ Strong' if x >= 10 else 
+                         '📈 Moderate' if x >= 5 else 
+                         '📉 Weak'
+            )
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
         except Exception as e:
-            logger.warning(f"Cache failed, using direct calculation: {str(e)}")
-            # Fallback to direct calculation if caching fails
-            return MarketIntelligence._detect_sector_rotation_direct(df)
+            logger.error(f"Error in LDI sector rotation: {str(e)}")
+            # Fallback to original method
+            return MarketIntelligence._detect_sector_rotation_fallback(df)
     
     @staticmethod
-    def _detect_sector_rotation_direct(df: pd.DataFrame) -> pd.DataFrame:
-        """Direct calculation without caching (fallback)"""
-        # This is the original implementation without caching
-        # Copy the original detect_sector_rotation logic here as backup
-        # (Same as _detect_sector_rotation_cached but without the decorator)
+    def _detect_sector_rotation_fallback(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback to original sector rotation method if LDI fails"""
+        # This is the original implementation as backup
         return MarketIntelligence._detect_sector_rotation_cached(df.to_json())
+    
+    @staticmethod
+    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Enhanced industry rotation detection using Leadership Density Index (LDI).
+        
+        Provides more accurate industry performance assessment through leadership density analysis.
+        """
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate LDI-based industry analysis
+            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score  
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
+            
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI industry rotation: {str(e)}")
+            # Fallback to original method
+            return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
     
     @staticmethod
     @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
@@ -4835,7 +2944,6 @@ class FilterEngine:
                 'industries': [],
                 'min_score': 0,
                 'patterns': [],
-                'smart_combinations': [],  # New: Smart combination filter
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
                 'eps_tiers': [],
@@ -5173,14 +3281,6 @@ class FilterEngine:
             for pattern in filters['patterns']:
                 pattern_mask |= df['patterns'].str.contains(pattern, na=False, regex=False)
             masks.append(pattern_mask)
-        
-        # 3.5. Smart Combination filter (intelligent pattern confluence)
-        if filters.get('smart_combinations') and 'patterns' in df.columns:
-            combination_mask = pd.Series(False, index=df.index)
-            for combination_name in filters['smart_combinations']:
-                # Look for exact combination matches in patterns column
-                combination_mask |= df['patterns'].str.contains(combination_name, na=False, regex=False)
-            masks.append(combination_mask)
         
         # 4. Trend filter
         trend_range = filters.get('trend_range')
@@ -5924,22 +4024,42 @@ class UIComponents:
                     hovertemplate=(
                         'Sector: %{x}<br>'
                         'Flow Score: %{y:.1f}<br>'
+                        'LDI Score: %{customdata[0]:.1f}%<br>'
+                        'Market Leaders: %{customdata[1]} of %{customdata[2]}<br>'
+                        'Leadership Density: %{customdata[3]}<br>'
+                        'Elite Avg Score: %{customdata[4]:.1f}<br>'
+                        'Quality: %{customdata[5]}<extra></extra>'
+                    ) if all(col in top_10.columns for col in ['ldi_score', 'elite_avg_score', 'ldi_quality']) else (
+                        'Sector: %{x}<br>'
+                        'Flow Score: %{y:.1f}<br>'
                         'Analyzed: %{customdata[0]} of %{customdata[1]} stocks<br>'
                         'Sampling: %{customdata[2]:.1f}%<br>'
                         'Avg Score: %{customdata[3]:.1f}<extra></extra>'
                     ),
                     customdata=np.column_stack((
+                        top_10['ldi_score'] if 'ldi_score' in top_10.columns else [0] * len(top_10),
                         top_10['analyzed_stocks'],
                         top_10['total_stocks'],
-                        top_10['sampling_pct'],
+                        top_10['leadership_density'] if 'leadership_density' in top_10.columns else ['N/A'] * len(top_10),
+                        top_10['elite_avg_score'] if 'elite_avg_score' in top_10.columns else top_10['avg_score'],
+                        top_10['ldi_quality'] if 'ldi_quality' in top_10.columns else ['Traditional'] * len(top_10)
+                    )) if all(col in top_10.columns for col in ['ldi_score', 'elite_avg_score']) else np.column_stack((
+                        top_10['analyzed_stocks'],
+                        top_10['total_stocks'],
+                        top_10['sampling_pct'] if 'sampling_pct' in top_10.columns else [100] * len(top_10),
                         top_10['avg_score']
                     ))
                 ))
                 
+                # Dynamic title based on whether LDI is available
+                title = ("🔥 Leadership Density Sector Rotation Map - Revolutionary LDI Analysis" 
+                        if 'ldi_score' in top_10.columns 
+                        else "Sector Rotation Map - Smart Money Flow")
+                
                 fig.update_layout(
-                    title="Sector Rotation Map - Smart Money Flow",
+                    title=title,
                     xaxis_title="Sector",
-                    yaxis_title="Flow Score",
+                    yaxis_title="Enhanced Flow Score (LDI + Traditional)" if 'ldi_score' in top_10.columns else "Flow Score",
                     height=400,
                     template='plotly_white',
                     showlegend=False
@@ -6026,7 +4146,7 @@ class SessionStateManager:
             'data_source': "sheet",
             'user_preferences': {
                 'default_top_n': CONFIG.DEFAULT_TOP_N,
-                'display_mode': 'Technical',
+                'display_mode': 'Hybrid (Technical + Fundamentals)',
                 'last_filters': {}
             },
             'active_filter_count': 0,
@@ -6168,8 +4288,6 @@ class SessionStateManager:
             if st.session_state.get('min_score', 0) > 0:
                 filters['min_score'] = st.session_state['min_score']
             
-            # EPS change filter - REMOVED (now using tiers)
-            
             # PE filters
             if st.session_state.get('min_pe'):
                 value = st.session_state['min_pe']
@@ -6244,7 +4362,6 @@ class SessionStateManager:
                 'industries': [],
                 'min_score': 0,
                 'patterns': [],
-                'smart_combinations': [],  # Add to clear function
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
                 'eps_tiers': [],
@@ -6300,8 +4417,7 @@ class SessionStateManager:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
-            'patterns_multiselect', 'smart_combinations_multiselect',  # Add new widget key
-            'wave_states_multiselect',
+            'patterns_multiselect', 'wave_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             
             # Slider widgets
@@ -7007,10 +5123,6 @@ def main():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
         
-        def sync_smart_combinations():
-            if 'smart_combinations_multiselect' in st.session_state:
-                st.session_state.filter_state['smart_combinations'] = st.session_state.smart_combinations_multiselect
-        
         def sync_trend():
             if 'trend_selectbox' in st.session_state:
                 trend_options = {
@@ -7030,69 +5142,6 @@ def main():
         def sync_wave_strength():
             if 'wave_strength_slider' in st.session_state:
                 st.session_state.filter_state['wave_strength_range'] = st.session_state.wave_strength_slider
-        
-        # Trading Strategy filter with callback
-        st.markdown("#### 🎯 Smart Combinations")
-        
-        # Calculate combination counts for display
-        combination_counts = {}
-        if 'patterns' in ranked_df_display.columns:
-            all_combinations = COMBINATION_FILTER.get_all_combinations()
-            for combination_name in all_combinations:
-                count = 0
-                for _, row in ranked_df_display.iterrows():
-                    if pd.notna(row['patterns']):
-                        if combination_name in row['patterns']:
-                            count += 1
-                combination_counts[combination_name] = count
-        
-        # Create options with counts grouped by category
-        combination_options = []
-        for category_name, category_data in COMBINATION_FILTER.COMBINATION_CATEGORIES.items():
-            for combination_name in category_data['combinations']:
-                count = combination_counts.get(combination_name, 0)
-                combination_options.append(f"{combination_name} ({count})")
-        
-        selected_combinations_with_counts = st.multiselect(
-            "Select Smart Combinations",
-            options=combination_options,
-            default=[],
-            placeholder="Select combination patterns (empty = All patterns)",
-            help="Filter stocks by intelligent pattern combinations. Each combination requires multiple patterns for confluence-based signals.",
-            key="smart_combinations_multiselect",
-            on_change=sync_smart_combinations
-        )
-        
-        # Extract combination names without counts for filtering
-        selected_combinations = []
-        for combination_with_count in selected_combinations_with_counts:
-            # Extract combination name before the count (remove " (X)" part)
-            combination_name = combination_with_count.rsplit(' (', 1)[0]
-            selected_combinations.append(combination_name)
-        
-        if selected_combinations:
-            filters['smart_combinations'] = selected_combinations
-            
-            # Show selected combination details
-            st.markdown("**Selected Combination Details:**")
-            for combination_name in selected_combinations:
-                # Find which category this combination belongs to
-                for category_name, category_data in COMBINATION_FILTER.COMBINATION_CATEGORIES.items():
-                    if combination_name in category_data['combinations']:
-                        emoji = category_data['emoji']
-                        description = category_data['description']
-                        combo_type = category_data.get('type', 'MIXED')
-                        stock_count = combination_counts.get(combination_name, 0)
-                        
-                        # Show the formula if it exists in the combination engine
-                        if combination_name in COMBINATION_ENGINE.COMBINATION_FORMULAS:
-                            combo_formula = COMBINATION_ENGINE.COMBINATION_FORMULAS[combination_name]
-                            pattern_list = " + ".join(combo_formula.patterns)
-                            confidence = combo_formula.confidence_threshold*100
-                            st.markdown(f"- {emoji} **{combination_name}** ({combo_type}): {pattern_list} | {confidence:.0f}% confidence | {stock_count} stocks")
-                        else:
-                            st.markdown(f"- {emoji} **{combination_name}** ({combo_type}): {description} | {stock_count} stocks")
-                        break
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -7177,11 +5226,11 @@ def main():
                 "💎 Half-Year Heroes (>75% 6M)",
                 
                 # Long-term performance  
-                "🏆 Annual Winners (>100% 1Y)",
+                "  Annual Winners (>100% 1Y)",
                 "👑 Multi-Year Champions (>200% 3Y)",
                 "🏛️ Long-Term Legends (>300% 5Y)",
                 
-                "🎯 Custom Range"
+                " 🎯 Custom Range"
             ]
             
             performance_tiers = st.multiselect(
@@ -7358,7 +5407,7 @@ def main():
                 "🌊 Volume Activity Tiers",
                 options=volume_tier_options,
                 default=st.session_state.filter_state.get('volume_tiers', []),
-                key='volume_tier_multiselect_temp',
+                key='volume_tier_multiselect',
                 on_change=sync_volume_tier,
                 help="Select volume activity levels based on RVOL or use custom range"
             )
@@ -7985,13 +6034,6 @@ def main():
                 'category': 'Category'
             })
             
-            # 🧠 NEW: Add Adaptive Intelligence columns if available
-            if 'adaptive_intelligence_score' in display_df.columns:
-                display_cols['adaptive_intelligence_score'] = 'AI Boost'
-            
-            if 'adaptive_tier' in display_df.columns:
-                display_cols['adaptive_tier'] = 'AI Context'
-            
             if 'industry' in display_df.columns:
                 display_cols['industry'] = 'Industry'
             
@@ -8005,8 +6047,7 @@ def main():
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'ret_30d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'rvol': lambda x: f"{x:.1f}x" if pd.notna(x) else '-',
-                'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
-                'adaptive_intelligence_score': lambda x: f"{x:+.1f}" if pd.notna(x) else '0.0'
+                'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-'
             }
             
             for col, formatter in format_rules.items():
@@ -8158,21 +6199,6 @@ def main():
                     help="Industry classification",
                     width="medium",
                     max_chars=50
-                )
-            
-            # 🧠 NEW: Add Adaptive Intelligence column configurations
-            if 'AI Boost' in final_display_df.columns:
-                column_config["AI Boost"] = st.column_config.TextColumn(
-                    "AI Boost",
-                    help="Adaptive Intelligence score adjustment based on market context",
-                    width="small"
-                )
-            
-            if 'AI Context' in final_display_df.columns:
-                column_config["AI Context"] = st.column_config.TextColumn(
-                    "AI Context",
-                    help="Adaptive Intelligence context tier for current market conditions",
-                    width="medium"
                 )
             
             # Display the main dataframe with column configuration
@@ -8965,7 +6991,7 @@ def main():
                     emergence_data.append({
                         'Ticker': stock['ticker'],
                         'Company': stock['company_name'],
-                        'Pattern': '🔥 CATEGORY LEADER',
+                        'Pattern': '🔥 CAT LEADER',
                         'Distance': f"{90 - stock['category_percentile']:.1f}% away",
                         'Current': f"{stock['category_percentile']:.1f}%ile",
                         'Score': stock['master_score']
@@ -9207,180 +7233,210 @@ def main():
             
             st.markdown("---")
             
-            # 🧠 NEW: Adaptive Intelligence Dashboard
-            st.markdown("#### 🧠 Adaptive Pattern Intelligence")
-            
-            try:
-                # Generate market intelligence summary
-                intelligence_summary = AdaptivePatternIntelligence.generate_market_intelligence_summary(filtered_df)
-                
-                # Market Regime and Volatility Status
-                intel_col1, intel_col2, intel_col3, intel_col4 = st.columns(4)
-                
-                with intel_col1:
-                    regime = intelligence_summary.get("current_regime", "😴 RANGE-BOUND")
-                    UIComponents.render_metric_card("Market Regime", regime)
-                
-                with intel_col2:
-                    vol_state = intelligence_summary.get("volatility_state", "MEDIUM")
-                    vol_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "EXTREME": "🔴"}.get(vol_state, "🟡")
-                    UIComponents.render_metric_card("Volatility", f"{vol_emoji} {vol_state}")
-                
-                with intel_col3:
-                    breadth = intelligence_summary.get("market_breadth", {})
-                    positive_pct = breadth.get("positive_pct", "50.0%")
-                    UIComponents.render_metric_card("Market Breadth", positive_pct, "Positive momentum")
-                
-                with intel_col4:
-                    # Calculate adaptive intelligence impact
-                    if 'adaptive_intelligence_score' in filtered_df.columns:
-                        avg_adaptive = filtered_df['adaptive_intelligence_score'].mean()
-                        adaptive_emoji = "🚀" if avg_adaptive > 5 else "📈" if avg_adaptive > 0 else "📊" if avg_adaptive > -5 else "⚠️"
-                        UIComponents.render_metric_card("AI Enhancement", f"{adaptive_emoji} {avg_adaptive:+.1f}", "Pattern boost")
-                    else:
-                        UIComponents.render_metric_card("AI Enhancement", "📊 Active", "Intelligence enabled")
-                
-                # Trading Recommendations
-                recommendations = intelligence_summary.get("trading_recommendations", [])
-                if recommendations:
-                    st.markdown("##### 💡 AI Trading Insights")
-                    for i, rec in enumerate(recommendations[:3], 1):
-                        st.markdown(f"**{i}.** {rec}")
-                
-                # Leading Sectors Intelligence
-                leading_sectors = intelligence_summary.get("leading_sectors", [])
-                if leading_sectors:
-                    st.markdown("##### 🎯 Sector Momentum Leaders")
-                    st.write(f"**Hot Sectors:** {', '.join(leading_sectors[:3])}")
-                
-                # Pattern Adaptations Display
-                adaptations = intelligence_summary.get("pattern_adaptations", {})
-                if adaptations:
-                    st.markdown("##### ⚙️ Current Pattern Adaptations")
-                    
-                    adapt_col1, adapt_col2 = st.columns(2)
-                    with adapt_col1:
-                        favored = adaptations.get("favored_patterns", [])
-                        if favored:
-                            st.write(f"**Favored Categories:** {', '.join(favored[:3])}")
-                    
-                    with adapt_col2:
-                        momentum_sens = adaptations.get("momentum_sensitivity", 1.0)
-                        vol_sens = adaptations.get("volume_sensitivity", 1.0)
-                        
-                        sens_status = []
-                        if momentum_sens > 1.1:
-                            sens_status.append("📈 Momentum Enhanced")
-                        elif momentum_sens < 0.9:
-                            sens_status.append("📉 Momentum Reduced")
-                        
-                        if vol_sens > 1.1:
-                            sens_status.append("📊 Volume Enhanced")
-                        elif vol_sens < 0.9:
-                            sens_status.append("📊 Volume Reduced")
-                        
-                        if sens_status:
-                            st.write(f"**Adaptations:** {', '.join(sens_status)}")
-            
-            except Exception as e:
-                st.warning(f"Adaptive Intelligence temporarily unavailable: {str(e)}")
-                
-                # Fallback display
-                intel_fallback_col1, intel_fallback_col2 = st.columns(2)
-                with intel_fallback_col1:
-                    UIComponents.render_metric_card("Market Regime", "📊 Analyzing", "Intelligence loading...")
-                with intel_fallback_col2:
-                    UIComponents.render_metric_card("AI Status", "🔄 Active", "Standard patterns enabled")
-            
-            st.markdown("---")
-            
-            st.markdown("#### 🏢 Sector Performance")
+            st.markdown("#### 🔥 Leadership Density Sector Performance")
             sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
             
             if not sector_overview_df_local.empty:
-                display_cols_overview = ['flow_score', 'avg_score', 'median_score', 'avg_momentum', 
-                                         'avg_volume', 'avg_rvol', 'avg_ret_30d', 'analyzed_stocks', 'total_stocks']
+                # Display enhanced LDI columns
+                display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                        'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
                 
                 available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
                 
                 sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
                 
-                sector_overview_display.columns = [
-                    'Flow Score', 'Avg Score', 'Median Score', 'Avg Momentum', 
-                    'Avg Volume', 'Avg RVOL', 'Avg 30D Ret', 'Analyzed Stocks', 'Total Stocks'
-                ]
+                # Rename columns for better UI display
+                column_mapping = {
+                    'flow_score': 'Enhanced Flow Score',
+                    'ldi_score': 'LDI Score',
+                    'leadership_density': 'Leadership Density',
+                    'analyzed_stocks': 'Market Leaders',
+                    'total_stocks': 'Total Stocks',
+                    'avg_score': 'Avg Score',
+                    'elite_avg_score': 'Elite Avg Score',
+                    'ldi_quality': 'LDI Quality'
+                }
                 
-                sector_overview_display['Coverage %'] = (
-                    (sector_overview_display['Analyzed Stocks'] / sector_overview_display['Total Stocks'] * 100)
-                    .replace([np.inf, -np.inf], np.nan)
-                    .fillna(0)
-                    .round(1)
-                    .apply(lambda x: f"{x}%")
-                )
+                sector_overview_display = sector_overview_display.rename(columns=column_mapping)
 
+                # Enhanced styling for LDI data
                 st.dataframe(
-                    sector_overview_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                    use_container_width=True
+                    sector_overview_display.style.background_gradient(
+                        subset=['Enhanced Flow Score', 'LDI Score', 'Elite Avg Score'], 
+                        cmap='RdYlGn'
+                    ),
+                    use_container_width=True,
+                    column_config={
+                        'LDI Score': st.column_config.NumberColumn(
+                            'LDI Score',
+                            help="Leadership Density Index - % of market leaders in sector",
+                            format="%.1f%%",
+                            width="medium"
+                        ),
+                        'Leadership Density': st.column_config.TextColumn(
+                            'Leadership Density',
+                            help="Visual representation of leadership concentration",
+                            width="medium"
+                        ),
+                        'LDI Quality': st.column_config.TextColumn(
+                            'LDI Quality',
+                            help="Quality assessment based on LDI score",
+                            width="medium"
+                        )
+                    }
                 )
-                st.info("📊 **Normalized Analysis**: Shows metrics for dynamically sampled stocks per sector (by Master Score) to ensure fair comparison across sectors of different sizes.")
+                
+                # Add enhanced explanation
+                st.info("� **Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
+                       "LDI = (Market Leaders in Sector / Total Stocks in Sector) × 100. Higher LDI = stronger sector leadership.")
+                
+                # Add LDI insights
+                if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
+                    top_ldi_sector = sector_overview_df_local.index[0]
+                    top_ldi_score = sector_overview_df_local['ldi_score'].iloc[0]
+                    
+                    st.success(f"💎 **Top LDI Sector**: {top_ldi_sector} with {top_ldi_score:.1f}% leadership density")
 
             else:
                 st.info("No sector data available in the filtered dataset for analysis. Please check your filters.")
             
             st.markdown("---")
             
-            st.markdown("#### 🏭 Industry Performance")
+            st.markdown("#### 🔥 Leadership Density Industry Performance")
             industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
             
             if not industry_rotation.empty:
-                industry_display = industry_rotation[['flow_score', 'avg_score', 'analyzed_stocks', 
-                                                     'total_stocks', 'sampling_pct', 'quality_flag']].head(15)
+                # Display enhanced LDI columns for industries
+                industry_cols = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                               'total_stocks', 'avg_score', 'quality_flag']
                 
-                rename_dict = {
-                    'flow_score': 'Flow Score',
+                available_industry_cols = [col for col in industry_cols if col in industry_rotation.columns]
+                industry_display = industry_rotation[available_industry_cols].head(15)
+                
+                # Rename columns for better display
+                industry_rename_dict = {
+                    'flow_score': 'Enhanced Flow Score',
+                    'ldi_score': 'LDI Score', 
+                    'leadership_density': 'Leadership Density',
+                    'analyzed_stocks': 'Market Leaders',
+                    'total_stocks': 'Total Stocks',
                     'avg_score': 'Avg Score',
-                    'analyzed_stocks': 'Analyzed',
-                    'total_stocks': 'Total',
-                    'sampling_pct': 'Sample %',
-                    'quality_flag': 'Quality'
+                    'quality_flag': 'LDI Quality'
                 }
                 
-                industry_display = industry_display.rename(columns=rename_dict)
+                industry_display = industry_display.rename(columns=industry_rename_dict)
                 
                 st.dataframe(
-                    industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                    use_container_width=True
+                    industry_display.style.background_gradient(
+                        subset=['Enhanced Flow Score', 'LDI Score', 'Avg Score'],
+                        cmap='RdYlGn'
+                    ),
+                    use_container_width=True,
+                    column_config={
+                        'LDI Score': st.column_config.NumberColumn(
+                            'LDI Score',
+                            help="Leadership Density Index - % of market leaders in industry",
+                            format="%.1f%%",
+                            width="medium"
+                        ),
+                        'Leadership Density': st.column_config.TextColumn(
+                            'Leadership Density',
+                            help="Visual representation of leadership concentration",
+                            width="medium"
+                        )
+                    }
                 )
                 
-                low_sample = industry_rotation[industry_rotation['quality_flag'] != '']
+                # Enhanced industry insights
+                st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
+                       "Industries with higher LDI scores have more market leaders per total stocks.")
+                
+                # Show industry quality warnings if needed
+                low_sample = industry_rotation[industry_rotation['quality_flag'].str.contains('Small Sample|No Leaders', na=False)]
                 if len(low_sample) > 0:
-                    st.warning(f"⚠️ {len(low_sample)} industries have low sampling quality. Interpret with caution.")
+                    st.warning(f"⚠️ {len(low_sample)} industries have quality indicators. Review LDI Quality column for details.")
             
             else:
                 st.info("No industry data available for analysis.")
             
             st.markdown("---")
             
-            st.markdown("#### 📊 Category Performance")
+            st.markdown("#### � Leadership Density Category Performance")
             if 'category' in filtered_df.columns:
-                category_df = filtered_df.groupby('category').agg({
-                    'master_score': ['mean', 'count'],
-                    'category_percentile': 'mean',
-                    'money_flow_mm': 'sum' if 'money_flow_mm' in filtered_df.columns else lambda x: 0
-                }).round(2)
+                # Calculate LDI for categories
+                category_ldi = LeadershipDensityEngine.calculate_category_ldi(filtered_df)
                 
-                if 'money_flow_mm' in filtered_df.columns:
-                    category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Total Money Flow']
+                if not category_ldi.empty:
+                    # Display enhanced category analysis with LDI
+                    category_display_cols = ['ldi_score', 'leadership_density', 'leader_count', 
+                                           'total_stocks', 'avg_score', 'avg_percentile']
+                    
+                    available_cat_cols = [col for col in category_display_cols if col in category_ldi.columns]
+                    category_display = category_ldi[available_cat_cols].copy()
+                    
+                    # Rename for better UI
+                    category_rename_dict = {
+                        'ldi_score': 'LDI Score',
+                        'leadership_density': 'Leadership Density',
+                        'leader_count': 'Market Leaders',
+                        'total_stocks': 'Total Stocks',
+                        'avg_score': 'Avg Score',
+                        'avg_percentile': 'Avg Category %ile'
+                    }
+                    
+                    category_display = category_display.rename(columns=category_rename_dict)
+                    
+                    st.dataframe(
+                        category_display.style.background_gradient(
+                            subset=['LDI Score', 'Avg Score'],
+                            cmap='RdYlGn'
+                        ),
+                        use_container_width=True,
+                        column_config={
+                            'LDI Score': st.column_config.NumberColumn(
+                                'LDI Score',
+                                help="Leadership Density Index - % of market leaders in category",
+                                format="%.1f%%",
+                                width="medium"
+                            ),
+                            'Leadership Density': st.column_config.TextColumn(
+                                'Leadership Density',
+                                help="Visual representation of leadership concentration",
+                                width="medium"
+                            )
+                        }
+                    )
+                    
+                    st.info("🔥 **LDI Category Analysis**: Market cap categories analyzed through leadership density. "
+                           "Shows which categories (Large Cap, Mid Cap, Small Cap) have the highest concentration of market leaders.")
+                    
+                    # Category insights
+                    if len(category_ldi) > 0 and 'ldi_score' in category_ldi.columns:
+                        top_category = category_ldi.index[0]
+                        top_ldi = category_ldi['ldi_score'].iloc[0]
+                        st.success(f"👑 **Top LDI Category**: {top_category} with {top_ldi:.1f}% leadership density")
+                        
                 else:
-                    category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Dummy Flow']
-                    category_df = category_df.drop('Dummy Flow', axis=1)
-                
-                category_df = category_df.sort_values('Avg Score', ascending=False)
-                
-                st.dataframe(
-                    category_df.style.background_gradient(subset=['Avg Score']),
-                    use_container_width=True
-                )
+                    # Fallback to traditional category analysis
+                    category_df = filtered_df.groupby('category').agg({
+                        'master_score': ['mean', 'count'],
+                        'category_percentile': 'mean',
+                        'money_flow_mm': 'sum' if 'money_flow_mm' in filtered_df.columns else lambda x: 0
+                    }).round(2)
+                    
+                    if 'money_flow_mm' in filtered_df.columns:
+                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Total Money Flow']
+                    else:
+                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Dummy Flow']
+                        category_df = category_df.drop('Dummy Flow', axis=1)
+                    
+                    category_df = category_df.sort_values('Avg Score', ascending=False)
+                    
+                    st.dataframe(
+                        category_df.style.background_gradient(subset=['Avg Score']),
+                        use_container_width=True
+                    )
+                    st.info("Using traditional category analysis (LDI calculation failed)")
             else:
                 st.info("Category column not available in data.")
         
@@ -9710,6 +7766,10 @@ def main():
                                 if 'pe_tier' in stock.index:
                                     tier_data['Tier Type'].append('PE Tier')
                                     tier_data['Classification'].append(stock.get('pe_tier', 'N/A'))
+
+                                if 'eps_change_tier' in stock.index:
+                                    tier_data['Tier Type'].append('EPS Growth')
+                                    tier_data['Classification'].append(stock.get('eps_change_tier', 'N/A'))
                                 
                                 if tier_data['Tier Type']:
                                     tier_df = pd.DataFrame(tier_data)
@@ -10216,24 +8276,13 @@ def main():
             - **Wave State** - Real-time momentum classification
             - **Overall Wave Strength** - Composite score for wave filter
             
-            **🧠 Adaptive Pattern Intelligence** - REVOLUTIONARY NEW FEATURE:
-            - **Dynamic Pattern Weighting** - Patterns adapt to market conditions
-            - **Market Regime Detection** - Bull, Bear, Volatile, Range-bound awareness
-            - **Contextual Pattern Scoring** - Same pattern, different importance by market
-            - **Volatility Adaptation** - Pattern sensitivity adjusts to market volatility
-            - **Sector Momentum Flow** - Leading sectors influence pattern strength
-            - **AI Trading Insights** - Real-time trading recommendations
-            - **Adaptive Intelligence Score** - Shows market context boost/penalty
-            
-            **69 Pattern Detection** - Complete institutional set:
+            **30+ Pattern Detection** - Complete set:
             - 11 Technical patterns
             - 5 Fundamental patterns (Hybrid mode)
             - 6 Price range patterns
-            - 3 Intelligence patterns (Stealth, Vampire, Perfect Storm)
-            - 5 Quant reversal patterns
-            - 3 Revolutionary patterns (Information Decay, Entropy, Volatility Phase)
-            - 33 Additional advanced patterns
-            - **ALL PATTERNS NOW ADAPTIVE** - Context-aware intelligence
+            - 3 NEW intelligence patterns (Stealth, Vampire, Perfect Storm)
+            - 5 NEW Quant reversal patterns
+            - 3 NEW intelligence patterns (Stealth, Vampire, Perfect Storm)
             
             #### 💡 How to Use
             
@@ -10242,19 +8291,16 @@ def main():
             3. **Smart Filters** - Interconnected filtering system, including new Wave filters
             4. **Display Modes** - Technical or Hybrid (with fundamentals)
             5. **Wave Radar** - Monitor early momentum signals
-            6. **🧠 Adaptive Intelligence** - AI-enhanced pattern analysis and market insights
-            7. **Export Templates** - Customized for trading styles
+            6. **Export Templates** - Customized for trading styles
             
             #### 🔧 Production Features
             
-            - **Performance Optimized** - Sub-2 second processing with AI enhancement
-            - **Memory Efficient** - Handles 2000+ stocks smoothly with adaptive intelligence
-            - **Error Resilient** - Graceful degradation with AI fallback systems
+            - **Performance Optimized** - Sub-2 second processing
+            - **Memory Efficient** - Handles 2000+ stocks smoothly
+            - **Error Resilient** - Graceful degradation
             - **Data Validation** - Comprehensive quality checks
-            - **Smart Caching** - 1-hour intelligent cache with context awareness
+            - **Smart Caching** - 1-hour intelligent cache
             - **Mobile Responsive** - Works on all devices
-            - **🧠 AI-Powered** - Revolutionary adaptive pattern intelligence
-            - **Zero-Bug Guarantee** - Professional implementation with extensive error handling
             
             #### 📊 Data Processing Pipeline
             
@@ -10292,7 +8338,7 @@ def main():
             - 💎 HIDDEN GEM
             - 🚀 ACCELERATING
             - 🏦 INSTITUTIONAL
-            - ⚡ VOLUME EXPLOSION
+            - ⚡ VOL EXPLOSION
             - 🎯 BREAKOUT
             - 👑 MARKET LEADER
             - 🌊 MOMENTUM WAVE
@@ -10304,7 +8350,7 @@ def main():
             - 🎯 52W HIGH APPROACH
             - 🔄 52W LOW BOUNCE
             - 👑 GOLDEN ZONE
-            - 📊 VOLUME ACCUMULATION
+            - 📊 VOL ACCUMULATION
             - 🔀 MOMENTUM DIVERGE
             - 🎯 RANGE COMPRESS
             
@@ -10410,29 +8456,6 @@ def main():
         """,
         unsafe_allow_html=True
     )
-
-# ============================================
-# COMBINATION DEMO UTILITY
-# ============================================
-
-def demo_smart_combinations():
-    """Demo function to showcase smart pattern combinations"""
-    print("🎯 SMART PATTERN COMBINATION FILTER")
-    print("=" * 60)
-    print(COMBINATION_ENGINE.get_combination_summary())
-    print("\n💡 How the new system works:")
-    print("- REPLACED generic trading strategies with intelligent combination filters")
-    print("- Each combination requires multiple patterns for confluence-based signals")
-    print("- Confidence thresholds ensure only high-quality opportunities")
-    print("- Organized by trade types: LONG, SHORT, REVERSAL, BREAKOUT, etc.")
-    print("\n🚀 Available Filter Categories:")
-    for category_name, category_data in COMBINATION_FILTER.COMBINATION_CATEGORIES.items():
-        combo_count = len(category_data['combinations'])
-        print(f"  {category_data['emoji']} {category_name}: {combo_count} combinations ({category_data['type']})")
-    print("\n🎯 Example Combinations:")
-    print("🚀 ULTIMATE LONG SETUP = Perfect Storm + Market Leader + Stealth")
-    print("⚠️ SHORT OPPORTUNITY = Bull Trap + High PE + Volume Divergence")
-    print("🔄 REVERSAL PLAY = Capitulation + Vacuum + Hidden Gem")
 
 if __name__ == "__main__":
     try:
