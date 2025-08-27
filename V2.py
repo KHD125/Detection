@@ -7247,9 +7247,9 @@ def main():
                                     tier_data['Tier Type'].append('PE Tier')
                                     tier_data['Classification'].append(stock.get('pe_tier', 'N/A'))
 
-                                if 'eps_change_tiers' in stock.index:
+                                if 'eps_change_tier' in stock.index:
                                     tier_data['Tier Type'].append('EPS Change Tiers')
-                                    tier_data['Classification'].append(stock.get('eps_change_tiers', 'N/A'))
+                                    tier_data['Classification'].append(stock.get('eps_change_tier', 'N/A'))
                                 
                                 if tier_data['Tier Type']:
                                     tier_df = pd.DataFrame(tier_data)
