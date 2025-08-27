@@ -1496,7 +1496,7 @@ class PatternDetector:
         '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
         '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
         '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
-        '🔒 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
+        '🤏 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
         '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
         '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
         '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
@@ -1952,7 +1952,7 @@ class PatternDetector:
                     index=df.index
                 ).fillna(100)
             mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
-            patterns.append(('🔒 RANGE COMPRESS', mask))
+            patterns.append(('🤏 RANGE COMPRESS', mask))
 
         # ========== INTELLIGENCE PATTERNS (21-23) ==========
         
@@ -8819,7 +8819,7 @@ def main():
             - 🎲 52W HIGH APPROACH
             - ↗️ 52W LOW BOUNCE
             - 🔀 MOMENTUM DIVERGE
-            - 🔒 RANGE COMPRESS
+            - 🤏 RANGE COMPRESS
             - 🗜️ VELOCITY SQUEEZE
             - 🔉 VOLUME DIVERGENCE
             
