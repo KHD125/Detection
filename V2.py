@@ -3885,8 +3885,6 @@ class SessionStateManager:
             if st.session_state.get('min_score', 0) > 0:
                 filters['min_score'] = st.session_state['min_score']
             
-            # EPS change filter - REMOVED (now using tiers)
-            
             # PE filters
             if st.session_state.get('min_pe'):
                 value = st.session_state['min_pe']
@@ -4647,7 +4645,7 @@ def main():
         display_mode = st.radio(
             "Choose your view:",
             options=["Technical", "Hybrid (Technical + Fundamentals)"],
-            index=0 if st.session_state.user_preferences['display_mode'] == 'Technical' else 1,
+            index=0 if st.session_state.user_preferences['display_mode'] == 'Hybrid (Technical + Fundamentals)' else 1,
             help="Technical: Pure momentum analysis | Hybrid: Adds PE & EPS data",
             key="display_mode_toggle"
         )
@@ -7248,6 +7246,10 @@ def main():
                                 if 'pe_tier' in stock.index:
                                     tier_data['Tier Type'].append('PE Tier')
                                     tier_data['Classification'].append(stock.get('pe_tier', 'N/A'))
+
+                                if 'eps_change_tiers' in stock.index:
+                                    tier_data['Tier Type'].append('eps_change_tiers')
+                                    tier_data['Classification'].append(stock.get('eps_change_tiers', 'N/A'))
                                 
                                 if tier_data['Tier Type']:
                                     tier_df = pd.DataFrame(tier_data)
