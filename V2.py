@@ -489,7 +489,7 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     # If no match, return as is.
     return url_or_id.strip()
 
-@st.cache_data(ttl=CONFIG.CACHE_TTL, persist="disk", show_spinner=False)
+@st.cache_data(persist="disk", show_spinner=False)  # TTL not supported with persist="disk" 
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
                          sheet_id: str = None, gid: str = None,
                          data_version: str = "1.0") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
@@ -2035,6 +2035,318 @@ class PatternDetector:
         return summary_df 
         
 # ============================================
+# LEADERSHIP DENSITY ENGINE - ALL-TIME BEST APPROACH
+# ============================================
+
+class LeadershipDensityEngine:
+    """
+    Revolutionary Leadership Density Index (LDI) approach for sector/industry/category analysis.
+    
+    This approach measures sector strength through leadership density rather than sampling bias.
+    LDI = (Number of Market Leaders in Group) / (Total Stocks in Group) × 100
+    
+    Key Benefits:
+    - No sampling bias - uses entire universe
+    - Fair comparison across all group sizes  
+    - Market-relative leadership assessment
+    - True sector strength measurement
+    """
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_global_threshold_cached(df_json: str, percentile: float = 90.0) -> float:
+        """Cached calculation of global market leadership threshold"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'master_score' not in df.columns:
+            return 75.0  # Default threshold
+        
+        # Calculate global threshold (top 10% of entire market)
+        threshold = df['master_score'].quantile(percentile / 100.0)
+        return max(threshold, 60.0)  # Minimum threshold of 60
+    
+    @staticmethod
+    def calculate_global_threshold(df: pd.DataFrame, percentile: float = 90.0) -> float:
+        """Calculate global market leadership threshold (top 10% default)"""
+        if df.empty or 'master_score' not in df.columns:
+            return 75.0
+        
+        try:
+            # Use only relevant columns for caching
+            cache_df = df[['master_score']].copy()
+            df_json = cache_df.to_json()
+            return LeadershipDensityEngine._calculate_global_threshold_cached(df_json, percentile)
+        except Exception as e:
+            logger.warning(f"Cache failed for global threshold: {str(e)}")
+            # Fallback calculation
+            threshold = df['master_score'].quantile(percentile / 100.0)
+            return max(threshold, 60.0)
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_sector_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of sector Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'sector' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each sector
+        sector_stats = []
+        
+        for sector in df['sector'].unique():
+            if sector == 'Unknown':
+                continue
+                
+            sector_df = df[df['sector'] == sector]
+            total_stocks = len(sector_df)
+            
+            if total_stocks == 0:
+                continue
+            
+            # Count market leaders in this sector
+            leaders = sector_df[sector_df['master_score'] >= threshold]
+            leader_count = len(leaders)
+            
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
+            
+            # Additional metrics for enhanced analysis
+            avg_score = sector_df['master_score'].mean()
+            median_score = sector_df['master_score'].median()
+            top_10_pct_count = max(1, int(total_stocks * 0.1))
+            top_performers = sector_df.nlargest(top_10_pct_count, 'master_score')
+            elite_avg_score = top_performers['master_score'].mean()
+            
+            # Calculate momentum and volume metrics if available
+            avg_momentum = sector_df['momentum_score'].mean() if 'momentum_score' in sector_df.columns else 50.0
+            avg_volume = sector_df['volume_score'].mean() if 'volume_score' in sector_df.columns else 50.0
+            avg_rvol = sector_df['rvol'].mean() if 'rvol' in sector_df.columns else 1.0
+            avg_ret_30d = sector_df['ret_30d'].mean() if 'ret_30d' in sector_df.columns else 0.0
+            
+            # Money flow if available
+            total_money_flow = sector_df['money_flow_mm'].sum() if 'money_flow_mm' in sector_df.columns else 0.0
+            
+            sector_stats.append({
+                'sector': sector,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'median_score': round(median_score, 2),
+                'elite_avg_score': round(elite_avg_score, 2),
+                'avg_momentum': round(avg_momentum, 2),
+                'avg_volume': round(avg_volume, 2),
+                'avg_rvol': round(avg_rvol, 2),
+                'avg_ret_30d': round(avg_ret_30d, 2),
+                'total_money_flow': round(total_money_flow, 2),
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not sector_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(sector_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('sector', inplace=True)
+        
+        return ldi_df
+    
+    @staticmethod
+    def calculate_sector_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all sectors"""
+        if df.empty or 'sector' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
+            
+            # Use only relevant columns for caching
+            cache_cols = ['sector', 'master_score']
+            optional_cols = ['momentum_score', 'volume_score', 'rvol', 'ret_30d', 'money_flow_mm']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
+            
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
+            
+            return LeadershipDensityEngine._calculate_sector_ldi_cached(df_json, threshold)
+        except Exception as e:
+            logger.error(f"Error calculating sector LDI: {str(e)}")
+            return pd.DataFrame()
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_industry_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of industry Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'industry' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each industry
+        industry_stats = []
+        
+        for industry in df['industry'].unique():
+            if industry == 'Unknown':
+                continue
+                
+            industry_df = df[df['industry'] == industry]
+            total_stocks = len(industry_df)
+            
+            if total_stocks == 0:
+                continue
+            
+            # Count market leaders in this industry
+            leaders = industry_df[industry_df['master_score'] >= threshold]
+            leader_count = len(leaders)
+            
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
+            
+            # Additional metrics
+            avg_score = industry_df['master_score'].mean()
+            median_score = industry_df['master_score'].median()
+            
+            # Quality assessment
+            quality_flag = ''
+            if total_stocks < 5:
+                quality_flag = '⚠️ Small Sample'
+            elif ldi == 0 and total_stocks > 10:
+                quality_flag = '📉 No Leaders'
+            elif ldi > 20:
+                quality_flag = '🔥 High Density'
+            
+            # Calculate momentum and volume metrics if available
+            avg_momentum = industry_df['momentum_score'].mean() if 'momentum_score' in industry_df.columns else 50.0
+            avg_volume = industry_df['volume_score'].mean() if 'volume_score' in industry_df.columns else 50.0
+            
+            industry_stats.append({
+                'industry': industry,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'median_score': round(median_score, 2),
+                'avg_momentum': round(avg_momentum, 2),
+                'avg_volume': round(avg_volume, 2),
+                'quality_flag': quality_flag,
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not industry_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(industry_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('industry', inplace=True)
+        
+        return ldi_df
+    
+    @staticmethod
+    def calculate_industry_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all industries"""
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
+            
+            # Use only relevant columns for caching
+            cache_cols = ['industry', 'master_score']
+            optional_cols = ['momentum_score', 'volume_score']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
+            
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
+            
+            return LeadershipDensityEngine._calculate_industry_ldi_cached(df_json, threshold)
+        except Exception as e:
+            logger.error(f"Error calculating industry LDI: {str(e)}")
+            return pd.DataFrame()
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_category_ldi_cached(df_json: str, threshold: float) -> pd.DataFrame:
+        """Cached calculation of category Leadership Density Index"""
+        df = pd.read_json(df_json)
+        
+        if df.empty or 'category' not in df.columns or 'master_score' not in df.columns:
+            return pd.DataFrame()
+        
+        # Calculate LDI for each category
+        category_stats = []
+        
+        for category in df['category'].unique():
+            if category == 'Unknown':
+                continue
+                
+            category_df = df[df['category'] == category]
+            total_stocks = len(category_df)
+            
+            if total_stocks == 0:
+                continue
+            
+            # Count market leaders in this category
+            leaders = category_df[category_df['master_score'] >= threshold]
+            leader_count = len(leaders)
+            
+            # Calculate Leadership Density Index
+            ldi = (leader_count / total_stocks) * 100
+            
+            # Additional metrics
+            avg_score = category_df['master_score'].mean()
+            avg_percentile = category_df['category_percentile'].mean() if 'category_percentile' in category_df.columns else 50.0
+            total_money_flow = category_df['money_flow_mm'].sum() if 'money_flow_mm' in category_df.columns else 0.0
+            
+            category_stats.append({
+                'category': category,
+                'ldi_score': round(ldi, 2),
+                'leader_count': leader_count,
+                'total_stocks': total_stocks,
+                'avg_score': round(avg_score, 2),
+                'avg_percentile': round(avg_percentile, 2),
+                'total_money_flow': round(total_money_flow, 2),
+                'leadership_density': f"{ldi:.1f}%"
+            })
+        
+        if not category_stats:
+            return pd.DataFrame()
+        
+        # Create DataFrame and sort by LDI score
+        ldi_df = pd.DataFrame(category_stats)
+        ldi_df = ldi_df.sort_values('ldi_score', ascending=False)
+        ldi_df.set_index('category', inplace=True)
+        
+        return ldi_df
+    
+    @staticmethod
+    def calculate_category_ldi(df: pd.DataFrame, percentile: float = 90.0) -> pd.DataFrame:
+        """Calculate Leadership Density Index for all categories"""
+        if df.empty or 'category' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate global threshold
+            threshold = LeadershipDensityEngine.calculate_global_threshold(df, percentile)
+            
+            # Use only relevant columns for caching
+            cache_cols = ['category', 'master_score']
+            optional_cols = ['category_percentile', 'money_flow_mm']
+            cache_cols.extend([col for col in optional_cols if col in df.columns])
+            
+            cache_df = df[cache_cols].copy()
+            df_json = cache_df.to_json()
+            
+            return LeadershipDensityEngine._calculate_category_ldi_cached(df_json, threshold)
+        except Exception as e:
+            logger.error(f"Error calculating category LDI: {str(e)}")
+            return pd.DataFrame()
+
+# ============================================
 # MARKET INTELLIGENCE
 # ============================================
 
@@ -2226,36 +2538,112 @@ class MarketIntelligence:
     
     @staticmethod
     def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """Public interface for sector rotation with caching"""
+        """
+        Enhanced sector rotation detection using Leadership Density Index (LDI).
+        
+        This revolutionary approach measures sector strength through leadership density
+        rather than sampling bias, providing more accurate sector performance assessment.
+        """
         if df.empty or 'sector' not in df.columns:
             return pd.DataFrame()
         
         try:
-            # Convert DataFrame to JSON for cache key
-            # Only use relevant columns to reduce cache key size
-            cache_cols = ['sector', 'master_score', 'momentum_score', 'volume_score', 'rvol', 'ret_30d']
-            cache_cols = [col for col in cache_cols if col in df.columns]
+            # Calculate LDI-based sector analysis
+            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
             
-            if 'money_flow_mm' in df.columns:
-                cache_cols.append('money_flow_mm')
+            if ldi_df.empty:
+                return pd.DataFrame()
             
-            df_for_cache = df[cache_cols].copy()
-            df_json = df_for_cache.to_json()
+            # Add traditional flow score for backward compatibility
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
             
-            # Call cached version
-            return MarketIntelligence._detect_sector_rotation_cached(df_json)
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks',
+                'avg_rvol': 'avg_rvol',
+                'total_money_flow': 'total_money_flow'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            # Add quality indicators based on LDI
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: '🔥 Elite' if x >= 20 else 
+                         '⭐ Strong' if x >= 10 else 
+                         '📈 Moderate' if x >= 5 else 
+                         '📉 Weak'
+            )
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
         except Exception as e:
-            logger.warning(f"Cache failed, using direct calculation: {str(e)}")
-            # Fallback to direct calculation if caching fails
-            return MarketIntelligence._detect_sector_rotation_direct(df)
+            logger.error(f"Error in LDI sector rotation: {str(e)}")
+            # Fallback to original method
+            return MarketIntelligence._detect_sector_rotation_fallback(df)
     
     @staticmethod
-    def _detect_sector_rotation_direct(df: pd.DataFrame) -> pd.DataFrame:
-        """Direct calculation without caching (fallback)"""
-        # This is the original implementation without caching
-        # Copy the original detect_sector_rotation logic here as backup
-        # (Same as _detect_sector_rotation_cached but without the decorator)
+    def _detect_sector_rotation_fallback(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback to original sector rotation method if LDI fails"""
+        # This is the original implementation as backup
         return MarketIntelligence._detect_sector_rotation_cached(df.to_json())
+    
+    @staticmethod
+    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Enhanced industry rotation detection using Leadership Density Index (LDI).
+        
+        Provides more accurate industry performance assessment through leadership density analysis.
+        """
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate LDI-based industry analysis
+            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score  
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
+            
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI industry rotation: {str(e)}")
+            # Fallback to original method
+            try:
+                return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
+            except Exception as fallback_error:
+                logger.error(f"Fallback industry rotation also failed: {str(fallback_error)}")
+                # Return empty DataFrame as last resort
+                return pd.DataFrame()
     
     @staticmethod
     @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
@@ -2375,38 +2763,6 @@ class MarketIntelligence:
         industry_metrics['rank'] = industry_metrics['flow_score'].rank(ascending=False)
         
         return industry_metrics.sort_values('flow_score', ascending=False)
-    
-    @staticmethod
-    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """Public interface for industry rotation with caching"""
-        if df.empty or 'industry' not in df.columns:
-            return pd.DataFrame()
-        
-        try:
-            # Convert DataFrame to JSON for cache key
-            # Only use relevant columns to reduce cache key size
-            cache_cols = ['industry', 'master_score', 'momentum_score', 'volume_score', 'rvol', 'ret_30d']
-            cache_cols = [col for col in cache_cols if col in df.columns]
-            
-            if 'money_flow_mm' in df.columns:
-                cache_cols.append('money_flow_mm')
-            
-            df_for_cache = df[cache_cols].copy()
-            df_json = df_for_cache.to_json()
-            
-            # Call cached version
-            return MarketIntelligence._detect_industry_rotation_cached(df_json)
-        except Exception as e:
-            logger.warning(f"Cache failed, using direct calculation: {str(e)}")
-            # Fallback to direct calculation if caching fails
-            return MarketIntelligence._detect_industry_rotation_direct(df)
-    
-    @staticmethod
-    def _detect_industry_rotation_direct(df: pd.DataFrame) -> pd.DataFrame:
-        """Direct calculation without caching (fallback)"""
-        # This is the original implementation without caching
-        # Copy the original detect_industry_rotation logic here as backup
-        return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
 
 
 # ============================================
@@ -3641,28 +3997,48 @@ class UIComponents:
                     hovertemplate=(
                         'Sector: %{x}<br>'
                         'Flow Score: %{y:.1f}<br>'
+                        'LDI Score: %{customdata[0]:.1f}%<br>'
+                        'Market Leaders: %{customdata[1]} of %{customdata[2]}<br>'
+                        'Leadership Density: %{customdata[3]}<br>'
+                        'Elite Avg Score: %{customdata[4]:.1f}<br>'
+                        'Quality: %{customdata[5]}<extra></extra>'
+                    ) if all(col in top_10.columns for col in ['ldi_score', 'elite_avg_score', 'ldi_quality']) else (
+                        'Sector: %{x}<br>'
+                        'Flow Score: %{y:.1f}<br>'
                         'Analyzed: %{customdata[0]} of %{customdata[1]} stocks<br>'
                         'Sampling: %{customdata[2]:.1f}%<br>'
                         'Avg Score: %{customdata[3]:.1f}<extra></extra>'
                     ),
                     customdata=np.column_stack((
+                        top_10['ldi_score'] if 'ldi_score' in top_10.columns else [0] * len(top_10),
                         top_10['analyzed_stocks'],
                         top_10['total_stocks'],
-                        top_10['sampling_pct'],
+                        top_10['leadership_density'] if 'leadership_density' in top_10.columns else ['N/A'] * len(top_10),
+                        top_10['elite_avg_score'] if 'elite_avg_score' in top_10.columns else top_10['avg_score'],
+                        top_10['ldi_quality'] if 'ldi_quality' in top_10.columns else ['Traditional'] * len(top_10)
+                    )) if all(col in top_10.columns for col in ['ldi_score', 'elite_avg_score']) else np.column_stack((
+                        top_10['analyzed_stocks'],
+                        top_10['total_stocks'],
+                        top_10['sampling_pct'] if 'sampling_pct' in top_10.columns else [100] * len(top_10),
                         top_10['avg_score']
                     ))
                 ))
                 
+                # Dynamic title based on whether LDI is available
+                title = ("🔥 Leadership Density Sector Rotation Map - Revolutionary LDI Analysis" 
+                        if 'ldi_score' in top_10.columns 
+                        else "Sector Rotation Map - Smart Money Flow")
+                
                 fig.update_layout(
-                    title="Sector Rotation Map - Smart Money Flow",
+                    title=title,
                     xaxis_title="Sector",
-                    yaxis_title="Flow Score",
+                    yaxis_title="Enhanced Flow Score (LDI + Traditional)" if 'ldi_score' in top_10.columns else "Flow Score",
                     height=400,
                     template='plotly_white',
                     showlegend=False
                 )
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
             else:
                 st.info("No sector rotation data available.")
         
@@ -4343,13 +4719,13 @@ def main():
         # Control buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Refresh Data", type="primary", use_container_width=True):
+            if st.button("🔄 Refresh Data", type="primary", width="stretch"):
                 st.cache_data.clear()
                 st.session_state.last_refresh = datetime.now(timezone.utc)
                 st.rerun()
         
         with col2:
-            if st.button("🧹 Clear Cache", use_container_width=True):
+            if st.button("🧹 Clear Cache", width="stretch"):
                 st.cache_data.clear()
                 gc.collect()  # Force garbage collection
                 st.success("Cache cleared!")
@@ -4365,14 +4741,14 @@ def main():
         with data_source_col1:
             if st.button("📊 Google Sheets", 
                         type="primary" if st.session_state.data_source == "sheet" else "secondary", 
-                        use_container_width=True):
+                        width="stretch"):
                 st.session_state.data_source = "sheet"
                 st.rerun()
         
         with data_source_col2:
             if st.button("📁 Upload CSV", 
                         type="primary" if st.session_state.data_source == "upload" else "secondary", 
-                        use_container_width=True):
+                        width="stretch"):
                 st.session_state.data_source = "upload"
                 st.rerun()
 
@@ -4516,7 +4892,7 @@ def main():
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
         if st.button("🗑️ Clear All Filters", 
-                    use_container_width=True, 
+                    width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
             SessionStateManager.clear_filters()
             st.success("✅ All filters cleared!")
@@ -4587,31 +4963,31 @@ def main():
     quick_filter = st.session_state.get('quick_filter', None)
     
     with qa_col1:
-        if st.button("📈 Top Gainers", use_container_width=True):
+        if st.button("📈 Top Gainers", width="stretch"):
             st.session_state['quick_filter'] = 'top_gainers'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col2:
-        if st.button("🔥 Volume Surges", use_container_width=True):
+        if st.button("🔥 Volume Surges", width="stretch"):
             st.session_state['quick_filter'] = 'volume_surges'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col3:
-        if st.button("🎯 Breakout Ready", use_container_width=True):
+        if st.button("🎯 Breakout Ready", width="stretch"):
             st.session_state['quick_filter'] = 'breakout_ready'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col4:
-        if st.button("💎 Hidden Gems", use_container_width=True):
+        if st.button("💎 Hidden Gems", width="stretch"):
             st.session_state['quick_filter'] = 'hidden_gems'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
     with qa_col5:
-        if st.button("🌊 Show All", use_container_width=True):
+        if st.button("🌊 Show All", width="stretch"):
             st.session_state['quick_filter'] = None
             st.session_state['quick_filter_applied'] = False
             st.rerun()
@@ -5315,7 +5691,7 @@ def main():
         
         # Clear filters button - ENHANCED VERSION
         if st.button("🗑️ Clear All Filters", 
-                    use_container_width=True, 
+                    width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
             
@@ -5801,7 +6177,7 @@ def main():
             # Display the main dataframe with column configuration
             st.dataframe(
                 final_display_df,
-                use_container_width=True,
+                width="stretch",
                 height=min(600, len(final_display_df) * 35 + 50),
                 hide_index=True,
                 column_config=column_config
@@ -5831,7 +6207,7 @@ def main():
                         
                         st.dataframe(
                             stats_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="small"),
@@ -5858,7 +6234,7 @@ def main():
                         
                         st.dataframe(
                             ret_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="small"),
@@ -5897,7 +6273,7 @@ def main():
                             
                             st.dataframe(
                                 fund_df,
-                                use_container_width=True,
+                                width="stretch",
                                 hide_index=True,
                                 column_config={
                                     'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -5924,7 +6300,7 @@ def main():
                             
                             st.dataframe(
                                 vol_df,
-                                use_container_width=True,
+                                width="stretch",
                                 hide_index=True,
                                 column_config={
                                     'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -5950,7 +6326,7 @@ def main():
                         
                         st.dataframe(
                             trend_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -5992,7 +6368,7 @@ def main():
                         
                         st.dataframe(
                             patterns_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Pattern': st.column_config.TextColumn(
@@ -6348,7 +6724,7 @@ def main():
                 # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                 st.dataframe(
                     shift_display, 
-                    use_container_width=True, 
+                    width="stretch", 
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn(
@@ -6438,7 +6814,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -6539,7 +6915,7 @@ def main():
                                         showlegend=False
                                     )
                                     
-                                    st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                                    st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                                 else:
                                     st.info("Insufficient data for category flow analysis after sampling.")
                             else:
@@ -6617,7 +6993,7 @@ def main():
                     # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                     st.dataframe(
                         emergence_df, 
-                        use_container_width=True, 
+                        width="stretch", 
                         hide_index=True,
                         column_config={
                             'Ticker': st.column_config.TextColumn(
@@ -6713,7 +7089,7 @@ def main():
                     # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                     st.dataframe(
                         surge_display, 
-                        use_container_width=True, 
+                        width="stretch", 
                         hide_index=True,
                         column_config={
                             'Type': st.column_config.TextColumn(
@@ -6789,7 +7165,7 @@ def main():
             
             with col1:
                 fig_dist = Visualizer.create_score_distribution(filtered_df)
-                st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_dist, width="stretch", theme="streamlit")
             
             with col2:
                 pattern_counts = {}
@@ -6824,99 +7200,319 @@ def main():
                         margin=dict(l=150)
                     )
                     
-                    st.plotly_chart(fig_patterns, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_patterns, width="stretch", theme="streamlit")
                 else:
                     st.info("No patterns detected in current selection")
             
+            # Category Performance Section
+            with st.expander("📈 Category Performance", expanded=False):
+                if 'category' in filtered_df.columns:
+                    cat_performance = filtered_df.groupby('category').agg({
+                        'master_score': ['mean', 'count'],
+                        'ret_30d': 'mean' if 'ret_30d' in filtered_df.columns else lambda x: None,
+                        'rvol': 'mean' if 'rvol' in filtered_df.columns else lambda x: None
+                    }).round(2)
+                    
+                    # Flatten columns
+                    cat_performance.columns = ['_'.join(col).strip() if col[1] else col[0] 
+                                              for col in cat_performance.columns.values]
+                    
+                    # Rename columns for clarity
+                    rename_dict = {
+                        'master_score_mean': 'Avg Score',
+                        'master_score_count': 'Count',
+                        'ret_30d_mean': 'Avg 30D Ret',
+                        'ret_30d_<lambda>': 'Avg 30D Ret',
+                        'rvol_mean': 'Avg RVOL',
+                        'rvol_<lambda>': 'Avg RVOL'
+                    }
+                    
+                    cat_performance.rename(columns=rename_dict, inplace=True)
+                    
+                    # Sort by average score
+                    cat_performance = cat_performance.sort_values('Avg Score', ascending=False)
+                    
+                    # Format values
+                    if 'Avg 30D Ret' in cat_performance.columns:
+                        cat_performance['Avg 30D Ret'] = cat_performance['Avg 30D Ret'].apply(
+                            lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
+                        )
+                    
+                    if 'Avg RVOL' in cat_performance.columns:
+                        cat_performance['Avg RVOL'] = cat_performance['Avg RVOL'].apply(
+                            lambda x: f"{x:.1f}x" if pd.notna(x) else '-'
+                        )
+                    
+                    st.dataframe(
+                        cat_performance,
+                        use_container_width=True,
+                        column_config={
+                            'Avg Score': st.column_config.NumberColumn(
+                                'Avg Score',
+                                help="Average master score in category",
+                                format="%.1f",
+                                width="small"
+                            ),
+                            'Count': st.column_config.NumberColumn(
+                                'Count',
+                                help="Number of stocks in category",
+                                format="%d",
+                                width="small"
+                            ),
+                            'Avg 30D Ret': st.column_config.TextColumn(
+                                'Avg 30D Ret',
+                                help="Average 30-day return",
+                                width="small"
+                            ),
+                            'Avg RVOL': st.column_config.TextColumn(
+                                'Avg RVOL',
+                                help="Average relative volume",
+                                width="small"
+                            )
+                        }
+                    )
+                else:
+                    st.info("Category data not available")
+            
             st.markdown("---")
             
-            st.markdown("#### 🏢 Sector Performance")
+            st.markdown("#### 🔥 Leadership Density Sector Performance")
             sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
             
             if not sector_overview_df_local.empty:
-                display_cols_overview = ['flow_score', 'avg_score', 'median_score', 'avg_momentum', 
-                                         'avg_volume', 'avg_rvol', 'avg_ret_30d', 'analyzed_stocks', 'total_stocks']
+                # Display enhanced LDI columns
+                display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                        'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
                 
                 available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
                 
                 sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
                 
-                sector_overview_display.columns = [
-                    'Flow Score', 'Avg Score', 'Median Score', 'Avg Momentum', 
-                    'Avg Volume', 'Avg RVOL', 'Avg 30D Ret', 'Analyzed Stocks', 'Total Stocks'
-                ]
+                # Rename columns for better UI display
+                column_mapping = {
+                    'flow_score': 'Enhanced Flow Score',
+                    'ldi_score': 'LDI Score',
+                    'leadership_density': 'Leadership Density',
+                    'analyzed_stocks': 'Market Leaders',
+                    'total_stocks': 'Total Stocks',
+                    'avg_score': 'Avg Score',
+                    'elite_avg_score': 'Elite Avg Score',
+                    'ldi_quality': 'LDI Quality'
+                }
                 
-                sector_overview_display['Coverage %'] = (
-                    (sector_overview_display['Analyzed Stocks'] / sector_overview_display['Total Stocks'] * 100)
-                    .replace([np.inf, -np.inf], np.nan)
-                    .fillna(0)
-                    .round(1)
-                    .apply(lambda x: f"{x}%")
-                )
+                sector_overview_display = sector_overview_display.rename(columns=column_mapping)
 
+                # Enhanced styling for LDI data
                 st.dataframe(
-                    sector_overview_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                    use_container_width=True
+                    sector_overview_display.style.background_gradient(
+                        subset=['Enhanced Flow Score', 'LDI Score', 'Elite Avg Score'], 
+                        cmap='RdYlGn'
+                    ),
+                    width="stretch",
+                    column_config={
+                        'LDI Score': st.column_config.NumberColumn(
+                            'LDI Score',
+                            help="Leadership Density Index - % of market leaders in sector",
+                            format="%.1f%%",
+                            width="medium"
+                        ),
+                        'Leadership Density': st.column_config.TextColumn(
+                            'Leadership Density',
+                            help="Visual representation of leadership concentration",
+                            width="medium"
+                        ),
+                        'LDI Quality': st.column_config.TextColumn(
+                            'LDI Quality',
+                            help="Quality assessment based on LDI score",
+                            width="medium"
+                        )
+                    }
                 )
-                st.info("📊 **Normalized Analysis**: Shows metrics for dynamically sampled stocks per sector (by Master Score) to ensure fair comparison across sectors of different sizes.")
+                
+                # Add enhanced explanation
+                st.info("� **Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
+                       "LDI = (Market Leaders in Sector / Total Stocks in Sector) × 100. Higher LDI = stronger sector leadership.")
+                
+                # Add LDI insights
+                if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
+                    top_ldi_sector = sector_overview_df_local.index[0]
+                    top_ldi_score = sector_overview_df_local['ldi_score'].iloc[0]
+                    
+                    st.success(f"💎 **Top LDI Sector**: {top_ldi_sector} with {top_ldi_score:.1f}% leadership density")
 
             else:
                 st.info("No sector data available in the filtered dataset for analysis. Please check your filters.")
             
             st.markdown("---")
             
-            st.markdown("#### 🏭 Industry Performance")
+            st.markdown("#### 🔥 Leadership Density Industry Performance")
             industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
             
             if not industry_rotation.empty:
-                industry_display = industry_rotation[['flow_score', 'avg_score', 'analyzed_stocks', 
-                                                     'total_stocks', 'sampling_pct', 'quality_flag']].head(15)
+                # Check if LDI columns are available
+                has_ldi = 'ldi_score' in industry_rotation.columns
                 
-                rename_dict = {
-                    'flow_score': 'Flow Score',
-                    'avg_score': 'Avg Score',
-                    'analyzed_stocks': 'Analyzed',
-                    'total_stocks': 'Total',
-                    'sampling_pct': 'Sample %',
-                    'quality_flag': 'Quality'
-                }
+                if has_ldi:
+                    # Display enhanced LDI columns for industries
+                    industry_cols = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                   'total_stocks', 'avg_score', 'quality_flag']
+                    
+                    available_industry_cols = [col for col in industry_cols if col in industry_rotation.columns]
+                    industry_display = industry_rotation[available_industry_cols].head(15)
+                    
+                    # Rename columns for better display
+                    industry_rename_dict = {
+                        'flow_score': 'Enhanced Flow Score',
+                        'ldi_score': 'LDI Score', 
+                        'leadership_density': 'Leadership Density',
+                        'analyzed_stocks': 'Market Leaders',
+                        'total_stocks': 'Total Stocks',
+                        'avg_score': 'Avg Score',
+                        'quality_flag': 'LDI Quality'
+                    }
+                    
+                    industry_display = industry_display.rename(columns=industry_rename_dict)
+                    
+                    # Only apply gradient to columns that exist
+                    gradient_cols = [col for col in ['Enhanced Flow Score', 'LDI Score', 'Avg Score'] 
+                                   if col in industry_display.columns]
+                    
+                    st.dataframe(
+                        industry_display.style.background_gradient(
+                            subset=gradient_cols,
+                            cmap='RdYlGn'
+                        ) if gradient_cols else industry_display,
+                        use_container_width=True,
+                        column_config={
+                            'LDI Score': st.column_config.NumberColumn(
+                                'LDI Score',
+                                help="Leadership Density Index - % of market leaders in industry",
+                                format="%.1f%%",
+                                width="medium"
+                            ),
+                            'Leadership Density': st.column_config.TextColumn(
+                                'Leadership Density',
+                                help="Visual representation of leadership concentration",
+                                width="medium"
+                            )
+                        }
+                    )
+                    
+                    # Enhanced industry insights
+                    st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
+                           "Industries with higher LDI scores have more market leaders per total stocks.")
+                    
+                else:
+                    # Fallback to traditional display
+                    traditional_cols = ['flow_score', 'avg_score', 'analyzed_stocks', 'total_stocks', 'sampling_pct']
+                    available_traditional_cols = [col for col in traditional_cols if col in industry_rotation.columns]
+                    
+                    industry_display = industry_rotation[available_traditional_cols].head(15)
+                    
+                    rename_dict = {
+                        'flow_score': 'Flow Score',
+                        'avg_score': 'Avg Score',
+                        'analyzed_stocks': 'Analyzed',
+                        'total_stocks': 'Total',
+                        'sampling_pct': 'Sample %'
+                    }
+                    
+                    industry_display = industry_display.rename(columns=rename_dict)
+                    
+                    st.dataframe(
+                        industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
+                        use_container_width=True
+                    )
+                    
+                    st.info("📊 **Traditional Industry Analysis**: LDI analysis unavailable, showing traditional metrics.")
                 
-                industry_display = industry_display.rename(columns=rename_dict)
-                
-                st.dataframe(
-                    industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                    use_container_width=True
-                )
-                
-                low_sample = industry_rotation[industry_rotation['quality_flag'] != '']
-                if len(low_sample) > 0:
-                    st.warning(f"⚠️ {len(low_sample)} industries have low sampling quality. Interpret with caution.")
+                # Show quality warnings if needed
+                if 'quality_flag' in industry_rotation.columns:
+                    low_sample = industry_rotation[industry_rotation['quality_flag'].str.contains('Small Sample|No Leaders', na=False)]
+                    if len(low_sample) > 0:
+                        st.warning(f"⚠️ {len(low_sample)} industries have quality indicators. Review quality column for details.")
             
             else:
                 st.info("No industry data available for analysis.")
             
             st.markdown("---")
             
-            st.markdown("#### 📊 Category Performance")
+            st.markdown("#### � Leadership Density Category Performance")
             if 'category' in filtered_df.columns:
-                category_df = filtered_df.groupby('category').agg({
-                    'master_score': ['mean', 'count'],
-                    'category_percentile': 'mean',
-                    'money_flow_mm': 'sum' if 'money_flow_mm' in filtered_df.columns else lambda x: 0
-                }).round(2)
+                # Calculate LDI for categories
+                category_ldi = LeadershipDensityEngine.calculate_category_ldi(filtered_df)
                 
-                if 'money_flow_mm' in filtered_df.columns:
-                    category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Total Money Flow']
+                if not category_ldi.empty:
+                    # Display enhanced category analysis with LDI
+                    category_display_cols = ['ldi_score', 'leadership_density', 'leader_count', 
+                                           'total_stocks', 'avg_score', 'avg_percentile']
+                    
+                    available_cat_cols = [col for col in category_display_cols if col in category_ldi.columns]
+                    category_display = category_ldi[available_cat_cols].copy()
+                    
+                    # Rename for better UI
+                    category_rename_dict = {
+                        'ldi_score': 'LDI Score',
+                        'leadership_density': 'Leadership Density',
+                        'leader_count': 'Market Leaders',
+                        'total_stocks': 'Total Stocks',
+                        'avg_score': 'Avg Score',
+                        'avg_percentile': 'Avg Category %ile'
+                    }
+                    
+                    category_display = category_display.rename(columns=category_rename_dict)
+                    
+                    st.dataframe(
+                        category_display.style.background_gradient(
+                            subset=['LDI Score', 'Avg Score'],
+                            cmap='RdYlGn'
+                        ),
+                        use_container_width=True,
+                        column_config={
+                            'LDI Score': st.column_config.NumberColumn(
+                                'LDI Score',
+                                help="Leadership Density Index - % of market leaders in category",
+                                format="%.1f%%",
+                                width="medium"
+                            ),
+                            'Leadership Density': st.column_config.TextColumn(
+                                'Leadership Density',
+                                help="Visual representation of leadership concentration",
+                                width="medium"
+                            )
+                        }
+                    )
+                    
+                    st.info("🔥 **LDI Category Analysis**: Market cap categories analyzed through leadership density. "
+                           "Shows which categories (Large Cap, Mid Cap, Small Cap) have the highest concentration of market leaders.")
+                    
+                    # Category insights
+                    if len(category_ldi) > 0 and 'ldi_score' in category_ldi.columns:
+                        top_category = category_ldi.index[0]
+                        top_ldi = category_ldi['ldi_score'].iloc[0]
+                        st.success(f"👑 **Top LDI Category**: {top_category} with {top_ldi:.1f}% leadership density")
+                        
                 else:
-                    category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Dummy Flow']
-                    category_df = category_df.drop('Dummy Flow', axis=1)
-                
-                category_df = category_df.sort_values('Avg Score', ascending=False)
-                
-                st.dataframe(
-                    category_df.style.background_gradient(subset=['Avg Score']),
-                    use_container_width=True
-                )
+                    # Fallback to traditional category analysis
+                    category_df = filtered_df.groupby('category').agg({
+                        'master_score': ['mean', 'count'],
+                        'category_percentile': 'mean',
+                        'money_flow_mm': 'sum' if 'money_flow_mm' in filtered_df.columns else lambda x: 0
+                    }).round(2)
+                    
+                    if 'money_flow_mm' in filtered_df.columns:
+                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Total Money Flow']
+                    else:
+                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Dummy Flow']
+                        category_df = category_df.drop('Dummy Flow', axis=1)
+                    
+                    category_df = category_df.sort_values('Avg Score', ascending=False)
+                    
+                    st.dataframe(
+                        category_df.style.background_gradient(subset=['Avg Score']),
+                        use_container_width=True
+                    )
+                    st.info("Using traditional category analysis (LDI calculation failed)")
             else:
                 st.info("Category column not available in data.")
         
@@ -6941,7 +7537,7 @@ def main():
         
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
-            search_clicked = st.button("🔎 Search", type="primary", use_container_width=True, key="search_btn")
+            search_clicked = st.button("🔎 Search", type="primary", width="stretch", key="search_btn")
         
         # Perform search
         if search_query or search_clicked:
@@ -7001,7 +7597,7 @@ def main():
                 st.markdown("#### 📊 Search Results Overview")
                 st.dataframe(
                     search_summary,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn(
@@ -7653,7 +8249,7 @@ def main():
                 "- Summary statistics"
             )
             
-            if st.button("Generate Excel Report", type="primary", use_container_width=True):
+            if st.button("Generate Excel Report", type="primary", width="stretch"):
                 if len(filtered_df) == 0:
                     st.error("No data to export. Please adjust your filters.")
                 else:
@@ -7688,7 +8284,7 @@ def main():
                 "- Optimized for further analysis"
             )
             
-            if st.button("Generate CSV Export", use_container_width=True):
+            if st.button("Generate CSV Export", width="stretch"):
                 if len(filtered_df) == 0:
                     st.error("No data to export. Please adjust your filters.")
                 else:
