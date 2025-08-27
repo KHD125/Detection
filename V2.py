@@ -1477,23 +1477,23 @@ class PatternDetector:
 
     # Pattern metadata for intelligent confidence scoring
     PATTERN_METADATA = {
-        '🔥 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
+        '🐱 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
         '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
         '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
         '⚡ VOL EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
         '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
         '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
         '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
-        '🧬 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
+        '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
         '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
         '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
-        '� INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
-        '� VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
-        '📊 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
+        '🌋 INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
+        '📈 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
+        '🎯 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
         '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
         '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
         '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
-        '🎯 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
+        '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
         '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
         '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
         '🔒 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
@@ -1503,9 +1503,9 @@ class PatternDetector:
         '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
         '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
         '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
-        '🔄 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
+        '🔃 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
         '📊 DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
-        '⚡ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
+        '🗜️ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
         '🔉 VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
         '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
         '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
@@ -1513,9 +1513,9 @@ class PatternDetector:
         '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
         '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
         '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
-        '🔥 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
+        '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
         '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
-        '📈 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
+        '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
         '🎯 PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
         '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
@@ -1681,7 +1681,7 @@ class PatternDetector:
         
         # 1. Category Leader - Top in its market cap category
         mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
-        patterns.append(('🔥 CAT LEADER', mask))
+        patterns.append(('🐱 CAT LEADER', mask))
         
         # 2. Hidden Gem - High category rank but low overall rank
         mask = ensure_series((
@@ -1753,7 +1753,7 @@ class PatternDetector:
             )
         except Exception as e:
             mask = pd.Series(False, index=df.index)
-        patterns.append(('🧬 PREMIUM MOMENTUM', mask))
+        patterns.append(('🔥 PREMIUM MOMENTUM', mask))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
@@ -1870,19 +1870,19 @@ class PatternDetector:
         except Exception as e:
             mask = pd.Series(False, index=df.index)
             logger.warning(f"Error in INSTITUTIONAL TSUNAMI pattern: {e}")
-        patterns.append(('� INSTITUTIONAL TSUNAMI', mask))
+        patterns.append(('🌋 INSTITUTIONAL TSUNAMI', mask))
 
         # ========== FUNDAMENTAL PATTERNS (12-16) ==========
         
         # 12. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
-        patterns.append(('� VALUE MOMENTUM', mask))
+        patterns.append(('📈 VALUE MOMENTUM', mask))
         
         # 13. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
         mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
-        patterns.append(('📊 EARNINGS ROCKET', mask))
+        patterns.append(('🎯 EARNINGS ROCKET', mask))
 
         # 14. Quality Leader - Good PE, EPS growth, and percentile
         if all(col in df.columns for col in ['pe', 'eps_change_pct', 'percentile']):
@@ -1921,7 +1921,7 @@ class PatternDetector:
             (get_col_safe('volume_score', 0) >= 70) & 
             (get_col_safe('momentum_score', 0) >= 60)
         )
-        patterns.append(('🎯 52W HIGH APPROACH', mask))
+        patterns.append(('🎲 52W HIGH APPROACH', mask))
         
         # 18. 52W Low Bounce
         mask = (
@@ -2053,7 +2053,7 @@ class PatternDetector:
                 (sector_avg < 0) &                               # Sector still negative
                 (get_col_safe('rvol', 0) > 2)                   # Volume confirmation
             )
-            patterns.append(('🔄 ROTATION LEADER', mask))
+            patterns.append(('🔃 ROTATION LEADER', mask))
         
         # 28. DISTRIBUTION TOP - Smart money selling
         if all(col in df.columns for col in ['from_high_pct', 'rvol', 'ret_1d', 'ret_30d', 'volume_7d', 'volume_30d']):
@@ -2080,7 +2080,7 @@ class PatternDetector:
                 (abs(df['from_high_pct']) + df['from_low_pct'] < 30) &  # Middle of range
                 (range_pct < 0.5)  # Tight range
             )
-            patterns.append(('⚡ VELOCITY SQUEEZE', mask))
+            patterns.append(('🗜️ VELOCITY SQUEEZE', mask))
         
         # 30. VOLUME DIVERGENCE TRAP
         if all(col in df.columns for col in ['ret_30d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'from_high_pct']):
@@ -2266,10 +2266,10 @@ class PatternDetector:
                     # Quality confirmation - reasonable valuation after turnaround
                     pe.notna() & (pe > 0) & (pe < 60)
                 )
-                patterns.append(('🔥 PHOENIX RISING', ensure_series(mask)))
+                patterns.append(('🐦 PHOENIX RISING', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in PHOENIX RISING pattern: {e}")
-            patterns.append(('🔥 PHOENIX RISING', pd.Series(False, index=df.index)))
+            patterns.append(('🐦 PHOENIX RISING', pd.Series(False, index=df.index)))
 
         # 38. ATOMIC DECAY MOMENTUM - Physics-based momentum timing using radioactive decay mathematics
         try:
@@ -2312,10 +2312,10 @@ class PatternDetector:
                     (get_col_safe('ret_6m', 0) > 10) &                            # Market recognition
                     (get_col_safe('from_low_pct', 0) > 40)                        # Not oversold
                 )
-                patterns.append(('📈 GARP LEADER', ensure_series(mask)))
+                patterns.append(('💹 GARP LEADER', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in GARP LEADER pattern: {e}")
-            patterns.append(('📈 GARP LEADER', pd.Series(False, index=df.index)))
+            patterns.append(('💹 GARP LEADER', pd.Series(False, index=df.index)))
 
         # 40. PULLBACK SUPPORT - Support bounce detection
         try:
@@ -7337,7 +7337,7 @@ def main():
                     emergence_data.append({
                         'Ticker': stock['ticker'],
                         'Company': stock['company_name'],
-                        'Pattern': '🔥 CAT LEADER',
+                        'Pattern': '🐱 CAT LEADER',
                         'Distance': f"{90 - stock['category_percentile']:.1f}% away",
                         'Current': f"{stock['category_percentile']:.1f}%ile",
                         'Score': stock['master_score']
@@ -8785,7 +8785,7 @@ def main():
             #### 📈 Pattern Groups (41 Total)
             
             **Core Technical (7)**
-            - 🔥 CAT LEADER
+            - 🐱 CAT LEADER
             - 💎 HIDDEN GEM  
             - 🏦 INSTITUTIONAL
             - ⚡ VOL EXPLOSION
@@ -8794,33 +8794,33 @@ def main():
             - 💰 LIQUID LEADER
             
             **Mathematical Advanced (5)**
-            - 🧬 PREMIUM MOMENTUM
+            - 🔥 PREMIUM MOMENTUM
             - 🧩 ENTROPY COMPRESSION
             - � VELOCITY BREAKOUT
             - 🕰️ INFORMATION DECAY ARBITRAGE
             - ⚛️ ATOMIC DECAY MOMENTUM
             
             **Institutional & Transformation (2)**
-            - � INSTITUTIONAL TSUNAMI
-            - 🔥 PHOENIX RISING
+            - 🌋 INSTITUTIONAL TSUNAMI
+            - 🐦 PHOENIX RISING
             
             **Fundamental (9)** (Hybrid Mode)
-            - � VALUE MOMENTUM
-            - 📊 EARNINGS ROCKET
+            - 📈 VALUE MOMENTUM
+            - 🎯 EARNINGS ROCKET
             - 🎆 EARNINGS SURPRISE LEADER
             - 🏆 QUALITY LEADER
             - 🔄 TURNAROUND (Enhanced 5-Factor)
             - ⚠️ HIGH PE
-            - 📈 GARP LEADER
+            - 💹 GARP LEADER
             - 🎯 PULLBACK SUPPORT
             - 💳 OVERSOLD QUALITY
             
             **Range Analysis (6)**
-            - 🎯 52W HIGH APPROACH
+            - 🎲 52W HIGH APPROACH
             - ↗️ 52W LOW BOUNCE
             - 🔀 MOMENTUM DIVERGE
             - 🔒 RANGE COMPRESS
-            - ⚡ VELOCITY SQUEEZE
+            - 🗜️ VELOCITY SQUEEZE
             - 🔉 VOLUME DIVERGENCE
             
             **Intelligence & Market Psychology (3)**
@@ -8832,7 +8832,7 @@ def main():
             - 🪤 BULL TRAP
             - 💣 CAPITULATION
             - 🏃 RUNAWAY GAP
-            - 🔄 ROTATION LEADER
+            - 🔃 ROTATION LEADER
             - 📊 DISTRIBUTION
             
             **Technical Indicators (4)**
