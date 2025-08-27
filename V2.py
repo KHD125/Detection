@@ -4645,7 +4645,7 @@ def main():
         display_mode = st.radio(
             "Choose your view:",
             options=["Technical", "Hybrid (Technical + Fundamentals)"],
-            index=0 if st.session_state.user_preferences['display_mode'] == 'Hybrid (Technical + Fundamentals)' else 1,
+            index=0 if st.session_state.user_preferences['display_mode'] == 'Technical' else 1,
             help="Technical: Pure momentum analysis | Hybrid: Adds PE & EPS data",
             key="display_mode_toggle"
         )
