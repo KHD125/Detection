@@ -7248,7 +7248,7 @@ def main():
                                     tier_data['Classification'].append(stock.get('pe_tier', 'N/A'))
 
                                 if 'eps_change_tier' in stock.index:
-                                    tier_data['Tier Type'].append('EPS Change Tiers')
+                                    tier_data['Tier Type'].append('EPS Growth')
                                     tier_data['Classification'].append(stock.get('eps_change_tier', 'N/A'))
                                 
                                 if tier_data['Tier Type']:
