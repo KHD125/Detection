@@ -3743,7 +3743,7 @@ class SessionStateManager:
             'data_source': "sheet",
             'user_preferences': {
                 'default_top_n': CONFIG.DEFAULT_TOP_N,
-                'display_mode': 'Technical',
+                'display_mode': 'Hybrid (Technical + Fundamentals)',
                 'last_filters': {}
             },
             'active_filter_count': 0,
