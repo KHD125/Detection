@@ -7089,7 +7089,7 @@ def main():
                     # OPTIMIZED DATAFRAME WITH COLUMN_CONFIG
                     st.dataframe(
                         surge_display, 
-                        use_container_width=True, 
+                        width="stretch", 
                         hide_index=True,
                         column_config={
                             'Type': st.column_config.TextColumn(
