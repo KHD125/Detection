@@ -1549,12 +1549,20 @@ class PatternDetector:
         # Fill pattern matrix with detection results
         patterns_detected = 0
         for name, mask in patterns_with_masks:
-            if mask is not None and not mask.empty:
-                pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
-                detected_count = mask.sum()
-                if detected_count > 0:
-                    patterns_detected += 1
-                    logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
+            if mask is not None:
+                # Convert mask to pandas Series if it's a numpy array
+                if isinstance(mask, np.ndarray):
+                    mask = pd.Series(mask, index=df.index)
+                elif not isinstance(mask, pd.Series):
+                    mask = pd.Series(mask, index=df.index)
+                
+                # Check if mask has any data
+                if len(mask) > 0:
+                    pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
+                    detected_count = mask.sum() if hasattr(mask, 'sum') else np.sum(mask)
+                    if detected_count > 0:
+                        patterns_detected += 1
+                        logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
         
         # Combine patterns into string column
         df['patterns'] = pattern_matrix.apply(
@@ -1652,7 +1660,7 @@ class PatternDetector:
     @staticmethod
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
-        Defines all 39 patterns using vectorized boolean masks.
+        Defines all 43 patterns using vectorized boolean masks.
         Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
@@ -1662,18 +1670,27 @@ class PatternDetector:
             if col_name in df.columns:
                 return df[col_name].copy()
             return pd.Series(default_value, index=df.index)
+        
+        # Helper function to ensure mask is a pandas Series
+        def ensure_series(mask: Any) -> pd.Series:
+            if isinstance(mask, pd.Series):
+                return mask
+            elif isinstance(mask, np.ndarray):
+                return pd.Series(mask, index=df.index)
+            else:
+                return pd.Series(mask, index=df.index)
 
         # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
         
         # 1. Category Leader - Top in its market cap category
-        mask = get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90)
+        mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
         patterns.append(('🔥 CAT LEADER', mask))
         
         # 2. Hidden Gem - High category rank but low overall rank
-        mask = (
+        mask = ensure_series((
             (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
             (get_col_safe('percentile', 100) < 70)
-        )
+        ))
         patterns.append(('💎 HIDDEN GEM', mask))
         
         # 3. Accelerating - Strong momentum acceleration
@@ -2272,11 +2289,14 @@ class PatternDetector:
                     # Quality confirmation - PE turning reasonable after turnaround
                     pe.notna() & (pe > 0) & (pe < 50)
                 )
-                patterns.append(('🔥 PHOENIX RISING', mask))
+                patterns.append(('🔥 PHOENIX RISING', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in PHOENIX RISING pattern: {e}")
             patterns.append(('🔥 PHOENIX RISING', pd.Series(False, index=df.index)))
 
+        # Ensure all patterns have Series masks
+        patterns = [(name, ensure_series(mask)) for name, mask in patterns]
+        
         return patterns
     
     @staticmethod
