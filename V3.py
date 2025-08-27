@@ -7308,7 +7308,7 @@ def main():
                         subset=['Enhanced Flow Score', 'LDI Score', 'Elite Avg Score'], 
                         cmap='RdYlGn'
                     ),
-                    use_container_width=True,
+                    width="stretch",
                     column_config={
                         'LDI Score': st.column_config.NumberColumn(
                             'LDI Score',
@@ -7537,7 +7537,7 @@ def main():
         
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
-            search_clicked = st.button("🔎 Search", type="primary", use_container_width=True, key="search_btn")
+            search_clicked = st.button("🔎 Search", type="primary", width="stretch", key="search_btn")
         
         # Perform search
         if search_query or search_clicked:
@@ -7597,7 +7597,7 @@ def main():
                 st.markdown("#### 📊 Search Results Overview")
                 st.dataframe(
                     search_summary,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn(
@@ -8249,7 +8249,7 @@ def main():
                 "- Summary statistics"
             )
             
-            if st.button("Generate Excel Report", type="primary", use_container_width=True):
+            if st.button("Generate Excel Report", type="primary", width="stretch"):
                 if len(filtered_df) == 0:
                     st.error("No data to export. Please adjust your filters.")
                 else:
@@ -8284,7 +8284,7 @@ def main():
                 "- Optimized for further analysis"
             )
             
-            if st.button("Generate CSV Export", use_container_width=True):
+            if st.button("Generate CSV Export", width="stretch"):
                 if len(filtered_df) == 0:
                     st.error("No data to export. Please adjust your filters.")
                 else:
