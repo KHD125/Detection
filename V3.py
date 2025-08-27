@@ -2638,7 +2638,12 @@ class MarketIntelligence:
         except Exception as e:
             logger.error(f"Error in LDI industry rotation: {str(e)}")
             # Fallback to original method
-            return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
+            try:
+                return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
+            except Exception as fallback_error:
+                logger.error(f"Fallback industry rotation also failed: {str(fallback_error)}")
+                # Return empty DataFrame as last resort
+                return pd.DataFrame()
     
     @staticmethod
     @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
@@ -4065,7 +4070,7 @@ class UIComponents:
                     showlegend=False
                 )
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
             else:
                 st.info("No sector rotation data available.")
         
@@ -6841,7 +6846,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -6942,7 +6947,7 @@ def main():
                                         showlegend=False
                                     )
                                     
-                                    st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                                    st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                                 else:
                                     st.info("Insufficient data for category flow analysis after sampling.")
                             else:
@@ -7192,7 +7197,7 @@ def main():
             
             with col1:
                 fig_dist = Visualizer.create_score_distribution(filtered_df)
-                st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_dist, width="stretch", theme="streamlit")
             
             with col2:
                 pattern_counts = {}
@@ -7227,9 +7232,79 @@ def main():
                         margin=dict(l=150)
                     )
                     
-                    st.plotly_chart(fig_patterns, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_patterns, width="stretch", theme="streamlit")
                 else:
                     st.info("No patterns detected in current selection")
+            
+            # Category Performance Section
+            with st.expander("📈 Category Performance", expanded=False):
+                if 'category' in filtered_df.columns:
+                    cat_performance = filtered_df.groupby('category').agg({
+                        'master_score': ['mean', 'count'],
+                        'ret_30d': 'mean' if 'ret_30d' in filtered_df.columns else lambda x: None,
+                        'rvol': 'mean' if 'rvol' in filtered_df.columns else lambda x: None
+                    }).round(2)
+                    
+                    # Flatten columns
+                    cat_performance.columns = ['_'.join(col).strip() if col[1] else col[0] 
+                                              for col in cat_performance.columns.values]
+                    
+                    # Rename columns for clarity
+                    rename_dict = {
+                        'master_score_mean': 'Avg Score',
+                        'master_score_count': 'Count',
+                        'ret_30d_mean': 'Avg 30D Ret',
+                        'ret_30d_<lambda>': 'Avg 30D Ret',
+                        'rvol_mean': 'Avg RVOL',
+                        'rvol_<lambda>': 'Avg RVOL'
+                    }
+                    
+                    cat_performance.rename(columns=rename_dict, inplace=True)
+                    
+                    # Sort by average score
+                    cat_performance = cat_performance.sort_values('Avg Score', ascending=False)
+                    
+                    # Format values
+                    if 'Avg 30D Ret' in cat_performance.columns:
+                        cat_performance['Avg 30D Ret'] = cat_performance['Avg 30D Ret'].apply(
+                            lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
+                        )
+                    
+                    if 'Avg RVOL' in cat_performance.columns:
+                        cat_performance['Avg RVOL'] = cat_performance['Avg RVOL'].apply(
+                            lambda x: f"{x:.1f}x" if pd.notna(x) else '-'
+                        )
+                    
+                    st.dataframe(
+                        cat_performance,
+                        use_container_width=True,
+                        column_config={
+                            'Avg Score': st.column_config.NumberColumn(
+                                'Avg Score',
+                                help="Average master score in category",
+                                format="%.1f",
+                                width="small"
+                            ),
+                            'Count': st.column_config.NumberColumn(
+                                'Count',
+                                help="Number of stocks in category",
+                                format="%d",
+                                width="small"
+                            ),
+                            'Avg 30D Ret': st.column_config.TextColumn(
+                                'Avg 30D Ret',
+                                help="Average 30-day return",
+                                width="small"
+                            ),
+                            'Avg RVOL': st.column_config.TextColumn(
+                                'Avg RVOL',
+                                help="Average relative volume",
+                                width="small"
+                            )
+                        }
+                    )
+                else:
+                    st.info("Category data not available")
             
             st.markdown("---")
             
@@ -7306,55 +7381,88 @@ def main():
             industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
             
             if not industry_rotation.empty:
-                # Display enhanced LDI columns for industries
-                industry_cols = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
-                               'total_stocks', 'avg_score', 'quality_flag']
+                # Check if LDI columns are available
+                has_ldi = 'ldi_score' in industry_rotation.columns
                 
-                available_industry_cols = [col for col in industry_cols if col in industry_rotation.columns]
-                industry_display = industry_rotation[available_industry_cols].head(15)
-                
-                # Rename columns for better display
-                industry_rename_dict = {
-                    'flow_score': 'Enhanced Flow Score',
-                    'ldi_score': 'LDI Score', 
-                    'leadership_density': 'Leadership Density',
-                    'analyzed_stocks': 'Market Leaders',
-                    'total_stocks': 'Total Stocks',
-                    'avg_score': 'Avg Score',
-                    'quality_flag': 'LDI Quality'
-                }
-                
-                industry_display = industry_display.rename(columns=industry_rename_dict)
-                
-                st.dataframe(
-                    industry_display.style.background_gradient(
-                        subset=['Enhanced Flow Score', 'LDI Score', 'Avg Score'],
-                        cmap='RdYlGn'
-                    ),
-                    use_container_width=True,
-                    column_config={
-                        'LDI Score': st.column_config.NumberColumn(
-                            'LDI Score',
-                            help="Leadership Density Index - % of market leaders in industry",
-                            format="%.1f%%",
-                            width="medium"
-                        ),
-                        'Leadership Density': st.column_config.TextColumn(
-                            'Leadership Density',
-                            help="Visual representation of leadership concentration",
-                            width="medium"
-                        )
+                if has_ldi:
+                    # Display enhanced LDI columns for industries
+                    industry_cols = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                   'total_stocks', 'avg_score', 'quality_flag']
+                    
+                    available_industry_cols = [col for col in industry_cols if col in industry_rotation.columns]
+                    industry_display = industry_rotation[available_industry_cols].head(15)
+                    
+                    # Rename columns for better display
+                    industry_rename_dict = {
+                        'flow_score': 'Enhanced Flow Score',
+                        'ldi_score': 'LDI Score', 
+                        'leadership_density': 'Leadership Density',
+                        'analyzed_stocks': 'Market Leaders',
+                        'total_stocks': 'Total Stocks',
+                        'avg_score': 'Avg Score',
+                        'quality_flag': 'LDI Quality'
                     }
-                )
+                    
+                    industry_display = industry_display.rename(columns=industry_rename_dict)
+                    
+                    # Only apply gradient to columns that exist
+                    gradient_cols = [col for col in ['Enhanced Flow Score', 'LDI Score', 'Avg Score'] 
+                                   if col in industry_display.columns]
+                    
+                    st.dataframe(
+                        industry_display.style.background_gradient(
+                            subset=gradient_cols,
+                            cmap='RdYlGn'
+                        ) if gradient_cols else industry_display,
+                        use_container_width=True,
+                        column_config={
+                            'LDI Score': st.column_config.NumberColumn(
+                                'LDI Score',
+                                help="Leadership Density Index - % of market leaders in industry",
+                                format="%.1f%%",
+                                width="medium"
+                            ),
+                            'Leadership Density': st.column_config.TextColumn(
+                                'Leadership Density',
+                                help="Visual representation of leadership concentration",
+                                width="medium"
+                            )
+                        }
+                    )
+                    
+                    # Enhanced industry insights
+                    st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
+                           "Industries with higher LDI scores have more market leaders per total stocks.")
+                    
+                else:
+                    # Fallback to traditional display
+                    traditional_cols = ['flow_score', 'avg_score', 'analyzed_stocks', 'total_stocks', 'sampling_pct']
+                    available_traditional_cols = [col for col in traditional_cols if col in industry_rotation.columns]
+                    
+                    industry_display = industry_rotation[available_traditional_cols].head(15)
+                    
+                    rename_dict = {
+                        'flow_score': 'Flow Score',
+                        'avg_score': 'Avg Score',
+                        'analyzed_stocks': 'Analyzed',
+                        'total_stocks': 'Total',
+                        'sampling_pct': 'Sample %'
+                    }
+                    
+                    industry_display = industry_display.rename(columns=rename_dict)
+                    
+                    st.dataframe(
+                        industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
+                        use_container_width=True
+                    )
+                    
+                    st.info("📊 **Traditional Industry Analysis**: LDI analysis unavailable, showing traditional metrics.")
                 
-                # Enhanced industry insights
-                st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
-                       "Industries with higher LDI scores have more market leaders per total stocks.")
-                
-                # Show industry quality warnings if needed
-                low_sample = industry_rotation[industry_rotation['quality_flag'].str.contains('Small Sample|No Leaders', na=False)]
-                if len(low_sample) > 0:
-                    st.warning(f"⚠️ {len(low_sample)} industries have quality indicators. Review LDI Quality column for details.")
+                # Show quality warnings if needed
+                if 'quality_flag' in industry_rotation.columns:
+                    low_sample = industry_rotation[industry_rotation['quality_flag'].str.contains('Small Sample|No Leaders', na=False)]
+                    if len(low_sample) > 0:
+                        st.warning(f"⚠️ {len(low_sample)} industries have quality indicators. Review quality column for details.")
             
             else:
                 st.info("No industry data available for analysis.")
