@@ -1470,7 +1470,7 @@ class RankingEngine:
 class PatternDetector:
     """
     Advanced pattern detection using vectorized operations for maximum performance.
-    This class identifies a comprehensive set of 37 technical, fundamental,
+    This class identifies a comprehensive set of 41 technical, fundamental,
     and intelligent trading patterns.
     FIXED: Pattern confidence calculation now works correctly.
     """
@@ -1487,33 +1487,37 @@ class PatternDetector:
         '🧬 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
         '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
         '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
-        '🌊 INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
-        '💎 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
+        '� INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
+        '� VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
         '📊 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
         '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
-        '⚡ TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
+        '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
         '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
         '🎯 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
-        '🔄 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
-        ' MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
-        '🎯 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
+        '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
+        '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
+        '🔒 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
         '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
-        '🧛 VAMPIRE': {'importance_weight': 10, 'category': 'aggressive'},
+        '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
         '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
         '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
         '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
         '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
         '🔄 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
-        '⚠️ DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
-        '🎯 VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
-        '⚠️ VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
-        '⚡ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
+        '📊 DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
+        '⚡ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
+        '🔉 VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
+        '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
         '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
         '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
         '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
-        '🚀 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
+        '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
         '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
-        '🔥 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'}
+        '🔥 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
+        '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
+        '📈 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
+        '🎯 PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
+        '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
 
     @staticmethod
@@ -1653,7 +1657,7 @@ class PatternDetector:
     @staticmethod
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
-        Defines all 43 patterns using vectorized boolean masks.
+        Defines all 41 patterns using vectorized boolean masks.
         Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
@@ -1866,14 +1870,14 @@ class PatternDetector:
         except Exception as e:
             mask = pd.Series(False, index=df.index)
             logger.warning(f"Error in INSTITUTIONAL TSUNAMI pattern: {e}")
-        patterns.append(('🌊 INSTITUTIONAL TSUNAMI', mask))
+        patterns.append(('� INSTITUTIONAL TSUNAMI', mask))
 
         # ========== FUNDAMENTAL PATTERNS (12-16) ==========
         
         # 12. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
-        patterns.append(('💎 VALUE MOMENTUM', mask))
+        patterns.append(('� VALUE MOMENTUM', mask))
         
         # 13. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
@@ -1886,10 +1890,23 @@ class PatternDetector:
             mask = pe.notna() & eps_change_pct.notna() & (pe.between(10, 25)) & (eps_change_pct > 20) & (percentile >= 80)
             patterns.append(('🏆 QUALITY LEADER', mask))
         
-        # 15. Turnaround Play - Massive EPS improvement
-        eps_change_pct = get_col_safe('eps_change_pct')
-        mask = eps_change_pct.notna() & (eps_change_pct > 100) & (get_col_safe('volume_score', 0) >= 60)
-        patterns.append(('⚡ TURNAROUND', mask))
+        # 15. Turnaround Play - Enhanced 5-factor confirmation
+        if all(col in df.columns for col in ['eps_change_pct', 'ret_30d', 'vol_ratio_30d_90d', 'from_low_pct', 'pe']):
+            eps_change_pct = get_col_safe('eps_change_pct')
+            pe = get_col_safe('pe')
+            mask = (
+                eps_change_pct.notna() & pe.notna() &
+                (eps_change_pct > 100) &                                       # Massive improvement
+                (get_col_safe('ret_30d', 0) > 15) &                           # Recent momentum confirmation
+                (get_col_safe('vol_ratio_30d_90d', 1) > 1.5) &                # Volume confirmation
+                (get_col_safe('from_low_pct', 0) < 60) &                      # Still reasonable entry point
+                (pe < 30)                                                      # Valuation protection
+            )
+        else:
+            # Fallback to basic version if enhanced columns not available
+            eps_change_pct = get_col_safe('eps_change_pct')
+            mask = eps_change_pct.notna() & (eps_change_pct > 100) & (get_col_safe('volume_score', 0) >= 60)
+        patterns.append(('🔄 TURNAROUND', mask))
         
         # 16. High PE Warning
         pe = get_col_safe('pe')
@@ -1912,7 +1929,7 @@ class PatternDetector:
             (get_col_safe('acceleration_score', 0) >= 80) & 
             (get_col_safe('ret_30d', 0) > 10)
         )
-        patterns.append(('🔄 52W LOW BOUNCE', mask))
+        patterns.append(('↗️ 52W LOW BOUNCE', mask))
         
         # 19. Momentum Divergence
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'acceleration_score', 'rvol']):
@@ -1935,7 +1952,7 @@ class PatternDetector:
                     index=df.index
                 ).fillna(100)
             mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
-            patterns.append(('🎯 RANGE COMPRESS', mask))
+            patterns.append(('🔒 RANGE COMPRESS', mask))
 
         # ========== INTELLIGENCE PATTERNS (21-23) ==========
         
@@ -1969,7 +1986,7 @@ class PatternDetector:
                 (get_col_safe('from_high_pct', -100) > -15) & 
                 (df['category'].isin(['Small Cap', 'Micro Cap']))
             )
-            patterns.append(('🧛 VAMPIRE', mask))
+            patterns.append(('🏎️ ACCELERATION', mask))
         
         # 23. Perfect Storm
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
@@ -2047,7 +2064,7 @@ class PatternDetector:
                 (get_col_safe('ret_30d', 0) > 50) &              # After big rally
                 (get_col_safe('volume_7d', 0) > get_col_safe('volume_30d', 1) * 1.5)  # Volume spike
             )
-            patterns.append(('⚠️ DISTRIBUTION', mask))
+            patterns.append(('📊 DISTRIBUTION', mask))
 
         # 29. VELOCITY SQUEEZE
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_high_pct', 'from_low_pct', 'high_52w', 'low_52w']):
@@ -2063,7 +2080,7 @@ class PatternDetector:
                 (abs(df['from_high_pct']) + df['from_low_pct'] < 30) &  # Middle of range
                 (range_pct < 0.5)  # Tight range
             )
-            patterns.append(('🎯 VELOCITY SQUEEZE', mask))
+            patterns.append(('⚡ VELOCITY SQUEEZE', mask))
         
         # 30. VOLUME DIVERGENCE TRAP
         if all(col in df.columns for col in ['ret_30d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'from_high_pct']):
@@ -2073,7 +2090,7 @@ class PatternDetector:
                 (df['vol_ratio_90d_180d'] < 0.9) &
                 (df['from_high_pct'] > -5)
             )
-            patterns.append(('⚠️ VOLUME DIVERGENCE', mask))
+            patterns.append(('🔉 VOLUME DIVERGENCE', mask))
         
         # 31. GOLDEN CROSS MOMENTUM
         if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d', 'rvol', 'ret_7d', 'ret_30d']):
@@ -2084,7 +2101,7 @@ class PatternDetector:
                 (df['rvol'] > 1.5) &
                 (df['ret_7d'] > df['ret_30d'] / 4)
             )
-            patterns.append(('⚡ GOLDEN CROSS', mask))
+            patterns.append(('✨ GOLDEN CROSS', mask))
         
         # 32. MOMENTUM EXHAUSTION
         if all(col in df.columns for col in ['ret_7d', 'ret_1d', 'rvol', 'from_low_pct', 'price', 'sma_20d']):
@@ -2165,10 +2182,10 @@ class PatternDetector:
                     # Technical position above trend
                     price.notna() & sma_20d.notna() & (price > sma_20d)
                 )
-                patterns.append(('🚀 EARNINGS SURPRISE LEADER', mask))
+                patterns.append(('🎆 EARNINGS SURPRISE LEADER', mask))
         except Exception as e:
             logger.warning(f"Error in EARNINGS SURPRISE LEADER pattern: {e}")
-            patterns.append(('🚀 EARNINGS SURPRISE LEADER', pd.Series(False, index=df.index)))
+            patterns.append(('🎆 EARNINGS SURPRISE LEADER', pd.Series(False, index=df.index)))
 
         # 36. INFORMATION DECAY ARBITRAGE - Advanced information theory application
         try:
@@ -2253,6 +2270,94 @@ class PatternDetector:
         except Exception as e:
             logger.warning(f"Error in PHOENIX RISING pattern: {e}")
             patterns.append(('🔥 PHOENIX RISING', pd.Series(False, index=df.index)))
+
+        # 38. ATOMIC DECAY MOMENTUM - Physics-based momentum timing using radioactive decay mathematics
+        try:
+            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'from_low_pct', 'acceleration_score']):
+                ret_1d = get_col_safe('ret_1d', 0)
+                ret_7d = get_col_safe('ret_7d', 0)
+                ret_30d = get_col_safe('ret_30d', 0)
+                
+                # Calculate momentum half-life using atomic decay physics (t½ = ln(2)/λ)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Momentum decay rate calculation - ratio of short to long momentum
+                    momentum_ratio = np.where(ret_30d != 0, abs(ret_7d / ret_30d), 0.1)
+                    momentum_decay_rate = np.log(2) / np.maximum(momentum_ratio, 0.1)  # Half-life calculation
+                
+                # Atomic momentum strength criteria (undecayed energy state)
+                atomic_strength = (
+                    (momentum_decay_rate > 2) &                      # Slow decay rate (sustained momentum)
+                    (ret_7d > 3) &                                   # Strong recent momentum
+                    (ret_30d > 8) &                                  # Sustained longer momentum
+                    (get_col_safe('rvol', 1) > 1.3) &               # Volume confirmation
+                    (get_col_safe('from_low_pct', 0) > 15) &        # Off lows
+                    (get_col_safe('acceleration_score', 0) >= 75)    # Accelerating
+                )
+                
+                patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', ensure_series(atomic_strength)))
+        except Exception as e:
+            logger.warning(f"Error in ATOMIC DECAY MOMENTUM pattern: {e}")
+            patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', pd.Series(False, index=df.index)))
+
+        # 39. GARP LEADER - Growth At Reasonable Price methodology
+        try:
+            if all(col in df.columns for col in ['eps_change_pct', 'pe', 'ret_6m', 'from_low_pct']):
+                eps_change_pct = get_col_safe('eps_change_pct')
+                pe = get_col_safe('pe')
+                
+                mask = (
+                    eps_change_pct.notna() & pe.notna() &
+                    (eps_change_pct > 20) &                                        # Strong growth
+                    (pe.between(8, 25)) &                                          # Reasonable valuation
+                    (get_col_safe('ret_6m', 0) > 10) &                            # Market recognition
+                    (get_col_safe('from_low_pct', 0) > 40)                        # Not oversold
+                )
+                patterns.append(('📈 GARP LEADER', ensure_series(mask)))
+        except Exception as e:
+            logger.warning(f"Error in GARP LEADER pattern: {e}")
+            patterns.append(('📈 GARP LEADER', pd.Series(False, index=df.index)))
+
+        # 40. PULLBACK SUPPORT - Support bounce detection
+        try:
+            if all(col in df.columns for col in ['price', 'sma_20d', 'sma_200d', 'ret_1d', 'rvol']):
+                price = get_col_safe('price', 0)
+                sma_200d = get_col_safe('sma_200d', 0)
+                sma_20d = get_col_safe('sma_20d', 0)
+                
+                # Calculate support zone around 20-day SMA (±2%)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    support_zone_low = sma_20d * 0.98
+                    support_zone_high = sma_20d * 1.02
+                
+                mask = (
+                    price.notna() & sma_200d.notna() & sma_20d.notna() &
+                    (price > sma_200d) &                                          # Above long-term trend
+                    (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA
+                    (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
+                    (get_col_safe('rvol', 0) > 1.5)                              # Volume interest
+                )
+                patterns.append(('🎯 PULLBACK SUPPORT', ensure_series(mask)))
+        except Exception as e:
+            logger.warning(f"Error in PULLBACK SUPPORT pattern: {e}")
+            patterns.append(('🎯 PULLBACK SUPPORT', pd.Series(False, index=df.index)))
+
+        # 41. OVERSOLD QUALITY - Value opportunity identification
+        try:
+            if all(col in df.columns for col in ['from_low_pct', 'eps_change_pct', 'pe', 'ret_1d', 'rvol']):
+                eps_change_pct = get_col_safe('eps_change_pct')
+                pe = get_col_safe('pe')
+                
+                mask = (
+                    (get_col_safe('from_low_pct', 0) < 25) &                      # Oversold
+                    eps_change_pct.notna() & (eps_change_pct > 0) &               # Still growing
+                    pe.notna() & (pe < 20) &                                      # Reasonable valuation
+                    (get_col_safe('ret_1d', 0) > 1) &                            # Starting to bounce
+                    (get_col_safe('rvol', 0) > 1.5)                              # Interest building
+                )
+                patterns.append(('💳 OVERSOLD QUALITY', ensure_series(mask)))
+        except Exception as e:
+            logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
+            patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
 
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
@@ -8620,13 +8725,13 @@ def main():
             - **Wave State** - Real-time momentum classification
             - **Overall Wave Strength** - Composite score for wave filter
             
-            **37 Pattern Detection** - Optimized Professional Set:
+            **41 Pattern Detection** - Optimized Professional Set:
             - 7 Core Technical patterns (market leaders, volume dynamics, institutional flow)
-            - 6 Fundamental patterns (Hybrid mode) - including sophisticated EARNINGS SURPRISE LEADER
+            - 9 Fundamental patterns (Hybrid mode) - including enhanced TURNAROUND with 5-factor confirmation
             - 6 Price Range patterns (52-week positioning, momentum divergence)
             - 3 Intelligence patterns (Stealth accumulation, Vampire, Perfect Storm)
             - 5 Quant Reversal patterns (Bull trap, Capitulation, Rotation analysis)
-            - 4 Mathematical patterns (Premium Momentum DNA, Entropy Compression, Velocity Breakout)
+            - 5 Mathematical patterns (Premium Momentum DNA, Entropy, Velocity, Information Decay, Atomic Decay)
             - 3 Advanced patterns (Institutional Tsunami, Information Decay Arbitrage, Phoenix Rising)
             - 3 Additional Specialized patterns (velocity squeeze, volume divergence, golden cross)
             
@@ -8655,7 +8760,7 @@ def main():
             3. Calculate 6 component scores
             4. Generate Master Score 3.0
             5. Calculate advanced metrics
-            6. Detect all 37 optimized patterns
+            6. Detect all 41 optimized patterns
             7. Classify into tiers
             8. Apply smart ranking
             
@@ -8677,7 +8782,7 @@ def main():
         
         with col2:
             st.markdown("""
-            #### 📈 Pattern Groups (37 Total)
+            #### 📈 Pattern Groups (41 Total)
             
             **Core Technical (7)**
             - 🔥 CAT LEADER
@@ -8688,35 +8793,39 @@ def main():
             - 🌊 MOMENTUM WAVE
             - 💰 LIQUID LEADER
             
-            **Mathematical Advanced (4)**
+            **Mathematical Advanced (5)**
             - 🧬 PREMIUM MOMENTUM
             - 🧩 ENTROPY COMPRESSION
             - � VELOCITY BREAKOUT
             - 🕰️ INFORMATION DECAY ARBITRAGE
+            - ⚛️ ATOMIC DECAY MOMENTUM
             
             **Institutional & Transformation (2)**
-            - 🌊 INSTITUTIONAL TSUNAMI
+            - � INSTITUTIONAL TSUNAMI
             - 🔥 PHOENIX RISING
             
-            **Fundamental (6)** (Hybrid Mode)
-            - 💎 VALUE MOMENTUM
+            **Fundamental (9)** (Hybrid Mode)
+            - � VALUE MOMENTUM
             - 📊 EARNINGS ROCKET
-            - 🚀 EARNINGS SURPRISE LEADER
+            - 🎆 EARNINGS SURPRISE LEADER
             - 🏆 QUALITY LEADER
-            - ⚡ TURNAROUND
+            - 🔄 TURNAROUND (Enhanced 5-Factor)
             - ⚠️ HIGH PE
+            - 📈 GARP LEADER
+            - 🎯 PULLBACK SUPPORT
+            - 💳 OVERSOLD QUALITY
             
             **Range Analysis (6)**
             - 🎯 52W HIGH APPROACH
-            - 🔄 52W LOW BOUNCE
+            - ↗️ 52W LOW BOUNCE
             - 🔀 MOMENTUM DIVERGE
-            - 🎯 RANGE COMPRESS
-            - 🎯 VELOCITY SQUEEZE
-            - ⚠️ VOLUME DIVERGENCE
+            - 🔒 RANGE COMPRESS
+            - ⚡ VELOCITY SQUEEZE
+            - 🔉 VOLUME DIVERGENCE
             
             **Intelligence & Market Psychology (3)**
             - 🤫 STEALTH
-            - 🧛 VAMPIRE
+            - 🏎️ ACCELERATION
             - ⛈️ PERFECT STORM
             
             **Quant Reversal (5)**
@@ -8724,10 +8833,10 @@ def main():
             - 💣 CAPITULATION
             - 🏃 RUNAWAY GAP
             - 🔄 ROTATION LEADER
-            - ⚠️ DISTRIBUTION
+            - 📊 DISTRIBUTION
             
             **Technical Indicators (4)**
-            - ⚡ GOLDEN CROSS
+            - ✨ GOLDEN CROSS
             - 📉 EXHAUSTION
             - 🔺 PYRAMID
             - 🌪️ VACUUM
@@ -8745,7 +8854,7 @@ def main():
             **Version**: 3.0.8-FINAL-OPTIMIZED
             **Last Updated**: August 2025
             **Status**: PRODUCTION-OPTIMIZED
-            **Pattern Count**: 37 (Bloat Removed)
+            **Pattern Count**: 41 (Enhanced + Optimized)
             **Signal Quality**: Enhanced
             **Testing**: COMPLETE
             **Optimization**: MAXIMUM
@@ -8763,7 +8872,8 @@ def main():
             
             **Quality Enhancement**: August 2025
             - Removed 6 redundant patterns
-            - Enhanced mathematical algorithms
+            - Enhanced TURNAROUND with 5-factor confirmation
+            - Added ATOMIC DECAY MOMENTUM (physics-based)
             - Improved signal-to-noise ratio
             
             ---
