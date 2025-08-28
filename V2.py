@@ -3311,6 +3311,31 @@ class FilterEngine:
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
+        
+        # CRITICAL FIX: Clean up any corrupted performance_tiers values
+        # This prevents the "default value not in options" error
+        valid_performance_options = [
+            "🚀 Strong Gainers (>3% 1D)",
+            "⚡ Power Moves (>7% 1D)",
+            "💥 Explosive (>15% 1D)",
+            "🌟 3-Day Surge (>6% 3D)",
+            "📈 Weekly Winners (>12% 7D)",
+            "🏆 Monthly Champions (>25% 30D)",
+            "🎯 Quarterly Stars (>40% 3M)",
+            "💎 Half-Year Heroes (>60% 6M)",
+            "🌙 Annual Winners (>80% 1Y)",
+            "👑 Multi-Year Champions (>150% 3Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
+            "🎯 Custom Range"
+        ]
+        
+        # Clean up performance_tiers to only include valid options
+        if 'performance_tiers' in st.session_state.filter_state:
+            current_tiers = st.session_state.filter_state['performance_tiers']
+            if isinstance(current_tiers, list):
+                # Remove any invalid options (like those with extra spaces)
+                cleaned_tiers = [tier for tier in current_tiers if tier in valid_performance_options]
+                st.session_state.filter_state['performance_tiers'] = cleaned_tiers
     
     @staticmethod
     def get_filter(key: str, default: Any = None) -> Any:
@@ -4570,6 +4595,37 @@ class SessionStateManager:
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
+        
+        # CRITICAL FIX: Clean up any corrupted performance_tiers values
+        # This prevents the "default value not in options" error
+        valid_performance_options = [
+            "🚀 Strong Gainers (>3% 1D)",
+            "⚡ Power Moves (>7% 1D)",
+            "💥 Explosive (>15% 1D)",
+            "🌟 3-Day Surge (>6% 3D)",
+            "📈 Weekly Winners (>12% 7D)",
+            "🏆 Monthly Champions (>25% 30D)",
+            "🎯 Quarterly Stars (>40% 3M)",
+            "💎 Half-Year Heroes (>60% 6M)",
+            "🌙 Annual Winners (>80% 1Y)",
+            "👑 Multi-Year Champions (>150% 3Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
+            "🎯 Custom Range"
+        ]
+        
+        # Clean up performance_tiers in both filter_state and legacy state
+        for state_key in ['filter_state', 'performance_tiers']:
+            if state_key == 'filter_state' and 'filter_state' in st.session_state:
+                if 'performance_tiers' in st.session_state.filter_state:
+                    current_tiers = st.session_state.filter_state['performance_tiers']
+                    if isinstance(current_tiers, list):
+                        cleaned_tiers = [tier for tier in current_tiers if tier in valid_performance_options]
+                        st.session_state.filter_state['performance_tiers'] = cleaned_tiers
+            elif state_key == 'performance_tiers' and 'performance_tiers' in st.session_state:
+                current_tiers = st.session_state['performance_tiers']
+                if isinstance(current_tiers, list):
+                    cleaned_tiers = [tier for tier in current_tiers if tier in valid_performance_options]
+                    st.session_state['performance_tiers'] = cleaned_tiers
 
     @staticmethod
     def build_filter_dict() -> Dict[str, Any]:
