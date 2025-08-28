@@ -1908,9 +1908,9 @@ class PatternDetector:
             mask = eps_change_pct.notna() & (eps_change_pct > 100) & (get_col_safe('volume_score', 0) >= 60)
         patterns.append(('🔄 TURNAROUND', mask))
         
-        # 16. High PE Warning
+        # 16. High PE Warning - Realistic threshold for Indian markets
         pe = get_col_safe('pe')
-        mask = pe.notna() & (pe > 100)
+        mask = pe.notna() & (pe > 50)  # Lowered from 100 to 50 for practical screening
         patterns.append(('⚠️ HIGH PE', mask))
 
         # ========== RANGE PATTERNS (17-20) ==========
@@ -1943,15 +1943,21 @@ class PatternDetector:
             )
             patterns.append(('🔀 MOMENTUM DIVERGE', mask))
         
-        # 20. Range Compression
-        if all(col in df.columns for col in ['high_52w', 'low_52w', 'from_low_pct']):
-            high, low, from_low_pct = get_col_safe('high_52w'), get_col_safe('low_52w'), get_col_safe('from_low_pct')
-            with np.errstate(divide='ignore', invalid='ignore'):
-                range_pct = pd.Series(
-                    np.where(low > 0, ((high - low) / low) * 100, 100), 
-                    index=df.index
-                ).fillna(100)
-            mask = range_pct.notna() & (range_pct < 50) & (from_low_pct > 30)
+        # 20. Range Compression - Smart 20-day volatility approach
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_low_pct', 'rvol']):
+            # Calculate recent volatility as proxy for range compression
+            volatility_7d = abs(get_col_safe('ret_7d', 0))
+            volatility_30d = abs(get_col_safe('ret_30d', 0)) / 4  # Daily equivalent
+            from_low_pct = get_col_safe('from_low_pct', 0)
+            
+            # Range compression: low recent volatility + not at extremes + building volume
+            mask = (
+                (volatility_7d < 5) &          # Low 7-day volatility (tight range)
+                (volatility_30d < 3) &         # Low daily volatility over month  
+                (from_low_pct > 20) &          # Not at 52W lows
+                (from_low_pct < 80) &          # Not at 52W highs
+                (get_col_safe('rvol', 0) > 0.8)  # Some volume interest
+            )
             patterns.append(('🤏 RANGE COMPRESS', mask))
 
         # ========== INTELLIGENCE PATTERNS (21-23) ==========
@@ -2082,13 +2088,15 @@ class PatternDetector:
             )
             patterns.append(('🗜️ VELOCITY SQUEEZE', mask))
         
-        # 30. VOLUME DIVERGENCE TRAP
-        if all(col in df.columns for col in ['ret_30d', 'vol_ratio_30d_180d', 'vol_ratio_90d_180d', 'from_high_pct']):
+        # 30. VOLUME DIVERGENCE WARNING - Clarified bearish divergence logic
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'from_high_pct']):
+            # Classic bearish divergence: price making new highs but volume declining
             mask = (
-                (df['ret_30d'] > 20) &
-                (df['vol_ratio_30d_180d'] < 0.7) &
-                (df['vol_ratio_90d_180d'] < 0.9) &
-                (df['from_high_pct'] > -5)
+                (df['ret_7d'] > 5) &              # Recent price strength
+                (df['ret_30d'] > 15) &            # Monthly price advance
+                (df['vol_ratio_7d_90d'] < 0.8) &  # Recent volume declining
+                (df['vol_ratio_30d_90d'] < 0.9) & # Monthly volume declining
+                (df['from_high_pct'] > -10)       # Near highs but volume not confirming
             )
             patterns.append(('🔉 VOLUME DIVERGENCE', mask))
         
@@ -2317,24 +2325,24 @@ class PatternDetector:
             logger.warning(f"Error in GARP LEADER pattern: {e}")
             patterns.append(('💹 GARP LEADER', pd.Series(False, index=df.index)))
 
-        # 40. PULLBACK SUPPORT - Support bounce detection
+        # 40. PULLBACK SUPPORT - Realistic support bounce detection
         try:
             if all(col in df.columns for col in ['price', 'sma_20d', 'sma_200d', 'ret_1d', 'rvol']):
                 price = get_col_safe('price', 0)
                 sma_200d = get_col_safe('sma_200d', 0)
                 sma_20d = get_col_safe('sma_20d', 0)
                 
-                # Calculate support zone around 20-day SMA (±2%)
+                # Calculate realistic support zone around 20-day SMA (±3% for practical trading)
                 with np.errstate(divide='ignore', invalid='ignore'):
-                    support_zone_low = sma_20d * 0.98
-                    support_zone_high = sma_20d * 1.02
+                    support_zone_low = sma_20d * 0.97   # Widened from 0.98 to 0.97
+                    support_zone_high = sma_20d * 1.03  # Widened from 1.02 to 1.03
                 
                 mask = (
                     price.notna() & sma_200d.notna() & sma_20d.notna() &
                     (price > sma_200d) &                                          # Above long-term trend
-                    (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA
+                    (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA (±3%)
                     (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
-                    (get_col_safe('rvol', 0) > 1.5)                              # Volume interest
+                    (get_col_safe('rvol', 0) > 1.2)                              # Lowered volume threshold for practicality
                 )
                 patterns.append(('🛡️ PULLBACK SUPPORT', ensure_series(mask)))
         except Exception as e:
