@@ -4355,7 +4355,7 @@ class UIComponents:
         with opp_col2:
             info_decay = df[df['patterns'].str.contains('🕰️ INFORMATION DECAY ARBITRAGE', na=False)].nlargest(5, 'master_score') if 'patterns' in df.columns else pd.DataFrame()
             
-            st.markdown("**�️ Info Decay Arbitrage**")
+            st.markdown("**🕰️ INFO DECAY ARBITRAGE**")
             if len(info_decay) > 0:
                 for _, stock in info_decay.iterrows():
                     company_name = stock.get('company_name', 'N/A')[:25]
@@ -4427,9 +4427,9 @@ class UIComponents:
                 ))
                 
                 # Dynamic title based on whether LDI is available
-                title = ("🔥 Leadership Density Sector Rotation Map - Revolutionary LDI Analysis" 
+                title = ("Sector Rotation Map - Smart Money Flow" 
                         if 'ldi_score' in top_10.columns 
-                        else "Sector Rotation Map - Smart Money Flow")
+                        else "Sector Rotation Map - Revolutionary LDI Analysis")
                 
                 fig.update_layout(
                     title=title,
@@ -7675,79 +7675,9 @@ def main():
                 else:
                     st.info("No patterns detected in current selection")
             
-            # Category Performance Section
-            with st.expander("📈 Category Performance", expanded=False):
-                if 'category' in filtered_df.columns:
-                    cat_performance = filtered_df.groupby('category').agg({
-                        'master_score': ['mean', 'count'],
-                        'ret_30d': 'mean' if 'ret_30d' in filtered_df.columns else lambda x: None,
-                        'rvol': 'mean' if 'rvol' in filtered_df.columns else lambda x: None
-                    }).round(2)
-                    
-                    # Flatten columns
-                    cat_performance.columns = ['_'.join(col).strip() if col[1] else col[0] 
-                                              for col in cat_performance.columns.values]
-                    
-                    # Rename columns for clarity
-                    rename_dict = {
-                        'master_score_mean': 'Avg Score',
-                        'master_score_count': 'Count',
-                        'ret_30d_mean': 'Avg 30D Ret',
-                        'ret_30d_<lambda>': 'Avg 30D Ret',
-                        'rvol_mean': 'Avg RVOL',
-                        'rvol_<lambda>': 'Avg RVOL'
-                    }
-                    
-                    cat_performance.rename(columns=rename_dict, inplace=True)
-                    
-                    # Sort by average score
-                    cat_performance = cat_performance.sort_values('Avg Score', ascending=False)
-                    
-                    # Format values
-                    if 'Avg 30D Ret' in cat_performance.columns:
-                        cat_performance['Avg 30D Ret'] = cat_performance['Avg 30D Ret'].apply(
-                            lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
-                        )
-                    
-                    if 'Avg RVOL' in cat_performance.columns:
-                        cat_performance['Avg RVOL'] = cat_performance['Avg RVOL'].apply(
-                            lambda x: f"{x:.1f}x" if pd.notna(x) else '-'
-                        )
-                    
-                    st.dataframe(
-                        cat_performance,
-                        use_container_width=True,
-                        column_config={
-                            'Avg Score': st.column_config.NumberColumn(
-                                'Avg Score',
-                                help="Average master score in category",
-                                format="%.1f",
-                                width="small"
-                            ),
-                            'Count': st.column_config.NumberColumn(
-                                'Count',
-                                help="Number of stocks in category",
-                                format="%d",
-                                width="small"
-                            ),
-                            'Avg 30D Ret': st.column_config.TextColumn(
-                                'Avg 30D Ret',
-                                help="Average 30-day return",
-                                width="small"
-                            ),
-                            'Avg RVOL': st.column_config.TextColumn(
-                                'Avg RVOL',
-                                help="Average relative volume",
-                                width="small"
-                            )
-                        }
-                    )
-                else:
-                    st.info("Category data not available")
-            
             st.markdown("---")
             
-            st.markdown("#### 🔥 Leadership Density Sector Performance")
+            st.markdown("#### 🏢 Sector Performance")
             sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
             
             if not sector_overview_df_local.empty:
@@ -7801,7 +7731,7 @@ def main():
                 )
                 
                 # Add enhanced explanation
-                st.info("� **Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
+                st.info("**Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
                        "LDI = (Market Leaders in Sector / Total Stocks in Sector) × 100. Higher LDI = stronger sector leadership.")
                 
                 # Add LDI insights
@@ -7816,7 +7746,7 @@ def main():
             
             st.markdown("---")
             
-            st.markdown("#### 🔥 Leadership Density Industry Performance")
+            st.markdown("#### 🏭 Industry Performance")
             industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
             
             if not industry_rotation.empty:
@@ -7908,7 +7838,7 @@ def main():
             
             st.markdown("---")
             
-            st.markdown("#### � Leadership Density Category Performance")
+            st.markdown("#### 📊 Category Performance")
             if 'category' in filtered_df.columns:
                 # Calculate LDI for categories
                 category_ldi = LeadershipDensityEngine.calculate_category_ldi(filtered_df)
