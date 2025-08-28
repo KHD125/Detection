@@ -2400,7 +2400,7 @@ class PatternDetector:
                 fundamental_filter = (
                     (df['pe'] > 0) &
                     (df['pe'] <= 40) &
-                    (df['eps_change_pct'] > 15)
+                    (df['eps_current'] > 0)
                 )
                 # === POSITION & MOMENTUM FILTERS ===
                 position_filter = True
@@ -2431,9 +2431,9 @@ class PatternDetector:
                 if 'rvol' in df.columns:
                     volume_filter = (df['rvol'] >= 2.0)
                 fundamental_filter = True
-                if all(col in df.columns for col in ['pe', 'eps_change_pct']):
+                if all(col in df.columns for col in ['pe', 'eps_current']):
                     fundamental_filter = (
-                        (df['pe'] > 0) & (df['pe'] <= 30) & (df['eps_change_pct'] > 20)
+                        (df['pe'] > 0) & (df['pe'] <= 30) & (df['eps_current'] > 0)
                     )
                 position_filter = True
                 if 'from_low_pct' in df.columns:
