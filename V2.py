@@ -61,7 +61,7 @@ class Config:
     """System configuration with validated weights and thresholds"""
     
     # Data source - Default configuration
-    DEFAULT_SHEET_URL: str = "https://docs.google.com/spreadsheets/d/1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM/edit?usp=sharing"
+    DEFAULT_SHEET_URL: str = ""
     DEFAULT_GID: str = "1823439984"
     
     # Cache settings - Dynamic refresh
@@ -5205,7 +5205,7 @@ def main():
                 "Google Sheets ID or URL",
                 value=st.session_state.get('sheet_id', ''),
                 placeholder="Enter Sheet ID or full URL",
-                help="Example: 1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM or the full Google Sheets URL"
+                help="Example: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM or the full Google Sheets URL"
             )
             
             if sheet_input:
