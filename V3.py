@@ -1758,48 +1758,53 @@ class PatternDetector:
 
         # 12. ULTIMATE SURGE - Final Verified Algorithm
         try:
+            # Ensure all required columns exist
             required_cols = [
-                'wave_state', 'momentum_score', 'acceleration_score',
-                'trend_quality', 'volume_score', 'breakout_score'
+                'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol_score',
+                'patterns', 'wave_state', 'pe', 'eps_current'
             ]
-        
-            # Only evaluate if all required columns exist (defensive -> consistent with V2 style)
-            if all(col in df.columns for col in required_cols):
-                # Safely retrieve and convert key columns to numeric types
-                wave_state = get_col_safe('wave_state', '').astype(str)
-                momentum_score = pd.to_numeric(get_col_safe('momentum_score', 0), errors='coerce').fillna(0)
-                acceleration_score = pd.to_numeric(get_col_safe('acceleration_score', 0), errors='coerce').fillna(0)
-                trend_quality = pd.to_numeric(get_col_safe('trend_quality', 0), errors='coerce').fillna(0)
-                volume_score = pd.to_numeric(get_col_safe('volume_score', 0), errors='coerce').fillna(0)
-                breakout_score = pd.to_numeric(get_col_safe('breakout_score', 0), errors='coerce').fillna(0)
-        
-                # Pattern logic tuned to your Top-100 baseline (fires only for elite outliers)
+            has_all = all(col in df.columns for col in required_cols)
+            if has_all:
+                # Define thresholds (tuned for Indian markets)
+                score_filter = (
+                    (df['master_score'] >= 85) &
+                    (df['momentum_score'] >= 85) &
+                    (df['trend_quality'] >= 75)
+                )
+                wave_state_filter = df['wave_state'].isin(['🌊 FORMING', '🌊🌊 BUILDING', '🌊🌊🌊 CRESTING'])
+                liquidity_filter = (
+                    (df['volume_score'] >= 75) &
+                    (df['rvol_score'] >= 70)
+                )
+                # Must have both a leadership and a momentum/quality pattern
+                def has_required_patterns(patterns_str):
+                    if not isinstance(patterns_str, str):
+                        return False
+                    leadership = any(p in patterns_str for p in ['🐱 CAT LEADER', '👑 MARKET LEADER'])
+                    momentum_quality = any(p in patterns_str for p in ['🌊 MOMENTUM WAVE', '🏆 QUALITY LEADER'])
+                    return leadership and momentum_quality
+                pattern_filter = df['patterns'].apply(has_required_patterns)
+                # Temporal confirmation (if available)
+                temporal_filter = True
+                if 'momentum_prev' in df.columns:
+                    temporal_filter = (df['momentum_score'] >= df['momentum_prev']) | ((df['momentum_score'] - df['momentum_prev']) > 5)
+                # PE/EPS quality filter (exclude junk)
+                pe_eps_filter = (
+                    (df['pe'] > 0) & (df['pe'] <= 60) & (df['eps_current'] > 0)
+                )
                 mask = (
-                    # Wave context: early formation or early build
-                    wave_state.isin(['🌊 FORMING', '🌊🌊 BUILDING']) &
-        
-                    # Momentum far above Top-100 avg (elite filter)
-                    (momentum_score > 85) &
-        
-                    # Controlled but strong acceleration (avoid dead or hyper-bubbled stocks)
-                    (acceleration_score >= 60) & (acceleration_score <= 90) &
-        
-                    # Clean trend structure
-                    (trend_quality > 80) &
-        
-                    # Volume + breakout confirmation
-                    (volume_score > 75) &
-                    (breakout_score > 75)
+                    score_filter &
+                    wave_state_filter &
+                    liquidity_filter &
+                    pattern_filter &
+                    temporal_filter &
+                    pe_eps_filter
                 )
             else:
-                # If required columns missing, do not mark anything as ULTIMATE SURGE
                 mask = pd.Series(False, index=df.index)
+            patterns.append(('🚀 ULTIMATE SURGE', mask))
         except Exception as e:
-            # Always safe-fallback to avoid breaking the engine
-            mask = pd.Series(False, index=df.index)
-        
-        # Append in the same style as your other patterns
-        patterns.append(('🚀 ULTIMATE SURGE', ensure_series(mask)))
+            patterns.append(('🚀 ULTIMATE SURGE', pd.Series(False, index=df.index)))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
