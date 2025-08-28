@@ -1760,19 +1760,26 @@ class PatternDetector:
         try:
             # This pattern identifies stocks in a consolidating phase that show a
             # subtle, but powerful shift in momentum and acceleration.
+            
+            # Safely retrieve and convert key columns to numeric types for comparison
+            wave_state = get_col_safe('wave_state')
+            momentum_score = pd.to_numeric(get_col_safe('momentum_score'), errors='coerce').fillna(0)
+            acceleration_score = pd.to_numeric(get_col_safe('acceleration_score'), errors='coerce').fillna(0)
+            trend_quality = pd.to_numeric(get_col_safe('trend_quality'), errors='coerce').fillna(0)
+        
             mask = (
                 # Condition 1: The Foundational Wave State
-                (get_col_safe('wave_state') == '🌊 FORMING') &
+                (wave_state == '🌊 FORMING') &
         
                 # Condition 2: Strong Momentum (above 75)
-                (get_col_safe('momentum_score', 0) > 75) &
+                (momentum_score > 75) &
         
                 # Condition 3: Optimal Acceleration (between 20 and 50)
-                (get_col_safe('acceleration_score', 0) > 20) &
-                (get_col_safe('acceleration_score', 0) < 50) &
+                (acceleration_score > 20) &
+                (acceleration_score < 50) &
                 
                 # Condition 4: High Trend Quality (above 80)
-                (get_col_safe('trend_quality', 0) > 80)
+                (trend_quality > 80)
             )
         except Exception as e:
             # In case any required columns are missing, default to False.
