@@ -1484,6 +1484,7 @@ class PatternDetector:
             '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
             '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
             '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
+            '🚀 PHASE SHIFT CATALYST': {'importance_weight': 20, 'category': 'phase-shift'}
             '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
             '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
             '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
@@ -1754,6 +1755,31 @@ class PatternDetector:
         except Exception as e:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
+
+        # 11. Phase Shift Catalyst Pattern - The Final Verified Algorithm
+        try:
+            # This pattern identifies stocks in a consolidating phase that show a
+            # subtle, but powerful shift in momentum and acceleration.
+            mask = (
+                # Condition 1: The Foundational Wave State
+                (get_col_safe('wave_state') == '🌊 FORMING') &
+        
+                # Condition 2: Strong Momentum (above 75)
+                (get_col_safe('momentum_score', 0) > 75) &
+        
+                # Condition 3: Optimal Acceleration (between 20 and 50)
+                (get_col_safe('acceleration_score', 0) > 20) &
+                (get_col_safe('acceleration_score', 0) < 50) &
+                
+                # Condition 4: High Trend Quality (above 80)
+                (get_col_safe('trend_quality', 0) > 80)
+            )
+        except Exception as e:
+            # In case any required columns are missing, default to False.
+            mask = pd.Series(False, index=df.index)
+        
+        # Append the pattern to your list of recognized patterns.
+        patterns.append(('🚀 PHASE SHIFT CATALYST', mask))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
