@@ -212,22 +212,22 @@ class Config:
             "🏔️ Near Highs (80-100%)": (80, 100)
         },
         "performance_tiers": {
-            # Short-term momentum (Intraday to Weekly)
-            "🚀 Strong Gainers (>5% 1D)": ("ret_1d", 5),
-            "⚡ Power Moves (>10% 1D)": ("ret_1d", 10),
-            "💥 Explosive (>20% 1D)": ("ret_1d", 20),
-            "🌟 3-Day Surge (>8% 3D)": ("ret_3d", 8),
-            "📈 Weekly Winners (>15% 7D)": ("ret_7d", 15),
+            # Short-term momentum (Practical thresholds for Indian markets)
+            "🚀 Strong Gainers (>3% 1D)": ("ret_1d", 3),
+            "⚡ Power Moves (>7% 1D)": ("ret_1d", 7),
+            "💥 Explosive (>15% 1D)": ("ret_1d", 15),
+            "🌟 3-Day Surge (>6% 3D)": ("ret_3d", 6),
+            "📈 Weekly Winners (>12% 7D)": ("ret_7d", 12),
             
-            # Medium-term growth (Monthly to Quarterly)
-            "🏆 Monthly Champions (>30% 30D)": ("ret_30d", 30),
-            "🎯 Quarterly Stars (>50% 3M)": ("ret_3m", 50),
-            "💎 Half-Year Heroes (>75% 6M)": ("ret_6m", 75),
+            # Medium-term growth (Realistic thresholds)
+            "🏆 Monthly Champions (>25% 30D)": ("ret_30d", 25),
+            "🎯 Quarterly Stars (>40% 3M)": ("ret_3m", 40),
+            "💎 Half-Year Heroes (>60% 6M)": ("ret_6m", 60),
             
-            # Long-term performance (Annual to Multi-year)
-            "🌙 Annual Winners (>100% 1Y)": ("ret_1y", 100),
-            "👑 Multi-Year Champions (>200% 3Y)": ("ret_3y", 200),
-            "🏛️ Long-Term Legends (>300% 5Y)": ("ret_5y", 300)
+            # Long-term performance (Fixed emoji + practical thresholds)
+            "🌙 Annual Winners (>80% 1Y)": ("ret_1y", 80),
+            "👑 Multi-Year Champions (>150% 3Y)": ("ret_3y", 150),
+            "🏛️ Long-Term Legends (>250% 5Y)": ("ret_5y", 250)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -1477,47 +1477,47 @@ class PatternDetector:
 
     # Pattern metadata for intelligent confidence scoring
     PATTERN_METADATA = {
-        '🐱 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
-        '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
-        '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
-        '⚡ VOL EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
-        '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
-        '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
-        '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
-        '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
-        '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
-        '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
-        '🌋 INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
-        '📈 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
-        '🎯 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
-        '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
-        '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
-        '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
-        '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
-        '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
-        '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
-        '🤏 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
-        '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
-        '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
-        '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
-        '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
-        '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
-        '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
-        '🔃 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
-        '📊 DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
-        '🗜️ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
-        '🔉 VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
-        '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
-        '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
-        '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
-        '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
-        '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
-        '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
-        '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
-        '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
-        '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
-        '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
-        '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
+            '🐱 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
+            '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
+            '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
+            '⚡ VOL EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
+            '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
+            '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
+            '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
+            '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
+            '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
+            '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
+            '🌋 INSTITUTIONAL TSUNAMI': {'importance_weight': 25, 'category': 'institutional'},
+            '📈 VALUE MOMENTUM': {'importance_weight': 10, 'category': 'fundamental'},
+            '🎯 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
+            '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
+            '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
+            '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
+            '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
+            '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
+            '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
+            '🤏 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
+            '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
+            '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
+            '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
+            '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
+            '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
+            '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
+            '🔃 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
+            '📊 DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
+            '🗜️ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
+            '🔉 VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
+            '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
+            '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
+            '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
+            '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
+            '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
+            '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
+            '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
+            '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
+            '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
+            '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
+            '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
 
     @staticmethod
@@ -5557,26 +5557,27 @@ def main():
         if available_return_cols:
             st.subheader("📈 Performance Intelligence")
             
-            # Unified performance tier dropdown with all timeframes
+            # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
             performance_options = [
-                # Short-term momentum
-                "🚀 Strong Gainers (>5% 1D)",
-                "⚡ Power Moves (>10% 1D)", 
-                "💥 Explosive (>20% 1D)",
-                "🌟 3-Day Surge (>8% 3D)",
-                "📈 Weekly Winners (>15% 7D)",
+                # Short-term momentum (Practical thresholds for Indian markets)
+                "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
+                "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
+                "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
+                "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
+                "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
                 
-                # Medium-term growth
-                "🏆 Monthly Champions (>30% 30D)",
-                "🎯 Quarterly Stars (>50% 3M)",
-                "💎 Half-Year Heroes (>75% 6M)",
+                # Medium-term growth (Adjusted for market reality)
+                "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
+                "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
+                "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
                 
-                # Long-term performance  
-                "  Annual Winners (>100% 1Y)",
-                "👑 Multi-Year Champions (>200% 3Y)",
-                "🏛️ Long-Term Legends (>300% 5Y)",
+                # Long-term performance (Fixed emoji + realistic thresholds)
+                "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
+                "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
+                "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
                 
-                " 🎯 Custom Range"
+                # Custom range option
+                "🎯 Custom Range"
             ]
             
             performance_tiers = st.multiselect(
@@ -5585,18 +5586,19 @@ def main():
                 default=st.session_state.filter_state.get('performance_tiers', []),
                 key='performance_tier_multiselect',
                 on_change=sync_performance_tier,
-                help="Select performance categories or use Custom Range for precise control"
+                help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
             )
             
             if performance_tiers:
                 filters['performance_tiers'] = performance_tiers
             
-            # Show custom range sliders when "🎯 Custom Range" is selected
+            # ENHANCED CUSTOM RANGE WITH SENSIBLE DEFAULTS (APPROACH 1)
             custom_range_selected = any("Custom Range" in tier for tier in performance_tiers)
             if custom_range_selected:
                 st.write("📊 **Multi-Timeframe Performance Range Filters**")
+                st.info("💡 **Professional Tip**: Default ranges are set to show gainers immediately. Adjust as needed for your strategy.")
                 
-                # Short-term performance (1D to 30D)
+                # Short-term performance (1D to 30D) with SENSIBLE DEFAULTS
                 st.write("🚀 **Short-Term Performance**")
                 col1, col2, col3, col4 = st.columns(4)
                 
@@ -5606,9 +5608,9 @@ def main():
                             "1-Day Return (%)",
                             min_value=-50.0,
                             max_value=100.0,
-                            value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
+                            value=(2.0, 100.0),  # DEFAULT: Show stocks up 2%+ today
                             step=1.0,
-                            help="Filter by 1-day return percentage",
+                            help="Filter by 1-day return percentage. Default shows gainers (2%+)",
                             key="ret_1d_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5621,9 +5623,9 @@ def main():
                             "3-Day Return (%)",
                             min_value=-50.0,
                             max_value=150.0,
-                            value=st.session_state.filter_state.get('ret_3d_range', (-50.0, 150.0)),
+                            value=(3.0, 150.0),  # DEFAULT: Show stocks up 3%+ over 3 days
                             step=1.0,
-                            help="Filter by 3-day return percentage",
+                            help="Filter by 3-day return percentage. Default shows 3-day gainers",
                             key="ret_3d_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5636,9 +5638,9 @@ def main():
                             "7-Day Return (%)",
                             min_value=-50.0,
                             max_value=200.0,
-                            value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
+                            value=(5.0, 200.0),  # DEFAULT: Show stocks up 5%+ this week
                             step=1.0,
-                            help="Filter by 7-day return percentage",
+                            help="Filter by 7-day return percentage. Default shows weekly gainers",
                             key="ret_7d_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5651,16 +5653,16 @@ def main():
                             "30-Day Return (%)",
                             min_value=-50.0,
                             max_value=500.0,
-                            value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
+                            value=(10.0, 500.0),  # DEFAULT: Show stocks up 10%+ this month
                             step=1.0,
-                            help="Filter by 30-day return percentage",
+                            help="Filter by 30-day return percentage. Default shows monthly gainers",
                             key="ret_30d_range_slider",
                             on_change=sync_performance_custom_range
                         )
                         if ret_30d_range != (-50.0, 500.0):
                             filters['ret_30d_range'] = ret_30d_range
                 
-                # Medium-term performance (3M to 6M)
+                # Medium-term performance (3M to 6M) with SENSIBLE DEFAULTS
                 st.write("💎 **Medium-Term Performance**")
                 col1, col2 = st.columns(2)
                 
@@ -5670,9 +5672,9 @@ def main():
                             "3-Month Return (%)",
                             min_value=-70.0,
                             max_value=300.0,
-                            value=st.session_state.filter_state.get('ret_3m_range', (-70.0, 300.0)),
+                            value=(15.0, 300.0),  # DEFAULT: Show stocks up 15%+ over 3 months
                             step=5.0,
-                            help="Filter by 3-month return percentage",
+                            help="Filter by 3-month return percentage. Default shows quarterly gainers",
                             key="ret_3m_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5685,16 +5687,16 @@ def main():
                             "6-Month Return (%)",
                             min_value=-80.0,
                             max_value=2000.0,
-                            value=st.session_state.filter_state.get('ret_6m_range', (-80.0, 2000.0)),
+                            value=(20.0, 2000.0),  # DEFAULT: Show stocks up 20%+ over 6 months
                             step=10.0,
-                            help="Filter by 6-month return percentage",
+                            help="Filter by 6-month return percentage. Default shows half-year gainers",
                             key="ret_6m_range_slider",
                             on_change=sync_performance_custom_range
                         )
                         if ret_6m_range != (-80.0, 2000.0):
                             filters['ret_6m_range'] = ret_6m_range
                 
-                # Long-term performance (1Y to 5Y)
+                # Long-term performance (1Y to 5Y) with SENSIBLE DEFAULTS
                 st.write("🏛️ **Long-Term Performance**")
                 col1, col2, col3 = st.columns(3)
                 
@@ -5704,9 +5706,9 @@ def main():
                             "1-Year Return (%)",
                             min_value=-90.0,
                             max_value=5000.0,
-                            value=st.session_state.filter_state.get('ret_1y_range', (-90.0, 5000.0)),
+                            value=(25.0, 5000.0),  # DEFAULT: Show stocks up 25%+ over 1 year
                             step=25.0,
-                            help="Filter by 1-year return percentage",
+                            help="Filter by 1-year return percentage. Default shows annual gainers",
                             key="ret_1y_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5719,9 +5721,9 @@ def main():
                             "3-Year Return (%)",
                             min_value=-95.0,
                             max_value=10000.0,
-                            value=st.session_state.filter_state.get('ret_3y_range', (-95.0, 10000.0)),
+                            value=(50.0, 10000.0),  # DEFAULT: Show stocks up 50%+ over 3 years
                             step=50.0,
-                            help="Filter by 3-year return percentage",
+                            help="Filter by 3-year return percentage. Default shows 3-year gainers",
                             key="ret_3y_range_slider",
                             on_change=sync_performance_custom_range
                         )
@@ -5734,14 +5736,50 @@ def main():
                             "5-Year Return (%)",
                             min_value=-99.0,
                             max_value=20000.0,
-                            value=st.session_state.filter_state.get('ret_5y_range', (-99.0, 20000.0)),
+                            value=(75.0, 20000.0),  # DEFAULT: Show stocks up 75%+ over 5 years
                             step=100.0,
-                            help="Filter by 5-year return percentage",
+                            help="Filter by 5-year return percentage. Default shows 5-year gainers",
                             key="ret_5y_range_slider",
                             on_change=sync_performance_custom_range
                         )
                         if ret_5y_range != (-99.0, 20000.0):
                             filters['ret_5y_range'] = ret_5y_range
+                
+                # PROFESSIONAL STATUS INDICATOR
+                active_ranges = []
+                default_ranges = {
+                    'ret_1d_range': (2.0, 100.0),
+                    'ret_3d_range': (3.0, 150.0),
+                    'ret_7d_range': (5.0, 200.0),
+                    'ret_30d_range': (10.0, 500.0),
+                    'ret_3m_range': (15.0, 300.0),
+                    'ret_6m_range': (20.0, 2000.0),
+                    'ret_1y_range': (25.0, 5000.0),
+                    'ret_3y_range': (50.0, 10000.0),
+                    'ret_5y_range': (75.0, 20000.0)
+                }
+                
+                # Check which ranges are active (different from max range)
+                max_ranges = {
+                    'ret_1d_range': (-50.0, 100.0),
+                    'ret_3d_range': (-50.0, 150.0),
+                    'ret_7d_range': (-50.0, 200.0),
+                    'ret_30d_range': (-50.0, 500.0),
+                    'ret_3m_range': (-70.0, 300.0),
+                    'ret_6m_range': (-80.0, 2000.0),
+                    'ret_1y_range': (-90.0, 5000.0),
+                    'ret_3y_range': (-95.0, 10000.0),
+                    'ret_5y_range': (-99.0, 20000.0)
+                }
+                
+                for range_key in default_ranges.keys():
+                    if range_key in filters and filters[range_key] != max_ranges[range_key]:
+                        active_ranges.append(range_key.replace('_range', '').replace('ret_', '').upper())
+                
+                if active_ranges:
+                    st.success(f"✅ **Active Filters**: {', '.join(active_ranges)} | **Strategy**: Gainer Focus with Sensible Defaults")
+                else:
+                    st.info("💡 **Tip**: Adjust sliders above to filter performance. Current settings show all stocks.")
         
         # 📊 Volume Intelligence Filter
         if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
