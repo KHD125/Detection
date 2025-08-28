@@ -1484,7 +1484,7 @@ class PatternDetector:
             '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
             '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
             '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
-            '🚀 PHASE SHIFT CATALYST': {'importance_weight': 20, 'category': 'phase-shift'}
+            '🚀 PHASE SHIFT CATALYST': {'importance_weight': 20, 'category': 'phase-shift'},
             '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
             '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
             '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
