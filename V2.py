@@ -4333,44 +4333,40 @@ class UIComponents:
         opp_col1, opp_col2, opp_col3 = st.columns(3)
         
         with opp_col1:
-            ready_to_run = df[
-                (df['momentum_score'] >= 70) & 
-                (df['acceleration_score'] >= 70) &
-                (df['rvol'] >= 2)
-            ].nlargest(5, 'master_score') if all(col in df.columns for col in ['momentum_score', 'acceleration_score', 'rvol']) else pd.DataFrame()
+            institutional_tsunami = df[df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)].nlargest(5, 'master_score') if 'patterns' in df.columns else pd.DataFrame()
             
-            st.markdown("**🚀 Ready to Run**")
-            if len(ready_to_run) > 0:
-                for _, stock in ready_to_run.iterrows():
+            st.markdown("**🌋 Institutional Tsunami**")
+            if len(institutional_tsunami) > 0:
+                for _, stock in institutional_tsunami.iterrows():
                     company_name = stock.get('company_name', 'N/A')[:25]
                     st.write(f"• **{stock['ticker']}** - {company_name}")
-                    st.caption(f"Score: {stock['master_score']:.1f} | RVOL: {stock['rvol']:.1f}x")
+                    st.caption(f"Score: {stock['master_score']:.1f} | Multi-Factor: {stock.get('rvol', 0):.1f}x")
             else:
-                st.info("No momentum leaders found")
+                st.info("No institutional tsunami detected")
         
         with opp_col2:
-            hidden_gems = df[df['patterns'].str.contains('HIDDEN GEM', na=False)].nlargest(5, 'master_score') if 'patterns' in df.columns else pd.DataFrame()
+            info_decay = df[df['patterns'].str.contains('🕰️ INFORMATION DECAY ARBITRAGE', na=False)].nlargest(5, 'master_score') if 'patterns' in df.columns else pd.DataFrame()
             
-            st.markdown("**💎 Hidden Gems**")
-            if len(hidden_gems) > 0:
-                for _, stock in hidden_gems.iterrows():
+            st.markdown("**�️ Info Decay Arbitrage**")
+            if len(info_decay) > 0:
+                for _, stock in info_decay.iterrows():
                     company_name = stock.get('company_name', 'N/A')[:25]
                     st.write(f"• **{stock['ticker']}** - {company_name}")
-                    st.caption(f"Cat %ile: {stock.get('category_percentile', 0):.0f} | Score: {stock['master_score']:.1f}")
+                    st.caption(f"Score: {stock['master_score']:.1f} | Decay Edge: Active")
             else:
-                st.info("No hidden gems today")
+                st.info("No decay arbitrage opportunities")
         
         with opp_col3:
-            volume_alerts = df[df['rvol'] > 3].nlargest(5, 'master_score') if 'rvol' in df.columns else pd.DataFrame()
+            earnings_surprise = df[df['patterns'].str.contains('🎆 EARNINGS SURPRISE LEADER', na=False)].nlargest(5, 'master_score') if 'patterns' in df.columns else pd.DataFrame()
             
-            st.markdown("**⚡ Volume Alerts**")
-            if len(volume_alerts) > 0:
-                for _, stock in volume_alerts.iterrows():
+            st.markdown("**🎆 Earnings Surprise Leader**")
+            if len(earnings_surprise) > 0:
+                for _, stock in earnings_surprise.iterrows():
                     company_name = stock.get('company_name', 'N/A')[:25]
                     st.write(f"• **{stock['ticker']}** - {company_name}")
-                    st.caption(f"RVOL: {stock['rvol']:.1f}x | {stock.get('wave_state', 'N/A')}")
+                    st.caption(f"EPS Growth: {stock.get('eps_change_pct', 0):.0f}% | Score: {stock['master_score']:.1f}")
             else:
-                st.info("No extreme volume detected")
+                st.info("No earnings surprises today")
         
         # 3. MARKET INTELLIGENCE
         st.markdown("### 🧠 Market Intelligence")
@@ -5410,8 +5406,8 @@ def main():
             st.rerun()
     
     with qa_col4:
-        if st.button("💎 Hidden Gems", width="stretch"):
-            st.session_state['quick_filter'] = 'hidden_gems'
+        if st.button("🌋 Tsunami", width="stretch"):
+            st.session_state['quick_filter'] = 'institutional_tsunami'
             st.session_state['quick_filter_applied'] = True
             st.rerun()
     
@@ -5431,9 +5427,9 @@ def main():
         elif quick_filter == 'velocity_breakout':
             ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('VELOCITY BREAKOUT', na=False)]
             st.info(f"Showing {len(ranked_df_display)} stocks with Velocity Breakout pattern")
-        elif quick_filter == 'hidden_gems':
-            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('HIDDEN GEM', na=False)]
-            st.info(f"Showing {len(ranked_df_display)} hidden gem stocks")
+        elif quick_filter == 'institutional_tsunami':
+            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)]
+            st.info(f"Showing {len(ranked_df_display)} stocks with Institutional Tsunami pattern")
     else:
         ranked_df_display = ranked_df
     
@@ -6212,7 +6208,7 @@ def main():
                     'top_gainers': '📈 Top Gainers',
                     'volume_surges': '🔥 Volume Surges',
                     'velocity_breakout': '🚀 High Velocity',
-                    'hidden_gems': '💎 Hidden Gems'
+                    'institutional_tsunami': '🌋 Tsunami'
                 }
                 filter_display = quick_filter_names.get(quick_filter, 'Filtered')
                 
