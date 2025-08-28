@@ -815,34 +815,34 @@ class DataProcessor:
                 # Priority-based classification (explosive short-term first, then longer-term)
                 
                 # Explosive short-term moves (highest priority)
-                if 'ret_1d' in returns and returns['ret_1d'] > 20:
-                    return "💥 Explosive (>20% 1D)"
-                elif 'ret_1d' in returns and returns['ret_1d'] > 10:
-                    return "⚡ Power Moves (>10% 1D)"
-                elif 'ret_1d' in returns and returns['ret_1d'] > 5:
-                    return "🚀 Strong Gainers (>5% 1D)"
+                if 'ret_1d' in returns and returns['ret_1d'] > 15:
+                    return "💥 Explosive (>15% 1D)"
+                elif 'ret_1d' in returns and returns['ret_1d'] > 7:
+                    return "⚡ Power Moves (>7% 1D)"
+                elif 'ret_1d' in returns and returns['ret_1d'] > 3:
+                    return "🚀 Strong Gainers (>3% 1D)"
                 
                 # Short-term momentum
-                elif 'ret_3d' in returns and returns['ret_3d'] > 8:
-                    return "🌟 3-Day Surge (>8% 3D)"
-                elif 'ret_7d' in returns and returns['ret_7d'] > 15:
-                    return "📈 Weekly Winners (>15% 7D)"
-                elif 'ret_30d' in returns and returns['ret_30d'] > 30:
-                    return "🏆 Monthly Champions (>30% 30D)"
+                elif 'ret_3d' in returns and returns['ret_3d'] > 6:
+                    return "🌟 3-Day Surge (>6% 3D)"
+                elif 'ret_7d' in returns and returns['ret_7d'] > 12:
+                    return "📈 Weekly Winners (>12% 7D)"
+                elif 'ret_30d' in returns and returns['ret_30d'] > 25:
+                    return "🏆 Monthly Champions (>25% 30D)"
                 
                 # Medium-term performance
-                elif 'ret_3m' in returns and returns['ret_3m'] > 50:
-                    return "🎯 Quarterly Stars (>50% 3M)"
-                elif 'ret_6m' in returns and returns['ret_6m'] > 75:
-                    return "  Half-Year Heroes (>75% 6M)"
+                elif 'ret_3m' in returns and returns['ret_3m'] > 40:
+                    return "🎯 Quarterly Stars (>40% 3M)"
+                elif 'ret_6m' in returns and returns['ret_6m'] > 60:
+                    return "💎 Half-Year Heroes (>60% 6M)"
                 
                 # Long-term performance
-                elif 'ret_1y' in returns and returns['ret_1y'] > 100:
-                    return "🌙 Annual Winners (>100% 1Y)"
-                elif 'ret_3y' in returns and returns['ret_3y'] > 200:
-                    return "👑 Multi-Year Champions (>200% 3Y)"
-                elif 'ret_5y' in returns and returns['ret_5y'] > 300:
-                    return "🏛️ Long-Term Legends (>300% 5Y)"
+                elif 'ret_1y' in returns and returns['ret_1y'] > 80:
+                    return "🌙 Annual Winners (>80% 1Y)"
+                elif 'ret_3y' in returns and returns['ret_3y'] > 150:
+                    return "👑 Multi-Year Champions (>150% 3Y)"
+                elif 'ret_5y' in returns and returns['ret_5y'] > 250:
+                    return "🏛️ Long-Term Legends (>250% 5Y)"
                 
                 else:
                     return "Standard"
@@ -3688,17 +3688,17 @@ class FilterEngine:
         custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
         
         if custom_range_selected:
-            # Define default ranges for each timeframe
+            # Define default ranges for each timeframe (MUST MATCH UI EXACTLY)
             default_ranges = {
-                'ret_1d_range': (-50.0, 100.0),
-                'ret_3d_range': (-50.0, 150.0),
-                'ret_7d_range': (-50.0, 200.0),
-                'ret_30d_range': (-50.0, 500.0),
-                'ret_3m_range': (-70.0, 1000.0),
-                'ret_6m_range': (-80.0, 2000.0),
-                'ret_1y_range': (-90.0, 5000.0),
-                'ret_3y_range': (-95.0, 10000.0),
-                'ret_5y_range': (-99.0, 20000.0)
+                'ret_1d_range': (2.0, 100.0),
+                'ret_3d_range': (3.0, 150.0),
+                'ret_7d_range': (5.0, 200.0),
+                'ret_30d_range': (10.0, 500.0),
+                'ret_3m_range': (15.0, 300.0),
+                'ret_6m_range': (20.0, 2000.0),
+                'ret_1y_range': (25.0, 5000.0),
+                'ret_3y_range': (50.0, 10000.0),
+                'ret_5y_range': (75.0, 20000.0)
             }
             
             # Only apply filters for ranges that have been modified from defaults
