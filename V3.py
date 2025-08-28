@@ -1484,7 +1484,7 @@ class PatternDetector:
             '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
             '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
             '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
-            '🚀 PHASE SHIFT CATALYST': {'importance_weight': 20, 'category': 'phase-shift'},
+            '🚀 ULTIMATE SURGE': {'importance_weight': 20, 'category': 'phase-shift'},
             '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
             '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
             '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
@@ -1756,37 +1756,43 @@ class PatternDetector:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
 
-        # 11. Phase Shift Catalyst Pattern - The Final Verified Algorithm
+        # 12. Ultimate Surge Pattern - The Final Verified Algorithm
         try:
-            # This pattern identifies stocks in a consolidating phase that show a
-            # subtle, but powerful shift in momentum and acceleration.
+            # This pattern identifies elite stocks that are far above the
+            # average Top 100 baseline across multiple dimensions.
             
-            # Safely retrieve and convert key columns to numeric types for comparison
+            # Safely retrieve and convert key columns
             wave_state = get_col_safe('wave_state')
             momentum_score = pd.to_numeric(get_col_safe('momentum_score'), errors='coerce').fillna(0)
             acceleration_score = pd.to_numeric(get_col_safe('acceleration_score'), errors='coerce').fillna(0)
             trend_quality = pd.to_numeric(get_col_safe('trend_quality'), errors='coerce').fillna(0)
+            volume_score = pd.to_numeric(get_col_safe('volume_score'), errors='coerce').fillna(0)
+            breakout_score = pd.to_numeric(get_col_safe('breakout_score'), errors='coerce').fillna(0)
         
             mask = (
-                # Condition 1: The Foundational Wave State
-                (wave_state == '🌊 FORMING') &
-        
-                # Condition 2: Strong Momentum (above 75)
-                (momentum_score > 75) &
-        
-                # Condition 3: Optimal Acceleration (between 20 and 50)
-                (acceleration_score > 20) &
-                (acceleration_score < 50) &
+                # Condition 1: Early or Building Phase only
+                (wave_state.isin(['🌊 FORMING', '🌊🌊 BUILDING'])) &
                 
-                # Condition 4: High Trend Quality (above 80)
-                (trend_quality > 80)
+                # Condition 2: Momentum far above Top 100 avg ( >85 vs ~76.9 )
+                (momentum_score > 85) &
+                
+                # Condition 3: Acceleration in sweet spot (60–90 vs avg ~70.2)
+                (acceleration_score >= 60) &
+                (acceleration_score <= 90) &
+                
+                # Condition 4: High Trend Quality (>80 vs avg ~72.1)
+                (trend_quality > 80) &
+                
+                # Condition 5: Liquidity + Breakout confirmation (>75 vs avg ~71)
+                (volume_score > 75) &
+                (breakout_score > 75)
             )
         except Exception as e:
             # In case any required columns are missing, default to False.
             mask = pd.Series(False, index=df.index)
         
         # Append the pattern to your list of recognized patterns.
-        patterns.append(('🚀 PHASE SHIFT CATALYST', mask))
+        patterns.append(('🚀 ULTIMATE SURGE', mask))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
