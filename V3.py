@@ -61,7 +61,7 @@ class Config:
     """System configuration with validated weights and thresholds"""
     
     # Data source - Default configuration
-    DEFAULT_SHEET_URL: str = ""
+    DEFAULT_SHEET_URL: str = "https://docs.google.com/spreadsheets/d/1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM/edit?usp=sharing"
     DEFAULT_GID: str = "1823439984"
     
     # Cache settings - Dynamic refresh
@@ -1484,7 +1484,6 @@ class PatternDetector:
             '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
             '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
             '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
-            '🚀 ULTIMATE SURGE': {'importance_weight': 24, 'category': 'momentum'},
             '🔥 PREMIUM MOMENTUM': {'importance_weight': 15, 'category': 'premium'},
             '🧩 ENTROPY COMPRESSION': {'importance_weight': 20, 'category': 'mathematical'},
             '🚀 VELOCITY BREAKOUT': {'importance_weight': 15, 'category': 'acceleration'},
@@ -1518,7 +1517,8 @@ class PatternDetector:
             '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
             '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
             '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
-            '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
+            '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'},
+            '🏅 ALL-TIME BEST': {'importance_weight': 30, 'category': 'multi-factor'}
     }
 
     @staticmethod
@@ -1755,56 +1755,6 @@ class PatternDetector:
         except Exception as e:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
-
-        # 12. ULTIMATE SURGE - Final Verified Algorithm
-        try:
-            # Ensure all required columns exist
-            required_cols = [
-                'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol_score',
-                'patterns', 'wave_state', 'pe', 'eps_current'
-            ]
-            has_all = all(col in df.columns for col in required_cols)
-            if has_all:
-                # Define thresholds (tuned for Indian markets)
-                score_filter = (
-                    (df['master_score'] >= 85) &
-                    (df['momentum_score'] >= 85) &
-                    (df['trend_quality'] >= 75)
-                )
-                wave_state_filter = df['wave_state'].isin(['🌊 FORMING', '🌊🌊 BUILDING', '🌊🌊🌊 CRESTING'])
-                liquidity_filter = (
-                    (df['volume_score'] >= 75) &
-                    (df['rvol_score'] >= 70)
-                )
-                # Must have both a leadership and a momentum/quality pattern
-                def has_required_patterns(patterns_str):
-                    if not isinstance(patterns_str, str):
-                        return False
-                    leadership = any(p in patterns_str for p in ['🐱 CAT LEADER', '👑 MARKET LEADER'])
-                    momentum_quality = any(p in patterns_str for p in ['🌊 MOMENTUM WAVE', '🏆 QUALITY LEADER'])
-                    return leadership and momentum_quality
-                pattern_filter = df['patterns'].apply(has_required_patterns)
-                # Temporal confirmation (if available)
-                temporal_filter = True
-                if 'momentum_prev' in df.columns:
-                    temporal_filter = (df['momentum_score'] >= df['momentum_prev']) | ((df['momentum_score'] - df['momentum_prev']) > 5)
-                # PE/EPS quality filter (exclude junk)
-                pe_eps_filter = (
-                    (df['pe'] > 0) & (df['pe'] <= 60) & (df['eps_current'] > 0)
-                )
-                mask = (
-                    score_filter &
-                    wave_state_filter &
-                    liquidity_filter &
-                    pattern_filter &
-                    temporal_filter &
-                    pe_eps_filter
-                )
-            else:
-                mask = pd.Series(False, index=df.index)
-            patterns.append(('🚀 ULTIMATE SURGE', mask))
-        except Exception as e:
-            patterns.append(('🚀 ULTIMATE SURGE', pd.Series(False, index=df.index)))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
@@ -2418,6 +2368,51 @@ class PatternDetector:
             logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
             patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
 
+            # 42. ALL-TIME BEST - Ultimate multi-factor, multi-pattern, high-confidence signal
+            try:
+                required_cols = [
+                    'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol_score',
+                    'patterns', 'wave_state', 'pe', 'eps_current'
+                ]
+                has_all = all(col in df.columns for col in required_cols)
+                if has_all:
+                    score_filter = (
+                        (df['master_score'] >= 85) &
+                        (df['momentum_score'] >= 85) &
+                        (df['trend_quality'] >= 75)
+                    )
+                    wave_state_filter = df['wave_state'].isin(['🌊 FORMING', '🌊🌊 BUILDING', '🌊🌊🌊 CRESTING'])
+                    liquidity_filter = (
+                        (df['volume_score'] >= 75) &
+                        (df['rvol_score'] >= 70)
+                    )
+                    def has_required_patterns(patterns_str):
+                        if not isinstance(patterns_str, str):
+                            return False
+                        leadership = any(p in patterns_str for p in ['🐱 CAT LEADER', '👑 MARKET LEADER'])
+                        momentum_quality = any(p in patterns_str for p in ['🌊 MOMENTUM WAVE', '🏆 QUALITY LEADER'])
+                        return leadership and momentum_quality
+                    pattern_filter = df['patterns'].apply(has_required_patterns)
+                    temporal_filter = True
+                    if 'momentum_prev' in df.columns:
+                        temporal_filter = (df['momentum_score'] >= df['momentum_prev']) | ((df['momentum_score'] - df['momentum_prev']) > 5)
+                    pe_eps_filter = (
+                        (df['pe'] > 0) & (df['pe'] <= 60) & (df['eps_current'] > 0)
+                    )
+                    mask = (
+                        score_filter &
+                        wave_state_filter &
+                        liquidity_filter &
+                        pattern_filter &
+                        temporal_filter &
+                        pe_eps_filter
+                    )
+                else:
+                    mask = pd.Series(False, index=df.index)
+                patterns.append(('🏅 ALL-TIME BEST', ensure_series(mask)))
+            except Exception as e:
+                logger.warning(f"Error in ALL-TIME BEST pattern: {e}")
+                patterns.append(('🏅 ALL-TIME BEST', pd.Series(False, index=df.index)))
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
         
@@ -5256,7 +5251,7 @@ def main():
                 "Google Sheets ID or URL",
                 value=st.session_state.get('sheet_id', ''),
                 placeholder="Enter Sheet ID or full URL",
-                help="Example: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM or the full Google Sheets URL"
+                help="Example: 1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM or the full Google Sheets URL"
             )
             
             if sheet_input:
@@ -8875,7 +8870,7 @@ def main():
             **Mathematical Advanced (5)**
             - 🔥 PREMIUM MOMENTUM
             - 🧩 ENTROPY COMPRESSION
-            - 🚀 VELOCITY BREAKOUT
+            - � VELOCITY BREAKOUT
             - 🕰️ INFORMATION DECAY ARBITRAGE
             - ⚛️ ATOMIC DECAY MOMENTUM
             
