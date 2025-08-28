@@ -8824,7 +8824,7 @@ def main():
             **Mathematical Advanced (5)**
             - 🔥 PREMIUM MOMENTUM
             - 🧩 ENTROPY COMPRESSION
-            - � VELOCITY BREAKOUT
+            - 🚀 VELOCITY BREAKOUT
             - 🕰️ INFORMATION DECAY ARBITRAGE
             - ⚛️ ATOMIC DECAY MOMENTUM
             
