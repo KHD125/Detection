@@ -2352,67 +2352,97 @@ class PatternDetector:
 
         # 41. OVERSOLD QUALITY - Value opportunity identification
         try:
-            if all(col in df.columns for col in ['from_low_pct', 'eps_change_pct', 'pe', 'ret_1d', 'rvol']):
-                eps_change_pct = get_col_safe('eps_change_pct')
-                pe = get_col_safe('pe')
-                
-                mask = (
-                    (get_col_safe('from_low_pct', 0) < 25) &                      # Oversold
-                    eps_change_pct.notna() & (eps_change_pct > 0) &               # Still growing
-                    pe.notna() & (pe < 20) &                                      # Reasonable valuation
-                    (get_col_safe('ret_1d', 0) > 1) &                            # Starting to bounce
-                    (get_col_safe('rvol', 0) > 1.5)                              # Interest building
-                )
-                patterns.append(('💳 OVERSOLD QUALITY', ensure_series(mask)))
-        except Exception as e:
-            logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
-            patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
-
             # 42. ALL-TIME BEST - Ultimate multi-factor, multi-pattern, high-confidence signal
-            try:
-                required_cols = [
-                    'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol_score',
-                    'patterns', 'wave_state', 'pe', 'eps_current'
-                ]
-                has_all = all(col in df.columns for col in required_cols)
-                if has_all:
-                    score_filter = (
-                        (df['master_score'] >= 85) &
-                        (df['momentum_score'] >= 85) &
-                        (df['trend_quality'] >= 75)
+            # Designed to work with your V2.py system's calculated scores and patterns
+            required_cols = [
+                'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol',
+                'patterns', 'pattern_confidence', 'pe', 'eps_change_pct'
+            ]
+            has_all = all(col in df.columns for col in required_cols)
+            if has_all:
+                # === SCORE-BASED FILTERS ===
+                score_filter = (
+                    (df['master_score'] >= 85) &
+                    (df['momentum_score'] >= 85) &
+                    (df['trend_quality'] >= 75)
+                )
+                # === VOLUME & LIQUIDITY FILTERS ===
+                volume_filter = (
+                    (df['volume_score'] >= 75) &
+                    (df['rvol'] >= 2.0)
+                )
+                # === PATTERN-BASED FILTERS ===
+                def has_premium_patterns(patterns_str, confidence):
+                    if not isinstance(patterns_str, str) or pd.isna(confidence):
+                        return False
+                    leadership_patterns = [
+                        '🐱 CAT LEADER', '👑 MARKET LEADER', '💰 LIQUID LEADER'
+                    ]
+                    momentum_patterns = [
+                        '🌊 MOMENTUM WAVE', '🔥 PREMIUM MOMENTUM', '🚀 VELOCITY BREAKOUT',
+                        '🌋 INSTITUTIONAL TSUNAMI', '🏆 QUALITY LEADER'
+                    ]
+                    advanced_patterns = [
+                        '🧩 ENTROPY COMPRESSION', '🕰️ INFORMATION DECAY ARBITRAGE',
+                        '⚛️ ATOMIC DECAY MOMENTUM', '🎆 EARNINGS SURPRISE LEADER'
+                    ]
+                    has_leadership = any(pattern in patterns_str for pattern in leadership_patterns)
+                    has_momentum = any(pattern in patterns_str for pattern in momentum_patterns)
+                    has_advanced = any(pattern in patterns_str for pattern in advanced_patterns)
+                    return (confidence >= 70) and (has_leadership or (has_momentum and has_advanced))
+                pattern_filter = df.apply(
+                    lambda row: has_premium_patterns(
+                        row.get('patterns', ''),
+                        row.get('pattern_confidence', 0)
+                    ), axis=1
+                )
+                # === FUNDAMENTAL QUALITY FILTERS ===
+                fundamental_filter = (
+                    (df['pe'] > 0) &
+                    (df['pe'] <= 40) &
+                    (df['eps_change_pct'] > 15)
+                )
+                # === POSITION & MOMENTUM FILTERS ===
+                position_filter = True
+                if all(col in df.columns for col in ['from_low_pct', 'from_high_pct', 'ret_30d']):
+                    position_filter = (
+                        (df['from_low_pct'] > 25) &
+                        (df['from_high_pct'] > -25) &
+                        (df['ret_30d'] > 10)
                     )
-                    wave_state_filter = df['wave_state'].isin(['🌊 FORMING', '🌊🌊 BUILDING', '🌊🌊🌊 CRESTING'])
-                    liquidity_filter = (
-                        (df['volume_score'] >= 75) &
-                        (df['rvol_score'] >= 70)
+                mask = (
+                    score_filter &
+                    volume_filter &
+                    pattern_filter &
+                    fundamental_filter &
+                    position_filter
+                )
+            else:
+                # Fallback: If calculated scores not available, use raw data approach
+                logger.warning("ALL-TIME BEST: Using fallback approach - calculated scores not available")
+                momentum_filter = True
+                if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+                    momentum_filter = (
+                        (df['ret_1d'] > 0) &
+                        (df['ret_7d'] > 5) &
+                        (df['ret_30d'] > 15)
                     )
-                    def has_required_patterns(patterns_str):
-                        if not isinstance(patterns_str, str):
-                            return False
-                        leadership = any(p in patterns_str for p in ['🐱 CAT LEADER', '👑 MARKET LEADER'])
-                        momentum_quality = any(p in patterns_str for p in ['🌊 MOMENTUM WAVE', '🏆 QUALITY LEADER'])
-                        return leadership and momentum_quality
-                    pattern_filter = df['patterns'].apply(has_required_patterns)
-                    temporal_filter = True
-                    if 'momentum_prev' in df.columns:
-                        temporal_filter = (df['momentum_score'] >= df['momentum_prev']) | ((df['momentum_score'] - df['momentum_prev']) > 5)
-                    pe_eps_filter = (
-                        (df['pe'] > 0) & (df['pe'] <= 60) & (df['eps_current'] > 0)
+                volume_filter = True
+                if 'rvol' in df.columns:
+                    volume_filter = (df['rvol'] >= 2.0)
+                fundamental_filter = True
+                if all(col in df.columns for col in ['pe', 'eps_change_pct']):
+                    fundamental_filter = (
+                        (df['pe'] > 0) & (df['pe'] <= 30) & (df['eps_change_pct'] > 20)
                     )
-                    mask = (
-                        score_filter &
-                        wave_state_filter &
-                        liquidity_filter &
-                        pattern_filter &
-                        temporal_filter &
-                        pe_eps_filter
-                    )
-                else:
-                    mask = pd.Series(False, index=df.index)
-                patterns.append(('🏅 ALL-TIME BEST', ensure_series(mask)))
-            except Exception as e:
-                logger.warning(f"Error in ALL-TIME BEST pattern: {e}")
-                patterns.append(('🏅 ALL-TIME BEST', pd.Series(False, index=df.index)))
+                position_filter = True
+                if 'from_low_pct' in df.columns:
+                    position_filter = (df['from_low_pct'] > 30)
+                mask = momentum_filter & volume_filter & fundamental_filter & position_filter
+            patterns.append(('🏅 ALL-TIME BEST', ensure_series(mask)))
+        except Exception as e:
+            logger.warning(f"Error in ALL-TIME BEST pattern: {e}")
+            patterns.append(('🏅 ALL-TIME BEST', pd.Series(False, index=df.index)))
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
         
