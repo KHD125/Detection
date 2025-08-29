@@ -1477,6 +1477,7 @@ class PatternDetector:
 
     # Pattern metadata for intelligent confidence scoring
     PATTERN_METADATA = {
+            '🚀 MOMENTUM IGNITION': {'importance_weight': 18, 'category': 'momentum'},
             '🐱 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
             '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
             '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
@@ -1517,8 +1518,7 @@ class PatternDetector:
             '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
             '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
             '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
-            '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'},
-            '🏅 ALL-TIME BEST': {'importance_weight': 30, 'category': 'multi-factor'}
+            '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
 
     @staticmethod
@@ -1718,7 +1718,20 @@ class PatternDetector:
             (get_col_safe('acceleration_score', 0) >= 70)
         )
         patterns.append(('🌊 MOMENTUM WAVE', mask))
-        
+
+        # 🚀 MOMENTUM IGNITION - Explosive momentum with acceleration and volume
+        try:
+            if all(col in df.columns for col in ['position_score', 'acceleration_score', 'rvol']):
+                mask = (
+                    (get_col_safe('position_score', 0) > 80) &
+                    (get_col_safe('acceleration_score', 0) > 85) &
+                    (get_col_safe('rvol', 0) > 1.5)
+                )
+                patterns.append(('🚀 MOMENTUM IGNITION', ensure_series(mask)))
+        except Exception as e:
+            logger.warning(f"Error in MOMENTUM IGNITION pattern: {e}")
+            patterns.append(('🚀 MOMENTUM IGNITION', pd.Series(False, index=df.index)))
+
         # 7. Liquid Leader - High liquidity and performance
         mask = (
             (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
@@ -2352,97 +2365,22 @@ class PatternDetector:
 
         # 41. OVERSOLD QUALITY - Value opportunity identification
         try:
-            # 42. ALL-TIME BEST - Ultimate multi-factor, multi-pattern, high-confidence signal
-            # Designed to work with your V2.py system's calculated scores and patterns
-            required_cols = [
-                'master_score', 'momentum_score', 'trend_quality', 'volume_score', 'rvol',
-                'patterns', 'pattern_confidence', 'pe', 'eps_change_pct'
-            ]
-            has_all = all(col in df.columns for col in required_cols)
-            if has_all:
-                # === SCORE-BASED FILTERS ===
-                score_filter = (
-                    (df['master_score'] >= 85) &
-                    (df['momentum_score'] >= 85) &
-                    (df['trend_quality'] >= 75)
-                )
-                # === VOLUME & LIQUIDITY FILTERS ===
-                volume_filter = (
-                    (df['volume_score'] >= 75) &
-                    (df['rvol'] >= 2.0)
-                )
-                # === PATTERN-BASED FILTERS ===
-                def has_premium_patterns(patterns_str, confidence):
-                    if not isinstance(patterns_str, str) or pd.isna(confidence):
-                        return False
-                    leadership_patterns = [
-                        '🐱 CAT LEADER', '👑 MARKET LEADER', '💰 LIQUID LEADER'
-                    ]
-                    momentum_patterns = [
-                        '🌊 MOMENTUM WAVE', '🔥 PREMIUM MOMENTUM', '🚀 VELOCITY BREAKOUT',
-                        '🌋 INSTITUTIONAL TSUNAMI', '🏆 QUALITY LEADER'
-                    ]
-                    advanced_patterns = [
-                        '🧩 ENTROPY COMPRESSION', '🕰️ INFORMATION DECAY ARBITRAGE',
-                        '⚛️ ATOMIC DECAY MOMENTUM', '🎆 EARNINGS SURPRISE LEADER'
-                    ]
-                    has_leadership = any(pattern in patterns_str for pattern in leadership_patterns)
-                    has_momentum = any(pattern in patterns_str for pattern in momentum_patterns)
-                    has_advanced = any(pattern in patterns_str for pattern in advanced_patterns)
-                    return (confidence >= 70) and (has_leadership or (has_momentum and has_advanced))
-                pattern_filter = df.apply(
-                    lambda row: has_premium_patterns(
-                        row.get('patterns', ''),
-                        row.get('pattern_confidence', 0)
-                    ), axis=1
-                )
-                # === FUNDAMENTAL QUALITY FILTERS ===
-                fundamental_filter = (
-                    (df['pe'] > 0) &
-                    (df['pe'] <= 40) &
-                    (df['eps_current'] > 0)
-                )
-                # === POSITION & MOMENTUM FILTERS ===
-                position_filter = True
-                if all(col in df.columns for col in ['from_low_pct', 'from_high_pct', 'ret_30d']):
-                    position_filter = (
-                        (df['from_low_pct'] > 25) &
-                        (df['from_high_pct'] > -25) &
-                        (df['ret_30d'] > 10)
-                    )
+            if all(col in df.columns for col in ['from_low_pct', 'eps_change_pct', 'pe', 'ret_1d', 'rvol']):
+                eps_change_pct = get_col_safe('eps_change_pct')
+                pe = get_col_safe('pe')
+                
                 mask = (
-                    score_filter &
-                    volume_filter &
-                    pattern_filter &
-                    fundamental_filter &
-                    position_filter
+                    (get_col_safe('from_low_pct', 0) < 25) &                      # Oversold
+                    eps_change_pct.notna() & (eps_change_pct > 0) &               # Still growing
+                    pe.notna() & (pe < 20) &                                      # Reasonable valuation
+                    (get_col_safe('ret_1d', 0) > 1) &                            # Starting to bounce
+                    (get_col_safe('rvol', 0) > 1.5)                              # Interest building
                 )
-            else:
-                # Fallback: If calculated scores not available, use raw data approach
-                logger.warning("ALL-TIME BEST: Using fallback approach - calculated scores not available")
-                momentum_filter = True
-                if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-                    momentum_filter = (
-                        (df['ret_1d'] > 0) &
-                        (df['ret_7d'] > 5) &
-                        (df['ret_30d'] > 15)
-                    )
-                volume_filter = True
-                if 'rvol' in df.columns:
-                    volume_filter = (df['rvol'] >= 2.0)
-                fundamental_filter = True
-                if all(col in df.columns for col in ['pe', 'eps_current']):
-                    fundamental_filter = (
-                        (df['pe'] > 0) & (df['pe'] <= 30) & (df['eps_current'] > 0)
-                    )
-                position_filter = True
-                if 'from_low_pct' in df.columns:
-                    position_filter = (df['from_low_pct'] > 30)
-                mask = momentum_filter & volume_filter & fundamental_filter & position_filter
-            patterns.append(('🏅 ALL-TIME BEST', ensure_series(mask)))
+                patterns.append(('💳 OVERSOLD QUALITY', ensure_series(mask)))
         except Exception as e:
-            logger.warning(f"Error in ALL-TIME BEST pattern: {e}")
-            patterns.append(('🏅 ALL-TIME BEST', pd.Series(False, index=df.index)))
+            logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
+            patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
+
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
         
