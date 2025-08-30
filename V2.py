@@ -1159,11 +1159,11 @@ class RankingEngine:
         
         # Volume ratio columns with weights
         vol_cols = [
-            ('vol_ratio_1d_90d', 0.35),
-            ('vol_ratio_7d_90d', 0.25),
+            ('vol_ratio_1d_90d', 0.20),
+            ('vol_ratio_7d_90d', 0.20),
             ('vol_ratio_30d_90d', 0.20),
-            ('vol_ratio_30d_180d', 0.10),
-            ('vol_ratio_90d_180d', 0.10)
+            ('vol_ratio_30d_180d', 0.15),
+            ('vol_ratio_90d_180d', 0.25)
         ]
         
         # Calculate weighted score
