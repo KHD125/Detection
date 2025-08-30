@@ -5702,8 +5702,6 @@ def main():
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
-            st.write("**🎯 Score Component Filters**")
-            st.write("Configure individual score thresholds for precise filtering")
             
             # Minimum Master Score
             min_score = st.slider(
@@ -5816,308 +5814,8 @@ def main():
                 if rvol_score_range != (0, 100):
                     filters['rvol_score_range'] = rvol_score_range
         
-        # 📈 Performance Intelligence Filter
-        available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
-        if available_return_cols:
-            st.subheader("📈 Performance Intelligence")
-            
-            # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
-            performance_options = [
-                # Short-term momentum (Practical thresholds for Indian markets)
-                "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
-                "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
-                "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
-                "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
-                "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
-                
-                # Medium-term growth (Adjusted for market reality)
-                "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
-                "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
-                "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
-                
-                # Long-term performance (Fixed emoji + realistic thresholds)
-                "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
-                "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
-                "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
-                
-                # Custom range option
-                "🎯 Custom Range"
-            ]
-            
-            performance_tiers = st.multiselect(
-                "📈 Performance Filter",
-                options=performance_options,
-                default=st.session_state.filter_state.get('performance_tiers', []),
-                key='performance_tier_multiselect',
-                on_change=sync_performance_tier,
-                help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
-            )
-            
-            if performance_tiers:
-                filters['performance_tiers'] = performance_tiers
-            
-            # ENHANCED CUSTOM RANGE WITH SENSIBLE DEFAULTS (APPROACH 1)
-            custom_range_selected = any("Custom Range" in tier for tier in performance_tiers)
-            if custom_range_selected:
-                st.write("📊 **Multi-Timeframe Performance Range Filters**")
-                st.info("💡 **Professional Tip**: Default ranges are set to show gainers immediately. Adjust as needed for your strategy.")
-                
-                # Short-term performance (1D to 30D) with SENSIBLE DEFAULTS
-                st.write("🚀 **Short-Term Performance**")
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    if 'ret_1d' in available_return_cols:
-                        ret_1d_range = st.slider(
-                            "1-Day Return (%)",
-                            min_value=-50.0,
-                            max_value=100.0,
-                            value=(2.0, 100.0),  # DEFAULT: Show stocks up 2%+ today
-                            step=1.0,
-                            help="Filter by 1-day return percentage. Default shows gainers (2%+)",
-                            key="ret_1d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1d_range != (-50.0, 100.0):
-                            filters['ret_1d_range'] = ret_1d_range
-                
-                with col2:
-                    if 'ret_3d' in available_return_cols:
-                        ret_3d_range = st.slider(
-                            "3-Day Return (%)",
-                            min_value=-50.0,
-                            max_value=150.0,
-                            value=(3.0, 150.0),  # DEFAULT: Show stocks up 3%+ over 3 days
-                            step=1.0,
-                            help="Filter by 3-day return percentage. Default shows 3-day gainers",
-                            key="ret_3d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3d_range != (-50.0, 150.0):
-                            filters['ret_3d_range'] = ret_3d_range
-                
-                with col3:
-                    if 'ret_7d' in available_return_cols:
-                        ret_7d_range = st.slider(
-                            "7-Day Return (%)",
-                            min_value=-50.0,
-                            max_value=200.0,
-                            value=(5.0, 200.0),  # DEFAULT: Show stocks up 5%+ this week
-                            step=1.0,
-                            help="Filter by 7-day return percentage. Default shows weekly gainers",
-                            key="ret_7d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_7d_range != (-50.0, 200.0):
-                            filters['ret_7d_range'] = ret_7d_range
-                
-                with col4:
-                    if 'ret_30d' in available_return_cols:
-                        ret_30d_range = st.slider(
-                            "30-Day Return (%)",
-                            min_value=-50.0,
-                            max_value=500.0,
-                            value=(10.0, 500.0),  # DEFAULT: Show stocks up 10%+ this month
-                            step=1.0,
-                            help="Filter by 30-day return percentage. Default shows monthly gainers",
-                            key="ret_30d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_30d_range != (-50.0, 500.0):
-                            filters['ret_30d_range'] = ret_30d_range
-                
-                # Medium-term performance (3M to 6M) with SENSIBLE DEFAULTS
-                st.write("💎 **Medium-Term Performance**")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    if 'ret_3m' in available_return_cols:
-                        ret_3m_range = st.slider(
-                            "3-Month Return (%)",
-                            min_value=-70.0,
-                            max_value=300.0,
-                            value=(15.0, 300.0),  # DEFAULT: Show stocks up 15%+ over 3 months
-                            step=5.0,
-                            help="Filter by 3-month return percentage. Default shows quarterly gainers",
-                            key="ret_3m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3m_range != (-70.0, 300.0):
-                            filters['ret_3m_range'] = ret_3m_range
-                
-                with col2:
-                    if 'ret_6m' in available_return_cols:
-                        ret_6m_range = st.slider(
-                            "6-Month Return (%)",
-                            min_value=-80.0,
-                            max_value=2000.0,
-                            value=(20.0, 2000.0),  # DEFAULT: Show stocks up 20%+ over 6 months
-                            step=10.0,
-                            help="Filter by 6-month return percentage. Default shows half-year gainers",
-                            key="ret_6m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_6m_range != (-80.0, 2000.0):
-                            filters['ret_6m_range'] = ret_6m_range
-                
-                # Long-term performance (1Y to 5Y) with SENSIBLE DEFAULTS
-                st.write("🏛️ **Long-Term Performance**")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    if 'ret_1y' in available_return_cols:
-                        ret_1y_range = st.slider(
-                            "1-Year Return (%)",
-                            min_value=-90.0,
-                            max_value=5000.0,
-                            value=(25.0, 5000.0),  # DEFAULT: Show stocks up 25%+ over 1 year
-                            step=25.0,
-                            help="Filter by 1-year return percentage. Default shows annual gainers",
-                            key="ret_1y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1y_range != (-90.0, 5000.0):
-                            filters['ret_1y_range'] = ret_1y_range
-                
-                with col2:
-                    if 'ret_3y' in available_return_cols:
-                        ret_3y_range = st.slider(
-                            "3-Year Return (%)",
-                            min_value=-95.0,
-                            max_value=10000.0,
-                            value=(50.0, 10000.0),  # DEFAULT: Show stocks up 50%+ over 3 years
-                            step=50.0,
-                            help="Filter by 3-year return percentage. Default shows 3-year gainers",
-                            key="ret_3y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3y_range != (-95.0, 10000.0):
-                            filters['ret_3y_range'] = ret_3y_range
-                
-                with col3:
-                    if 'ret_5y' in available_return_cols:
-                        ret_5y_range = st.slider(
-                            "5-Year Return (%)",
-                            min_value=-99.0,
-                            max_value=20000.0,
-                            value=(75.0, 20000.0),  # DEFAULT: Show stocks up 75%+ over 5 years
-                            step=100.0,
-                            help="Filter by 5-year return percentage. Default shows 5-year gainers",
-                            key="ret_5y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_5y_range != (-99.0, 20000.0):
-                            filters['ret_5y_range'] = ret_5y_range
-                
-                # PROFESSIONAL STATUS INDICATOR
-                active_ranges = []
-                default_ranges = {
-                    'ret_1d_range': (2.0, 100.0),
-                    'ret_3d_range': (3.0, 150.0),
-                    'ret_7d_range': (5.0, 200.0),
-                    'ret_30d_range': (10.0, 500.0),
-                    'ret_3m_range': (15.0, 300.0),
-                    'ret_6m_range': (20.0, 2000.0),
-                    'ret_1y_range': (25.0, 5000.0),
-                    'ret_3y_range': (50.0, 10000.0),
-                    'ret_5y_range': (75.0, 20000.0)
-                }
-                
-                # Check which ranges are active (different from max range)
-                max_ranges = {
-                    'ret_1d_range': (-50.0, 100.0),
-                    'ret_3d_range': (-50.0, 150.0),
-                    'ret_7d_range': (-50.0, 200.0),
-                    'ret_30d_range': (-50.0, 500.0),
-                    'ret_3m_range': (-70.0, 300.0),
-                    'ret_6m_range': (-80.0, 2000.0),
-                    'ret_1y_range': (-90.0, 5000.0),
-                    'ret_3y_range': (-95.0, 10000.0),
-                    'ret_5y_range': (-99.0, 20000.0)
-                }
-                
-                for range_key in default_ranges.keys():
-                    if range_key in filters and filters[range_key] != max_ranges[range_key]:
-                        active_ranges.append(range_key.replace('_range', '').replace('ret_', '').upper())
-                
-                if active_ranges:
-                    st.success(f"✅ **Active Filters**: {', '.join(active_ranges)} | **Strategy**: Gainer Focus with Sensible Defaults")
-                else:
-                    st.info("💡 **Tip**: Adjust sliders above to filter performance. Current settings show all stocks.")
-        
-        # 📊 Volume Intelligence Filter
-        if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
-            st.subheader("📊 Volume Intelligence")
-            
-            # Volume tier multiselect with custom range option
-            volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
-            volume_tiers = st.multiselect(
-                "🌊 Volume Activity Tiers",
-                options=volume_tier_options,
-                default=st.session_state.filter_state.get('volume_tiers', []),
-                key='volume_tier_multiselect',
-                on_change=sync_volume_tier,
-                help="Select volume activity levels based on RVOL or use custom range"
-            )
-            
-            if volume_tiers:
-                filters['volume_tiers'] = volume_tiers
-            
-            # Show custom RVOL range slider only when "🎯 Custom RVOL Range" is selected
-            custom_rvol_range_selected = any("Custom RVOL Range" in tier for tier in volume_tiers)
-            if custom_rvol_range_selected:
-                st.write("📊 **Custom RVOL Range Filter**")
-                
-                rvol_range = st.slider(
-                    "🎯 Custom RVOL Range (Relative Volume)",
-                    min_value=0.1,
-                    max_value=20.0,
-                    value=st.session_state.filter_state.get('rvol_range', (0.1, 20.0)),
-                    step=0.1,
-                    help="Filter by custom relative volume range (1.0 = average volume)",
-                    key="rvol_range_slider",
-                    on_change=sync_rvol_range
-                )
-                
-                if rvol_range != (0.1, 20.0):
-                    filters['rvol_range'] = rvol_range
-        
-        # 🎯 Position Intelligence Filter
-        if 'position_tier' in ranked_df_display.columns or 'from_low_pct' in ranked_df_display.columns:
-            st.subheader("🎯 Position Intelligence")
-            
-            # Position tier multiselect with custom range option
-            position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Range"]
-            position_tiers = st.multiselect(
-                "🌍 Position Tiers",
-                options=position_tier_options,
-                default=st.session_state.filter_state.get('position_tiers', []),
-                key='position_tier_multiselect',
-                on_change=sync_position_tier,
-                help="Select position ranges based on 52-week range or use custom range"
-            )
-            
-            if position_tiers:
-                filters['position_tiers'] = position_tiers
-            
-            # Show custom range slider only when "🎯 Custom Range" is selected
-            custom_position_range_selected = any("Custom Range" in tier for tier in position_tiers)
-            if custom_position_range_selected:
-                st.write("📊 **Custom Position Range Filter**")
-                
-                position_range = st.slider(
-                    "🎯 Custom Position Range (% from 52W Low)",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('position_range', (0, 100)),
-                    step=1,
-                    help="Filter by custom position percentage from 52-week low",
-                    key="position_range_slider",
-                    on_change=sync_position_range
-                )
-                
-                if position_range != (0, 100):
-                    filters['position_range'] = position_range
+
+
         
         # Pattern filter with callback
         all_patterns = set()
@@ -6222,17 +5920,12 @@ def main():
             if wave_strength_range != (0, 100):
                 filters['wave_strength_range'] = wave_strength_range
         
-        # 🧠 Intelligence Filters Section
-        st.subheader("🧠 Intelligence Filters")
-        
-        # 📈 Performance Intelligence
-        with st.expander("📈 Performance Intelligence", expanded=False):
-            st.write("**📈 Performance Filter**")
-            st.write("Choose options")
-            
-            # Performance Intelligence Filter (reusing existing logic)
+        # 🧠 Intelligence Filter - Combined Section
+        with st.expander("🧠 Intelligence Filter", expanded=False):
+            # 📈 Performance Intelligence
             available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
             if available_return_cols:
+                st.write("**📈 Performance Intelligence**")
                 # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
                 performance_options = [
                     # Short-term momentum (Practical thresholds for Indian markets)
@@ -6267,15 +5960,11 @@ def main():
                 
                 if performance_tiers:
                     filters['performance_tiers'] = performance_tiers
-        
-        # 📊 Volume Intelligence
-        with st.expander("📊 Volume Intelligence", expanded=False):
-            st.write("**📊 Volume Intelligence**")
-            st.write("🌊 Volume Activity Tiers")
-            st.write("Choose options")
             
-            # Volume Intelligence Filter (reusing existing logic)
+            # 📊 Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
+                st.write("**📊 Volume Intelligence**")
+                st.write("🌊 Volume Activity Tiers")
                 # Volume tier multiselect with custom range option
                 volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
                 volume_tiers = st.multiselect(
@@ -6289,15 +5978,12 @@ def main():
                 
                 if volume_tiers:
                     filters['volume_tiers'] = volume_tiers
-        
-        # 🎯 Position Intelligence
-        with st.expander("🎯 Position Intelligence", expanded=False):
-            st.write("**🎯 Position Intelligence**")
-            st.write("🌍 Position Tiers")
-            st.write("Choose options")
             
-            # Position Intelligence Filter (reusing existing logic)
+            # 🎯 Position Intelligence
             if 'position_tier' in ranked_df_display.columns:
+                st.write("**🎯 Position Intelligence**")
+                st.write("🌍 Position Tiers")
+                # Position tier multiselect with custom range option
                 position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Position Range"]
                 position_tiers = st.multiselect(
                     "🌍 Position Tiers",
