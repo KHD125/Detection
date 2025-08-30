@@ -5637,16 +5637,16 @@ def main():
                 st.session_state.filter_state['min_score'] = st.session_state.min_score_slider
         
         def sync_position_tier():
-            if 'position_tier_multiselect' in st.session_state:
-                st.session_state.filter_state['position_tiers'] = st.session_state.position_tier_multiselect
+            if 'position_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['position_tiers'] = st.session_state.position_tier_multiselect_intelligence
         
         def sync_position_range():
             if 'position_range_slider' in st.session_state:
                 st.session_state.filter_state['position_range'] = st.session_state.position_range_slider
         
         def sync_performance_tier():
-            if 'performance_tier_multiselect' in st.session_state:
-                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect
+            if 'performance_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect_intelligence
         
         def sync_performance_custom_range():
             # Sync individual range sliders for all timeframes
@@ -5673,8 +5673,8 @@ def main():
                 st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
         
         def sync_volume_tier():
-            if 'volume_tier_multiselect' in st.session_state:
-                st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect
+            if 'volume_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
         
         def sync_rvol_range():
             if 'rvol_range_slider' in st.session_state:
@@ -6262,6 +6262,144 @@ def main():
                 
                 if performance_tiers:
                     filters['performance_tiers'] = performance_tiers
+                
+                # Show custom range sliders when "🎯 Custom Range" is selected
+                custom_performance_range_selected = any("Custom Range" in tier for tier in performance_tiers) if performance_tiers else False
+                if custom_performance_range_selected:
+                    st.write("📊 **Custom Performance Range Filters**")
+                    
+                    # Short-term performance ranges
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        ret_1d_range = st.slider(
+                            "1D Return Range (%)",
+                            min_value=-50.0,
+                            max_value=100.0,
+                            value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
+                            step=1.0,
+                            help="Filter by 1-day return range",
+                            key="ret_1d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1d_range != (-50.0, 100.0):
+                            filters['ret_1d_range'] = ret_1d_range
+                    
+                    with col2:
+                        ret_3d_range = st.slider(
+                            "3D Return Range (%)",
+                            min_value=-50.0,
+                            max_value=150.0,
+                            value=st.session_state.filter_state.get('ret_3d_range', (-50.0, 150.0)),
+                            step=1.0,
+                            help="Filter by 3-day return range",
+                            key="ret_3d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3d_range != (-50.0, 150.0):
+                            filters['ret_3d_range'] = ret_3d_range
+                    
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        ret_7d_range = st.slider(
+                            "7D Return Range (%)",
+                            min_value=-50.0,
+                            max_value=200.0,
+                            value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
+                            step=1.0,
+                            help="Filter by 7-day return range",
+                            key="ret_7d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_7d_range != (-50.0, 200.0):
+                            filters['ret_7d_range'] = ret_7d_range
+                    
+                    with col4:
+                        ret_30d_range = st.slider(
+                            "30D Return Range (%)",
+                            min_value=-50.0,
+                            max_value=500.0,
+                            value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
+                            step=1.0,
+                            help="Filter by 30-day return range",
+                            key="ret_30d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_30d_range != (-50.0, 500.0):
+                            filters['ret_30d_range'] = ret_30d_range
+                    
+                    # Medium-term performance ranges
+                    col5, col6 = st.columns(2)
+                    with col5:
+                        ret_3m_range = st.slider(
+                            "3M Return Range (%)",
+                            min_value=-70.0,
+                            max_value=300.0,
+                            value=st.session_state.filter_state.get('ret_3m_range', (-70.0, 300.0)),
+                            step=1.0,
+                            help="Filter by 3-month return range",
+                            key="ret_3m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3m_range != (-70.0, 300.0):
+                            filters['ret_3m_range'] = ret_3m_range
+                    
+                    with col6:
+                        ret_6m_range = st.slider(
+                            "6M Return Range (%)",
+                            min_value=-80.0,
+                            max_value=500.0,
+                            value=st.session_state.filter_state.get('ret_6m_range', (-80.0, 500.0)),
+                            step=1.0,
+                            help="Filter by 6-month return range",
+                            key="ret_6m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_6m_range != (-80.0, 500.0):
+                            filters['ret_6m_range'] = ret_6m_range
+                    
+                    # Long-term performance ranges
+                    col7, col8 = st.columns(2)
+                    with col7:
+                        ret_1y_range = st.slider(
+                            "1Y Return Range (%)",
+                            min_value=-90.0,
+                            max_value=1000.0,
+                            value=st.session_state.filter_state.get('ret_1y_range', (-90.0, 1000.0)),
+                            step=1.0,
+                            help="Filter by 1-year return range",
+                            key="ret_1y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1y_range != (-90.0, 1000.0):
+                            filters['ret_1y_range'] = ret_1y_range
+                    
+                    with col8:
+                        ret_3y_range = st.slider(
+                            "3Y Return Range (%)",
+                            min_value=-95.0,
+                            max_value=2000.0,
+                            value=st.session_state.filter_state.get('ret_3y_range', (-95.0, 2000.0)),
+                            step=1.0,
+                            help="Filter by 3-year return range",
+                            key="ret_3y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3y_range != (-95.0, 2000.0):
+                            filters['ret_3y_range'] = ret_3y_range
+                    
+                    # 5Y Return Range (full width)
+                    ret_5y_range = st.slider(
+                        "5Y Return Range (%)",
+                        min_value=-99.0,
+                        max_value=5000.0,
+                        value=st.session_state.filter_state.get('ret_5y_range', (-99.0, 5000.0)),
+                        step=1.0,
+                        help="Filter by 5-year return range",
+                        key="ret_5y_range_slider",
+                        on_change=sync_performance_custom_range
+                    )
+                    if ret_5y_range != (-99.0, 5000.0):
+                        filters['ret_5y_range'] = ret_5y_range
             
             # 📊 Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
@@ -6280,6 +6418,24 @@ def main():
                 
                 if volume_tiers:
                     filters['volume_tiers'] = volume_tiers
+                
+                # Show custom RVOL range slider when "🎯 Custom RVOL Range" is selected
+                custom_rvol_range_selected = any("Custom RVOL Range" in tier for tier in volume_tiers) if volume_tiers else False
+                if custom_rvol_range_selected:
+                    st.write("📊 **Custom RVOL Range Filter**")
+                    
+                    rvol_range = st.slider(
+                        "RVOL Range",
+                        min_value=0.1,
+                        max_value=20.0,
+                        value=st.session_state.filter_state.get('rvol_range', (0.1, 20.0)),
+                        step=0.1,
+                        help="Filter by Relative Volume (RVOL) range",
+                        key="rvol_range_slider",
+                        on_change=sync_rvol_range
+                    )
+                    if rvol_range != (0.1, 20.0):
+                        filters['rvol_range'] = rvol_range
             
             # 🎯 Position Intelligence
             if 'position_tier' in ranked_df_display.columns:
@@ -6298,6 +6454,24 @@ def main():
                 
                 if position_tiers:
                     filters['position_tiers'] = position_tiers
+                
+                # Show custom position range slider when "🎯 Custom Position Range" is selected
+                custom_position_range_selected = any("Custom Position Range" in tier for tier in position_tiers) if position_tiers else False
+                if custom_position_range_selected:
+                    st.write("📊 **Custom Position Range Filter**")
+                    
+                    position_range = st.slider(
+                        "Position Range (%)",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('position_range', (0, 100)),
+                        step=1,
+                        help="Filter by position percentage range (distance from 52-week low)",
+                        key="position_range_slider",
+                        on_change=sync_position_range
+                    )
+                    if position_range != (0, 100):
+                        filters['position_range'] = position_range
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
