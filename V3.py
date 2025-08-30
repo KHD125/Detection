@@ -1005,7 +1005,7 @@ class AdvancedMetrics:
             return "💥 BREAKING"
         
 # ============================================
-# RANKING ENGINE - FIXED FINAL VERSION FOR V2.PY
+# RANKING ENGINE
 # Only 3 critical improvements to your already perfect system
 # ============================================
 
