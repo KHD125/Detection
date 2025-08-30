@@ -5700,6 +5700,109 @@ def main():
         if selected_industries:
             filters['industries'] = selected_industries
         
+        # Pattern filter with callback
+        all_patterns = set()
+        for patterns in ranked_df_display['patterns'].dropna():
+            if patterns:
+                all_patterns.update(patterns.split(' | '))
+        
+        if all_patterns:
+            selected_patterns = st.multiselect(
+                "Patterns",
+                options=sorted(all_patterns),
+                default=st.session_state.filter_state.get('patterns', []),
+                placeholder="Select patterns (empty = All)",
+                help="Filter by specific patterns",
+                key="patterns_multiselect",
+                on_change=sync_patterns  # SYNC ON CHANGE
+            )
+            
+            if selected_patterns:
+                filters['patterns'] = selected_patterns
+        
+        # Trend filter with callback
+        st.markdown("#### 📈 Trend Strength")
+        trend_options = {
+            "All Trends": (0, 100),
+            "🔥 Strong Uptrend (80+)": (80, 100),
+            "✅ Good Uptrend (60-79)": (60, 79),
+            "➡️ Neutral Trend (40-59)": (40, 59),
+            "⚠️ Weak/Downtrend (<40)": (0, 39)
+        }
+        
+        current_trend = st.session_state.filter_state.get('trend_filter', "All Trends")
+        if current_trend not in trend_options:
+            current_trend = "All Trends"
+        
+        selected_trend = st.selectbox(
+            "Trend Quality",
+            options=list(trend_options.keys()),
+            index=list(trend_options.keys()).index(current_trend),
+            help="Filter stocks by trend strength based on SMA alignment",
+            key="trend_selectbox",
+            on_change=sync_trend  # SYNC ON CHANGE
+        )
+        
+        if selected_trend != "All Trends":
+            filters['trend_filter'] = selected_trend
+            filters['trend_range'] = trend_options[selected_trend]
+        
+        # Wave filters with callbacks
+        st.markdown("#### 🌊 Wave Filters")
+        wave_states_options = FilterEngine.get_filter_options(ranked_df_display, 'wave_state', filters)
+        
+        # Add custom range option to wave states
+        wave_states_with_custom = wave_states_options + ["🎯 Custom Range"]
+        
+        selected_wave_states = st.multiselect(
+            "Wave State",
+            options=wave_states_with_custom,
+            default=st.session_state.filter_state.get('wave_states', []),
+            placeholder="Select wave states (empty = All)",
+            help="Filter by the detected 'Wave State' or use custom range",
+            key="wave_states_multiselect",
+            on_change=sync_wave_states  # SYNC ON CHANGE
+        )
+        
+        if selected_wave_states:
+            filters['wave_states'] = selected_wave_states
+        
+        # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
+        custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
+        if custom_wave_range_selected and 'overall_wave_strength' in ranked_df_display.columns:
+            st.write("📊 **Custom Wave Strength Range Filter**")
+            
+            min_strength = float(ranked_df_display['overall_wave_strength'].min())
+            max_strength = float(ranked_df_display['overall_wave_strength'].max())
+            
+            slider_min_val = 0
+            slider_max_val = 100
+            
+            if pd.notna(min_strength) and pd.notna(max_strength) and min_strength <= max_strength:
+                default_range_value = (int(min_strength), int(max_strength))
+            else:
+                default_range_value = (0, 100)
+            
+            current_wave_range = st.session_state.filter_state.get('wave_strength_range', default_range_value)
+            current_wave_range = (
+                max(slider_min_val, min(slider_max_val, current_wave_range[0])),
+                max(slider_min_val, min(slider_max_val, current_wave_range[1]))
+            )
+            
+            wave_strength_range = st.slider(
+                "🎯 Overall Wave Strength Range",
+                min_value=slider_min_val,
+                max_value=slider_max_val,
+                value=current_wave_range,
+                step=1,
+                help="Filter by the calculated 'Overall Wave Strength' score (0-100)",
+                key="wave_strength_slider",
+                on_change=sync_wave_strength  # SYNC ON CHANGE
+            )
+            
+            if wave_strength_range != (0, 100):
+                filters['wave_strength_range'] = wave_strength_range
+        
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
             
@@ -5813,112 +5916,6 @@ def main():
                 
                 if rvol_score_range != (0, 100):
                     filters['rvol_score_range'] = rvol_score_range
-        
-
-
-        
-        # Pattern filter with callback
-        all_patterns = set()
-        for patterns in ranked_df_display['patterns'].dropna():
-            if patterns:
-                all_patterns.update(patterns.split(' | '))
-        
-        if all_patterns:
-            selected_patterns = st.multiselect(
-                "Patterns",
-                options=sorted(all_patterns),
-                default=st.session_state.filter_state.get('patterns', []),
-                placeholder="Select patterns (empty = All)",
-                help="Filter by specific patterns",
-                key="patterns_multiselect",
-                on_change=sync_patterns  # SYNC ON CHANGE
-            )
-            
-            if selected_patterns:
-                filters['patterns'] = selected_patterns
-        
-        # Trend filter with callback
-        st.markdown("#### 📈 Trend Strength")
-        trend_options = {
-            "All Trends": (0, 100),
-            "🔥 Strong Uptrend (80+)": (80, 100),
-            "✅ Good Uptrend (60-79)": (60, 79),
-            "➡️ Neutral Trend (40-59)": (40, 59),
-            "⚠️ Weak/Downtrend (<40)": (0, 39)
-        }
-        
-        current_trend = st.session_state.filter_state.get('trend_filter', "All Trends")
-        if current_trend not in trend_options:
-            current_trend = "All Trends"
-        
-        selected_trend = st.selectbox(
-            "Trend Quality",
-            options=list(trend_options.keys()),
-            index=list(trend_options.keys()).index(current_trend),
-            help="Filter stocks by trend strength based on SMA alignment",
-            key="trend_selectbox",
-            on_change=sync_trend  # SYNC ON CHANGE
-        )
-        
-        if selected_trend != "All Trends":
-            filters['trend_filter'] = selected_trend
-            filters['trend_range'] = trend_options[selected_trend]
-        
-        # Wave filters with callbacks
-        st.markdown("#### 🌊 Wave Filters")
-        wave_states_options = FilterEngine.get_filter_options(ranked_df_display, 'wave_state', filters)
-        
-        # Add custom range option to wave states
-        wave_states_with_custom = wave_states_options + ["🎯 Custom Range"]
-        
-        selected_wave_states = st.multiselect(
-            "Wave State",
-            options=wave_states_with_custom,
-            default=st.session_state.filter_state.get('wave_states', []),
-            placeholder="Select wave states (empty = All)",
-            help="Filter by the detected 'Wave State' or use custom range",
-            key="wave_states_multiselect",
-            on_change=sync_wave_states  # SYNC ON CHANGE
-        )
-        
-        if selected_wave_states:
-            filters['wave_states'] = selected_wave_states
-        
-        # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
-        custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
-        if custom_wave_range_selected and 'overall_wave_strength' in ranked_df_display.columns:
-            st.write("📊 **Custom Wave Strength Range Filter**")
-            
-            min_strength = float(ranked_df_display['overall_wave_strength'].min())
-            max_strength = float(ranked_df_display['overall_wave_strength'].max())
-            
-            slider_min_val = 0
-            slider_max_val = 100
-            
-            if pd.notna(min_strength) and pd.notna(max_strength) and min_strength <= max_strength:
-                default_range_value = (int(min_strength), int(max_strength))
-            else:
-                default_range_value = (0, 100)
-            
-            current_wave_range = st.session_state.filter_state.get('wave_strength_range', default_range_value)
-            current_wave_range = (
-                max(slider_min_val, min(slider_max_val, current_wave_range[0])),
-                max(slider_min_val, min(slider_max_val, current_wave_range[1]))
-            )
-            
-            wave_strength_range = st.slider(
-                "🎯 Overall Wave Strength Range",
-                min_value=slider_min_val,
-                max_value=slider_max_val,
-                value=current_wave_range,
-                step=1,
-                help="Filter by the calculated 'Overall Wave Strength' score (0-100)",
-                key="wave_strength_slider",
-                on_change=sync_wave_strength  # SYNC ON CHANGE
-            )
-            
-            if wave_strength_range != (0, 100):
-                filters['wave_strength_range'] = wave_strength_range
         
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
