@@ -3322,6 +3322,12 @@ class FilterEngine:
                 'acceleration_score_range': (0, 100),
                 'breakout_score_range': (0, 100),
                 'rvol_score_range': (0, 100),
+                'position_score_selection': "All Scores",
+                'volume_score_selection': "All Scores",
+                'momentum_score_selection': "All Scores",
+                'acceleration_score_selection': "All Scores",
+                'breakout_score_selection': "All Scores",
+                'rvol_score_selection': "All Scores",
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -3441,7 +3447,13 @@ class FilterEngine:
             'momentum_score_range': (0, 100),
             'acceleration_score_range': (0, 100),
             'breakout_score_range': (0, 100),
-            'rvol_score_range': (0, 100)
+            'rvol_score_range': (0, 100),
+            'position_score_selection': "All Scores",
+            'volume_score_selection': "All Scores",
+            'momentum_score_selection': "All Scores",
+            'acceleration_score_selection': "All Scores",
+            'breakout_score_selection': "All Scores",
+            'rvol_score_selection': "All Scores"
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -3463,6 +3475,10 @@ class FilterEngine:
             'position_range_slider', 'rvol_range_slider',
             'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
             'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
+            
+            # Score dropdown widgets
+            'position_score_dropdown', 'volume_score_dropdown', 'momentum_score_dropdown',
+            'acceleration_score_dropdown', 'breakout_score_dropdown', 'rvol_score_dropdown',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select',
@@ -5627,28 +5643,52 @@ def main():
             if 'wave_strength_slider' in st.session_state:
                 st.session_state.filter_state['wave_strength_range'] = st.session_state.wave_strength_slider
         
-        # Intelligence Score Slider Sync Functions
-        def sync_position_score():
+        # Intelligence Score Dropdown and Slider Sync Functions
+        def sync_position_score_dropdown():
+            if 'position_score_dropdown' in st.session_state:
+                st.session_state.filter_state['position_score_selection'] = st.session_state.position_score_dropdown
+        
+        def sync_position_score_slider():
             if 'position_score_slider' in st.session_state:
                 st.session_state.filter_state['position_score_range'] = st.session_state.position_score_slider
         
-        def sync_volume_score():
+        def sync_volume_score_dropdown():
+            if 'volume_score_dropdown' in st.session_state:
+                st.session_state.filter_state['volume_score_selection'] = st.session_state.volume_score_dropdown
+        
+        def sync_volume_score_slider():
             if 'volume_score_slider' in st.session_state:
                 st.session_state.filter_state['volume_score_range'] = st.session_state.volume_score_slider
         
-        def sync_momentum_score():
+        def sync_momentum_score_dropdown():
+            if 'momentum_score_dropdown' in st.session_state:
+                st.session_state.filter_state['momentum_score_selection'] = st.session_state.momentum_score_dropdown
+        
+        def sync_momentum_score_slider():
             if 'momentum_score_slider' in st.session_state:
                 st.session_state.filter_state['momentum_score_range'] = st.session_state.momentum_score_slider
         
-        def sync_acceleration_score():
+        def sync_acceleration_score_dropdown():
+            if 'acceleration_score_dropdown' in st.session_state:
+                st.session_state.filter_state['acceleration_score_selection'] = st.session_state.acceleration_score_dropdown
+        
+        def sync_acceleration_score_slider():
             if 'acceleration_score_slider' in st.session_state:
                 st.session_state.filter_state['acceleration_score_range'] = st.session_state.acceleration_score_slider
         
-        def sync_breakout_score():
+        def sync_breakout_score_dropdown():
+            if 'breakout_score_dropdown' in st.session_state:
+                st.session_state.filter_state['breakout_score_selection'] = st.session_state.breakout_score_dropdown
+        
+        def sync_breakout_score_slider():
             if 'breakout_score_slider' in st.session_state:
                 st.session_state.filter_state['breakout_score_range'] = st.session_state.breakout_score_slider
         
-        def sync_rvol_score():
+        def sync_rvol_score_dropdown():
+            if 'rvol_score_dropdown' in st.session_state:
+                st.session_state.filter_state['rvol_score_selection'] = st.session_state.rvol_score_dropdown
+        
+        def sync_rvol_score_slider():
             if 'rvol_score_slider' in st.session_state:
                 st.session_state.filter_state['rvol_score_range'] = st.session_state.rvol_score_slider
         
@@ -5821,101 +5861,299 @@ def main():
             if min_score > 0:
                 filters['min_score'] = min_score
             
-            # Position Score Slider
+            # Position Score Dropdown with Custom Range
             if 'position_score' in ranked_df_display.columns:
-                position_score_range = st.slider(
+                position_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_position_selection = st.session_state.filter_state.get('position_score_selection', "All Scores")
+                if current_position_selection not in position_score_options:
+                    current_position_selection = "All Scores"
+                
+                position_score_selection = st.selectbox(
                     "Position Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('position_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by position score (0-100). Higher scores indicate better price positioning relative to highs/lows.",
-                    key="position_score_slider",
-                    on_change=sync_position_score
+                    options=position_score_options,
+                    index=position_score_options.index(current_position_selection) if current_position_selection in position_score_options else 0,
+                    help="Filter stocks by position score strength",
+                    key="position_score_dropdown",
+                    on_change=sync_position_score_dropdown
                 )
                 
-                if position_score_range != (0, 100):
-                    filters['position_score_range'] = position_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if position_score_selection == "🎯 Custom Range":
+                    position_score_range = st.slider(
+                        "Position Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('position_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by position score custom range (0-100)",
+                        key="position_score_slider",
+                        on_change=sync_position_score_slider
+                    )
+                    
+                    if position_score_range != (0, 100):
+                        filters['position_score_range'] = position_score_range
+                elif position_score_selection != "All Scores":
+                    # Map selection to range
+                    if position_score_selection == "🟢 Strong (>= 80)":
+                        filters['position_score_range'] = (80, 100)
+                    elif position_score_selection == "🟡 Good (>= 60)":
+                        filters['position_score_range'] = (60, 100)
+                    elif position_score_selection == "🟠 Fair (>= 40)":
+                        filters['position_score_range'] = (40, 100)
+                    elif position_score_selection == "🔴 Weak (< 40)":
+                        filters['position_score_range'] = (0, 39)
             
-            # Volume Score Slider
+            # Volume Score Dropdown with Custom Range
             if 'volume_score' in ranked_df_display.columns:
-                volume_score_range = st.slider(
+                volume_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_volume_selection = st.session_state.filter_state.get('volume_score_selection', "All Scores")
+                if current_volume_selection not in volume_score_options:
+                    current_volume_selection = "All Scores"
+                
+                volume_score_selection = st.selectbox(
                     "Volume Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('volume_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by volume score (0-100). Higher scores indicate stronger volume activity and liquidity.",
-                    key="volume_score_slider",
-                    on_change=sync_volume_score
+                    options=volume_score_options,
+                    index=volume_score_options.index(current_volume_selection) if current_volume_selection in volume_score_options else 0,
+                    help="Filter stocks by volume score strength",
+                    key="volume_score_dropdown",
+                    on_change=sync_volume_score_dropdown
                 )
                 
-                if volume_score_range != (0, 100):
-                    filters['volume_score_range'] = volume_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if volume_score_selection == "🎯 Custom Range":
+                    volume_score_range = st.slider(
+                        "Volume Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('volume_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by volume score custom range (0-100)",
+                        key="volume_score_slider",
+                        on_change=sync_volume_score_slider
+                    )
+                    
+                    if volume_score_range != (0, 100):
+                        filters['volume_score_range'] = volume_score_range
+                elif volume_score_selection != "All Scores":
+                    # Map selection to range
+                    if volume_score_selection == "🟢 Strong (>= 80)":
+                        filters['volume_score_range'] = (80, 100)
+                    elif volume_score_selection == "🟡 Good (>= 60)":
+                        filters['volume_score_range'] = (60, 100)
+                    elif volume_score_selection == "🟠 Fair (>= 40)":
+                        filters['volume_score_range'] = (40, 100)
+                    elif volume_score_selection == "🔴 Weak (< 40)":
+                        filters['volume_score_range'] = (0, 39)
             
-            # Momentum Score Slider
+            # Momentum Score Dropdown with Custom Range
             if 'momentum_score' in ranked_df_display.columns:
-                momentum_score_range = st.slider(
+                momentum_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_momentum_selection = st.session_state.filter_state.get('momentum_score_selection', "All Scores")
+                if current_momentum_selection not in momentum_score_options:
+                    current_momentum_selection = "All Scores"
+                
+                momentum_score_selection = st.selectbox(
                     "Momentum Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('momentum_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by momentum score (0-100). Higher scores indicate stronger price momentum across multiple timeframes.",
-                    key="momentum_score_slider",
-                    on_change=sync_momentum_score
+                    options=momentum_score_options,
+                    index=momentum_score_options.index(current_momentum_selection) if current_momentum_selection in momentum_score_options else 0,
+                    help="Filter stocks by momentum score strength",
+                    key="momentum_score_dropdown",
+                    on_change=sync_momentum_score_dropdown
                 )
                 
-                if momentum_score_range != (0, 100):
-                    filters['momentum_score_range'] = momentum_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if momentum_score_selection == "🎯 Custom Range":
+                    momentum_score_range = st.slider(
+                        "Momentum Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('momentum_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by momentum score custom range (0-100)",
+                        key="momentum_score_slider",
+                        on_change=sync_momentum_score_slider
+                    )
+                    
+                    if momentum_score_range != (0, 100):
+                        filters['momentum_score_range'] = momentum_score_range
+                elif momentum_score_selection != "All Scores":
+                    # Map selection to range
+                    if momentum_score_selection == "🟢 Strong (>= 80)":
+                        filters['momentum_score_range'] = (80, 100)
+                    elif momentum_score_selection == "🟡 Good (>= 60)":
+                        filters['momentum_score_range'] = (60, 100)
+                    elif momentum_score_selection == "🟠 Fair (>= 40)":
+                        filters['momentum_score_range'] = (40, 100)
+                    elif momentum_score_selection == "🔴 Weak (< 40)":
+                        filters['momentum_score_range'] = (0, 39)
             
-            # Acceleration Score Slider
+            # Acceleration Score Dropdown with Custom Range
             if 'acceleration_score' in ranked_df_display.columns:
-                acceleration_score_range = st.slider(
+                acceleration_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_acceleration_selection = st.session_state.filter_state.get('acceleration_score_selection', "All Scores")
+                if current_acceleration_selection not in acceleration_score_options:
+                    current_acceleration_selection = "All Scores"
+                
+                acceleration_score_selection = st.selectbox(
                     "Acceleration Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('acceleration_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by acceleration score (0-100). Higher scores indicate increasing momentum and rate of change.",
-                    key="acceleration_score_slider",
-                    on_change=sync_acceleration_score
+                    options=acceleration_score_options,
+                    index=acceleration_score_options.index(current_acceleration_selection) if current_acceleration_selection in acceleration_score_options else 0,
+                    help="Filter stocks by acceleration score strength",
+                    key="acceleration_score_dropdown",
+                    on_change=sync_acceleration_score_dropdown
                 )
                 
-                if acceleration_score_range != (0, 100):
-                    filters['acceleration_score_range'] = acceleration_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if acceleration_score_selection == "🎯 Custom Range":
+                    acceleration_score_range = st.slider(
+                        "Acceleration Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('acceleration_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by acceleration score custom range (0-100)",
+                        key="acceleration_score_slider",
+                        on_change=sync_acceleration_score_slider
+                    )
+                    
+                    if acceleration_score_range != (0, 100):
+                        filters['acceleration_score_range'] = acceleration_score_range
+                elif acceleration_score_selection != "All Scores":
+                    # Map selection to range
+                    if acceleration_score_selection == "🟢 Strong (>= 80)":
+                        filters['acceleration_score_range'] = (80, 100)
+                    elif acceleration_score_selection == "🟡 Good (>= 60)":
+                        filters['acceleration_score_range'] = (60, 100)
+                    elif acceleration_score_selection == "🟠 Fair (>= 40)":
+                        filters['acceleration_score_range'] = (40, 100)
+                    elif acceleration_score_selection == "🔴 Weak (< 40)":
+                        filters['acceleration_score_range'] = (0, 39)
             
-            # Breakout Score Slider
+            # Breakout Score Dropdown with Custom Range
             if 'breakout_score' in ranked_df_display.columns:
-                breakout_score_range = st.slider(
+                breakout_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_breakout_selection = st.session_state.filter_state.get('breakout_score_selection', "All Scores")
+                if current_breakout_selection not in breakout_score_options:
+                    current_breakout_selection = "All Scores"
+                
+                breakout_score_selection = st.selectbox(
                     "Breakout Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('breakout_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by breakout score (0-100). Higher scores indicate higher probability of price breakouts.",
-                    key="breakout_score_slider",
-                    on_change=sync_breakout_score
+                    options=breakout_score_options,
+                    index=breakout_score_options.index(current_breakout_selection) if current_breakout_selection in breakout_score_options else 0,
+                    help="Filter stocks by breakout score strength",
+                    key="breakout_score_dropdown",
+                    on_change=sync_breakout_score_dropdown
                 )
                 
-                if breakout_score_range != (0, 100):
-                    filters['breakout_score_range'] = breakout_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if breakout_score_selection == "🎯 Custom Range":
+                    breakout_score_range = st.slider(
+                        "Breakout Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('breakout_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by breakout score custom range (0-100)",
+                        key="breakout_score_slider",
+                        on_change=sync_breakout_score_slider
+                    )
+                    
+                    if breakout_score_range != (0, 100):
+                        filters['breakout_score_range'] = breakout_score_range
+                elif breakout_score_selection != "All Scores":
+                    # Map selection to range
+                    if breakout_score_selection == "🟢 Strong (>= 80)":
+                        filters['breakout_score_range'] = (80, 100)
+                    elif breakout_score_selection == "🟡 Good (>= 60)":
+                        filters['breakout_score_range'] = (60, 100)
+                    elif breakout_score_selection == "🟠 Fair (>= 40)":
+                        filters['breakout_score_range'] = (40, 100)
+                    elif breakout_score_selection == "🔴 Weak (< 40)":
+                        filters['breakout_score_range'] = (0, 39)
             
-            # RVOL Score Slider
+            # RVOL Score Dropdown with Custom Range
             if 'rvol_score' in ranked_df_display.columns:
-                rvol_score_range = st.slider(
+                rvol_score_options = [
+                    "🟢 Strong (>= 80)",
+                    "🟡 Good (>= 60)",
+                    "🟠 Fair (>= 40)",
+                    "🔴 Weak (< 40)",
+                    "🎯 Custom Range"
+                ]
+                
+                current_rvol_selection = st.session_state.filter_state.get('rvol_score_selection', "All Scores")
+                if current_rvol_selection not in rvol_score_options:
+                    current_rvol_selection = "All Scores"
+                
+                rvol_score_selection = st.selectbox(
                     "RVOL Score",
-                    min_value=0,
-                    max_value=100,
-                    value=st.session_state.filter_state.get('rvol_score_range', (0, 100)),
-                    step=5,
-                    help="Filter stocks by RVOL score (0-100). Higher scores indicate stronger relative volume activity.",
-                    key="rvol_score_slider",
-                    on_change=sync_rvol_score
+                    options=rvol_score_options,
+                    index=rvol_score_options.index(current_rvol_selection) if current_rvol_selection in rvol_score_options else 0,
+                    help="Filter stocks by RVOL score strength",
+                    key="rvol_score_dropdown",
+                    on_change=sync_rvol_score_dropdown
                 )
                 
-                if rvol_score_range != (0, 100):
-                    filters['rvol_score_range'] = rvol_score_range
+                # Show custom range slider when "🎯 Custom Range" is selected
+                if rvol_score_selection == "🎯 Custom Range":
+                    rvol_score_range = st.slider(
+                        "RVOL Score Custom Range",
+                        min_value=0,
+                        max_value=100,
+                        value=st.session_state.filter_state.get('rvol_score_range', (0, 100)),
+                        step=5,
+                        help="Filter stocks by RVOL score custom range (0-100)",
+                        key="rvol_score_slider",
+                        on_change=sync_rvol_score_slider
+                    )
+                    
+                    if rvol_score_range != (0, 100):
+                        filters['rvol_score_range'] = rvol_score_range
+                elif rvol_score_selection != "All Scores":
+                    # Map selection to range
+                    if rvol_score_selection == "🟢 Strong (>= 80)":
+                        filters['rvol_score_range'] = (80, 100)
+                    elif rvol_score_selection == "🟡 Good (>= 60)":
+                        filters['rvol_score_range'] = (60, 100)
+                    elif rvol_score_selection == "🟠 Fair (>= 40)":
+                        filters['rvol_score_range'] = (40, 100)
+                    elif rvol_score_selection == "🔴 Weak (< 40)":
+                        filters['rvol_score_range'] = (0, 39)
         
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
