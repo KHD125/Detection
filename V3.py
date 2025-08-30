@@ -3308,15 +3308,15 @@ class FilterEngine:
                 'position_range': (0, 100),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
-                'ret_1d_range': (-50.0, 100.0),
-                'ret_3d_range': (-50.0, 150.0),
-                'ret_7d_range': (-50.0, 200.0),
-                'ret_30d_range': (-50.0, 500.0),
-                'ret_3m_range': (-70.0, 300.0),
-                'ret_6m_range': (-80.0, 500.0),
-                'ret_1y_range': (-90.0, 1000.0),
-                'ret_3y_range': (-95.0, 2000.0),
-                'ret_5y_range': (-99.0, 5000.0),
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
@@ -3438,15 +3438,15 @@ class FilterEngine:
             'quick_filter_applied': False,
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
-            'ret_1d_range': (-50.0, 100.0),
-            'ret_3d_range': (-50.0, 150.0),
-            'ret_7d_range': (-50.0, 200.0),
-            'ret_30d_range': (-50.0, 500.0),
-            'ret_3m_range': (-70.0, 300.0),
-            'ret_6m_range': (-80.0, 500.0),
-            'ret_1y_range': (-90.0, 1000.0),
-            'ret_3y_range': (-95.0, 2000.0),
-            'ret_5y_range': (-99.0, 5000.0),
+            'ret_1d_range': (2.0, 25.0),
+            'ret_3d_range': (3.0, 50.0),
+            'ret_7d_range': (5.0, 75.0),
+            'ret_30d_range': (10.0, 150.0),
+            'ret_3m_range': (15.0, 200.0),
+            'ret_6m_range': (20.0, 500.0),
+            'ret_1y_range': (25.0, 1000.0),
+            'ret_3y_range': (50.0, 2000.0),
+            'ret_5y_range': (75.0, 5000.0),
             'position_tiers': [],
             'position_range': (0, 100),
             'volume_tiers': [],
@@ -3787,17 +3787,17 @@ class FilterEngine:
         custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
         
         if custom_range_selected:
-            # Define default ranges for each timeframe (MUST MATCH UI EXACTLY)
+            # Define default ranges for each timeframe (MUST MATCH UI EXACTLY) - REALISTIC INDIAN MARKET THRESHOLDS
             default_ranges = {
-                'ret_1d_range': (2.0, 100.0),
-                'ret_3d_range': (3.0, 150.0),
-                'ret_7d_range': (5.0, 200.0),
-                'ret_30d_range': (10.0, 500.0),
-                'ret_3m_range': (15.0, 300.0),
-                'ret_6m_range': (20.0, 2000.0),
-                'ret_1y_range': (25.0, 5000.0),
-                'ret_3y_range': (50.0, 10000.0),
-                'ret_5y_range': (75.0, 20000.0)
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0)
             }
             
             # Only apply filters for ranges that have been modified from defaults
@@ -6268,137 +6268,137 @@ def main():
                 if custom_performance_range_selected:
                     st.write("📊 **Custom Performance Range Filters**")
                     
-                    # Short-term performance ranges
+                    # Short-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
                     col1, col2 = st.columns(2)
                     with col1:
                         ret_1d_range = st.slider(
                             "1D Return Range (%)",
-                            min_value=-50.0,
-                            max_value=100.0,
-                            value=st.session_state.filter_state.get('ret_1d_range', (-50.0, 100.0)),
-                            step=1.0,
-                            help="Filter by 1-day return range",
+                            min_value=0.0,
+                            max_value=50.0,
+                            value=st.session_state.filter_state.get('ret_1d_range', (2.0, 25.0)),
+                            step=0.5,
+                            help="Filter by 1-day return range (realistic: 0-50% for Indian markets)",
                             key="ret_1d_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_1d_range != (-50.0, 100.0):
+                        if ret_1d_range != (2.0, 25.0):
                             filters['ret_1d_range'] = ret_1d_range
                     
                     with col2:
                         ret_3d_range = st.slider(
                             "3D Return Range (%)",
-                            min_value=-50.0,
-                            max_value=150.0,
-                            value=st.session_state.filter_state.get('ret_3d_range', (-50.0, 150.0)),
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=st.session_state.filter_state.get('ret_3d_range', (3.0, 50.0)),
                             step=1.0,
-                            help="Filter by 3-day return range",
+                            help="Filter by 3-day return range (realistic: 0-100% for Indian markets)",
                             key="ret_3d_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_3d_range != (-50.0, 150.0):
+                        if ret_3d_range != (3.0, 50.0):
                             filters['ret_3d_range'] = ret_3d_range
                     
                     col3, col4 = st.columns(2)
                     with col3:
                         ret_7d_range = st.slider(
                             "7D Return Range (%)",
-                            min_value=-50.0,
-                            max_value=200.0,
-                            value=st.session_state.filter_state.get('ret_7d_range', (-50.0, 200.0)),
+                            min_value=0.0,
+                            max_value=150.0,
+                            value=st.session_state.filter_state.get('ret_7d_range', (5.0, 75.0)),
                             step=1.0,
-                            help="Filter by 7-day return range",
+                            help="Filter by 7-day return range (realistic: 0-150% for Indian markets)",
                             key="ret_7d_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_7d_range != (-50.0, 200.0):
+                        if ret_7d_range != (5.0, 75.0):
                             filters['ret_7d_range'] = ret_7d_range
                     
                     with col4:
                         ret_30d_range = st.slider(
                             "30D Return Range (%)",
-                            min_value=-50.0,
-                            max_value=500.0,
-                            value=st.session_state.filter_state.get('ret_30d_range', (-50.0, 500.0)),
-                            step=1.0,
-                            help="Filter by 30-day return range",
+                            min_value=0.0,
+                            max_value=300.0,
+                            value=st.session_state.filter_state.get('ret_30d_range', (10.0, 150.0)),
+                            step=5.0,
+                            help="Filter by 30-day return range (realistic: 0-300% for Indian markets)",
                             key="ret_30d_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_30d_range != (-50.0, 500.0):
+                        if ret_30d_range != (10.0, 150.0):
                             filters['ret_30d_range'] = ret_30d_range
                     
-                    # Medium-term performance ranges
+                    # Medium-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
                     col5, col6 = st.columns(2)
                     with col5:
                         ret_3m_range = st.slider(
                             "3M Return Range (%)",
-                            min_value=-70.0,
-                            max_value=300.0,
-                            value=st.session_state.filter_state.get('ret_3m_range', (-70.0, 300.0)),
-                            step=1.0,
-                            help="Filter by 3-month return range",
+                            min_value=0.0,
+                            max_value=500.0,
+                            value=st.session_state.filter_state.get('ret_3m_range', (15.0, 200.0)),
+                            step=5.0,
+                            help="Filter by 3-month return range (realistic: 0-500% for Indian markets)",
                             key="ret_3m_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_3m_range != (-70.0, 300.0):
+                        if ret_3m_range != (15.0, 200.0):
                             filters['ret_3m_range'] = ret_3m_range
                     
                     with col6:
                         ret_6m_range = st.slider(
                             "6M Return Range (%)",
-                            min_value=-80.0,
-                            max_value=500.0,
-                            value=st.session_state.filter_state.get('ret_6m_range', (-80.0, 500.0)),
-                            step=1.0,
-                            help="Filter by 6-month return range",
+                            min_value=0.0,
+                            max_value=1000.0,
+                            value=st.session_state.filter_state.get('ret_6m_range', (20.0, 500.0)),
+                            step=10.0,
+                            help="Filter by 6-month return range (realistic: 0-1000% for Indian markets)",
                             key="ret_6m_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_6m_range != (-80.0, 500.0):
+                        if ret_6m_range != (20.0, 500.0):
                             filters['ret_6m_range'] = ret_6m_range
                     
-                    # Long-term performance ranges
+                    # Long-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
                     col7, col8 = st.columns(2)
                     with col7:
                         ret_1y_range = st.slider(
                             "1Y Return Range (%)",
-                            min_value=-90.0,
-                            max_value=1000.0,
-                            value=st.session_state.filter_state.get('ret_1y_range', (-90.0, 1000.0)),
-                            step=1.0,
-                            help="Filter by 1-year return range",
+                            min_value=0.0,
+                            max_value=2000.0,
+                            value=st.session_state.filter_state.get('ret_1y_range', (25.0, 1000.0)),
+                            step=25.0,
+                            help="Filter by 1-year return range (realistic: 0-2000% for Indian markets)",
                             key="ret_1y_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_1y_range != (-90.0, 1000.0):
+                        if ret_1y_range != (25.0, 1000.0):
                             filters['ret_1y_range'] = ret_1y_range
                     
                     with col8:
                         ret_3y_range = st.slider(
                             "3Y Return Range (%)",
-                            min_value=-95.0,
-                            max_value=2000.0,
-                            value=st.session_state.filter_state.get('ret_3y_range', (-95.0, 2000.0)),
-                            step=1.0,
-                            help="Filter by 3-year return range",
+                            min_value=0.0,
+                            max_value=5000.0,
+                            value=st.session_state.filter_state.get('ret_3y_range', (50.0, 2000.0)),
+                            step=50.0,
+                            help="Filter by 3-year return range (realistic: 0-5000% for Indian markets)",
                             key="ret_3y_range_slider",
                             on_change=sync_performance_custom_range
                         )
-                        if ret_3y_range != (-95.0, 2000.0):
+                        if ret_3y_range != (50.0, 2000.0):
                             filters['ret_3y_range'] = ret_3y_range
                     
-                    # 5Y Return Range (full width)
+                    # 5Y Return Range (full width) - REALISTIC INDIAN MARKET THRESHOLDS
                     ret_5y_range = st.slider(
                         "5Y Return Range (%)",
-                        min_value=-99.0,
-                        max_value=5000.0,
-                        value=st.session_state.filter_state.get('ret_5y_range', (-99.0, 5000.0)),
-                        step=1.0,
-                        help="Filter by 5-year return range",
+                        min_value=0.0,
+                        max_value=10000.0,
+                        value=st.session_state.filter_state.get('ret_5y_range', (75.0, 5000.0)),
+                        step=100.0,
+                        help="Filter by 5-year return range (realistic: 0-10000% for Indian markets)",
                         key="ret_5y_range_slider",
                         on_change=sync_performance_custom_range
                     )
-                    if ret_5y_range != (-99.0, 5000.0):
+                    if ret_5y_range != (75.0, 5000.0):
                         filters['ret_5y_range'] = ret_5y_range
             
             # 📊 Volume Intelligence
