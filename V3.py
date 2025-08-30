@@ -5864,6 +5864,7 @@ def main():
             # Position Score Dropdown with Custom Range
             if 'position_score' in ranked_df_display.columns:
                 position_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -5878,7 +5879,7 @@ def main():
                 position_score_selection = st.selectbox(
                     "Position Score",
                     options=position_score_options,
-                    index=position_score_options.index(current_position_selection) if current_position_selection in position_score_options else 0,
+                    index=position_score_options.index(current_position_selection),
                     help="Filter stocks by position score strength",
                     key="position_score_dropdown",
                     on_change=sync_position_score_dropdown
@@ -5913,6 +5914,7 @@ def main():
             # Volume Score Dropdown with Custom Range
             if 'volume_score' in ranked_df_display.columns:
                 volume_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -5927,7 +5929,7 @@ def main():
                 volume_score_selection = st.selectbox(
                     "Volume Score",
                     options=volume_score_options,
-                    index=volume_score_options.index(current_volume_selection) if current_volume_selection in volume_score_options else 0,
+                    index=volume_score_options.index(current_volume_selection),
                     help="Filter stocks by volume score strength",
                     key="volume_score_dropdown",
                     on_change=sync_volume_score_dropdown
@@ -5962,6 +5964,7 @@ def main():
             # Momentum Score Dropdown with Custom Range
             if 'momentum_score' in ranked_df_display.columns:
                 momentum_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -5976,7 +5979,7 @@ def main():
                 momentum_score_selection = st.selectbox(
                     "Momentum Score",
                     options=momentum_score_options,
-                    index=momentum_score_options.index(current_momentum_selection) if current_momentum_selection in momentum_score_options else 0,
+                    index=momentum_score_options.index(current_momentum_selection),
                     help="Filter stocks by momentum score strength",
                     key="momentum_score_dropdown",
                     on_change=sync_momentum_score_dropdown
@@ -6011,6 +6014,7 @@ def main():
             # Acceleration Score Dropdown with Custom Range
             if 'acceleration_score' in ranked_df_display.columns:
                 acceleration_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -6025,7 +6029,7 @@ def main():
                 acceleration_score_selection = st.selectbox(
                     "Acceleration Score",
                     options=acceleration_score_options,
-                    index=acceleration_score_options.index(current_acceleration_selection) if current_acceleration_selection in acceleration_score_options else 0,
+                    index=acceleration_score_options.index(current_acceleration_selection),
                     help="Filter stocks by acceleration score strength",
                     key="acceleration_score_dropdown",
                     on_change=sync_acceleration_score_dropdown
@@ -6060,6 +6064,7 @@ def main():
             # Breakout Score Dropdown with Custom Range
             if 'breakout_score' in ranked_df_display.columns:
                 breakout_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -6074,7 +6079,7 @@ def main():
                 breakout_score_selection = st.selectbox(
                     "Breakout Score",
                     options=breakout_score_options,
-                    index=breakout_score_options.index(current_breakout_selection) if current_breakout_selection in breakout_score_options else 0,
+                    index=breakout_score_options.index(current_breakout_selection),
                     help="Filter stocks by breakout score strength",
                     key="breakout_score_dropdown",
                     on_change=sync_breakout_score_dropdown
@@ -6109,6 +6114,7 @@ def main():
             # RVOL Score Dropdown with Custom Range
             if 'rvol_score' in ranked_df_display.columns:
                 rvol_score_options = [
+                    "All Scores",
                     "🟢 Strong (>= 80)",
                     "🟡 Good (>= 60)",
                     "🟠 Fair (>= 40)",
@@ -6123,7 +6129,7 @@ def main():
                 rvol_score_selection = st.selectbox(
                     "RVOL Score",
                     options=rvol_score_options,
-                    index=rvol_score_options.index(current_rvol_selection) if current_rvol_selection in rvol_score_options else 0,
+                    index=rvol_score_options.index(current_rvol_selection),
                     help="Filter stocks by RVOL score strength",
                     key="rvol_score_dropdown",
                     on_change=sync_rvol_score_dropdown
