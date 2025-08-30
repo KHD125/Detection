@@ -3307,10 +3307,16 @@ class FilterEngine:
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'performance_tiers': [],
-                'performance_custom_range': False,
-                'performance_1d_range': (-100, 100),
-                'performance_7d_range': (-100, 100),
-                'performance_30d_range': (-100, 100),
+                'performance_custom_range': (-100, 500),
+                'ret_1d_range': (-50.0, 100.0),
+                'ret_3d_range': (-50.0, 150.0),
+                'ret_7d_range': (-50.0, 200.0),
+                'ret_30d_range': (-50.0, 500.0),
+                'ret_3m_range': (-70.0, 300.0),
+                'ret_6m_range': (-80.0, 500.0),
+                'ret_1y_range': (-90.0, 1000.0),
+                'ret_3y_range': (-95.0, 2000.0),
+                'ret_5y_range': (-99.0, 5000.0),
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
@@ -3392,6 +3398,9 @@ class FilterEngine:
         if filters.get('require_fundamental_data'): count += 1
         if filters.get('wave_states'): count += 1
         if filters.get('wave_strength_range') != (0, 100): count += 1
+        if filters.get('performance_tiers'): count += 1
+        if filters.get('position_tiers'): count += 1
+        if filters.get('volume_tiers'): count += 1
         if filters.get('position_score_range') != (0, 100): count += 1
         if filters.get('volume_score_range') != (0, 100): count += 1
         if filters.get('momentum_score_range') != (0, 100): count += 1
@@ -4672,12 +4681,26 @@ class SessionStateManager:
                 'position_range': (0, 100),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
                 'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
                 'wave_states': [],
                 'wave_strength_range': (0, 100),
+                'position_score_range': (0, 100),
+                'volume_score_range': (0, 100),
+                'momentum_score_range': (0, 100),
+                'acceleration_score_range': (0, 100),
+                'breakout_score_range': (0, 100),
+                'rvol_score_range': (0, 100),
+                'position_score_selection': "All Scores",
+                'volume_score_selection': "All Scores",
+                'momentum_score_selection': "All Scores",
+                'acceleration_score_selection': "All Scores",
+                'breakout_score_selection': "All Scores",
+                'rvol_score_selection': "All Scores",
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -4760,6 +4783,12 @@ class SessionStateManager:
                 filters['wave_states'] = state['wave_states']
             if state.get('wave_strength_range') != (0, 100):
                 filters['wave_strength_range'] = state['wave_strength_range']
+            if state.get('performance_tiers'):
+                filters['performance_tiers'] = state['performance_tiers']
+            if state.get('position_tiers'):
+                filters['position_tiers'] = state['position_tiers']
+            if state.get('volume_tiers'):
+                filters['volume_tiers'] = state['volume_tiers']
             if state.get('position_score_range') != (0, 100):
                 filters['position_score_range'] = state['position_score_range']
             if state.get('volume_score_range') != (0, 100):
@@ -4867,12 +4896,31 @@ class SessionStateManager:
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
+                'eps_change_tiers': [],
+                'position_tiers': [],
+                'position_range': (0, 100),
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
                 'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
                 'wave_states': [],
                 'wave_strength_range': (0, 100),
+                'position_score_range': (0, 100),
+                'volume_score_range': (0, 100),
+                'momentum_score_range': (0, 100),
+                'acceleration_score_range': (0, 100),
+                'breakout_score_range': (0, 100),
+                'rvol_score_range': (0, 100),
+                'position_score_selection': "All Scores",
+                'volume_score_selection': "All Scores",
+                'momentum_score_selection': "All Scores",
+                'acceleration_score_selection': "All Scores",
+                'breakout_score_selection': "All Scores",
+                'rvol_score_selection': "All Scores",
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -4919,9 +4967,22 @@ class SessionStateManager:
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
             'patterns_multiselect', 'wave_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
+            'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
+            'volume_tier_multiselect',
+            'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider', 'wave_strength_slider',
+            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
+            'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
+            'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
+            'position_range_slider', 'rvol_range_slider',
+            'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
+            'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
+            
+            # Score dropdown widgets
+            'position_score_dropdown', 'volume_score_dropdown', 'momentum_score_dropdown',
+            'acceleration_score_dropdown', 'breakout_score_dropdown', 'rvol_score_dropdown',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select', 'display_mode_toggle',
