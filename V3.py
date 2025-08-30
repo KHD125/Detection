@@ -61,7 +61,7 @@ class Config:
     """System configuration with validated weights and thresholds"""
     
     # Data source - Default configuration
-    DEFAULT_SHEET_URL: str = "https://docs.google.com/spreadsheets/d/1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM/edit?usp=sharing"
+    DEFAULT_SHEET_URL: str = ""
     DEFAULT_GID: str = "1823439984"
     
     # Cache settings - Dynamic refresh
@@ -1477,7 +1477,6 @@ class PatternDetector:
 
     # Pattern metadata for intelligent confidence scoring
     PATTERN_METADATA = {
-            '🚀 MOMENTUM IGNITION': {'importance_weight': 18, 'category': 'momentum'},
             '🐱 CAT LEADER': {'importance_weight': 10, 'category': 'momentum'},
             '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
             '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
@@ -1718,20 +1717,7 @@ class PatternDetector:
             (get_col_safe('acceleration_score', 0) >= 70)
         )
         patterns.append(('🌊 MOMENTUM WAVE', mask))
-
-        # 🚀 MOMENTUM IGNITION - Explosive momentum with acceleration and volume
-        try:
-            if all(col in df.columns for col in ['position_score', 'acceleration_score', 'rvol']):
-                mask = (
-                    (get_col_safe('position_score', 0) > 80) &
-                    (get_col_safe('acceleration_score', 0) > 85) &
-                    (get_col_safe('rvol', 0) > 1.5)
-                )
-                patterns.append(('🚀 MOMENTUM IGNITION', ensure_series(mask)))
-        except Exception as e:
-            logger.warning(f"Error in MOMENTUM IGNITION pattern: {e}")
-            patterns.append(('🚀 MOMENTUM IGNITION', pd.Series(False, index=df.index)))
-
+        
         # 7. Liquid Leader - High liquidity and performance
         mask = (
             (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
@@ -3330,6 +3316,12 @@ class FilterEngine:
                 'require_fundamental_data': False,
                 'wave_states': [],
                 'wave_strength_range': (0, 100),
+                'position_score_range': (0, 100),
+                'volume_score_range': (0, 100),
+                'momentum_score_range': (0, 100),
+                'acceleration_score_range': (0, 100),
+                'breakout_score_range': (0, 100),
+                'rvol_score_range': (0, 100),
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -3394,6 +3386,12 @@ class FilterEngine:
         if filters.get('require_fundamental_data'): count += 1
         if filters.get('wave_states'): count += 1
         if filters.get('wave_strength_range') != (0, 100): count += 1
+        if filters.get('position_score_range') != (0, 100): count += 1
+        if filters.get('volume_score_range') != (0, 100): count += 1
+        if filters.get('momentum_score_range') != (0, 100): count += 1
+        if filters.get('acceleration_score_range') != (0, 100): count += 1
+        if filters.get('breakout_score_range') != (0, 100): count += 1
+        if filters.get('rvol_score_range') != (0, 100): count += 1
         
         return count
     
@@ -3437,7 +3435,13 @@ class FilterEngine:
             'position_tiers': [],
             'position_range': (0, 100),
             'volume_tiers': [],
-            'rvol_range': (0.1, 20.0)
+            'rvol_range': (0.1, 20.0),
+            'position_score_range': (0, 100),
+            'volume_score_range': (0, 100),
+            'momentum_score_range': (0, 100),
+            'acceleration_score_range': (0, 100),
+            'breakout_score_range': (0, 100),
+            'rvol_score_range': (0, 100)
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -3449,12 +3453,16 @@ class FilterEngine:
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
+            'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence',
             
             # Slider widgets
             'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
+            'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
+            'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select',
@@ -3467,7 +3475,8 @@ class FilterEngine:
             
             # Additional filter-related keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
-            'wave_sensitivity', 'show_sensitivity_details', 'show_market_regime'
+            'wave_sensitivity', 'show_sensitivity_details', 'show_market_regime',
+            'score_component_expander'
         ]
         
         # Delete each known widget key if it exists
@@ -3667,6 +3676,49 @@ class FilterEngine:
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
             masks.append(df['master_score'] >= filters['min_score'])
+        
+        # 2.1. Intelligence Score Filters
+        # Position Score Filter
+        if 'position_score_range' in filters and 'position_score' in df.columns:
+            position_range = filters['position_score_range']
+            if position_range != (0, 100):
+                min_pos, max_pos = position_range
+                masks.append((df['position_score'] >= min_pos) & (df['position_score'] <= max_pos))
+        
+        # Volume Score Filter
+        if 'volume_score_range' in filters and 'volume_score' in df.columns:
+            volume_range = filters['volume_score_range']
+            if volume_range != (0, 100):
+                min_vol, max_vol = volume_range
+                masks.append((df['volume_score'] >= min_vol) & (df['volume_score'] <= max_vol))
+        
+        # Momentum Score Filter
+        if 'momentum_score_range' in filters and 'momentum_score' in df.columns:
+            momentum_range = filters['momentum_score_range']
+            if momentum_range != (0, 100):
+                min_mom, max_mom = momentum_range
+                masks.append((df['momentum_score'] >= min_mom) & (df['momentum_score'] <= max_mom))
+        
+        # Acceleration Score Filter
+        if 'acceleration_score_range' in filters and 'acceleration_score' in df.columns:
+            acceleration_range = filters['acceleration_score_range']
+            if acceleration_range != (0, 100):
+                min_acc, max_acc = acceleration_range
+                masks.append((df['acceleration_score'] >= min_acc) & (df['acceleration_score'] <= max_acc))
+        
+        # Breakout Score Filter
+        if 'breakout_score_range' in filters and 'breakout_score' in df.columns:
+            breakout_range = filters['breakout_score_range']
+            if breakout_range != (0, 100):
+                min_brk, max_brk = breakout_range
+                masks.append((df['breakout_score'] >= min_brk) & (df['breakout_score'] <= max_brk))
+        
+        # RVOL Score Filter
+        if 'rvol_score_range' in filters and 'rvol_score' in df.columns:
+            rvol_range = filters['rvol_score_range']
+            if rvol_range != (0, 100):
+                min_rvol, max_rvol = rvol_range
+                masks.append((df['rvol_score'] >= min_rvol) & (df['rvol_score'] <= max_rvol))
         
         # 3. Pattern filter
         if filters.get('patterns') and 'patterns' in df.columns:
@@ -4692,6 +4744,18 @@ class SessionStateManager:
                 filters['wave_states'] = state['wave_states']
             if state.get('wave_strength_range') != (0, 100):
                 filters['wave_strength_range'] = state['wave_strength_range']
+            if state.get('position_score_range') != (0, 100):
+                filters['position_score_range'] = state['position_score_range']
+            if state.get('volume_score_range') != (0, 100):
+                filters['volume_score_range'] = state['volume_score_range']
+            if state.get('momentum_score_range') != (0, 100):
+                filters['momentum_score_range'] = state['momentum_score_range']
+            if state.get('acceleration_score_range') != (0, 100):
+                filters['acceleration_score_range'] = state['acceleration_score_range']
+            if state.get('breakout_score_range') != (0, 100):
+                filters['breakout_score_range'] = state['breakout_score_range']
+            if state.get('rvol_score_range') != (0, 100):
+                filters['rvol_score_range'] = state['rvol_score_range']
                 
         else:
             # Fallback to legacy individual keys
@@ -5219,7 +5283,7 @@ def main():
                 "Google Sheets ID or URL",
                 value=st.session_state.get('sheet_id', ''),
                 placeholder="Enter Sheet ID or full URL",
-                help="Example: 1OEQ_qxL4lXbO9LlKWDGlDju2yQC1iYvOYeXF3mTQuJM or the full Google Sheets URL"
+                help="Example: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM or the full Google Sheets URL"
             )
             
             if sheet_input:
@@ -5563,6 +5627,31 @@ def main():
             if 'wave_strength_slider' in st.session_state:
                 st.session_state.filter_state['wave_strength_range'] = st.session_state.wave_strength_slider
         
+        # Intelligence Score Slider Sync Functions
+        def sync_position_score():
+            if 'position_score_slider' in st.session_state:
+                st.session_state.filter_state['position_score_range'] = st.session_state.position_score_slider
+        
+        def sync_volume_score():
+            if 'volume_score_slider' in st.session_state:
+                st.session_state.filter_state['volume_score_range'] = st.session_state.volume_score_slider
+        
+        def sync_momentum_score():
+            if 'momentum_score_slider' in st.session_state:
+                st.session_state.filter_state['momentum_score_range'] = st.session_state.momentum_score_slider
+        
+        def sync_acceleration_score():
+            if 'acceleration_score_slider' in st.session_state:
+                st.session_state.filter_state['acceleration_score_range'] = st.session_state.acceleration_score_slider
+        
+        def sync_breakout_score():
+            if 'breakout_score_slider' in st.session_state:
+                st.session_state.filter_state['breakout_score_range'] = st.session_state.breakout_score_slider
+        
+        def sync_rvol_score():
+            if 'rvol_score_slider' in st.session_state:
+                st.session_state.filter_state['rvol_score_range'] = st.session_state.rvol_score_slider
+        
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
         
@@ -5611,20 +5700,121 @@ def main():
         if selected_industries:
             filters['industries'] = selected_industries
         
-        # Score filter with callback
-        min_score = st.slider(
-            "Minimum Master Score",
-            min_value=0,
-            max_value=100,
-            value=st.session_state.filter_state.get('min_score', 0),
-            step=5,
-            help="Filter stocks by minimum score",
-            key="min_score_slider",
-            on_change=sync_min_score  # SYNC ON CHANGE
-        )
-        
-        if min_score > 0:
-            filters['min_score'] = min_score
+        # 🎯 Score Component - Professional Expandable Section
+        with st.expander("🎯 Score Component", expanded=False):
+            st.write("**🎯 Score Component Filters**")
+            st.write("Configure individual score thresholds for precise filtering")
+            
+            # Minimum Master Score
+            min_score = st.slider(
+                "Minimum Master Score",
+                min_value=0,
+                max_value=100,
+                value=st.session_state.filter_state.get('min_score', 0),
+                step=5,
+                help="Filter stocks by minimum master score (0-100). Higher scores indicate better overall ranking.",
+                key="min_score_slider",
+                on_change=sync_min_score
+            )
+            
+            if min_score > 0:
+                filters['min_score'] = min_score
+            
+            # Position Score Slider
+            if 'position_score' in ranked_df_display.columns:
+                position_score_range = st.slider(
+                    "Position Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('position_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by position score (0-100). Higher scores indicate better price positioning relative to highs/lows.",
+                    key="position_score_slider",
+                    on_change=sync_position_score
+                )
+                
+                if position_score_range != (0, 100):
+                    filters['position_score_range'] = position_score_range
+            
+            # Volume Score Slider
+            if 'volume_score' in ranked_df_display.columns:
+                volume_score_range = st.slider(
+                    "Volume Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('volume_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by volume score (0-100). Higher scores indicate stronger volume activity and liquidity.",
+                    key="volume_score_slider",
+                    on_change=sync_volume_score
+                )
+                
+                if volume_score_range != (0, 100):
+                    filters['volume_score_range'] = volume_score_range
+            
+            # Momentum Score Slider
+            if 'momentum_score' in ranked_df_display.columns:
+                momentum_score_range = st.slider(
+                    "Momentum Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('momentum_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by momentum score (0-100). Higher scores indicate stronger price momentum across multiple timeframes.",
+                    key="momentum_score_slider",
+                    on_change=sync_momentum_score
+                )
+                
+                if momentum_score_range != (0, 100):
+                    filters['momentum_score_range'] = momentum_score_range
+            
+            # Acceleration Score Slider
+            if 'acceleration_score' in ranked_df_display.columns:
+                acceleration_score_range = st.slider(
+                    "Acceleration Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('acceleration_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by acceleration score (0-100). Higher scores indicate increasing momentum and rate of change.",
+                    key="acceleration_score_slider",
+                    on_change=sync_acceleration_score
+                )
+                
+                if acceleration_score_range != (0, 100):
+                    filters['acceleration_score_range'] = acceleration_score_range
+            
+            # Breakout Score Slider
+            if 'breakout_score' in ranked_df_display.columns:
+                breakout_score_range = st.slider(
+                    "Breakout Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('breakout_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by breakout score (0-100). Higher scores indicate higher probability of price breakouts.",
+                    key="breakout_score_slider",
+                    on_change=sync_breakout_score
+                )
+                
+                if breakout_score_range != (0, 100):
+                    filters['breakout_score_range'] = breakout_score_range
+            
+            # RVOL Score Slider
+            if 'rvol_score' in ranked_df_display.columns:
+                rvol_score_range = st.slider(
+                    "RVOL Score",
+                    min_value=0,
+                    max_value=100,
+                    value=st.session_state.filter_state.get('rvol_score_range', (0, 100)),
+                    step=5,
+                    help="Filter stocks by RVOL score (0-100). Higher scores indicate stronger relative volume activity.",
+                    key="rvol_score_slider",
+                    on_change=sync_rvol_score
+                )
+                
+                if rvol_score_range != (0, 100):
+                    filters['rvol_score_range'] = rvol_score_range
         
         # 📈 Performance Intelligence Filter
         available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
@@ -6031,6 +6221,95 @@ def main():
             
             if wave_strength_range != (0, 100):
                 filters['wave_strength_range'] = wave_strength_range
+        
+        # 🧠 Intelligence Filters Section
+        st.subheader("🧠 Intelligence Filters")
+        
+        # 📈 Performance Intelligence
+        with st.expander("📈 Performance Intelligence", expanded=False):
+            st.write("**📈 Performance Filter**")
+            st.write("Choose options")
+            
+            # Performance Intelligence Filter (reusing existing logic)
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+            if available_return_cols:
+                # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
+                performance_options = [
+                    # Short-term momentum (Practical thresholds for Indian markets)
+                    "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
+                    "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
+                    "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
+                    "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
+                    "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
+                    
+                    # Medium-term growth (Adjusted for market reality)
+                    "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
+                    "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
+                    "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
+                    
+                    # Long-term performance (Fixed emoji + realistic thresholds)
+                    "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
+                    "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
+                    "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
+                    
+                    # Custom range option
+                    "🎯 Custom Range"
+                ]
+                
+                performance_tiers = st.multiselect(
+                    "📈 Performance Filter",
+                    options=performance_options,
+                    default=st.session_state.filter_state.get('performance_tiers', []),
+                    key='performance_tier_multiselect_intelligence',
+                    on_change=sync_performance_tier,
+                    help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
+                )
+                
+                if performance_tiers:
+                    filters['performance_tiers'] = performance_tiers
+        
+        # 📊 Volume Intelligence
+        with st.expander("📊 Volume Intelligence", expanded=False):
+            st.write("**📊 Volume Intelligence**")
+            st.write("🌊 Volume Activity Tiers")
+            st.write("Choose options")
+            
+            # Volume Intelligence Filter (reusing existing logic)
+            if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
+                # Volume tier multiselect with custom range option
+                volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
+                volume_tiers = st.multiselect(
+                    "🌊 Volume Activity Tiers",
+                    options=volume_tier_options,
+                    default=st.session_state.filter_state.get('volume_tiers', []),
+                    key='volume_tier_multiselect_intelligence',
+                    on_change=sync_volume_tier,
+                    help="Select volume activity tiers or use Custom RVOL Range for precise control"
+                )
+                
+                if volume_tiers:
+                    filters['volume_tiers'] = volume_tiers
+        
+        # 🎯 Position Intelligence
+        with st.expander("🎯 Position Intelligence", expanded=False):
+            st.write("**🎯 Position Intelligence**")
+            st.write("🌍 Position Tiers")
+            st.write("Choose options")
+            
+            # Position Intelligence Filter (reusing existing logic)
+            if 'position_tier' in ranked_df_display.columns:
+                position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Position Range"]
+                position_tiers = st.multiselect(
+                    "🌍 Position Tiers",
+                    options=position_tier_options,
+                    default=st.session_state.filter_state.get('position_tiers', []),
+                    key='position_tier_multiselect_intelligence',
+                    on_change=sync_position_tier,
+                    help="Select position tiers or use Custom Position Range for precise control"
+                )
+                
+                if position_tiers:
+                    filters['position_tiers'] = position_tiers
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
@@ -8838,7 +9117,7 @@ def main():
             **Mathematical Advanced (5)**
             - 🔥 PREMIUM MOMENTUM
             - 🧩 ENTROPY COMPRESSION
-            - � VELOCITY BREAKOUT
+            - 🚀 VELOCITY BREAKOUT
             - 🕰️ INFORMATION DECAY ARBITRAGE
             - ⚛️ ATOMIC DECAY MOMENTUM
             
