@@ -1227,14 +1227,16 @@ class RankingEngine:
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate momentum score based on returns.
-        FIXED: Better acceleration threshold (1.2x).
+        FIXED: Proper handling of missing data and decay calculation.
         """
         momentum_score = pd.Series(50, index=df.index, dtype=float)
         
+        # Check if we have the primary data
         if 'ret_30d' not in df.columns or df['ret_30d'].notna().sum() == 0:
             # Fallback to 7-day returns
             if 'ret_7d' in df.columns and df['ret_7d'].notna().any():
-                ret_7d = pd.Series(df['ret_7d'].values, index=df.index).fillna(0)
+                ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+                # FIXED: Don't fillna(0) before ranking - let NaN stay NaN
                 momentum_score = RankingEngine._safe_rank(ret_7d, pct=True, ascending=True)
                 logger.info("Using 7-day returns for momentum score")
             else:
@@ -1242,43 +1244,61 @@ class RankingEngine:
             return momentum_score.clip(0, 100)
         
         # Primary: 30-day returns
-        ret_30d = pd.Series(df['ret_30d'].values, index=df.index).fillna(0)
+        # FIXED: Don't fillna(0) - this corrupts ranking!
+        ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
         momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
         
         # Add consistency bonus
         if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index).fillna(0)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            ret_30d_series = pd.Series(df['ret_30d'].values, index=df.index)
             
             consistency_bonus = pd.Series(0, index=df.index, dtype=float)
             
-            # Both positive
-            all_positive = (ret_7d > 0) & (ret_30d > 0)
+            # Both positive (only check non-NaN values)
+            valid_mask = ret_7d.notna() & ret_30d_series.notna()
+            all_positive = valid_mask & (ret_7d > 0) & (ret_30d_series > 0)
             consistency_bonus.loc[all_positive] = 5
             
-            # FIX #2: Accelerating returns with better threshold
-            # Only trigger if 7-day pace is 20% faster than 30-day pace
+            # Accelerating returns with better threshold
             with np.errstate(divide='ignore', invalid='ignore'):
                 daily_ret_7d = ret_7d / 7
-                daily_ret_30d = ret_30d / 30
+                daily_ret_30d = ret_30d_series / 30
             
-            accelerating = all_positive & (daily_ret_7d > daily_ret_30d * 1.2)
-            consistency_bonus.loc[accelerating] = 10
+            # IMPROVED: More nuanced acceleration detection
+            strong_accel = all_positive & (daily_ret_7d > daily_ret_30d * 1.2)  # 20% faster
+            moderate_accel = all_positive & (daily_ret_7d > daily_ret_30d * 1.1) & ~strong_accel  # 10% faster
             
-            momentum_score = (momentum_score + consistency_bonus).clip(0, 100)
-       
+            consistency_bonus.loc[strong_accel] = 10
+            consistency_bonus.loc[moderate_accel] = 7
+            
+            # Only add bonus where we have valid momentum scores
+            valid_momentum = momentum_score.notna()
+            momentum_score.loc[valid_momentum] = (momentum_score.loc[valid_momentum] + consistency_bonus.loc[valid_momentum]).clip(0, 100)
+        
+        # FIXED: Decay penalty with correct logic
         if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']):
-            ret_1d = pd.Series(df['ret_1d'].values, index=df.index).fillna(0)
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index).fillna(0)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index).fillna(0)
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
             
-            # Check if daily momentum is decaying
-            decay_signal = (
-                (ret_1d < ret_3d / 3) &  # Today worse than 3-day avg
-                (ret_3d < ret_7d / 7 * 3)  # 3-day worse than 7-day pace
+            # Calculate daily paces
+            with np.errstate(divide='ignore', invalid='ignore'):
+                daily_pace_1d = ret_1d  # Already daily
+                daily_pace_3d = ret_3d / 3
+                daily_pace_7d = ret_7d / 7
+            
+            # FIXED: Proper decay detection
+            # Check if momentum is slowing down progressively
+            valid_for_decay = ret_1d.notna() & ret_3d.notna() & ret_7d.notna()
+            decay_signal = valid_for_decay & (
+                (daily_pace_1d < daily_pace_3d) &  # Today slower than 3-day average
+                (daily_pace_3d < daily_pace_7d)     # 3-day average slower than 7-day average
             )
             
-            # Apply penalty for decaying momentum
-            momentum_score.loc[decay_signal] = momentum_score.loc[decay_signal] * 0.90
+            # Apply penalty for decaying momentum (only where momentum_score exists)
+            decay_mask = decay_signal & momentum_score.notna()
+            momentum_score.loc[decay_mask] = momentum_score.loc[decay_mask] * 0.90
         
         return momentum_score.clip(0, 100)
 
