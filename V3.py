@@ -1045,6 +1045,8 @@ class RankingEngine:
         """
         if df.empty:
             return df
+
+        start = time.time()
         
         logger.info("Starting optimized ranking calculations...")
     
@@ -8421,7 +8423,7 @@ def main():
                     
                     st.dataframe(
                         cat_performance,
-                        use_container_width=True,
+                        width="stretch",
                         column_config={
                             'Avg Score': st.column_config.NumberColumn(
                                 'Avg Score',
@@ -9298,7 +9300,7 @@ def main():
                             subset=gradient_cols,
                             cmap='RdYlGn'
                         ) if gradient_cols else industry_display,
-                        use_container_width=True,
+                        width="stretch",
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
@@ -9337,7 +9339,7 @@ def main():
                     
                     st.dataframe(
                         industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                        use_container_width=True
+                        width="stretch"
                     )
                     
                     st.info("📊 **Traditional Industry Analysis**: LDI analysis unavailable, showing traditional metrics.")
@@ -9383,7 +9385,7 @@ def main():
                             subset=['LDI Score', 'Avg Score'],
                             cmap='RdYlGn'
                         ),
-                        use_container_width=True,
+                        width="stretch",
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
@@ -9426,7 +9428,7 @@ def main():
                     
                     st.dataframe(
                         category_df.style.background_gradient(subset=['Avg Score']),
-                        use_container_width=True
+                        width="stretch"
                     )
                     st.info("Using traditional category analysis (LDI calculation failed)")
             else:
@@ -9668,7 +9670,7 @@ def main():
                         # Display score breakdown with column_config
                         st.dataframe(
                             score_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             column_config={
                                 'Component': st.column_config.TextColumn(
@@ -9732,7 +9734,7 @@ def main():
                                 class_df = pd.DataFrame(classification_data)
                                 st.dataframe(
                                     class_df,
-                                    use_container_width=True,
+                                    width="stretch",
                                     hide_index=True,
                                     column_config={
                                         'Attribute': st.column_config.TextColumn('Attribute', width="medium"),
@@ -9767,7 +9769,7 @@ def main():
                                     tier_df = pd.DataFrame(tier_data)
                                     st.dataframe(
                                         tier_df,
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                         column_config={
                                             'Tier Type': st.column_config.TextColumn('Type', width="medium"),
@@ -9817,7 +9819,7 @@ def main():
                                 perf_df = pd.DataFrame(perf_data)
                                 st.dataframe(
                                     perf_df,
-                                    use_container_width=True,
+                                    width="stretch",
                                     hide_index=True,
                                     column_config={
                                         'Period': st.column_config.TextColumn('Period', width="medium"),
@@ -9890,7 +9892,7 @@ def main():
                                     fund_df = pd.DataFrame(fund_data)
                                     st.dataframe(
                                         fund_df,
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                         column_config={
                                             'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -9935,7 +9937,7 @@ def main():
                                     range_df = pd.DataFrame(range_data)
                                     st.dataframe(
                                         range_df,
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                         column_config={
                                             'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -9970,7 +9972,7 @@ def main():
                                     sma_df = pd.DataFrame(sma_data)
                                     st.dataframe(
                                         sma_df,
-                                        use_container_width=True,
+                                        width="stretch",
                                         hide_index=True,
                                         column_config={
                                             'SMA': st.column_config.TextColumn('SMA', width="small"),
@@ -10048,7 +10050,7 @@ def main():
                                 adv_df = pd.DataFrame(adv_data)
                                 st.dataframe(
                                     adv_df,
-                                    use_container_width=True,
+                                    width="stretch",
                                     hide_index=True,
                                     column_config={
                                         'Metric': st.column_config.TextColumn(
@@ -10107,7 +10109,7 @@ def main():
                 
                 st.dataframe(
                     suggestions_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn('Ticker', width="small"),
