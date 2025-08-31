@@ -1259,84 +1259,132 @@ class RankingEngine:
         """
         Calculate comprehensive volume score.
         FIXED: Proper NaN handling, better weights, and realistic penalties.
-        """
-        volume_score = pd.Series(50, index=df.index, dtype=float)
         
-        # FIXED: Better weights - favor recent activity
+        Volume Score Components:
+        - 20% weight: 1d/90d ratio (most recent)
+        - 20% weight: 7d/90d ratio (weekly trend)
+        - 20% weight: 30d/90d ratio (monthly trend)
+        - 15% weight: 30d/180d ratio (medium-term)
+        - 25% weight: 90d/180d ratio (long-term trend)
+        
+        Bonuses/Penalties:
+        - Sustained volume (+10%): All timeframes elevated
+        - One-day spike (-10%): Only 1d high, others low
+        - Distribution detection: RVOL >10 (-15%), >20 (-30%)
+        """
+        volume_score = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        # Define volume ratio columns and weights
         vol_cols = [
-            ('vol_ratio_1d_90d', 0.30),   # Most important - today's surge
-            ('vol_ratio_7d_90d', 0.25),   # Week trend
-            ('vol_ratio_30d_90d', 0.20),  # Month trend
-            ('vol_ratio_30d_180d', 0.15), # Medium-term
-            ('vol_ratio_90d_180d', 0.10)  # Least important - too slow
+            ('vol_ratio_1d_90d', 0.20),
+            ('vol_ratio_7d_90d', 0.20),
+            ('vol_ratio_30d_90d', 0.20),
+            ('vol_ratio_30d_180d', 0.15),
+            ('vol_ratio_90d_180d', 0.25)
         ]
         
+        # Check which columns exist
+        available_cols = [(col, weight) for col, weight in vol_cols if col in df.columns]
+        
+        if not available_cols:
+            logger.warning("No volume ratio data available, returning NaN scores")
+            return volume_score
+        
         # Track which stocks have complete data
-        has_all_ratios = pd.Series(True, index=df.index)
+        all_vol_cols = [col for col, _ in vol_cols]
+        existing_vol_cols = [col for col, _ in available_cols]
+        has_complete_data = df[existing_vol_cols].notna().all(axis=1) if existing_vol_cols else pd.Series(False, index=df.index)
         
-        # Calculate weighted score WITHOUT fillna corruption
-        scores_list = []
-        weights_list = []
+        # Calculate weighted score using available columns
+        total_weight = sum(weight for _, weight in available_cols)
         
-        for col, weight in vol_cols:
-            if col in df.columns:
+        if total_weight > 0:
+            # Initialize weighted sum
+            weighted_sum = pd.Series(0, index=df.index, dtype=float)
+            actual_weight_sum = pd.Series(0, index=df.index, dtype=float)
+            
+            for col, weight in available_cols:
                 col_data = pd.Series(df[col].values, index=df.index)
-                # DON'T fillna! Let NaN stay NaN
-                valid_mask = col_data.notna()
-                has_all_ratios = has_all_ratios & valid_mask
-                
-                # Rank only valid data
+                # Only rank non-NaN values
                 col_rank = RankingEngine._safe_rank(col_data, pct=True, ascending=True)
-                scores_list.append(col_rank * weight)
-                weights_list.append(weight)
-        
-        if scores_list:
-            # Sum scores where all data exists
-            total_score = pd.Series(0, index=df.index, dtype=float)
-            for score in scores_list:
-                total_score = total_score + score.fillna(0)
+                
+                # Add to weighted sum only where data exists
+                valid_mask = col_rank.notna()
+                weighted_sum[valid_mask] += col_rank[valid_mask] * weight
+                actual_weight_sum[valid_mask] += weight
             
-            # FIXED: Use constant weight sum, not actual
-            volume_score = total_score  # Already weighted, sum to 100%
+            # Calculate score only where we have data
+            has_any_data = actual_weight_sum > 0
+            volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data] * 100
             
-            # ENHANCED: Volume persistence bonus
+            # ENHANCED: Volume persistence analysis (only for complete data)
             if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
                 vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
                 vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
                 vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
                 
-                # Sustained volume (all timeframes elevated)
-                sustained = (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
-                volume_score.loc[sustained] *= 1.10  # 10% bonus for sustained
+                # All three must have data for persistence check
+                persistence_valid = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & volume_score.notna()
                 
-                # One-day spike only (likely unsustainable)
-                spike_only = (vol_1d > 3) & (vol_7d < 1.2)
-                volume_score.loc[spike_only] *= 0.90  # 10% penalty for spikes
+                # Sustained volume (all timeframes elevated) - BULLISH
+                sustained = persistence_valid & (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
+                if sustained.any():
+                    volume_score.loc[sustained] *= 1.10  # 10% bonus
+                    logger.debug(f"Applied sustained volume bonus to {sustained.sum()} stocks")
+                
+                # One-day spike only (likely unsustainable) - BEARISH
+                spike_only = persistence_valid & (vol_1d > 3) & (vol_7d < 1.2)
+                if spike_only.any():
+                    volume_score.loc[spike_only] *= 0.90  # 10% penalty
+                    logger.debug(f"Applied spike-only penalty to {spike_only.sum()} stocks")
             
-            # FIXED: Realistic RVOL penalties
+            # FIXED: Distribution detection for extreme volume
             if 'rvol' in df.columns:
                 rvol_series = pd.Series(df['rvol'].values, index=df.index)
+                rvol_valid = rvol_series.notna() & volume_score.notna()
                 
-                # Moderate surge is good (accumulation)
-                good_surge = (rvol_series > 2) & (rvol_series <= 5)
-                volume_score.loc[good_surge] *= 1.05
+                # Moderate surge is good (2-5x = accumulation)
+                good_surge = rvol_valid & (rvol_series > 2) & (rvol_series <= 5)
+                if good_surge.any():
+                    volume_score.loc[good_surge] *= 1.05  # 5% bonus
+                    logger.debug(f"Applied accumulation bonus to {good_surge.sum()} stocks")
                 
-                # High surge needs investigation
-                high_surge = (rvol_series > 5) & (rvol_series <= 10)
-                volume_score.loc[high_surge] *= 0.95  # Small penalty
+                # High surge needs caution (5-10x)
+                high_surge = rvol_valid & (rvol_series > 5) & (rvol_series <= 10)
+                if high_surge.any():
+                    volume_score.loc[high_surge] *= 0.95  # 5% penalty
+                    logger.debug(f"Applied high volume caution to {high_surge.sum()} stocks")
                 
-                # Extreme is likely distribution/news
-                extreme = (rvol_series > 10) & (rvol_series <= 20)
-                volume_score.loc[extreme] *= 0.70  # 30% penalty
+                # Extreme volume = distribution/pump (10-20x)
+                extreme = rvol_valid & (rvol_series > 10) & (rvol_series <= 20)
+                if extreme.any():
+                    volume_score.loc[extreme] *= 0.85  # 15% penalty (FIXED from 0.70)
+                    logger.debug(f"Applied distribution penalty to {extreme.sum()} stocks")
                 
-                # Insane volume = stay away
-                insane = rvol_series > 20
-                volume_score.loc[insane] *= 0.50  # 50% penalty
+                # Insane volume = stay away (>20x)
+                insane = rvol_valid & (rvol_series > 20)
+                if insane.any():
+                    volume_score.loc[insane] *= 0.70  # 30% penalty (FIXED from 0.50)
+                    logger.debug(f"Applied extreme distribution penalty to {insane.sum()} stocks")
             
-            # Penalize stocks with incomplete data
-            volume_score.loc[~has_all_ratios] *= 0.95
+            # Data completeness penalty (only for incomplete data)
+            incomplete = has_any_data & ~has_complete_data
+            if incomplete.any():
+                volume_score.loc[incomplete] *= 0.95  # 5% penalty for missing some ratios
+                logger.debug(f"Applied incomplete data penalty to {incomplete.sum()} stocks")
         
-        return volume_score.clip(0, 100)
+        # Ensure scores stay within bounds
+        volume_score = volume_score.clip(0, 100)
+        
+        # Log statistics
+        valid_count = volume_score.notna().sum()
+        logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
+        
+        if valid_count > 0:
+            avg_score = volume_score[volume_score.notna()].mean()
+            logger.debug(f"Average volume score: {avg_score:.1f}")
+        
+        return volume_score
 
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
