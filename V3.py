@@ -1317,7 +1317,7 @@ class RankingEngine:
             
             # Calculate score only where we have data
             has_any_data = actual_weight_sum > 0
-            volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data] * 100
+            volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data]
             
             # ENHANCED: Volume persistence analysis (only for complete data)
             if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
