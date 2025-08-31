@@ -900,97 +900,97 @@ class AdvancedMetrics:
     """
     
    @staticmethod
-@PerformanceMonitor.timer(target_time=0.5)
-def calculate_all_metrics(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculates a comprehensive set of advanced metrics for the DataFrame.
-    All calculations are designed to be vectorized and handle missing data
-    without raising errors.
-    FIXED: Money flow overflow prevention added.
-
-    Args:
-        df (pd.DataFrame): The DataFrame with raw data and core scores.
-
-    Returns:
-        pd.DataFrame: The DataFrame with all calculated advanced metrics added.
-    """
-    if df.empty:
+    @PerformanceMonitor.timer(target_time=0.5)
+    def calculate_all_metrics(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates a comprehensive set of advanced metrics for the DataFrame.
+        All calculations are designed to be vectorized and handle missing data
+        without raising errors.
+        FIXED: Money flow overflow prevention added.
+    
+        Args:
+            df (pd.DataFrame): The DataFrame with raw data and core scores.
+    
+        Returns:
+            pd.DataFrame: The DataFrame with all calculated advanced metrics added.
+        """
+        if df.empty:
+            return df
+        
+        # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
+        if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
+            # Clip RVOL to prevent extreme multiplications
+            safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
+            
+            # Calculate money flow with overflow prevention
+            money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
+            
+            # Clip to prevent overflow (max 1 trillion)
+            df['money_flow'] = np.clip(money_flow_raw, 0, 1e12)
+            
+            # Convert to millions for display
+            df['money_flow_mm'] = df['money_flow'] / 1_000_000
+            
+            # Additional safety: clip the millions version too
+            df['money_flow_mm'] = df['money_flow_mm'].clip(0, 1e6)  # Max 1 million millions
+        else:
+            df['money_flow_mm'] = pd.Series(np.nan, index=df.index)
+        
+        # Volume Momentum Index (VMI) - Already safe (dividing by constant 10)
+        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d']):
+            df['vmi'] = (
+                df['vol_ratio_1d_90d'].fillna(1.0) * 4 +
+                df['vol_ratio_7d_90d'].fillna(1.0) * 3 +
+                df['vol_ratio_30d_90d'].fillna(1.0) * 2 +
+                df['vol_ratio_90d_180d'].fillna(1.0) * 1
+            ) / 10
+        else:
+            df['vmi'] = pd.Series(np.nan, index=df.index)
+        
+        # Position Tension
+        if all(col in df.columns for col in ['from_low_pct', 'from_high_pct']):
+            df['position_tension'] = df['from_low_pct'].fillna(50) + abs(df['from_high_pct'].fillna(-50))
+        else:
+            df['position_tension'] = pd.Series(np.nan, index=df.index)
+        
+        # Momentum Harmony
+        df['momentum_harmony'] = pd.Series(0, index=df.index, dtype=int)
+        
+        if 'ret_1d' in df.columns:
+            df['momentum_harmony'] += (df['ret_1d'].fillna(0) > 0).astype(int)
+        
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
+            with np.errstate(divide='ignore', invalid='ignore'):
+                daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
+                daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
+                daily_ret_30d = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
+            df['momentum_harmony'] += ((daily_ret_7d.fillna(-np.inf) > daily_ret_30d.fillna(-np.inf))).astype(int)
+        
+        if all(col in df.columns for col in ['ret_30d', 'ret_3m']):
+            with np.errstate(divide='ignore', invalid='ignore'):
+                daily_ret_30d_comp = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
+                daily_ret_3m_comp = pd.Series(np.where(df['ret_3m'].fillna(0) != 0, df['ret_3m'].fillna(0) / 90, np.nan), index=df.index)
+            df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
+        
+        if 'ret_3m' in df.columns:
+            df['momentum_harmony'] += (df['ret_3m'].fillna(0) > 0).astype(int)
+        
+        # Wave State
+        df['wave_state'] = df.apply(AdvancedMetrics._get_wave_state, axis=1)
+    
+        # Overall Wave Strength
+        score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
+        if all(col in df.columns for col in score_cols):
+            df['overall_wave_strength'] = (
+                df['momentum_score'].fillna(50) * 0.3 +
+                df['acceleration_score'].fillna(50) * 0.3 +
+                df['rvol_score'].fillna(50) * 0.2 +
+                df['breakout_score'].fillna(50) * 0.2
+            )
+        else:
+            df['overall_wave_strength'] = pd.Series(np.nan, index=df.index)
+        
         return df
-    
-    # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
-    if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
-        # Clip RVOL to prevent extreme multiplications
-        safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
-        
-        # Calculate money flow with overflow prevention
-        money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
-        
-        # Clip to prevent overflow (max 1 trillion)
-        df['money_flow'] = np.clip(money_flow_raw, 0, 1e12)
-        
-        # Convert to millions for display
-        df['money_flow_mm'] = df['money_flow'] / 1_000_000
-        
-        # Additional safety: clip the millions version too
-        df['money_flow_mm'] = df['money_flow_mm'].clip(0, 1e6)  # Max 1 million millions
-    else:
-        df['money_flow_mm'] = pd.Series(np.nan, index=df.index)
-    
-    # Volume Momentum Index (VMI) - Already safe (dividing by constant 10)
-    if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d']):
-        df['vmi'] = (
-            df['vol_ratio_1d_90d'].fillna(1.0) * 4 +
-            df['vol_ratio_7d_90d'].fillna(1.0) * 3 +
-            df['vol_ratio_30d_90d'].fillna(1.0) * 2 +
-            df['vol_ratio_90d_180d'].fillna(1.0) * 1
-        ) / 10
-    else:
-        df['vmi'] = pd.Series(np.nan, index=df.index)
-    
-    # Position Tension
-    if all(col in df.columns for col in ['from_low_pct', 'from_high_pct']):
-        df['position_tension'] = df['from_low_pct'].fillna(50) + abs(df['from_high_pct'].fillna(-50))
-    else:
-        df['position_tension'] = pd.Series(np.nan, index=df.index)
-    
-    # Momentum Harmony
-    df['momentum_harmony'] = pd.Series(0, index=df.index, dtype=int)
-    
-    if 'ret_1d' in df.columns:
-        df['momentum_harmony'] += (df['ret_1d'].fillna(0) > 0).astype(int)
-    
-    if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
-        with np.errstate(divide='ignore', invalid='ignore'):
-            daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
-            daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
-            daily_ret_30d = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
-        df['momentum_harmony'] += ((daily_ret_7d.fillna(-np.inf) > daily_ret_30d.fillna(-np.inf))).astype(int)
-    
-    if all(col in df.columns for col in ['ret_30d', 'ret_3m']):
-        with np.errstate(divide='ignore', invalid='ignore'):
-            daily_ret_30d_comp = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
-            daily_ret_3m_comp = pd.Series(np.where(df['ret_3m'].fillna(0) != 0, df['ret_3m'].fillna(0) / 90, np.nan), index=df.index)
-        df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
-    
-    if 'ret_3m' in df.columns:
-        df['momentum_harmony'] += (df['ret_3m'].fillna(0) > 0).astype(int)
-    
-    # Wave State
-    df['wave_state'] = df.apply(AdvancedMetrics._get_wave_state, axis=1)
-
-    # Overall Wave Strength
-    score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
-    if all(col in df.columns for col in score_cols):
-        df['overall_wave_strength'] = (
-            df['momentum_score'].fillna(50) * 0.3 +
-            df['acceleration_score'].fillna(50) * 0.3 +
-            df['rvol_score'].fillna(50) * 0.2 +
-            df['breakout_score'].fillna(50) * 0.2
-        )
-    else:
-        df['overall_wave_strength'] = pd.Series(np.nan, index=df.index)
-    
-    return df
     
     @staticmethod
     def _get_wave_state(row: pd.Series) -> str:
