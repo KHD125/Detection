@@ -1172,16 +1172,23 @@ class RankingEngine:
     @staticmethod
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate position score based on 52-week range positioning.
-        FIXED: Proper handling of missing data and correct ranking logic.
+        Calculate position score based on 52-week range positioning using ABSOLUTE SCORING.
+        FIXED: No more percentile ranking - uses actual position values directly.
         
         Position Score Logic:
-        - 60% weight: Distance from 52w low (higher is better)
-        - 40% weight: Distance from 52w high (closer to 0 is better)
-        - Sweet spot bonus: 40-70% from low (+10%)
-        - Overextended penalty: >85% from low (-10%)
-        - Near high bonus: Within 5% of 52w high (+5%)
-        - Near low penalty: Within 10% of 52w low (-5%)
+        - 60% weight: Distance from 52w low (from_low_pct used directly)
+        - 40% weight: Distance from 52w high (closer to high = better)
+        
+        Scoring formulas:
+        - from_low component: Direct use (already 0-100+ scale)
+        - from_high component: 100 + from_high_pct (since it's negative)
+        
+        Position zones with bonuses/penalties:
+        - Sweet spot (40-70% from low): +10% bonus - optimal risk/reward
+        - Overextended (>85% from low): -10% penalty - pullback risk
+        - Near high (<5% from high): +5% bonus - breakout potential
+        - Near low (<10% from low): -5% penalty - weakness signal
+        - Breaking out (>100% from low): +15% bonus - new highs territory
         """
         position_score = pd.Series(np.nan, index=df.index, dtype=float)
         
@@ -1201,58 +1208,140 @@ class RankingEngine:
             logger.warning("No valid position data available")
             return position_score
         
-        # FIXED: Proper ranking logic
-        # For from_low: Higher is better (90% from low > 20% from low)
-        rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
+        # FIXED: ABSOLUTE SCORING based on actual values
         
-        # For from_high: Closer to 0 is better
-        # from_high is negative, so -1% (close to high) is better than -50% (far from high)
-        # We want to rank the absolute distance, smaller distance = better
-        from_high_abs = from_high.abs()  # Convert to positive distance
-        rank_from_high = RankingEngine._safe_rank(from_high_abs, pct=True, ascending=False)
+        # Component 1: Distance from 52w low (60% weight)
+        # from_low_pct is already 0-100+, use directly but cap at 100
+        from_low_score = from_low.clip(0, 100)
         
-        # Calculate base position score (only where both values exist)
+        # Component 2: Distance from 52w high (40% weight)  
+        # from_high_pct is negative (e.g., -20 means 20% below high)
+        # Convert: -50% from high = 50 score, 0% from high = 100 score
+        # Formula: 100 + from_high_pct (since from_high is negative)
+        from_high_score = (100 + from_high).clip(0, 100)
+        
+        # Calculate base position score with weights
         position_score[valid_mask] = (
-            rank_from_low[valid_mask] * 0.6 + 
-            rank_from_high[valid_mask] * 0.4
+            from_low_score[valid_mask] * 0.6 + 
+            from_high_score[valid_mask] * 0.4
         )
         
-        # Apply modifiers based on raw values (not ranks)
+        # Log initial statistics
+        logger.info(f"Base position scores calculated for {valid_mask.sum()} stocks")
+        if valid_mask.any():
+            logger.debug(f"Initial score range: {position_score[valid_mask].min():.1f} - {position_score[valid_mask].max():.1f}")
         
-        # 1. Sweet spot bonus: 40-70% from low is ideal range
+        # APPLY POSITION-BASED MODIFIERS
+        
+        # 1. SWEET SPOT BONUS: 40-70% from low is the optimal zone
+        # Not too low (weak), not too high (overextended)
         sweet_spot = valid_mask & (from_low >= 40) & (from_low <= 70)
         if sweet_spot.any():
-            position_score.loc[sweet_spot] *= 1.10
-            logger.debug(f"Applied sweet spot bonus to {sweet_spot.sum()} stocks")
+            position_score.loc[sweet_spot] *= 1.10  # 10% bonus
+            logger.debug(f"Applied sweet spot bonus (+10%) to {sweet_spot.sum()} stocks (40-70% from low)")
         
-        # 2. Overextended penalty: >85% from low might reverse
-        overextended = valid_mask & (from_low > 85)
+        # 2. OVEREXTENDED PENALTY: >85% from low might pull back
+        overextended = valid_mask & (from_low > 85) & (from_low <= 100)
         if overextended.any():
-            position_score.loc[overextended] *= 0.90
-            logger.debug(f"Applied overextended penalty to {overextended.sum()} stocks")
+            position_score.loc[overextended] *= 0.90  # 10% penalty
+            logger.debug(f"Applied overextended penalty (-10%) to {overextended.sum()} stocks (>85% from low)")
         
-        # 3. Near 52w high bonus: Within 5% of high is bullish
+        # 3. NEW HIGHS TERRITORY: >100% from low (above previous 52w high)
+        # This is very bullish - stock is making new highs
+        new_highs = valid_mask & (from_low > 100)
+        if new_highs.any():
+            position_score.loc[new_highs] *= 1.15  # 15% bonus
+            logger.debug(f"Applied new highs bonus (+15%) to {new_highs.sum()} stocks (>100% from low)")
+        
+        # 4. NEAR 52W HIGH BONUS: Within 5% of high shows strength
         near_high = valid_mask & (from_high > -5)  # from_high is negative
         if near_high.any():
-            position_score.loc[near_high] *= 1.05
-            logger.debug(f"Applied near-high bonus to {near_high.sum()} stocks")
+            position_score.loc[near_high] *= 1.05  # 5% bonus
+            logger.debug(f"Applied near-high bonus (+5%) to {near_high.sum()} stocks (<5% from high)")
         
-        # 4. Near 52w low penalty: Within 10% of low is bearish
+        # 5. NEAR 52W LOW PENALTY: Within 10% of low shows weakness
         near_low = valid_mask & (from_low < 10)
         if near_low.any():
-            position_score.loc[near_low] *= 0.95
-            logger.debug(f"Applied near-low penalty to {near_low.sum()} stocks")
+            position_score.loc[near_low] *= 0.95  # 5% penalty
+            logger.debug(f"Applied near-low penalty (-5%) to {near_low.sum()} stocks (<10% from low)")
+        
+        # 6. DANGER ZONE: Very close to 52w low (<5%)
+        danger_zone = valid_mask & (from_low < 5)
+        if danger_zone.any():
+            position_score.loc[danger_zone] *= 0.90  # Additional 10% penalty (total -15%)
+            logger.debug(f"Applied danger zone penalty (-10% additional) to {danger_zone.sum()} stocks (<5% from low)")
+        
+        # CONTEXT-BASED ADJUSTMENTS
+        if 'category' in df.columns and position_score.notna().any():
+            category = pd.Series(df['category'].values, index=df.index)
+            
+            # Small caps near lows are riskier (might go to zero)
+            is_small = category.isin(['Micro Cap', 'Small Cap'])
+            small_near_low = is_small & valid_mask & (from_low < 20)
+            if small_near_low.any():
+                position_score.loc[small_near_low] *= 0.95  # Additional 5% penalty
+                logger.debug(f"Applied small cap near-low penalty to {small_near_low.sum()} stocks")
+            
+            # Large caps near highs are more reliable breakouts
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_near_high = is_large & valid_mask & (from_high > -10)
+            if large_near_high.any():
+                position_score.loc[large_near_high] *= 1.05  # Additional 5% bonus
+                logger.debug(f"Applied large cap near-high bonus to {large_near_high.sum()} stocks")
+        
+        # VOLUME CONTEXT: High volume near extremes
+        if 'rvol' in df.columns and position_score.notna().any():
+            rvol = pd.Series(df['rvol'].values, index=df.index)
+            
+            # High volume near highs = accumulation/breakout
+            high_vol_near_high = valid_mask & (rvol > 2) & (from_high > -10)
+            if high_vol_near_high.any():
+                position_score.loc[high_vol_near_high] *= 1.05  # 5% bonus
+                logger.debug(f"Applied high volume near-high bonus to {high_vol_near_high.sum()} stocks")
+            
+            # High volume near lows = potential reversal or continued selling
+            high_vol_near_low = valid_mask & (rvol > 2) & (from_low < 20)
+            if high_vol_near_low.any():
+                # Check if it's moving up from low (reversal) or continuing down
+                if 'ret_1d' in df.columns:
+                    ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+                    reversal = high_vol_near_low & (ret_1d > 0)
+                    continued_selling = high_vol_near_low & (ret_1d <= 0)
+                    
+                    if reversal.any():
+                        position_score.loc[reversal] *= 1.10  # 10% bonus for reversal
+                        logger.debug(f"Applied reversal bonus to {reversal.sum()} stocks")
+                    
+                    if continued_selling.any():
+                        position_score.loc[continued_selling] *= 0.90  # 10% penalty
+                        logger.debug(f"Applied continued selling penalty to {continued_selling.sum()} stocks")
         
         # Ensure scores stay within bounds
         position_score = position_score.clip(0, 100)
         
-        # Log statistics
+        # FINAL STATISTICS
         valid_count = valid_mask.sum()
         logger.info(f"Position scores calculated: {valid_count} valid out of {len(df)} stocks")
         
         if valid_count > 0:
+            # Detailed statistics for debugging
             avg_score = position_score[valid_mask].mean()
-            logger.debug(f"Average position score: {avg_score:.1f}")
+            median_score = position_score[valid_mask].median()
+            
+            logger.info(f"Score distribution - Min: {position_score[valid_mask].min():.1f}, "
+                       f"Max: {position_score[valid_mask].max():.1f}, "
+                       f"Mean: {avg_score:.1f}, "
+                       f"Median: {median_score:.1f}")
+            
+            # Check if distribution looks reasonable
+            if avg_score > 70:
+                logger.warning(f"Unusually high average position score: {avg_score:.1f}")
+                # Log sample of high scores for investigation
+                high_scores = position_score[position_score > 90]
+                if len(high_scores) > 0:
+                    logger.debug(f"{len(high_scores)} stocks have position score >90")
+            elif avg_score < 30:
+                logger.warning(f"Unusually low average position score: {avg_score:.1f}")
         
         return position_score
 
