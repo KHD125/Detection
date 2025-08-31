@@ -2715,13 +2715,10 @@ class PatternDetector:
         patterns.append(('🐱 CAT LEADER', mask))
         
         # 2. Hidden Gem - FIXED: percentile might not exist yet
-        if 'category_percentile' in df.columns and 'percentile' in df.columns:
-            mask = ensure_series((
-                (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
-                (get_col_safe('percentile', 100) < 70)
-            ))
-        else:
-            mask = pd.Series(False, index=df.index)
+        mask = ensure_series(
+            (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
+            (get_col_safe('percentile', 100) < 70)
+        )
         patterns.append(('💎 HIDDEN GEM', mask))
         
         # 3. Institutional - FIXED: Use raw volume ratios
