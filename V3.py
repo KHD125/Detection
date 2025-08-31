@@ -1546,152 +1546,109 @@ class RankingEngine:
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate acceleration score based on momentum change across timeframes.
-        ACCURATE ENGINEERING: Measures true acceleration using rate of change.
-        
-        Acceleration = Change in momentum velocity
-        - Compares short-term vs long-term daily return rates
-        - Positive acceleration: Momentum increasing
-        - Negative acceleration: Momentum decreasing
-        
-        This is the CORRECT mathematical approach, fully vectorized.
+        Calculate if momentum is accelerating.
+        FIXED: Proper NaN handling, correct smoothing math, and logical categories.
         """
-        acceleration_score = pd.Series(np.nan, index=df.index, dtype=float)
+        acceleration_score = pd.Series(50, index=df.index, dtype=float)
         
-        # Check available columns - need at least 2 timeframes
-        available_periods = []
-        for col, days in [('ret_1d', 1), ('ret_3d', 3), ('ret_7d', 7), ('ret_30d', 30)]:
-            if col in df.columns and df[col].notna().any():
-                available_periods.append((col, days))
+        req_cols = ['ret_1d', 'ret_7d', 'ret_30d']
+        available_cols = [col for col in req_cols if col in df.columns]
         
-        if len(available_periods) < 2:
-            logger.warning(f"Insufficient data for acceleration (need 2+ periods, have {len(available_periods)})")
+        if len(available_cols) < 2:
+            logger.warning("Insufficient return data for acceleration calculation")
             return acceleration_score
         
-        # Get the shortest and longest periods for best acceleration signal
-        shortest = available_periods[0]  # Should be ret_1d or ret_3d
-        longest = available_periods[-1]   # Should be ret_30d or ret_7d
+        # Get return data WITHOUT fillna corruption
+        ret_1d = pd.Series(df['ret_1d'].values, index=df.index) if 'ret_1d' in df.columns else pd.Series(np.nan, index=df.index)
+        ret_7d = pd.Series(df['ret_7d'].values, index=df.index) if 'ret_7d' in df.columns else pd.Series(np.nan, index=df.index)
+        ret_30d = pd.Series(df['ret_30d'].values, index=df.index) if 'ret_30d' in df.columns else pd.Series(np.nan, index=df.index)
         
-        short_col, short_days = shortest
-        long_col, long_days = longest
+        # FIXED: Proper smoothing using exponential weighting
+        if 'ret_3d' in df.columns:
+            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
+            # Calculate smoothed 1-day return
+            # Use 3-day return to smooth out 1-day noise
+            valid_smooth = ret_1d.notna() & ret_3d.notna()
+            ret_1d_smooth = ret_1d.copy()
+            
+            # Smooth where both values exist
+            # If 3-day return is 6% and 1-day is 3%, smoothed = weighted average
+            ret_1d_smooth[valid_smooth] = (
+                ret_1d[valid_smooth] * 0.6 + 
+                (ret_3d[valid_smooth] / 3) * 0.4  # Use daily average of 3-day
+            )
+        else:
+            ret_1d_smooth = ret_1d.copy()
         
-        # Get data
-        short_returns = pd.Series(df[short_col].values, index=df.index)
-        long_returns = pd.Series(df[long_col].values, index=df.index)
-        
-        # Valid mask - both must have data
-        valid = short_returns.notna() & long_returns.notna()
-        
-        if not valid.any():
-            logger.warning("No valid data for acceleration calculation")
-            return acceleration_score
-        
-        # Calculate daily rates (velocity)
-        short_velocity = short_returns / short_days  # Daily rate for short period
-        long_velocity = long_returns / long_days    # Daily rate for long period
-        
-        # CORE CALCULATION: Acceleration is the change in velocity
-        # If short-term velocity > long-term velocity = accelerating
-        velocity_diff = short_velocity - long_velocity
-        
-        # Normalize by the longer-term velocity to get relative acceleration
-        # This prevents penny stocks with 1% to 2% change from scoring same as large caps with 10% to 20%
+        # Calculate daily averages with proper NaN handling
         with np.errstate(divide='ignore', invalid='ignore'):
-            relative_acceleration = np.where(
-                np.abs(long_velocity) > 0.1,  # If long-term has meaningful movement
-                velocity_diff / np.abs(long_velocity),  # Relative change
-                velocity_diff * 2  # If long-term is flat, use absolute difference
+            avg_daily_1d = ret_1d_smooth  # Already daily
+            avg_daily_7d = pd.Series(np.nan, index=df.index)
+            avg_daily_30d = pd.Series(np.nan, index=df.index)
+            
+            # Only calculate where data exists
+            valid_7d = ret_7d.notna()
+            avg_daily_7d[valid_7d] = ret_7d[valid_7d] / 7
+            
+            valid_30d = ret_30d.notna()
+            avg_daily_30d[valid_30d] = ret_30d[valid_30d] / 30
+        
+        # Only score where we have sufficient data
+        if all(col in df.columns for col in req_cols):
+            # Need all three timeframes for proper acceleration
+            valid_data = ret_1d_smooth.notna() & avg_daily_7d.notna() & avg_daily_30d.notna()
+            
+            # Perfect acceleration - momentum increasing at all timeframes
+            perfect = valid_data & (
+                (avg_daily_1d > avg_daily_7d * 1.15) &  # 15% faster than weekly
+                (avg_daily_7d > avg_daily_30d * 1.10) &  # 10% faster than monthly
+                (ret_1d_smooth > 1)  # At least 1% daily move
             )
-        
-        # Convert to score using sigmoid-like transformation
-        # This gives smooth scores without arbitrary thresholds
-        # Acceleration of 0 = score 50, +1 = score 75, -1 = score 25
-        acceleration_score[valid] = 50 + np.tanh(relative_acceleration[valid]) * 50
-        
-        # REFINEMENTS for better accuracy
-        
-        # 1. Handle extreme accelerations (likely unsustainable)
-        extreme_positive = valid & (relative_acceleration > 2)
-        if extreme_positive.any():
-            # Cap at 90 for sustainability
-            acceleration_score[extreme_positive] = np.minimum(acceleration_score[extreme_positive], 90)
-            logger.debug(f"Capped {extreme_positive.sum()} extreme positive accelerations")
-        
-        # 2. Momentum consistency bonus
-        if 'ret_7d' in df.columns and 'ret_30d' in df.columns:
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            acceleration_score[perfect] = 95
             
-            # Consistent positive acceleration (all periods positive and increasing)
-            consistent = (
-                valid &
-                (short_returns > 0) & 
-                (ret_7d > 0) & 
-                (ret_30d > 0) &
-                (acceleration_score > 60)
+            # Good acceleration - steady increase
+            good = valid_data & ~perfect & (
+                (avg_daily_1d > avg_daily_7d * 1.05) &  # 5% faster than weekly
+                (avg_daily_7d > avg_daily_30d) &  # Faster than monthly
+                (ret_1d_smooth > 0)
             )
-            if consistent.any():
-                acceleration_score[consistent] *= 1.10  # 10% bonus
-                logger.debug(f"Applied consistency bonus to {consistent.sum()} stocks")
-        
-        # 3. Reversal detection (momentum changing direction)
-        reversal_positive = valid & (long_velocity < -0.5) & (short_velocity > 0.5)  # Negative to positive
-        reversal_negative = valid & (long_velocity > 0.5) & (short_velocity < -0.5)   # Positive to negative
-        
-        if reversal_positive.any():
-            # Positive reversal is good - boost score
-            acceleration_score[reversal_positive] = np.maximum(acceleration_score[reversal_positive], 70)
-            logger.debug(f"Detected {reversal_positive.sum()} positive reversals")
-        
-        if reversal_negative.any():
-            # Negative reversal is bad - reduce score
-            acceleration_score[reversal_negative] = np.minimum(acceleration_score[reversal_negative], 30)
-            logger.debug(f"Detected {reversal_negative.sum()} negative reversals")
-        
-        # 4. Volume confirmation (if available)
-        if 'rvol' in df.columns and acceleration_score.notna().any():
-            rvol = pd.Series(df['rvol'].values, index=df.index)
+            acceleration_score[good] = 80
             
-            # Strong acceleration with volume = more reliable
-            volume_confirm = valid & (acceleration_score > 70) & (rvol > 2)
-            if volume_confirm.any():
-                acceleration_score[volume_confirm] *= 1.05  # 5% bonus
-                logger.debug(f"Applied volume confirmation to {volume_confirm.sum()} stocks")
+            # FIXED: Mild acceleration (not just positive!)
+            mild = valid_data & ~perfect & ~good & (
+                (avg_daily_1d > avg_daily_30d) &  # At least faster than monthly
+                (ret_1d_smooth > 0) &
+                (ret_7d > 0)  # Positive week
+            )
+            acceleration_score[mild] = 65
             
-            # Acceleration without volume = suspicious
-            no_volume = valid & (acceleration_score > 70) & (rvol < 0.5)
-            if no_volume.any():
-                acceleration_score[no_volume] *= 0.90  # 10% penalty
-                logger.debug(f"Applied low volume penalty to {no_volume.sum()} stocks")
+            # Neutral - positive but not accelerating
+            neutral = valid_data & ~perfect & ~good & ~mild & (
+                (ret_1d_smooth > 0) & (ret_7d > 0)
+            )
+            acceleration_score[neutral] = 55
+            
+            # Slight deceleration
+            slight_decel = valid_data & (
+                (ret_1d_smooth <= 0) & (ret_7d > 0)
+            )
+            acceleration_score[slight_decel] = 40
+            
+            # Strong deceleration
+            strong_decel = valid_data & (
+                (ret_1d_smooth < 0) & (ret_7d < 0)
+            )
+            acceleration_score[strong_decel] = 20
+            
+            # Crash - everything negative and getting worse
+            crash = valid_data & (
+                (avg_daily_1d < avg_daily_7d) &
+                (avg_daily_7d < avg_daily_30d) &
+                (ret_30d < -10)
+            )
+            acceleration_score[crash] = 10
         
-        # Final clipping
-        acceleration_score = acceleration_score.clip(0, 100)
-        
-        # LOGGING
-        valid_count = valid.sum()
-        logger.info(f"Acceleration scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            avg_score = acceleration_score[valid].mean()
-            median_score = acceleration_score[valid].median()
-            
-            logger.info(f"Score distribution - Min: {acceleration_score[valid].min():.1f}, "
-                       f"Max: {acceleration_score[valid].max():.1f}, "
-                       f"Mean: {avg_score:.1f}, "
-                       f"Median: {median_score:.1f}")
-            
-            # Distribution analysis
-            accelerating = (acceleration_score > 60).sum()
-            decelerating = (acceleration_score < 40).sum()
-            neutral = ((acceleration_score >= 40) & (acceleration_score <= 60)).sum()
-            
-            logger.debug(f"Distribution - Accelerating: {accelerating}, "
-                        f"Neutral: {neutral}, Decelerating: {decelerating}")
-            
-            # Log which periods were used
-            logger.debug(f"Used {short_col} ({short_days}d) vs {long_col} ({long_days}d) for acceleration")
-        
-        return acceleration_score
+        return acceleration_score.clip(0, 100)
         
     @staticmethod
     def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
