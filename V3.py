@@ -1192,50 +1192,83 @@ class RankingEngine:
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate comprehensive volume score.
-        FIXED: Added distribution detection for extreme RVOL.
+        FIXED: Proper NaN handling, better weights, and realistic penalties.
         """
         volume_score = pd.Series(50, index=df.index, dtype=float)
         
-        # YOUR ORIGINAL VOLUME RATIO WEIGHTS - PERFECT!
+        # FIXED: Better weights - favor recent activity
         vol_cols = [
-            ('vol_ratio_1d_90d', 0.20),
-            ('vol_ratio_7d_90d', 0.20),
-            ('vol_ratio_30d_90d', 0.20),
-            ('vol_ratio_30d_180d', 0.15),
-            ('vol_ratio_90d_180d', 0.25)
+            ('vol_ratio_1d_90d', 0.30),   # Most important - today's surge
+            ('vol_ratio_7d_90d', 0.25),   # Week trend
+            ('vol_ratio_30d_90d', 0.20),  # Month trend
+            ('vol_ratio_30d_180d', 0.15), # Medium-term
+            ('vol_ratio_90d_180d', 0.10)  # Least important - too slow
         ]
         
-        # Calculate weighted score
-        total_weight = 0
-        weighted_score = pd.Series(0, index=df.index, dtype=float)
+        # Track which stocks have complete data
+        has_all_ratios = pd.Series(True, index=df.index)
+        
+        # Calculate weighted score WITHOUT fillna corruption
+        scores_list = []
+        weights_list = []
         
         for col, weight in vol_cols:
-            if col in df.columns and df[col].notna().any():
-                col_data = pd.Series(df[col].values, index=df.index).fillna(1.0)
+            if col in df.columns:
+                col_data = pd.Series(df[col].values, index=df.index)
+                # DON'T fillna! Let NaN stay NaN
+                valid_mask = col_data.notna()
+                has_all_ratios = has_all_ratios & valid_mask
+                
+                # Rank only valid data
                 col_rank = RankingEngine._safe_rank(col_data, pct=True, ascending=True)
-                weighted_score = weighted_score + (col_rank * weight)
-                total_weight += weight
+                scores_list.append(col_rank * weight)
+                weights_list.append(weight)
         
-        if total_weight > 0:
-            volume_score = weighted_score / total_weight
+        if scores_list:
+            # Sum scores where all data exists
+            total_score = pd.Series(0, index=df.index, dtype=float)
+            for score in scores_list:
+                total_score = total_score + score.fillna(0)
             
-            # FIX #3: Distribution detection for extreme volume
-            # RVOL > 10 might be distribution/pump-dump, not accumulation
+            # FIXED: Use constant weight sum, not actual
+            volume_score = total_score  # Already weighted, sum to 100%
+            
+            # ENHANCED: Volume persistence bonus
+            if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
+                vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
+                vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
+                vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
+                
+                # Sustained volume (all timeframes elevated)
+                sustained = (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
+                volume_score.loc[sustained] *= 1.10  # 10% bonus for sustained
+                
+                # One-day spike only (likely unsustainable)
+                spike_only = (vol_1d > 3) & (vol_7d < 1.2)
+                volume_score.loc[spike_only] *= 0.90  # 10% penalty for spikes
+            
+            # FIXED: Realistic RVOL penalties
             if 'rvol' in df.columns:
-                rvol_series = pd.Series(df['rvol'].values, index=df.index).fillna(1.0)
+                rvol_series = pd.Series(df['rvol'].values, index=df.index)
                 
                 # Moderate surge is good (accumulation)
-                surge_mask = (rvol_series > 3) & (rvol_series <= 10)
-                volume_score.loc[surge_mask] = volume_score.loc[surge_mask] * 1.05
+                good_surge = (rvol_series > 2) & (rvol_series <= 5)
+                volume_score.loc[good_surge] *= 1.05
                 
-                # Extreme volume might be distribution - small penalty
-                extreme_distribution = rvol_series > 10
-                volume_score.loc[extreme_distribution] *= 0.85  # 15% penalty
-                pump_dump = rvol_series > 20
-                volume_score.loc[pump_dump] *= 0.70  # 30% penalty for extreme
-
-        else:
-            logger.warning("No volume ratio data available, using neutral scores")
+                # High surge needs investigation
+                high_surge = (rvol_series > 5) & (rvol_series <= 10)
+                volume_score.loc[high_surge] *= 0.95  # Small penalty
+                
+                # Extreme is likely distribution/news
+                extreme = (rvol_series > 10) & (rvol_series <= 20)
+                volume_score.loc[extreme] *= 0.70  # 30% penalty
+                
+                # Insane volume = stay away
+                insane = rvol_series > 20
+                volume_score.loc[insane] *= 0.50  # 50% penalty
+            
+            # Penalize stocks with incomplete data
+            volume_score.loc[~has_all_ratios] *= 0.95
         
         return volume_score.clip(0, 100)
 
