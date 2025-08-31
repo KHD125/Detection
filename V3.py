@@ -3830,8 +3830,8 @@ class FilterEngine:
         if 'sectors' in filters:
             masks.append(create_mask_from_isin('sector', filters['sectors']))
         if 'industries' in filters:
-            masks.append(create_mask_from_isin('industry', filters['industries']))
-                if mask is not None:
+            mask = create_mask_from_isin('industry', filters['industries'])
+            if mask is not None:
                 masks.append(mask)
         
         # 2. Score filter
