@@ -1977,57 +1977,113 @@ class RankingEngine:
     @staticmethod
     def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Apply intelligent score bonuses for perfect setups.
-        YOUR EXISTING BONUS LOGIC FROM V2.PY - KEEP AS IS!
+        Apply intelligent bonuses to master scores.
+        FIXED: Proper NaN handling, no over-stacking, and logical conditions.
         """
-        # Perfect setup bonus (5% boost)
+        if 'master_score' not in df.columns:
+            return df
+        
+        # Track which bonuses are applied to prevent over-stacking
+        bonus_applied = pd.Series(False, index=df.index)
+        
+        # 1. PERFECT SETUP BONUS (5% boost) - Most comprehensive
         if all(col in df.columns for col in ['momentum_harmony', 'rvol', 'wave_state']):
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index).fillna(0)
-            rvol = pd.Series(df['rvol'].values, index=df.index).fillna(1)
-            wave_state = pd.Series(df['wave_state'].values, index=df.index).fillna('')
+            # Don't fillna - only bonus where ALL conditions are met
+            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
+            rvol = pd.Series(df['rvol'].values, index=df.index)
+            wave_state = pd.Series(df['wave_state'].values, index=df.index)
             
+            # Check for multiple strong wave states
             perfect_setup = (
+                momentum_harmony.notna() & 
+                rvol.notna() & 
+                wave_state.notna() &
                 (momentum_harmony >= 3) & 
                 (rvol > 3) & 
-                (wave_state.str.contains('CRESTING', na=False))
+                (wave_state.str.contains('CRESTING|TSUNAMI', na=False, case=False))  # Include TSUNAMI
             )
             
             if perfect_setup.any():
-                current_scores = df.loc[perfect_setup, 'master_score']
-                df.loc[perfect_setup, 'master_score'] = (current_scores * 1.05).clip(0, 100)
+                df.loc[perfect_setup, 'master_score'] *= 1.05
+                bonus_applied |= perfect_setup
                 logger.info(f"Applied perfect setup bonus to {perfect_setup.sum()} stocks")
         
-        # Pattern bonus (3% boost for PERFECT STORM)
-        if 'patterns' in df.columns:
-            patterns = pd.Series(df['patterns'].values, index=df.index).fillna('')
-            has_perfect_storm = patterns.str.contains('PERFECT STORM', na=False)
-            
-            if has_perfect_storm.any():
-                current_scores = df.loc[has_perfect_storm, 'master_score']
-                df.loc[has_perfect_storm, 'master_score'] = (current_scores * 1.03).clip(0, 100)
-                logger.info(f"Applied pattern bonus to {has_perfect_storm.sum()} stocks")
-        
-        # Extreme opportunity bonus (7% boost) - if you have this pattern
+        # 2. EXTREME OPPORTUNITY BONUS (5% boost) - Only if not perfect setup
         if all(col in df.columns for col in ['master_score', 'rvol', 'momentum_harmony', 'from_high_pct']):
-            master_score = pd.Series(df['master_score'].values, index=df.index).fillna(0)
-            rvol = pd.Series(df['rvol'].values, index=df.index).fillna(1)
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index).fillna(0)
-            from_high_pct = pd.Series(df['from_high_pct'].values, index=df.index).fillna(-100)
+            master_score = pd.Series(df['master_score'].values, index=df.index)
+            rvol = pd.Series(df['rvol'].values, index=df.index)
+            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
+            from_high_pct = pd.Series(df['from_high_pct'].values, index=df.index)
             
+            # Only check stocks that haven't received perfect setup bonus
             extreme_opp = (
+                ~bonus_applied &  # Haven't got bonus yet
+                master_score.notna() &
+                rvol.notna() &
+                momentum_harmony.notna() &
+                from_high_pct.notna() &
                 (master_score > 85) &
-                (rvol > 3) &
+                (rvol > 2.5) &  # Slightly lower threshold
                 (momentum_harmony >= 3) &
-                (from_high_pct > -10)
+                (from_high_pct > -10) & (from_high_pct <= 0)  # Properly bounded
             )
             
             if extreme_opp.any():
-                current_scores = df.loc[extreme_opp, 'master_score']
-                df.loc[extreme_opp, 'master_score'] = (current_scores * 1.07).clip(0, 100)
+                df.loc[extreme_opp, 'master_score'] *= 1.05  # Reduced from 1.07
+                bonus_applied |= extreme_opp
                 logger.info(f"Applied extreme opportunity bonus to {extreme_opp.sum()} stocks")
         
-        # Ensure final scores are capped
+        # 3. PATTERN BONUS (3% boost) - Only for specific rare patterns
+        if 'patterns' in df.columns:
+            patterns = pd.Series(df['patterns'].values, index=df.index)
+            
+            # Only for truly exceptional patterns (not PERFECT STORM which overlaps)
+            exceptional_patterns = [
+                'INSTITUTIONAL TSUNAMI',
+                'ENTROPY COMPRESSION',
+                'PHOENIX RISING',
+                'INFORMATION DECAY ARBITRAGE'
+            ]
+            
+            pattern_regex = '|'.join(exceptional_patterns)
+            has_exceptional = patterns.str.contains(pattern_regex, na=False, case=False)
+            
+            # Only apply if hasn't received other bonuses
+            pattern_bonus_mask = has_exceptional & ~bonus_applied
+            
+            if pattern_bonus_mask.any():
+                df.loc[pattern_bonus_mask, 'master_score'] *= 1.03
+                logger.info(f"Applied pattern bonus to {pattern_bonus_mask.sum()} stocks")
+        
+        # 4. MOMENTUM PERSISTENCE BONUS (2% boost) - New, non-overlapping
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'ret_3m']):
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            ret_3m = pd.Series(df['ret_3m'].values, index=df.index)
+            
+            # Consistent positive momentum across timeframes
+            persistent_momentum = (
+                ret_7d.notna() & 
+                ret_30d.notna() & 
+                ret_3m.notna() &
+                (ret_7d > 5) & 
+                (ret_30d > 15) & 
+                (ret_3m > 30) &
+                ~bonus_applied  # No other bonus
+            )
+            
+            if persistent_momentum.any():
+                df.loc[persistent_momentum, 'master_score'] *= 1.02
+                logger.info(f"Applied momentum persistence bonus to {persistent_momentum.sum()} stocks")
+        
+        # Ensure final scores are capped at 100
         df['master_score'] = df['master_score'].clip(0, 100)
+        
+        # Log statistics
+        total_bonuses = bonus_applied.sum()
+        if total_bonuses > 0:
+            avg_boosted_score = df.loc[bonus_applied, 'master_score'].mean()
+            logger.info(f"Total {total_bonuses} stocks received bonuses, avg score: {avg_boosted_score:.1f}")
         
         return df
 
