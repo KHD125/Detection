@@ -1663,99 +1663,173 @@ class RankingEngine:
     def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
         """
         Calculate trend quality based on SMA alignment.
-        YOUR ORIGINAL LOGIC - UNCHANGED!
+        IMPLEMENTATION: This method was missing entirely!
+        
+        Perfect trend: Price > SMA20 > SMA50 > SMA200 (score = 100)
+        Worst trend: Price < SMA20 < SMA50 < SMA200 (score = 0)
         """
         trend_quality = pd.Series(50, index=df.index, dtype=float)
         
-        if 'price' not in df.columns:
+        # Check if we have the necessary columns
+        required_cols = ['price', 'sma_20d', 'sma_50d', 'sma_200d']
+        available_cols = [col for col in required_cols if col in df.columns]
+        
+        if len(available_cols) < 2:
+            logger.warning("Insufficient SMA data for trend quality calculation")
             return trend_quality
         
-        current_price = pd.Series(df['price'].values, index=df.index)
-        sma_cols = ['sma_20d', 'sma_50d', 'sma_200d']
-        available_smas = [col for col in sma_cols if col in df.columns]
+        # Get price and SMA data
+        price = pd.Series(df['price'].values, index=df.index) if 'price' in df.columns else pd.Series(np.nan, index=df.index)
+        sma_20 = pd.Series(df['sma_20d'].values, index=df.index) if 'sma_20d' in df.columns else pd.Series(np.nan, index=df.index)
+        sma_50 = pd.Series(df['sma_50d'].values, index=df.index) if 'sma_50d' in df.columns else pd.Series(np.nan, index=df.index)
+        sma_200 = pd.Series(df['sma_200d'].values, index=df.index) if 'sma_200d' in df.columns else pd.Series(np.nan, index=df.index)
         
-        if not available_smas:
-            return trend_quality
+        # Calculate alignment score (0-100)
+        # Each correct alignment gets points
+        alignment_score = pd.Series(0, index=df.index, dtype=float)
+        valid_count = pd.Series(0, index=df.index, dtype=int)
         
-        # Reset to 0 to build up
-        trend_quality = pd.Series(0, index=df.index, dtype=float)
+        # Price > SMA20 (25 points)
+        if 'price' in df.columns and 'sma_20d' in df.columns:
+            valid_mask = price.notna() & sma_20.notna() & (sma_20 > 0)
+            alignment_score[valid_mask & (price > sma_20)] += 25
+            valid_count[valid_mask] += 1
         
-        # Check alignment
-        for sma_col in available_smas:
-            sma_values = pd.Series(df[sma_col].values, index=df.index)
-            above_sma = current_price > sma_values
-            trend_quality.loc[above_sma] += 100 / len(available_smas)
+        # Price > SMA50 (20 points)
+        if 'price' in df.columns and 'sma_50d' in df.columns:
+            valid_mask = price.notna() & sma_50.notna() & (sma_50 > 0)
+            alignment_score[valid_mask & (price > sma_50)] += 20
+            valid_count[valid_mask] += 1
         
-        # Check SMA ordering (golden alignment)
-        if len(available_smas) >= 2:
-            if 'sma_20d' in df.columns and 'sma_50d' in df.columns:
-                sma_20 = pd.Series(df['sma_20d'].values, index=df.index)
-                sma_50 = pd.Series(df['sma_50d'].values, index=df.index)
-                golden = sma_20 > sma_50
-                trend_quality.loc[golden] += 10
+        # Price > SMA200 (20 points)
+        if 'price' in df.columns and 'sma_200d' in df.columns:
+            valid_mask = price.notna() & sma_200.notna() & (sma_200 > 0)
+            alignment_score[valid_mask & (price > sma_200)] += 20
+            valid_count[valid_mask] += 1
+        
+        # SMA20 > SMA50 (15 points)
+        if 'sma_20d' in df.columns and 'sma_50d' in df.columns:
+            valid_mask = sma_20.notna() & sma_50.notna() & (sma_50 > 0)
+            alignment_score[valid_mask & (sma_20 > sma_50)] += 15
+            valid_count[valid_mask] += 1
+        
+        # SMA50 > SMA200 (10 points)
+        if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
+            valid_mask = sma_50.notna() & sma_200.notna() & (sma_200 > 0)
+            alignment_score[valid_mask & (sma_50 > sma_200)] += 10
+            valid_count[valid_mask] += 1
+        
+        # SMA20 > SMA200 (10 points) - Additional confirmation
+        if 'sma_20d' in df.columns and 'sma_200d' in df.columns:
+            valid_mask = sma_20.notna() & sma_200.notna() & (sma_200 > 0)
+            alignment_score[valid_mask & (sma_20 > sma_200)] += 10
+            valid_count[valid_mask] += 1
+        
+        # Only calculate where we have at least 2 valid comparisons
+        has_data = valid_count >= 2
+        trend_quality[has_data] = alignment_score[has_data]
+        
+        # Special patterns detection
+        if all(col in df.columns for col in required_cols):
+            all_valid = price.notna() & sma_20.notna() & sma_50.notna() & sma_200.notna()
             
-            if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-                sma_50 = pd.Series(df['sma_50d'].values, index=df.index)
-                sma_200 = pd.Series(df['sma_200d'].values, index=df.index)
-                super_golden = sma_50 > sma_200
-                trend_quality.loc[super_golden] += 10
+            # Perfect bullish alignment: Price > SMA20 > SMA50 > SMA200
+            perfect_bullish = all_valid & (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
+            trend_quality[perfect_bullish] = 100
+            
+            # Perfect bearish alignment: Price < SMA20 < SMA50 < SMA200
+            perfect_bearish = all_valid & (price < sma_20) & (sma_20 < sma_50) & (sma_50 < sma_200)
+            trend_quality[perfect_bearish] = 0
+            
+            # Golden cross pattern: SMA50 recently crossed above SMA200
+            golden_cross = all_valid & (sma_50 > sma_200) & ((sma_50 - sma_200) / sma_200 < 0.02)  # Within 2%
+            trend_quality[golden_cross] = np.maximum(trend_quality[golden_cross], 85)
+            
+            # Death cross pattern: SMA50 recently crossed below SMA200
+            death_cross = all_valid & (sma_50 < sma_200) & ((sma_200 - sma_50) / sma_200 < 0.02)  # Within 2%
+            trend_quality[death_cross] = np.minimum(trend_quality[death_cross], 15)
         
         return trend_quality.clip(0, 100)
-
+    
     @staticmethod
     def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate long-term strength score.
-        YOUR ORIGINAL LOGIC - UNCHANGED!
+        Calculate long-term strength based on multi-period returns.
+        IMPLEMENTATION: This method was also missing!
         """
-        strength_score = pd.Series(50, index=df.index, dtype=float)
+        long_term_strength = pd.Series(50, index=df.index, dtype=float)
         
-        long_term_cols = ['ret_3m', 'ret_6m', 'ret_1y']
-        available_cols = [col for col in long_term_cols if col in df.columns]
+        # Weight different time periods
+        weights = {
+            'ret_3m': 0.20,
+            'ret_6m': 0.25,
+            'ret_1y': 0.30,
+            'ret_3y': 0.15,
+            'ret_5y': 0.10
+        }
         
-        if not available_cols:
-            return strength_score
+        total_weight = 0
+        weighted_score = pd.Series(0, index=df.index, dtype=float)
         
-        # Average available long-term returns
-        returns_sum = pd.Series(0, index=df.index, dtype=float)
-        for col in available_cols:
-            col_data = pd.Series(df[col].values, index=df.index).fillna(0)
-            returns_sum = returns_sum + col_data
+        for col, weight in weights.items():
+            if col in df.columns:
+                ret_data = pd.Series(df[col].values, index=df.index)
+                valid_mask = ret_data.notna()
+                
+                # Convert returns to scores (0-100)
+                # Assuming -50% = 0 score, 0% = 50 score, +100% = 100 score
+                score = pd.Series(50, index=df.index)
+                score[valid_mask] = 50 + np.clip(ret_data[valid_mask] / 2, -50, 50)
+                
+                weighted_score += score * weight
+                total_weight += weight
         
-        avg_return = returns_sum / len(available_cols)
+        if total_weight > 0:
+            long_term_strength = weighted_score / total_weight
         
-        # Score based on performance tiers
-        strength_score.loc[avg_return > 100] = 95
-        strength_score.loc[(avg_return > 50) & (avg_return <= 100)] = 85
-        strength_score.loc[(avg_return > 25) & (avg_return <= 50)] = 70
-        strength_score.loc[(avg_return > 10) & (avg_return <= 25)] = 60
-        strength_score.loc[(avg_return > 0) & (avg_return <= 10)] = 50
-        strength_score.loc[(avg_return > -10) & (avg_return <= 0)] = 40
-        strength_score.loc[(avg_return > -25) & (avg_return <= -10)] = 30
-        strength_score.loc[avg_return <= -25] = 20
-        
-        return strength_score.clip(0, 100)
-
+        return long_term_strength.clip(0, 100)
+    
     @staticmethod
     def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate liquidity score based on trading volume.
-        YOUR ORIGINAL LOGIC - UNCHANGED!
+        Calculate liquidity score based on volume metrics.
+        IMPLEMENTATION: This method was also missing!
         """
         liquidity_score = pd.Series(50, index=df.index, dtype=float)
         
-        if 'volume_30d' in df.columns and 'price' in df.columns:
-            volume_30d = pd.Series(df['volume_30d'].values, index=df.index).fillna(0)
-            price = pd.Series(df['price'].values, index=df.index).fillna(0)
+        # Use average volumes and money flow
+        if 'volume_90d' in df.columns:
+            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
+            valid_mask = vol_90d.notna() & (vol_90d > 0)
             
-            # Calculate dollar volume
-            dollar_volume = volume_30d * price
+            # Rank by volume (higher volume = better liquidity)
+            liquidity_score[valid_mask] = RankingEngine._safe_rank(
+                vol_90d[valid_mask], 
+                pct=True, 
+                ascending=True
+            )
+        
+        # Bonus for consistent volume (low volatility in volume)
+        if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']):
+            vol_1d = pd.Series(df['volume_1d'].values, index=df.index)
+            vol_7d = pd.Series(df['volume_7d'].values, index=df.index)
+            vol_30d = pd.Series(df['volume_30d'].values, index=df.index)
+            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
             
-            # Rank based on dollar volume
-            liquidity_score = RankingEngine._safe_rank(dollar_volume, pct=True, ascending=True)
+            # Calculate coefficient of variation (lower = more consistent)
+            valid_all = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & vol_90d.notna()
+            
+            # Consistent volume (all within 50% of 90d average)
+            consistent = valid_all & (
+                (vol_1d / vol_90d).between(0.5, 1.5) &
+                (vol_7d / vol_90d).between(0.7, 1.3) &
+                (vol_30d / vol_90d).between(0.8, 1.2)
+            )
+            
+            liquidity_score[consistent] *= 1.1  # 10% bonus for consistency
         
         return liquidity_score.clip(0, 100)
-
+        
     @staticmethod
     def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
         """
