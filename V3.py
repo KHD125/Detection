@@ -1327,74 +1327,74 @@ class RankingEngine:
         # Calculate final score
         has_data = weight_sum > 0
         volume_score[has_data] = weighted_sum[has_data] / weight_sum[has_data]
-        
+
         # ENHANCED: Volume persistence analysis (only for complete data)
-            if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
-                vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-                vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-                vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
-                
-                # All three must have data for persistence check
-                persistence_valid = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & volume_score.notna()
-                
-                # Sustained volume (all timeframes elevated) - BULLISH
-                sustained = persistence_valid & (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
-                if sustained.any():
-                    volume_score.loc[sustained] *= 1.10  # 10% bonus
-                    logger.debug(f"Applied sustained volume bonus to {sustained.sum()} stocks")
-                
-                # One-day spike only (likely unsustainable) - BEARISH
-                spike_only = persistence_valid & (vol_1d > 3) & (vol_7d < 1.2)
-                if spike_only.any():
-                    volume_score.loc[spike_only] *= 0.90  # 10% penalty
-                    logger.debug(f"Applied spike-only penalty to {spike_only.sum()} stocks")
+        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
+            vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
+            vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
+            vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
             
-            # FIXED: Distribution detection for extreme volume
-            if 'rvol' in df.columns:
-                rvol_series = pd.Series(df['rvol'].values, index=df.index)
-                rvol_valid = rvol_series.notna() & volume_score.notna()
-                
-                # Moderate surge is good (2-5x = accumulation)
-                good_surge = rvol_valid & (rvol_series > 2) & (rvol_series <= 5)
-                if good_surge.any():
-                    volume_score.loc[good_surge] *= 1.05  # 5% bonus
-                    logger.debug(f"Applied accumulation bonus to {good_surge.sum()} stocks")
-                
-                # High surge needs caution (5-10x)
-                high_surge = rvol_valid & (rvol_series > 5) & (rvol_series <= 10)
-                if high_surge.any():
-                    volume_score.loc[high_surge] *= 0.95  # 5% penalty
-                    logger.debug(f"Applied high volume caution to {high_surge.sum()} stocks")
-                
-                # Extreme volume = distribution/pump (10-20x)
-                extreme = rvol_valid & (rvol_series > 10) & (rvol_series <= 20)
-                if extreme.any():
-                    volume_score.loc[extreme] *= 0.85  # 15% penalty (FIXED from 0.70)
-                    logger.debug(f"Applied distribution penalty to {extreme.sum()} stocks")
-                
-                # Insane volume = stay away (>20x)
-                insane = rvol_valid & (rvol_series > 20)
-                if insane.any():
-                    volume_score.loc[insane] *= 0.70  # 30% penalty (FIXED from 0.50)
-                    logger.debug(f"Applied extreme distribution penalty to {insane.sum()} stocks")
+            # All three must have data for persistence check
+            persistence_valid = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & volume_score.notna()
             
-            # Data completeness penalty (only for incomplete data)
-            incomplete = has_any_data & ~has_complete_data
-            if incomplete.any():
-                volume_score.loc[incomplete] *= 0.95  # 5% penalty for missing some ratios
-                logger.debug(f"Applied incomplete data penalty to {incomplete.sum()} stocks")
+            # Sustained volume (all timeframes elevated) - BULLISH
+            sustained = persistence_valid & (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
+            if sustained.any():
+                volume_score.loc[sustained] *= 1.10  # 10% bonus
+                logger.debug(f"Applied sustained volume bonus to {sustained.sum()} stocks")
+            
+            # One-day spike only (likely unsustainable) - BEARISH
+            spike_only = persistence_valid & (vol_1d > 3) & (vol_7d < 1.2)
+            if spike_only.any():
+                volume_score.loc[spike_only] *= 0.90  # 10% penalty
+                logger.debug(f"Applied spike-only penalty to {spike_only.sum()} stocks")
         
-        # Ensure scores stay within bounds
-        volume_score = volume_score.clip(0, 100)
+        # FIXED: Distribution detection for extreme volume
+        if 'rvol' in df.columns:
+            rvol_series = pd.Series(df['rvol'].values, index=df.index)
+            rvol_valid = rvol_series.notna() & volume_score.notna()
+            
+            # Moderate surge is good (2-5x = accumulation)
+            good_surge = rvol_valid & (rvol_series > 2) & (rvol_series <= 5)
+            if good_surge.any():
+                volume_score.loc[good_surge] *= 1.05  # 5% bonus
+                logger.debug(f"Applied accumulation bonus to {good_surge.sum()} stocks")
+            
+            # High surge needs caution (5-10x)
+            high_surge = rvol_valid & (rvol_series > 5) & (rvol_series <= 10)
+            if high_surge.any():
+                volume_score.loc[high_surge] *= 0.95  # 5% penalty
+                logger.debug(f"Applied high volume caution to {high_surge.sum()} stocks")
+            
+            # Extreme volume = distribution/pump (10-20x)
+            extreme = rvol_valid & (rvol_series > 10) & (rvol_series <= 20)
+            if extreme.any():
+                volume_score.loc[extreme] *= 0.85  # 15% penalty (FIXED from 0.70)
+                logger.debug(f"Applied distribution penalty to {extreme.sum()} stocks")
+            
+            # Insane volume = stay away (>20x)
+            insane = rvol_valid & (rvol_series > 20)
+            if insane.any():
+                volume_score.loc[insane] *= 0.70  # 30% penalty (FIXED from 0.50)
+                logger.debug(f"Applied extreme distribution penalty to {insane.sum()} stocks")
         
-        # Log statistics
-        valid_count = volume_score.notna().sum()
-        logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            avg_score = volume_score[volume_score.notna()].mean()
-            logger.debug(f"Average volume score: {avg_score:.1f}")
-        
+        # Data completeness penalty (only for incomplete data)
+        incomplete = has_any_data & ~has_complete_data
+        if incomplete.any():
+            volume_score.loc[incomplete] *= 0.95  # 5% penalty for missing some ratios
+            logger.debug(f"Applied incomplete data penalty to {incomplete.sum()} stocks")
+    
+    # Ensure scores stay within bounds
+    volume_score = volume_score.clip(0, 100)
+    
+    # Log statistics
+    valid_count = volume_score.notna().sum()
+    logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
+    
+    if valid_count > 0:
+        avg_score = volume_score[volume_score.notna()].mean()
+        logger.debug(f"Average volume score: {avg_score:.1f}")
+    
         return volume_score.clip(0, 100)
 
     @staticmethod
