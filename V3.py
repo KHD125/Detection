@@ -3831,8 +3831,8 @@ class FilterEngine:
             masks.append(create_mask_from_isin('sector', filters['sectors']))
         if 'industries' in filters:
             masks.append(create_mask_from_isin('industry', filters['industries']))
-            if mask is not None:
-            masks.append(mask)
+                if mask is not None:
+                masks.append(mask)
         
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
