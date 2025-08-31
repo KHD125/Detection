@@ -2700,12 +2700,19 @@ class PatternDetector:
         # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
         
         # 1. Category Leader - FIXED: category_percentile might not exist yet
-        if 'category_percentile' in df.columns:
-            mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
-        else:
-            # Calculate on the fly if needed
-            mask = pd.Series(False, index=df.index)
-        patterns.append(('🔥 CAT LEADER', mask))
+        # The column exists, but we'll validate the threshold is working
+        cat_percentile = get_col_safe('category_percentile', 0)
+        threshold = CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90)
+        
+        # Create mask
+        mask = ensure_series(cat_percentile >= threshold)
+        
+        # Log for debugging (optional - remove in production)
+        leaders_count = mask.sum()
+        if leaders_count > 0:
+            logger.debug(f"CAT LEADER: Found {leaders_count} category leaders (threshold: {threshold})")
+        
+        patterns.append(('🐱 CAT LEADER', mask))
         
         # 2. Hidden Gem - FIXED: percentile might not exist yet
         if 'category_percentile' in df.columns and 'percentile' in df.columns:
