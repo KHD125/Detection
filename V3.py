@@ -1172,52 +1172,87 @@ class RankingEngine:
         """
         Calculate position score based on 52-week range positioning.
         FIXED: Proper handling of missing data and correct ranking logic.
-        """
-        position_score = pd.Series(50, index=df.index, dtype=float)
         
+        Position Score Logic:
+        - 60% weight: Distance from 52w low (higher is better)
+        - 40% weight: Distance from 52w high (closer to 0 is better)
+        - Sweet spot bonus: 40-70% from low (+10%)
+        - Overextended penalty: >85% from low (-10%)
+        - Near high bonus: Within 5% of 52w high (+5%)
+        - Near low penalty: Within 10% of 52w low (-5%)
+        """
+        position_score = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        # Check if we have the required columns
         if 'from_low_pct' not in df.columns or 'from_high_pct' not in df.columns:
-            logger.warning("Missing position data, using neutral scores")
+            logger.warning("Missing position data (from_low_pct/from_high_pct), returning NaN scores")
             return position_score
         
         # Get raw data WITHOUT fillna - preserve NaN
-        from_low_raw = pd.Series(df['from_low_pct'].values, index=df.index)
-        from_high_raw = pd.Series(df['from_high_pct'].values, index=df.index)
+        from_low = pd.Series(df['from_low_pct'].values, index=df.index)
+        from_high = pd.Series(df['from_high_pct'].values, index=df.index)
         
-        # For ranking, we need to handle NaN properly
-        # Higher from_low is better (further from bottom)
-        # from_high closer to 0 is better (closer to peak)
+        # Only calculate for stocks with BOTH values
+        valid_mask = from_low.notna() & from_high.notna()
         
-        # FIXED: Proper ranking without corrupting with fillna
-        rank_from_low = RankingEngine._safe_rank(from_low_raw, pct=True, ascending=True)
-        # For from_high: closer to 0 is better, so rank the absolute value descending
-        rank_from_high = RankingEngine._safe_rank(from_high_raw.abs(), pct=True, ascending=False)
+        if not valid_mask.any():
+            logger.warning("No valid position data available")
+            return position_score
         
-        # Combine with weights (60% from_low, 40% from_high)
-        # Only calculate where BOTH values exist
-        valid_mask = from_low_raw.notna() & from_high_raw.notna()
+        # FIXED: Proper ranking logic
+        # For from_low: Higher is better (90% from low > 20% from low)
+        rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
         
+        # For from_high: Closer to 0 is better
+        # from_high is negative, so -1% (close to high) is better than -50% (far from high)
+        # We want to rank the absolute distance, smaller distance = better
+        from_high_abs = from_high.abs()  # Convert to positive distance
+        rank_from_high = RankingEngine._safe_rank(from_high_abs, pct=True, ascending=False)
+        
+        # Calculate base position score (only where both values exist)
         position_score[valid_mask] = (
             rank_from_low[valid_mask] * 0.6 + 
             rank_from_high[valid_mask] * 0.4
         )
         
-        # FIXED: Sweet spot detection on RAW data, not filled
-        sweet_spot_mask = valid_mask & (from_low_raw >= 40) & (from_low_raw <= 70)
-        position_score.loc[sweet_spot_mask] *= 1.1
+        # Apply modifiers based on raw values (not ranks)
         
-        # FIXED: Overextended penalty on RAW data
-        overextended_mask = valid_mask & (from_low_raw > 85)
-        position_score.loc[overextended_mask] *= 0.9
+        # 1. Sweet spot bonus: 40-70% from low is ideal range
+        sweet_spot = valid_mask & (from_low >= 40) & (from_low <= 70)
+        if sweet_spot.any():
+            position_score.loc[sweet_spot] *= 1.10
+            logger.debug(f"Applied sweet spot bonus to {sweet_spot.sum()} stocks")
         
-        # NEW: Near 52w high bonus (bullish position)
-        near_high_mask = valid_mask & (from_high_raw > -5)  # Within 5% of 52w high
-        position_score.loc[near_high_mask] *= 1.05
+        # 2. Overextended penalty: >85% from low might reverse
+        overextended = valid_mask & (from_low > 85)
+        if overextended.any():
+            position_score.loc[overextended] *= 0.90
+            logger.debug(f"Applied overextended penalty to {overextended.sum()} stocks")
         
-        # NEW: Near 52w low penalty (bearish position)
-        near_low_mask = valid_mask & (from_low_raw < 10)  # Within 10% of 52w low
-        position_score.loc[near_low_mask] *= 0.95
+        # 3. Near 52w high bonus: Within 5% of high is bullish
+        near_high = valid_mask & (from_high > -5)  # from_high is negative
+        if near_high.any():
+            position_score.loc[near_high] *= 1.05
+            logger.debug(f"Applied near-high bonus to {near_high.sum()} stocks")
         
-        return position_score.clip(0, 100)
+        # 4. Near 52w low penalty: Within 10% of low is bearish
+        near_low = valid_mask & (from_low < 10)
+        if near_low.any():
+            position_score.loc[near_low] *= 0.95
+            logger.debug(f"Applied near-low penalty to {near_low.sum()} stocks")
+        
+        # Ensure scores stay within bounds
+        position_score = position_score.clip(0, 100)
+        
+        # Log statistics
+        valid_count = valid_mask.sum()
+        logger.info(f"Position scores calculated: {valid_count} valid out of {len(df)} stocks")
+        
+        if valid_count > 0:
+            avg_score = position_score[valid_mask].mean()
+            logger.debug(f"Average position score: {avg_score:.1f}")
+        
+        return position_score
 
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
