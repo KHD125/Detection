@@ -1390,80 +1390,123 @@ class RankingEngine:
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate momentum score based on returns.
-        FIXED: Proper handling of missing data and decay calculation.
+        FIXED: Proper handling of missing data and correct decay calculation.
+        
+        Momentum Score Logic:
+        - Primary: 30-day returns (ranked percentile)
+        - Fallback: 7-day returns if 30d unavailable
+        - Consistency bonus: +5 if both 7d & 30d positive
+        - Acceleration bonus: +10 if 7d pace > 30d pace * 1.2
+        - Decay penalty: -10% if momentum is slowing progressively
         """
-        momentum_score = pd.Series(50, index=df.index, dtype=float)
+        momentum_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Check if we have the primary data
-        if 'ret_30d' not in df.columns or df['ret_30d'].notna().sum() == 0:
-            # Fallback to 7-day returns
-            if 'ret_7d' in df.columns and df['ret_7d'].notna().any():
-                ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-                # FIXED: Don't fillna(0) before ranking - let NaN stay NaN
-                momentum_score = RankingEngine._safe_rank(ret_7d, pct=True, ascending=True)
-                logger.info("Using 7-day returns for momentum score")
-            else:
-                logger.warning("No return data available for momentum calculation")
-            return momentum_score.clip(0, 100)
+        # Check if we have any return data
+        has_30d = 'ret_30d' in df.columns and df['ret_30d'].notna().any()
+        has_7d = 'ret_7d' in df.columns and df['ret_7d'].notna().any()
         
-        # Primary: 30-day returns
-        # FIXED: Don't fillna(0) - this corrupts ranking!
-        ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-        momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
+        if not has_30d and not has_7d:
+            logger.warning("No return data available for momentum calculation")
+            return momentum_score
         
-        # Add consistency bonus
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
+        # Primary: Use 30-day returns
+        if has_30d:
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            # DON'T fillna(0) - this corrupts ranking!
+            momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
+            logger.info(f"Using 30-day returns for momentum score ({ret_30d.notna().sum()} valid)")
+        
+        # Fallback: Use 7-day returns for stocks missing 30d data
+        if has_7d:
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d_series = pd.Series(df['ret_30d'].values, index=df.index)
             
-            consistency_bonus = pd.Series(0, index=df.index, dtype=float)
-            
-            # Both positive (only check non-NaN values)
-            valid_mask = ret_7d.notna() & ret_30d_series.notna()
-            all_positive = valid_mask & (ret_7d > 0) & (ret_30d_series > 0)
-            consistency_bonus.loc[all_positive] = 5
-            
-            # Accelerating returns with better threshold
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_ret_7d = ret_7d / 7
-                daily_ret_30d = ret_30d_series / 30
-            
-            # IMPROVED: More nuanced acceleration detection
-            strong_accel = all_positive & (daily_ret_7d > daily_ret_30d * 1.2)  # 20% faster
-            moderate_accel = all_positive & (daily_ret_7d > daily_ret_30d * 1.1) & ~strong_accel  # 10% faster
-            
-            consistency_bonus.loc[strong_accel] = 10
-            consistency_bonus.loc[moderate_accel] = 7
-            
-            # Only add bonus where we have valid momentum scores
-            valid_momentum = momentum_score.notna()
-            momentum_score.loc[valid_momentum] = (momentum_score.loc[valid_momentum] + consistency_bonus.loc[valid_momentum]).clip(0, 100)
+            if has_30d:
+                # Fill gaps in 30d with 7d scores
+                needs_fallback = momentum_score.isna() & ret_7d.notna()
+                if needs_fallback.any():
+                    fallback_scores = RankingEngine._safe_rank(ret_7d[needs_fallback], pct=True, ascending=True)
+                    momentum_score[needs_fallback] = fallback_scores
+                    logger.info(f"Used 7-day fallback for {needs_fallback.sum()} stocks")
+            else:
+                # Use 7d as primary if no 30d data
+                momentum_score = RankingEngine._safe_rank(ret_7d, pct=True, ascending=True)
+                logger.info("Using 7-day returns as primary momentum score")
         
-        # FIXED: Decay penalty with correct logic
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']):
+        # Add consistency and acceleration bonuses (only where we have complete data)
+        if has_30d and has_7d and momentum_score.notna().any():
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            
+            # Only apply bonuses where we have both values AND a momentum score
+            complete_data = ret_30d.notna() & ret_7d.notna() & momentum_score.notna()
+            
+            if complete_data.any():
+                # Consistency bonus: Both positive
+                all_positive = complete_data & (ret_7d > 0) & (ret_30d > 0)
+                if all_positive.any():
+                    momentum_score.loc[all_positive] += 5
+                    logger.debug(f"Applied consistency bonus to {all_positive.sum()} stocks")
+                
+                # Acceleration bonus: 7d pace faster than 30d pace
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Calculate daily paces
+                    daily_7d = ret_7d / 7
+                    daily_30d = ret_30d / 30
+                    
+                    # Strong acceleration (20% faster)
+                    strong_accel = complete_data & all_positive & (daily_7d > daily_30d * 1.2)
+                    if strong_accel.any():
+                        momentum_score.loc[strong_accel] += 10
+                        logger.debug(f"Applied strong acceleration bonus to {strong_accel.sum()} stocks")
+                    
+                    # Moderate acceleration (10% faster, but not 20%)
+                    moderate_accel = complete_data & all_positive & (daily_7d > daily_30d * 1.1) & ~strong_accel
+                    if moderate_accel.any():
+                        momentum_score.loc[moderate_accel] += 7
+                        logger.debug(f"Applied moderate acceleration bonus to {moderate_accel.sum()} stocks")
+        
+        # FIXED: Decay penalty with correct math
+        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']) and momentum_score.notna().any():
             ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
             ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
             
-            # Calculate daily paces
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_pace_1d = ret_1d  # Already daily
-                daily_pace_3d = ret_3d / 3
-                daily_pace_7d = ret_7d / 7
+            # Only check decay where all data exists AND we have a momentum score
+            decay_valid = ret_1d.notna() & ret_3d.notna() & ret_7d.notna() & momentum_score.notna()
             
-            # FIXED: Proper decay detection
-            # Check if momentum is slowing down progressively
-            valid_for_decay = ret_1d.notna() & ret_3d.notna() & ret_7d.notna()
-            decay_signal = valid_for_decay & (
-                (daily_pace_1d < daily_pace_3d) &  # Today slower than 3-day average
-                (daily_pace_3d < daily_pace_7d)     # 3-day average slower than 7-day average
-            )
-            
-            # Apply penalty for decaying momentum (only where momentum_score exists)
-            decay_mask = decay_signal & momentum_score.notna()
-            momentum_score.loc[decay_mask] = momentum_score.loc[decay_mask] * 0.90
+            if decay_valid.any():
+                # FIXED: Calculate daily paces correctly
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    daily_pace_1d = ret_1d  # Already daily
+                    daily_pace_3d = ret_3d / 3
+                    daily_pace_7d = ret_7d / 7
+                
+                # Momentum is decaying if each timeframe is slower than the last
+                decaying = decay_valid & (daily_pace_1d < daily_pace_3d) & (daily_pace_3d < daily_pace_7d)
+                
+                if decaying.any():
+                    momentum_score.loc[decaying] *= 0.90  # 10% penalty
+                    logger.debug(f"Applied decay penalty to {decaying.sum()} stocks")
+                
+                # Additional check: Sharp reversal (positive 7d but negative 1d)
+                reversal = decay_valid & (ret_7d > 5) & (ret_1d < -2)
+                if reversal.any():
+                    momentum_score.loc[reversal] *= 0.85  # 15% penalty for reversal
+                    logger.debug(f"Applied reversal penalty to {reversal.sum()} stocks")
         
-        return momentum_score.clip(0, 100)
+        # Ensure scores stay within bounds
+        momentum_score = momentum_score.clip(0, 100)
+        
+        # Log statistics
+        valid_count = momentum_score.notna().sum()
+        logger.info(f"Momentum scores calculated: {valid_count} valid out of {len(df)} stocks")
+        
+        if valid_count > 0:
+            avg_score = momentum_score[momentum_score.notna()].mean()
+            median_score = momentum_score[momentum_score.notna()].median()
+            logger.debug(f"Momentum score stats - Avg: {avg_score:.1f}, Median: {median_score:.1f}")
+        
+        return momentum_score
 
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
