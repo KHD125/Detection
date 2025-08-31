@@ -2805,63 +2805,108 @@ class PatternDetector:
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
 
         # 9. Entropy Compression - Volatility breakout prediction using information theory
+        # FIXED: Properly implements entropy compression detection with actual data structure
         try:
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Calculate information entropy metrics using Shannon entropy principles
-            with np.errstate(divide='ignore', invalid='ignore'):
-                # Price entropy (volatility normalized across timeframes)
-                daily_returns = np.array([
-                    np.abs(ret_1d),           # 1-day absolute return
-                    np.abs(ret_7d / 7),       # Daily pace over 7 days
-                    np.abs(ret_30d / 30)      # Daily pace over 30 days
-                ])
-                price_entropy = np.mean(daily_returns, axis=0)
+            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'volume_1d', 'volume_30d', 'volume_90d', 'rvol']):
+                ret_1d = get_col_safe('ret_1d', 0)
+                ret_7d = get_col_safe('ret_7d', 0)
+                ret_30d = get_col_safe('ret_30d', 0)
                 
-                # Volume consistency entropy using standard deviation
-                vol_ratios = np.array([
-                    get_col_safe('vol_ratio_1d_90d', 1),
-                    get_col_safe('vol_ratio_7d_90d', 1), 
-                    get_col_safe('vol_ratio_30d_90d', 1)
-                ])
-                volume_entropy = np.std(vol_ratios, axis=0)
+                # FIXED: Calculate volatility compression (not rolling - we have point-in-time data)
+                # Entropy Metric 1: Return volatility compression
+                # Compare short-term vs long-term volatility using actual returns
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Daily equivalent volatility
+                    daily_vol_7d = np.abs(ret_7d / 7)    # Average daily volatility over 7 days
+                    daily_vol_30d = np.abs(ret_30d / 30)  # Average daily volatility over 30 days
+                    
+                    # Volatility compression: short-term vol < long-term vol (tightening range)
+                    volatility_compressed = (
+                        (daily_vol_7d < daily_vol_30d * 0.7) &  # 7-day vol is 30% lower than 30-day
+                        (daily_vol_7d < 2)  # And absolute volatility is low (< 2% daily)
+                    )
                 
-                # Combined entropy state
-                total_entropy = price_entropy + volume_entropy * 0.5
-            
-            # Entropy compression signature (low entropy = high order = breakout potential)
-            entropy_compression = (
-                (price_entropy < 1.2) &                          # Low price volatility state
-                (volume_entropy < 0.25) &                        # Consistent volume pattern
-                (total_entropy < 1.5) &                          # Combined low entropy
-                (get_col_safe('from_high_pct', 0) > -20) &       # Not collapsed from highs
-                (get_col_safe('from_low_pct', 0) > 25)           # Not at the bottom
-            )
-            
-            # Price structure order parameters (mathematical stability check)
-            price_structure_order = (
-                (get_col_safe('price', 0) > get_col_safe('sma_20d', 0) * 0.98) &
-                (get_col_safe('price', 0) < get_col_safe('sma_20d', 0) * 1.04) &  # Tight to 20-day trend
-                (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)) &      # Trend alignment
-                (np.abs(get_col_safe('from_low_pct', 0) - 50) < 25)              # Middle range position
-            )
-            
-            # Catalyst potential scoring (100-point system)
-            catalyst_potential = (
-                np.where(get_col_safe('rvol', 1) > 1.1, 25, 0) +                # Volume activity (25 pts)
-                np.where(get_col_safe('eps_change_pct', 0) > 5, 30, 0) +         # EPS growth (30 pts)
-                np.where(ret_7d > 0, 25, 0) +                                    # Recent momentum (25 pts)
-                np.where(get_col_safe('vol_ratio_7d_90d', 1) > 1.15, 20, 0)     # Volume trend (20 pts)
-            )
-            
-            # Final entropy compression detection
-            mask = (
-                entropy_compression &                             # Low entropy state detected
-                price_structure_order &                          # Stable price structure
-                (catalyst_potential >= 50)                       # Sufficient breakout catalysts
-            )
+                # Entropy Metric 2: Volume stability (low entropy in volume)
+                volume_1d = get_col_safe('volume_1d', 0)
+                volume_30d = get_col_safe('volume_30d', 0)
+                volume_90d = get_col_safe('volume_90d', 0)
+                
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Volume consistency check
+                    vol_ratio_1d_30d = np.where(volume_30d > 0, volume_1d / volume_30d, 1)
+                    vol_ratio_30d_90d = np.where(volume_90d > 0, volume_30d / volume_90d, 1)
+                    
+                    # Stable volume = ratios close to 1 (low entropy)
+                    volume_stable = (
+                        (vol_ratio_1d_30d > 0.7) & (vol_ratio_1d_30d < 1.5) &  # Daily volume within normal range
+                        (vol_ratio_30d_90d > 0.8) & (vol_ratio_30d_90d < 1.2)   # Monthly volume stable
+                    )
+                
+                # Entropy Metric 3: Price range compression
+                high_52w = get_col_safe('high_52w', 0)
+                low_52w = get_col_safe('low_52w', 0)
+                price = get_col_safe('price', 0)
+                from_low_pct = get_col_safe('from_low_pct', 0)
+                
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    # Calculate 52-week range as percentage
+                    range_pct = np.where(low_52w > 0, ((high_52w - low_52w) / low_52w) * 100, 100)
+                    
+                    # Price compression: tight range + middle position
+                    price_compressed = (
+                        (range_pct < 50) &  # Less than 50% range in 52 weeks
+                        (from_low_pct > 30) & (from_low_pct < 70)  # In middle 40% of range
+                    )
+                
+                # Entropy Metric 4: Technical structure alignment (order from chaos)
+                sma_20d = get_col_safe('sma_20d', 0)
+                sma_50d = get_col_safe('sma_50d', 0)
+                sma_200d = get_col_safe('sma_200d', 0)
+                
+                # Price structure shows order (bullish alignment)
+                price_structure_aligned = (
+                    (price > sma_20d) &
+                    (sma_20d > sma_50d) &
+                    (sma_50d > sma_200d)
+                )
+                
+                # Catalyst Detection: Signs of energy building
+                rvol = get_col_safe('rvol', 1)
+                eps_change_pct = get_col_safe('eps_change_pct', 0)
+                vol_ratio_7d_90d = get_col_safe('vol_ratio_7d_90d', 1)
+                
+                # Calculate catalyst score (energy building up)
+                catalyst_indicators = (
+                    np.where(rvol > 1.2, 1, 0) +  # Volume picking up
+                    np.where(eps_change_pct > 10, 1, 0) +  # Earnings momentum
+                    np.where(vol_ratio_7d_90d > 1.1, 1, 0) +  # Recent volume trend
+                    np.where(ret_7d > 0, 1, 0)  # Positive recent momentum
+                )
+                
+                # FINAL ENTROPY COMPRESSION DETECTION
+                # Low entropy (compressed state) + energy building = potential breakout
+                mask = ensure_series(
+                    volatility_compressed &  # Volatility is compressed
+                    volume_stable &  # Volume patterns are stable
+                    price_compressed &  # Price range is tight
+                    price_structure_aligned &  # Technical structure is ordered
+                    (catalyst_indicators >= 2)  # At least 2 catalyst signals
+                )
+                
+                # Log detection stats for debugging
+                compression_count = mask.sum() if hasattr(mask, 'sum') else 0
+                if compression_count > 0:
+                    logger.debug(f"ENTROPY COMPRESSION: {compression_count} stocks detected")
+                    
+            else:
+                # Missing required columns
+                logger.warning("ENTROPY COMPRESSION: Missing required columns")
+                mask = pd.Series(False, index=df.index)
+                
         except Exception as e:
+            logger.error(f"Error in ENTROPY COMPRESSION pattern: {str(e)}")
             mask = pd.Series(False, index=df.index)
+        
         patterns.append(('🧩 ENTROPY COMPRESSION', mask))
         
         # 10. Velocity Breakout - Multi-timeframe momentum acceleration
