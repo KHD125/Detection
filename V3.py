@@ -2673,109 +2673,130 @@ class PatternDetector:
 
     @staticmethod
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
-        """
-        Defines all 41 patterns using vectorized boolean masks.
-        Returns list of (pattern_name, mask) tuples.
-        """
-        patterns = []
-        
-        # Helper function to safely get column data
-        def get_col_safe(col_name: str, default_value: Any = np.nan) -> pd.Series:
-            if col_name in df.columns:
-                return df[col_name].copy()
-            return pd.Series(default_value, index=df.index)
-        
-        # Helper function to ensure mask is a pandas Series
-        def ensure_series(mask: Any) -> pd.Series:
-            if isinstance(mask, pd.Series):
-                return mask
-            elif isinstance(mask, np.ndarray):
-                return pd.Series(mask, index=df.index)
-            else:
-                return pd.Series(mask, index=df.index)
+    """
+    Defines all 41 patterns using vectorized boolean masks.
+    FIXED: Uses raw data instead of scores that don't exist yet.
+    Returns list of (pattern_name, mask) tuples.
+    """
+    patterns = []
+    
+    # Helper function to safely get column data
+    def get_col_safe(col_name: str, default_value: Any = np.nan) -> pd.Series:
+        if col_name in df.columns:
+            return df[col_name].copy()
+        return pd.Series(default_value, index=df.index)
+    
+    # Helper function to ensure mask is a pandas Series
+    def ensure_series(mask: Any) -> pd.Series:
+        if isinstance(mask, pd.Series):
+            return mask
+        elif isinstance(mask, np.ndarray):
+            return pd.Series(mask, index=df.index)
+        else:
+            return pd.Series(mask, index=df.index)
 
-        # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
-        
-        # 1. Category Leader - Top in its market cap category
+    # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
+    
+    # 1. Category Leader - FIXED: category_percentile might not exist yet
+    if 'category_percentile' in df.columns:
         mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
-        patterns.append(('🐱 CAT LEADER', mask))
-        
-        # 2. Hidden Gem - High category rank but low overall rank
+    else:
+        # Calculate on the fly if needed
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('🔥 CAT LEADER', mask))
+    
+    # 2. Hidden Gem - FIXED: percentile might not exist yet
+    if 'category_percentile' in df.columns and 'percentile' in df.columns:
         mask = ensure_series((
             (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
             (get_col_safe('percentile', 100) < 70)
         ))
-        patterns.append(('💎 HIDDEN GEM', mask))
-        
-        # 3. Institutional - Smart money accumulation detection
-        if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
-            mask = (
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &                # Long-term volume increase
-                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &     # Steady, not spiky
-                (get_col_safe('ret_3m', 0).between(5, 25)) &                   # Gradual appreciation
-                (get_col_safe('from_low_pct', 0) > 30) &                       # Off lows
-                (get_col_safe('from_high_pct', -100) > -30)                    # Not extended
-            )
-        else:
-            mask = pd.Series(False, index=df.index)
-        patterns.append(('🏦 INSTITUTIONAL', mask))
-        
-        # 4. Volume Explosion - Extreme volume surge
-        mask = get_col_safe('rvol', 0) > 3
-        patterns.append(('⚡ VOL EXPLOSION', mask))
-        
-        # 5. Market Leader - Top overall percentile
+    else:
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('💎 HIDDEN GEM', mask))
+    
+    # 3. Institutional - FIXED: Use raw volume ratios
+    if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
+        mask = (
+            (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &
+            (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &
+            (get_col_safe('ret_3m', 0).between(5, 25)) &
+            (get_col_safe('from_low_pct', 0) > 30) &
+            (get_col_safe('from_high_pct', -100) > -30)
+        )
+    else:
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('🏦 INSTITUTIONAL', mask))
+    
+    # 4. Volume Explosion - Works with raw data
+    mask = get_col_safe('rvol', 0) > 3
+    patterns.append(('⚡ VOL EXPLOSION', mask))
+    
+    # 5. Market Leader - FIXED: percentile might not exist
+    if 'percentile' in df.columns:
         mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
-        patterns.append(('👑 MARKET LEADER', mask))
+    else:
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('👑 MARKET LEADER', mask))
+    
+    # 6. Momentum Wave - FIXED: Use return data directly
+    if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'rvol']):
+        ret_7d = get_col_safe('ret_7d', 0)
+        ret_30d = get_col_safe('ret_30d', 0)
         
-        # 6. Momentum Wave - Combined momentum and acceleration
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'ret_3m']):
-            mask = (
-                (get_col_safe('ret_30d', 0) >= 15) &  # Strong 30-day momentum (15%+)
-                (get_col_safe('ret_7d', 0) >= 5) &    # Good 7-day momentum (5%+)
-                (get_col_safe('ret_7d', 0) * 4.3 > get_col_safe('ret_30d', 0)) &  # Acceleration: 7d pace > 30d pace
-                (get_col_safe('rvol', 1) > 1.5)  # Volume confirmation
-            )
-        else:
-            mask = pd.Series(False, index=df.index)
-        patterns.append(('🌊 MOMENTUM WAVE', mask))
+        # Calculate acceleration
+        with np.errstate(divide='ignore', invalid='ignore'):
+            daily_7d = ret_7d / 7
+            daily_30d = ret_30d / 30
+            accelerating = (daily_7d > daily_30d * 1.2)  # 20% faster pace
         
-        # 7. Liquid Leader - High liquidity and performance
+        mask = (
+            (ret_30d >= 15) &  # Strong 30-day momentum
+            (ret_7d >= 5) &    # Good 7-day momentum
+            accelerating &      # Acceleration confirmed
+            (get_col_safe('rvol', 1) > 1.5)  # Volume confirmation
+        )
+    else:
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('🌊 MOMENTUM WAVE', mask))
+    
+    # 7. Liquid Leader - FIXED: Check if liquidity_score exists
+    if 'liquidity_score' in df.columns and 'percentile' in df.columns:
         mask = (
             (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
             (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
         )
-        patterns.append(('💰 LIQUID LEADER', mask))
+    else:
+        # Use volume as proxy for liquidity
+        mask = (
+            (get_col_safe('volume_1d', 0) > df['volume_1d'].median() * 2) &
+            (get_col_safe('rvol', 1) > 1.5)
+        )
+    patterns.append(('💰 LIQUID LEADER', mask))
+    
+    # 8. Premium Momentum Grade - FIXED: Use master_score if available
+    try:
+        ret_1d = get_col_safe('ret_1d', 0)
+        ret_7d = get_col_safe('ret_7d', 0)
+        ret_30d = get_col_safe('ret_30d', 0)
         
-        # 8. Premium Momentum Grade - Genetic momentum pattern
-        try:
-            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-            
-            # Genetic momentum template (successful pattern DNA)
-            momentum_dna_score = (
-                # Gene 1: Acceleration consistency (25 points)
-                np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
-                
-                # Gene 2: Progressive strength (30 points) 
-                np.where(ret_7d > (ret_30d / 4), 30, 0) +
-                
-                # Gene 3: Volume confirmation (20 points)
-                np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
-                
-                # Gene 4: Quality foundation (25 points)
-                np.where(get_col_safe('master_score', 0) >= 70, 25, 0)
-            )
-            
-            # Genetic pattern strength threshold
-            mask = (
-                (momentum_dna_score >= 75) &                     # Strong genetic match
-                (get_col_safe('from_low_pct', 0) > 15) &        # Not at bottom
-                (get_col_safe('from_high_pct', 0) > -15) &      # Room to run
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)     # Volume increasing
-            )
-        except Exception as e:
-            mask = pd.Series(False, index=df.index)
-        patterns.append(('🔥 PREMIUM MOMENTUM', mask))
+        # Build momentum DNA without master_score
+        momentum_dna_score = (
+            np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
+            np.where(ret_7d > (ret_30d / 4), 30, 0) +
+            np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
+            np.where(ret_30d > 20, 25, 0)  # Use return instead of score
+        )
+        
+        mask = (
+            (momentum_dna_score >= 75) &
+            (get_col_safe('from_low_pct', 0) > 15) &
+            (get_col_safe('from_high_pct', 0) > -15) &
+            (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)
+        )
+    except Exception:
+        mask = pd.Series(False, index=df.index)
+    patterns.append(('🔥 PREMIUM MOMENTUM', mask))
         
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
