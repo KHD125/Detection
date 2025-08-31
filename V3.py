@@ -1343,6 +1343,10 @@ class RankingEngine:
             volume_factor * 0.4 +
             trend_factor * 0.2
         )
+
+        if 'ret_7d' in df.columns and 'ret_30d' in df.columns:
+            momentum_confirm = (df['ret_7d'] > 0) & (df['ret_30d'] > 0)
+            breakout_score[momentum_confirm] += 10
         
         return breakout_score.clip(0, 100)
 
