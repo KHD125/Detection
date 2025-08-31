@@ -1571,9 +1571,8 @@ class RankingEngine:
     @staticmethod
     def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate RVOL score with thresholds.
-        YOUR ORIGINAL THRESHOLDS ARE PERFECT - NO CHANGES!
-        RVOL = volume_1d / volume_90d (as you clarified)
+        Calculate RVOL score with exponential scaling and context awareness.
+        FIXED: Proper NaN handling, logarithmic scaling, and context detection.
         """
         rvol_score = pd.Series(50, index=df.index, dtype=float)
         
@@ -1581,18 +1580,82 @@ class RankingEngine:
             logger.warning("RVOL data not available")
             return rvol_score
         
-        rvol = pd.Series(df['rvol'].values, index=df.index).fillna(1.0)
+        # DON'T fillna! Preserve NaN for missing data
+        rvol = pd.Series(df['rvol'].values, index=df.index)
+        valid_rvol = rvol.notna() & (rvol > 0)  # Only valid positive RVOL
         
-        # YOUR PERFECT THRESHOLDS - DON'T CHANGE!
-        rvol_score.loc[rvol > 10] = 95
-        rvol_score.loc[(rvol > 5) & (rvol <= 10)] = 90
-        rvol_score.loc[(rvol > 3) & (rvol <= 5)] = 85
-        rvol_score.loc[(rvol > 2) & (rvol <= 3)] = 75
-        rvol_score.loc[(rvol > 1.5) & (rvol <= 2)] = 65
-        rvol_score.loc[(rvol > 1.2) & (rvol <= 1.5)] = 55
-        rvol_score.loc[(rvol > 0.8) & (rvol <= 1.2)] = 50
-        rvol_score.loc[(rvol > 0.5) & (rvol <= 0.8)] = 40
-        rvol_score.loc[rvol <= 0.5] = 30
+        # FIXED: Logarithmic scaling for exponential data
+        # This gives proper weight to exponential increases
+        # log(1) = 0, log(2) = 0.69, log(5) = 1.61, log(10) = 2.30
+        
+        # Base score calculation using logarithmic scale
+        rvol_score[valid_rvol] = np.where(
+            rvol[valid_rvol] >= 1,
+            50 + (np.log(rvol[valid_rvol]) / np.log(10)) * 25,  # Above normal: 50-100 range
+            50 - (1 - rvol[valid_rvol]) * 50  # Below normal: 0-50 range
+        )
+        
+        # Apply thresholds for extreme cases (non-linear bonuses)
+        extreme_low = valid_rvol & (rvol < 0.3)  # Dead volume
+        very_low = valid_rvol & (rvol >= 0.3) & (rvol < 0.7)  # Low volume
+        normal_range = valid_rvol & (rvol >= 0.7) & (rvol <= 1.5)  # Normal
+        elevated = valid_rvol & (rvol > 1.5) & (rvol <= 2.5)  # Elevated
+        high = valid_rvol & (rvol > 2.5) & (rvol <= 5)  # High
+        explosive = valid_rvol & (rvol > 5) & (rvol <= 10)  # Explosive
+        volcanic = valid_rvol & (rvol > 10) & (rvol <= 20)  # Volcanic
+        nuclear = valid_rvol & (rvol > 20)  # Nuclear (likely manipulation)
+        
+        # Override with specific scores for clarity
+        rvol_score[extreme_low] = 10  # Dead stock
+        rvol_score[very_low] = 30  # Low interest
+        rvol_score[normal_range] = 50  # Baseline
+        rvol_score[elevated] = 70  # Good interest
+        rvol_score[high] = 85  # Strong interest
+        rvol_score[explosive] = 95  # Extreme interest
+        rvol_score[volcanic] = 90  # Suspicious (too high)
+        rvol_score[nuclear] = 75  # Likely manipulation (penalty)
+        
+        # CONTEXT ADJUSTMENT: Consider market cap category
+        if 'category' in df.columns:
+            category = pd.Series(df['category'].values, index=df.index)
+            
+            # Penny/Micro caps: High RVOL is normal, reduce score
+            is_penny = category.isin(['Micro Cap', 'Small Cap'])
+            penny_high_rvol = is_penny & (rvol > 3)
+            rvol_score[penny_high_rvol] *= 0.9  # 10% penalty
+            
+            # Large/Mega caps: High RVOL is significant, boost score
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_high_rvol = is_large & (rvol > 2)
+            rvol_score[large_high_rvol] *= 1.1  # 10% bonus
+        
+        # SUSTAINED vs SPIKE ADJUSTMENT
+        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d']):
+            vol_1d_90d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
+            vol_7d_90d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
+            
+            # Sustained elevation (both 1d and 7d are elevated)
+            sustained = valid_rvol & (vol_1d_90d > 2) & (vol_7d_90d > 1.5)
+            rvol_score[sustained] *= 1.05  # 5% bonus
+            
+            # One-day spike only (1d high but 7d normal)
+            spike_only = valid_rvol & (vol_1d_90d > 3) & (vol_7d_90d < 1.2)
+            rvol_score[spike_only] *= 0.85  # 15% penalty for unsustained spike
+        
+        # PRICE ACTION CONTEXT
+        if 'ret_1d' in df.columns:
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+            
+            # High volume with no price movement = distribution
+            high_vol_no_move = valid_rvol & (rvol > 3) & (ret_1d.abs() < 0.5)
+            rvol_score[high_vol_no_move] *= 0.8  # 20% penalty
+            
+            # High volume with strong price movement = confirmation
+            high_vol_strong_move = valid_rvol & (rvol > 2) & (ret_1d.abs() > 3)
+            rvol_score[high_vol_strong_move] *= 1.1  # 10% bonus
+        
+        # Penalize missing data (unlike fillna which gives average)
+        rvol_score[~valid_rvol] = 40  # Below average for missing data
         
         return rvol_score.clip(0, 100)
 
