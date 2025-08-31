@@ -1041,8 +1041,7 @@ class RankingEngine:
     @PerformanceMonitor.timer(target_time=0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculates all component scores, a composite master score, and ranks the stocks.
-        FIXED & OPTIMIZED: Vectorized operations with proper NaN handling.
+        FULLY OPTIMIZED: Pure vectorized operations, no loops!
         """
         if df.empty:
             return df
@@ -1057,61 +1056,53 @@ class RankingEngine:
         df['breakout_score'] = RankingEngine._calculate_breakout_score(df)
         df['rvol_score'] = RankingEngine._calculate_rvol_score(df)
         
-        # Calculate auxiliary scores
+        # Auxiliary scores
         df['trend_quality'] = RankingEngine._calculate_trend_quality(df)
         df['long_term_strength'] = RankingEngine._calculate_long_term_strength(df)
         df['liquidity_score'] = RankingEngine._calculate_liquidity_score(df)
         
-        # Data quality calculation
+        # Data quality
         score_cols = ['position_score', 'volume_score', 'momentum_score',
                       'acceleration_score', 'breakout_score', 'rvol_score']
         df['data_completeness'] = df[score_cols].notna().sum(axis=1) / len(score_cols) * 100
         
-        # VECTORIZED ADAPTIVE SCORING
-        # Create weight matrix based on available data
+        # FULLY VECTORIZED MASTER SCORE CALCULATION
         weights = np.array([
-            CONFIG.POSITION_WEIGHT,
-            CONFIG.VOLUME_WEIGHT,
-            CONFIG.MOMENTUM_WEIGHT,
-            CONFIG.ACCELERATION_WEIGHT,
-            CONFIG.BREAKOUT_WEIGHT,
-            CONFIG.RVOL_WEIGHT
+            CONFIG.POSITION_WEIGHT,    # 0.30
+            CONFIG.VOLUME_WEIGHT,      # 0.25
+            CONFIG.MOMENTUM_WEIGHT,    # 0.15
+            CONFIG.ACCELERATION_WEIGHT, # 0.10
+            CONFIG.BREAKOUT_WEIGHT,    # 0.10
+            CONFIG.RVOL_WEIGHT         # 0.10
         ])
         
-        # Get scores as numpy array
+        # Get scores and mask
         scores_array = df[score_cols].values
-        
-        # Create mask for valid scores
         valid_mask = ~np.isnan(scores_array)
         
-        # Calculate weighted sum for each row
-        master_scores = np.zeros(len(df))
-        for i in range(len(df)):
-            row_scores = scores_array[i]
-            row_valid = valid_mask[i]
-            
-            if row_valid.any():
-                # Use only valid scores and their weights
-                valid_scores = row_scores[row_valid]
-                valid_weights = weights[row_valid]
-                
-                # Normalize weights to sum to 1
-                if valid_weights.sum() > 0:
-                    normalized_weights = valid_weights / valid_weights.sum()
-                    master_scores[i] = np.dot(valid_scores, normalized_weights)
-                else:
-                    master_scores[i] = 0
-            else:
-                master_scores[i] = 0
+        # VECTORIZED: Calculate weighted average for each row
+        # Replace NaN with 0 for multiplication, but track valid weights
+        scores_filled = np.nan_to_num(scores_array, nan=0.0)
         
-        df['master_score'] = master_scores
+        # Adjust weights per row based on available data
+        weights_matrix = valid_mask * weights
+        weights_sum = weights_matrix.sum(axis=1, keepdims=True)
         
-        # Apply quality multiplier (optional but recommended)
-        df['quality_multiplier'] = 0.7 + (df['data_completeness'] / 100 * 0.3)
+        # Avoid division by zero
+        weights_sum = np.where(weights_sum == 0, 1, weights_sum)
+        
+        # Normalized weights per row
+        normalized_weights = weights_matrix / weights_sum
+        
+        # Calculate master scores (vectorized!)
+        df['master_score'] = (scores_filled * normalized_weights).sum(axis=1)
+        
+        # Apply quality multiplier
+        df['quality_multiplier'] = 0.8 + (df['data_completeness'] / 100 * 0.2)  # 0.8 to 1.0
         df['master_score'] = df['master_score'] * df['quality_multiplier']
         df['master_score'] = df['master_score'].clip(0, 100)
         
-        # Apply smart bonuses
+        # Apply bonuses
         df = RankingEngine._apply_smart_bonuses(df)
         
         # Rankings
@@ -1124,14 +1115,14 @@ class RankingEngine:
         # Category ranks
         df = RankingEngine._calculate_category_ranks(df)
         
-        # Add confidence indicator
+        # Confidence indicator
         df['rank_confidence'] = pd.cut(
             df['data_completeness'],
             bins=[0, 50, 75, 90, 100],
             labels=['Low', 'Fair', 'Good', 'High']
         )
         
-        logger.info(f"Ranking complete: {len(df)} stocks processed")
+        logger.info(f"Ranking complete: {len(df)} stocks in {time.time()-start:.3f}s")
         
         return df
 
@@ -1139,28 +1130,41 @@ class RankingEngine:
     def _safe_rank(series: pd.Series, pct: bool = True, ascending: bool = True) -> pd.Series:
         """
         Safely ranks a series, handling NaNs and infinite values to prevent errors.
-        ENSURES: Always returns a pandas Series.
+        FIXED: Preserves NaN values instead of filling with fake data.
+        
+        Args:
+            series: The pandas Series to rank
+            pct: If True, returns percentile ranks (0-100)
+            ascending: If True, smaller values get lower ranks
+            
+        Returns:
+            pd.Series: Ranked values with NaN preserved for missing data
         """
+        # Handle empty or all-NaN series
         if series.empty or series.isna().all():
-            return pd.Series(50 if pct else 0, index=series.index, dtype=float)
+            # Return NaN for all values, not fake 50s
+            return pd.Series(np.nan, index=series.index, dtype=float)
         
         # Create a copy and handle infinities
         clean_series = series.copy()
         clean_series = clean_series.replace([np.inf, -np.inf], np.nan)
         
-        # Only rank non-null values
+        # Check if we have any valid values to rank
         valid_mask = clean_series.notna()
         if not valid_mask.any():
-            return pd.Series(50 if pct else 0, index=series.index, dtype=float)
+            # No valid values - return all NaN
+            return pd.Series(np.nan, index=series.index, dtype=float)
         
-        # Perform ranking
+        # Perform ranking - FIXED to preserve NaN
         if pct:
+            # Use 'keep' to preserve NaN in their original positions
             result = clean_series.rank(pct=True, ascending=ascending, na_option='keep') * 100
-            result = result.fillna(50)
+            # DON'T fillna! Let NaN stay NaN
         else:
-            result = clean_series.rank(method='average', ascending=ascending, na_option='bottom')
-            result = result.fillna(len(clean_series) + 1)
+            # For non-percentile ranking
+            result = clean_series.rank(method='average', ascending=ascending, na_option='keep')
         
+        # Ensure it's a Series with proper index
         return pd.Series(result, index=series.index, dtype=float)
 
     @staticmethod
