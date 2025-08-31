@@ -1856,10 +1856,15 @@ class PatternDetector:
         patterns.append(('👑 MARKET LEADER', mask))
         
         # 6. Momentum Wave - Combined momentum and acceleration
-        mask = (
-            (get_col_safe('momentum_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('momentum_wave', 75)) & 
-            (get_col_safe('acceleration_score', 0) >= 70)
-        )
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'ret_3m']):
+            mask = (
+                (get_col_safe('ret_30d', 0) >= 15) &  # Strong 30-day momentum (15%+)
+                (get_col_safe('ret_7d', 0) >= 5) &    # Good 7-day momentum (5%+)
+                (get_col_safe('ret_7d', 0) * 4.3 > get_col_safe('ret_30d', 0)) &  # Acceleration: 7d pace > 30d pace
+                (get_col_safe('rvol', 1) > 1.5)  # Volume confirmation
+            )
+        else:
+            mask = pd.Series(False, index=df.index)
         patterns.append(('🌊 MOMENTUM WAVE', mask))
         
         # 7. Liquid Leader - High liquidity and performance
