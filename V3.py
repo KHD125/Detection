@@ -1663,10 +1663,7 @@ class RankingEngine:
     def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
         """
         Calculate trend quality based on SMA alignment.
-        IMPLEMENTATION: This method was missing entirely!
-        
-        Perfect trend: Price > SMA20 > SMA50 > SMA200 (score = 100)
-        Worst trend: Price < SMA20 < SMA50 < SMA200 (score = 0)
+        FIXED: Proper normalization, better weights, and logical golden cross detection.
         """
         trend_quality = pd.Series(50, index=df.index, dtype=float)
         
@@ -1678,76 +1675,90 @@ class RankingEngine:
             logger.warning("Insufficient SMA data for trend quality calculation")
             return trend_quality
         
-        # Get price and SMA data
+        # Get price and SMA data WITHOUT fillna (good!)
         price = pd.Series(df['price'].values, index=df.index) if 'price' in df.columns else pd.Series(np.nan, index=df.index)
         sma_20 = pd.Series(df['sma_20d'].values, index=df.index) if 'sma_20d' in df.columns else pd.Series(np.nan, index=df.index)
         sma_50 = pd.Series(df['sma_50d'].values, index=df.index) if 'sma_50d' in df.columns else pd.Series(np.nan, index=df.index)
         sma_200 = pd.Series(df['sma_200d'].values, index=df.index) if 'sma_200d' in df.columns else pd.Series(np.nan, index=df.index)
         
-        # Calculate alignment score (0-100)
-        # Each correct alignment gets points
+        # FIXED: Track both score and max possible score for normalization
         alignment_score = pd.Series(0, index=df.index, dtype=float)
-        valid_count = pd.Series(0, index=df.index, dtype=int)
+        max_possible = pd.Series(0, index=df.index, dtype=float)
         
-        # Price > SMA20 (25 points)
+        # FIXED: Better weights based on importance
+        # Price position is most important, then short-term alignment, then long-term
+        
+        # Price > SMA20 (30 points - most reactive)
         if 'price' in df.columns and 'sma_20d' in df.columns:
             valid_mask = price.notna() & sma_20.notna() & (sma_20 > 0)
-            alignment_score[valid_mask & (price > sma_20)] += 25
-            valid_count[valid_mask] += 1
+            alignment_score[valid_mask & (price > sma_20)] += 30
+            max_possible[valid_mask] += 30
         
-        # Price > SMA50 (20 points)
+        # Price > SMA50 (25 points - medium-term trend)
         if 'price' in df.columns and 'sma_50d' in df.columns:
             valid_mask = price.notna() & sma_50.notna() & (sma_50 > 0)
-            alignment_score[valid_mask & (price > sma_50)] += 20
-            valid_count[valid_mask] += 1
+            alignment_score[valid_mask & (price > sma_50)] += 25
+            max_possible[valid_mask] += 25
         
-        # Price > SMA200 (20 points)
+        # Price > SMA200 (20 points - long-term trend)
         if 'price' in df.columns and 'sma_200d' in df.columns:
             valid_mask = price.notna() & sma_200.notna() & (sma_200 > 0)
             alignment_score[valid_mask & (price > sma_200)] += 20
-            valid_count[valid_mask] += 1
+            max_possible[valid_mask] += 20
         
-        # SMA20 > SMA50 (15 points)
+        # SMA20 > SMA50 (10 points - short-term strength)
         if 'sma_20d' in df.columns and 'sma_50d' in df.columns:
-            valid_mask = sma_20.notna() & sma_50.notna() & (sma_50 > 0)
-            alignment_score[valid_mask & (sma_20 > sma_50)] += 15
-            valid_count[valid_mask] += 1
+            valid_mask = sma_20.notna() & sma_50.notna() & (sma_20 > 0) & (sma_50 > 0)
+            alignment_score[valid_mask & (sma_20 > sma_50)] += 10
+            max_possible[valid_mask] += 10
         
-        # SMA50 > SMA200 (10 points)
+        # SMA50 > SMA200 (10 points - medium-term strength)
         if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-            valid_mask = sma_50.notna() & sma_200.notna() & (sma_200 > 0)
+            valid_mask = sma_50.notna() & sma_200.notna() & (sma_50 > 0) & (sma_200 > 0)
             alignment_score[valid_mask & (sma_50 > sma_200)] += 10
-            valid_count[valid_mask] += 1
+            max_possible[valid_mask] += 10
         
-        # SMA20 > SMA200 (10 points) - Additional confirmation
+        # SMA20 > SMA200 (5 points - additional confirmation)
         if 'sma_20d' in df.columns and 'sma_200d' in df.columns:
-            valid_mask = sma_20.notna() & sma_200.notna() & (sma_200 > 0)
-            alignment_score[valid_mask & (sma_20 > sma_200)] += 10
-            valid_count[valid_mask] += 1
+            valid_mask = sma_20.notna() & sma_200.notna() & (sma_20 > 0) & (sma_200 > 0)
+            alignment_score[valid_mask & (sma_20 > sma_200)] += 5
+            max_possible[valid_mask] += 5
         
-        # Only calculate where we have at least 2 valid comparisons
-        has_data = valid_count >= 2
-        trend_quality[has_data] = alignment_score[has_data]
+        # FIXED: Normalize score based on what's actually possible
+        has_data = max_possible > 0
+        trend_quality[has_data] = (alignment_score[has_data] / max_possible[has_data]) * 100
         
-        # Special patterns detection
+        # FIXED: Special patterns as BONUSES, not overrides
         if all(col in df.columns for col in required_cols):
-            all_valid = price.notna() & sma_20.notna() & sma_50.notna() & sma_200.notna()
+            all_valid = price.notna() & sma_20.notna() & sma_50.notna() & sma_200.notna() & \
+                       (sma_20 > 0) & (sma_50 > 0) & (sma_200 > 0)
             
-            # Perfect bullish alignment: Price > SMA20 > SMA50 > SMA200
+            # Perfect bullish alignment: Bonus, not override
             perfect_bullish = all_valid & (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
-            trend_quality[perfect_bullish] = 100
+            trend_quality[perfect_bullish] = np.maximum(trend_quality[perfect_bullish], 95)  # Ensure at least 95
             
-            # Perfect bearish alignment: Price < SMA20 < SMA50 < SMA200
+            # Perfect bearish alignment: Strong penalty
             perfect_bearish = all_valid & (price < sma_20) & (sma_20 < sma_50) & (sma_50 < sma_200)
-            trend_quality[perfect_bearish] = 0
+            trend_quality[perfect_bearish] = np.minimum(trend_quality[perfect_bearish], 10)  # Cap at 10
             
-            # Golden cross pattern: SMA50 recently crossed above SMA200
-            golden_cross = all_valid & (sma_50 > sma_200) & ((sma_50 - sma_200) / sma_200 < 0.02)  # Within 2%
-            trend_quality[golden_cross] = np.maximum(trend_quality[golden_cross], 85)
-            
-            # Death cross pattern: SMA50 recently crossed below SMA200
-            death_cross = all_valid & (sma_50 < sma_200) & ((sma_200 - sma_50) / sma_200 < 0.02)  # Within 2%
-            trend_quality[death_cross] = np.minimum(trend_quality[death_cross], 15)
+            # FIXED: Better golden cross detection (recent cross)
+            if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
+                # Golden cross: SMA50 above SMA200 but close (likely recent)
+                sma50_above = (sma_50 > sma_200)
+                close_to_cross = ((sma_50 - sma_200).abs() / sma_200 < 0.03)  # Within 3%
+                
+                # Additional check: Price momentum confirms
+                if 'ret_30d' in df.columns:
+                    price_confirms = df['ret_30d'] > 5  # Positive 30d momentum
+                    golden_cross = all_valid & sma50_above & close_to_cross & price_confirms
+                    trend_quality[golden_cross] *= 1.15  # 15% bonus
+                
+                # Death cross with confirmation
+                sma50_below = (sma_50 < sma_200)
+                if 'ret_30d' in df.columns:
+                    price_confirms_down = df['ret_30d'] < -5  # Negative momentum
+                    death_cross = all_valid & sma50_below & close_to_cross & price_confirms_down
+                    trend_quality[death_cross] *= 0.70  # 30% penalty
         
         return trend_quality.clip(0, 100)
     
