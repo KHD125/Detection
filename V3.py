@@ -1259,24 +1259,12 @@ class RankingEngine:
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate comprehensive volume score.
-        FIXED: Proper NaN handling, better weights, and realistic penalties.
-        
-        Volume Score Components:
-        - 20% weight: 1d/90d ratio (most recent)
-        - 20% weight: 7d/90d ratio (weekly trend)
-        - 20% weight: 30d/90d ratio (monthly trend)
-        - 15% weight: 30d/180d ratio (medium-term)
-        - 25% weight: 90d/180d ratio (long-term trend)
-        
-        Bonuses/Penalties:
-        - Sustained volume (+10%): All timeframes elevated
-        - One-day spike (-10%): Only 1d high, others low
-        - Distribution detection: RVOL >10 (-15%), >20 (-30%)
+        Calculate volume score using ABSOLUTE scoring, not percentile ranking.
+        FIXED: Uses actual ratio values to determine scores.
         """
         volume_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Define volume ratio columns and weights
+        # Volume ratio columns and weights
         vol_cols = [
             ('vol_ratio_1d_90d', 0.20),
             ('vol_ratio_7d_90d', 0.20),
@@ -1285,41 +1273,62 @@ class RankingEngine:
             ('vol_ratio_90d_180d', 0.25)
         ]
         
-        # Check which columns exist
         available_cols = [(col, weight) for col, weight in vol_cols if col in df.columns]
         
         if not available_cols:
-            logger.warning("No volume ratio data available, returning NaN scores")
+            logger.warning("No volume ratio data available")
             return volume_score
         
-        # Track which stocks have complete data
-        all_vol_cols = [col for col, _ in vol_cols]
-        existing_vol_cols = [col for col, _ in available_cols]
-        has_complete_data = df[existing_vol_cols].notna().all(axis=1) if existing_vol_cols else pd.Series(False, index=df.index)
+        # FIXED: Use ABSOLUTE scoring based on ratio values
+        weighted_sum = pd.Series(0, index=df.index, dtype=float)
+        weight_sum = pd.Series(0, index=df.index, dtype=float)
         
-        # Calculate weighted score using available columns
-        total_weight = sum(weight for _, weight in available_cols)
+        for col, weight in available_cols:
+            col_data = pd.Series(df[col].values, index=df.index)
+            valid_mask = col_data.notna()
+            
+            # ABSOLUTE SCORING FORMULA:
+            # Ratio < 0.5: Score = 0-25 (very low)
+            # Ratio 0.5-0.8: Score = 25-40 (low)
+            # Ratio 0.8-1.2: Score = 40-60 (normal)
+            # Ratio 1.2-2.0: Score = 60-80 (elevated)
+            # Ratio 2.0-5.0: Score = 80-95 (high)
+            # Ratio > 5.0: Score = 95-100 (extreme)
+            
+            col_score = pd.Series(50, index=df.index, dtype=float)  # Default normal
+            
+            # Calculate scores based on absolute values
+            col_score[valid_mask] = np.where(
+                col_data[valid_mask] < 0.5,
+                col_data[valid_mask] * 50,  # 0-25 range
+                np.where(
+                    col_data[valid_mask] < 0.8,
+                    25 + (col_data[valid_mask] - 0.5) * 50,  # 25-40 range
+                    np.where(
+                        col_data[valid_mask] < 1.2,
+                        40 + (col_data[valid_mask] - 0.8) * 50,  # 40-60 range
+                        np.where(
+                            col_data[valid_mask] < 2.0,
+                                60 + (col_data[valid_mask] - 1.2) * 25,  # 60-80 range
+                            np.where(
+                                col_data[valid_mask] < 5.0,
+                                80 + (col_data[valid_mask] - 2.0) * 5,  # 80-95 range
+                                95 + np.minimum((col_data[valid_mask] - 5.0) * 0.5, 5)  # 95-100 cap
+                            )
+                        )
+                    )
+                )
+            )
+            
+            # Add to weighted sum
+            weighted_sum[valid_mask] += col_score[valid_mask] * weight
+            weight_sum[valid_mask] += weight
         
-        if total_weight > 0:
-            # Initialize weighted sum
-            weighted_sum = pd.Series(0, index=df.index, dtype=float)
-            actual_weight_sum = pd.Series(0, index=df.index, dtype=float)
-            
-            for col, weight in available_cols:
-                col_data = pd.Series(df[col].values, index=df.index)
-                # Only rank non-NaN values
-                col_rank = RankingEngine._safe_rank(col_data, pct=True, ascending=True)
-                
-                # Add to weighted sum only where data exists
-                valid_mask = col_rank.notna()
-                weighted_sum[valid_mask] += col_rank[valid_mask] * weight
-                actual_weight_sum[valid_mask] += weight
-            
-            # Calculate score only where we have data
-            has_any_data = actual_weight_sum > 0
-            volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data]
-            
-            # ENHANCED: Volume persistence analysis (only for complete data)
+        # Calculate final score
+        has_data = weight_sum > 0
+        volume_score[has_data] = weighted_sum[has_data] / weight_sum[has_data]
+        
+        # ENHANCED: Volume persistence analysis (only for complete data)
             if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
                 vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
                 vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
@@ -1386,7 +1395,7 @@ class RankingEngine:
             avg_score = volume_score[volume_score.notna()].mean()
             logger.debug(f"Average volume score: {avg_score:.1f}")
         
-        return volume_score
+        return volume_score.clip(0, 100)
 
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
