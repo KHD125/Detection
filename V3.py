@@ -992,10 +992,18 @@ class AdvancedMetrics:
             signals += 1
         if row.get('acceleration_score', 0) > 70:
             signals += 1
-        if row.get('rvol', 0) > 2:
+        
+        # ENHANCED: Scale signal based on RVOL magnitude
+        rvol_val = row.get('rvol', 0)
+        if rvol_val > 5:
+            signals += 2  # Double signal for extreme volume
+        elif rvol_val > 2:
             signals += 1
         
-        if signals >= 4:
+        # UPDATED: Adjust thresholds since max signals is now 5 (not 4)
+        if signals >= 5:
+            return "🌊🌊🌊🔥 TSUNAMI"  # NEW: Ultra-extreme state
+        elif signals >= 4:
             return "🌊🌊🌊 CRESTING"
         elif signals >= 3:
             return "🌊🌊 BUILDING"
@@ -1193,7 +1201,10 @@ class RankingEngine:
                 
                 # Extreme volume might be distribution - small penalty
                 extreme_distribution = rvol_series > 10
-                volume_score.loc[extreme_distribution] = volume_score.loc[extreme_distribution] * 0.95
+                volume_score.loc[extreme_distribution] *= 0.85  # 15% penalty
+                pump_dump = rvol_series > 20
+                volume_score.loc[pump_dump] *= 0.70  # 30% penalty for extreme
+
         else:
             logger.warning("No volume ratio data available, using neutral scores")
         
@@ -1241,8 +1252,22 @@ class RankingEngine:
             consistency_bonus.loc[accelerating] = 10
             
             momentum_score = (momentum_score + consistency_bonus).clip(0, 100)
+
+        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']):
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index).fillna(0)
+            ret_3d = pd.Series(df['ret_3d'].values, index=df.index).fillna(0)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index).fillna(0)
+            
+            # Check if daily momentum is decaying
+            decay_signal = (
+                (ret_1d < ret_3d / 3) &  # Today worse than 3-day avg
+                (ret_3d < ret_7d / 7 * 3)  # 3-day worse than 7-day pace
+            )
+            
+            # Apply penalty for decaying momentum
+            momentum_score.loc[decay_signal] = momentum_score.loc[decay_signal] * 0.90
         
-        return momentum_score
+        return momentum_score.clip(0, 100)
 
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
@@ -3803,6 +3828,8 @@ class FilterEngine:
             masks.append(create_mask_from_isin('sector', filters['sectors']))
         if 'industries' in filters:
             masks.append(create_mask_from_isin('industry', filters['industries']))
+            if mask is not None:
+            masks.append(mask)
         
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
