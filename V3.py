@@ -2797,126 +2797,126 @@ class PatternDetector:
         except Exception:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
-        
-            # 9. Entropy Compression - Volatility breakout prediction using information theory
-            try:
-                ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
-                
-                # Calculate information entropy metrics using Shannon entropy principles
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Price entropy (volatility normalized across timeframes)
-                    daily_returns = np.array([
-                        np.abs(ret_1d),           # 1-day absolute return
-                        np.abs(ret_7d / 7),       # Daily pace over 7 days
-                        np.abs(ret_30d / 30)      # Daily pace over 30 days
-                    ])
-                    price_entropy = np.mean(daily_returns, axis=0)
-                    
-                    # Volume consistency entropy using standard deviation
-                    vol_ratios = np.array([
-                        get_col_safe('vol_ratio_1d_90d', 1),
-                        get_col_safe('vol_ratio_7d_90d', 1), 
-                        get_col_safe('vol_ratio_30d_90d', 1)
-                    ])
-                    volume_entropy = np.std(vol_ratios, axis=0)
-                    
-                    # Combined entropy state
-                    total_entropy = price_entropy + volume_entropy * 0.5
-                
-                # Entropy compression signature (low entropy = high order = breakout potential)
-                entropy_compression = (
-                    (price_entropy < 1.2) &                          # Low price volatility state
-                    (volume_entropy < 0.25) &                        # Consistent volume pattern
-                    (total_entropy < 1.5) &                          # Combined low entropy
-                    (get_col_safe('from_high_pct', 0) > -20) &       # Not collapsed from highs
-                    (get_col_safe('from_low_pct', 0) > 25)           # Not at the bottom
-                )
-                
-                # Price structure order parameters (mathematical stability check)
-                price_structure_order = (
-                    (get_col_safe('price', 0) > get_col_safe('sma_20d', 0) * 0.98) &
-                    (get_col_safe('price', 0) < get_col_safe('sma_20d', 0) * 1.04) &  # Tight to 20-day trend
-                    (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)) &      # Trend alignment
-                    (np.abs(get_col_safe('from_low_pct', 0) - 50) < 25)              # Middle range position
-                )
-                
-                # Catalyst potential scoring (100-point system)
-                catalyst_potential = (
-                    np.where(get_col_safe('rvol', 1) > 1.1, 25, 0) +                # Volume activity (25 pts)
-                    np.where(get_col_safe('eps_change_pct', 0) > 5, 30, 0) +         # EPS growth (30 pts)
-                    np.where(ret_7d > 0, 25, 0) +                                    # Recent momentum (25 pts)
-                    np.where(get_col_safe('vol_ratio_7d_90d', 1) > 1.15, 20, 0)     # Volume trend (20 pts)
-                )
-                
-                # Final entropy compression detection
-                mask = (
-                    entropy_compression &                             # Low entropy state detected
-                    price_structure_order &                          # Stable price structure
-                    (catalyst_potential >= 50)                       # Sufficient breakout catalysts
-                )
-            except Exception as e:
-                mask = pd.Series(False, index=df.index)
-            patterns.append(('🧩 ENTROPY COMPRESSION', mask))
+
+        # 9. Entropy Compression - Volatility breakout prediction using information theory
+        try:
+            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
             
-            # 10. Velocity Breakout - Multi-timeframe momentum acceleration
-            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'rvol', 'from_high_pct']):
-                mask = (
-                    (get_col_safe('ret_1d', 0) > 3) &                              # Recent significant pop
-                    (get_col_safe('ret_7d', 0) > get_col_safe('ret_30d', 1) * 0.5) &  # Weekly pace exceeds monthly
-                    (get_col_safe('ret_30d', 0) > get_col_safe('ret_3m', 1) * 0.7) &  # Monthly pace exceeds quarterly
-                    (get_col_safe('rvol', 0) > 2) &                                # Strong volume confirmation
-                    (get_col_safe('from_high_pct', -100) > -15)                    # Near highs for continuation
+            # Calculate information entropy metrics using Shannon entropy principles
+            with np.errstate(divide='ignore', invalid='ignore'):
+                # Price entropy (volatility normalized across timeframes)
+                daily_returns = np.array([
+                    np.abs(ret_1d),           # 1-day absolute return
+                    np.abs(ret_7d / 7),       # Daily pace over 7 days
+                    np.abs(ret_30d / 30)      # Daily pace over 30 days
+                ])
+                price_entropy = np.mean(daily_returns, axis=0)
+                
+                # Volume consistency entropy using standard deviation
+                vol_ratios = np.array([
+                    get_col_safe('vol_ratio_1d_90d', 1),
+                    get_col_safe('vol_ratio_7d_90d', 1), 
+                    get_col_safe('vol_ratio_30d_90d', 1)
+                ])
+                volume_entropy = np.std(vol_ratios, axis=0)
+                
+                # Combined entropy state
+                total_entropy = price_entropy + volume_entropy * 0.5
+            
+            # Entropy compression signature (low entropy = high order = breakout potential)
+            entropy_compression = (
+                (price_entropy < 1.2) &                          # Low price volatility state
+                (volume_entropy < 0.25) &                        # Consistent volume pattern
+                (total_entropy < 1.5) &                          # Combined low entropy
+                (get_col_safe('from_high_pct', 0) > -20) &       # Not collapsed from highs
+                (get_col_safe('from_low_pct', 0) > 25)           # Not at the bottom
+            )
+            
+            # Price structure order parameters (mathematical stability check)
+            price_structure_order = (
+                (get_col_safe('price', 0) > get_col_safe('sma_20d', 0) * 0.98) &
+                (get_col_safe('price', 0) < get_col_safe('sma_20d', 0) * 1.04) &  # Tight to 20-day trend
+                (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)) &      # Trend alignment
+                (np.abs(get_col_safe('from_low_pct', 0) - 50) < 25)              # Middle range position
+            )
+            
+            # Catalyst potential scoring (100-point system)
+            catalyst_potential = (
+                np.where(get_col_safe('rvol', 1) > 1.1, 25, 0) +                # Volume activity (25 pts)
+                np.where(get_col_safe('eps_change_pct', 0) > 5, 30, 0) +         # EPS growth (30 pts)
+                np.where(ret_7d > 0, 25, 0) +                                    # Recent momentum (25 pts)
+                np.where(get_col_safe('vol_ratio_7d_90d', 1) > 1.15, 20, 0)     # Volume trend (20 pts)
+            )
+            
+            # Final entropy compression detection
+            mask = (
+                entropy_compression &                             # Low entropy state detected
+                price_structure_order &                          # Stable price structure
+                (catalyst_potential >= 50)                       # Sufficient breakout catalysts
+            )
+        except Exception as e:
+            mask = pd.Series(False, index=df.index)
+        patterns.append(('🧩 ENTROPY COMPRESSION', mask))
+        
+        # 10. Velocity Breakout - Multi-timeframe momentum acceleration
+        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'rvol', 'from_high_pct']):
+            mask = (
+                (get_col_safe('ret_1d', 0) > 3) &                              # Recent significant pop
+                (get_col_safe('ret_7d', 0) > get_col_safe('ret_30d', 1) * 0.5) &  # Weekly pace exceeds monthly
+                (get_col_safe('ret_30d', 0) > get_col_safe('ret_3m', 1) * 0.7) &  # Monthly pace exceeds quarterly
+                (get_col_safe('rvol', 0) > 2) &                                # Strong volume confirmation
+                (get_col_safe('from_high_pct', -100) > -15)                    # Near highs for continuation
+            )
+        else:
+            mask = pd.Series(False, index=df.index)
+        patterns.append(('🚀 VELOCITY BREAKOUT', mask))
+
+        # 11. Institutional Tsunami - Multi-dimensional confluence scoring
+        try:
+            if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d', 'ret_1y', 'from_high_pct', 'ret_7d', 'ret_30d', 'pe', 'eps_change_pct']):
+                ret_7d = get_col_safe('ret_7d', 0)
+                ret_30d = get_col_safe('ret_30d', 0)
+                ret_1y = get_col_safe('ret_1y', 0)
+                pe = get_col_safe('pe')
+                eps_change_pct = get_col_safe('eps_change_pct')
+                
+                # Multi-timeframe volume tsunami scoring (75 points max)
+                vol_tsunami_score = (
+                    np.where(get_col_safe('vol_ratio_7d_90d', 1) > 2.0, 30, 0) +
+                    np.where(get_col_safe('vol_ratio_30d_90d', 1) > 1.5, 25, 0) +
+                    np.where(get_col_safe('vol_ratio_90d_180d', 1) > 1.3, 20, 0)
                 )
+                
+                # Hidden strength - institutions accumulating quietly (25 points)
+                hidden_strength = np.where(
+                    (ret_1y > 50) & (get_col_safe('from_high_pct', -100) < -20), 
+                    25, 0
+                )
+                
+                # Fresh acceleration confirmation (15 points)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    fresh_accel = np.where(ret_7d > ret_30d / 4, 15, 0)
+                
+                # Quality confirmation - profitable growth (15 points)
+                quality_conf = np.where(
+                    pe.notna() & (pe < 30) & eps_change_pct.notna() & (eps_change_pct > 20), 
+                    15, 0
+                )
+                
+                # Total tsunami score (max 130 points)
+                tsunami_score = vol_tsunami_score + hidden_strength + fresh_accel + quality_conf
+                
+                # Requires ≥90 points for institutional tsunami pattern
+                mask = (tsunami_score >= 90)
             else:
                 mask = pd.Series(False, index=df.index)
-            patterns.append(('🚀 VELOCITY BREAKOUT', mask))
+        except Exception as e:
+            mask = pd.Series(False, index=df.index)
+            logger.warning(f"Error in INSTITUTIONAL TSUNAMI pattern: {e}")
+        patterns.append(('🌋 INSTITUTIONAL TSUNAMI', mask))
+
+        # ========== FUNDAMENTAL PATTERNS (12-16) ==========
     
-            # 11. Institutional Tsunami - Multi-dimensional confluence scoring
-            try:
-                if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d', 'ret_1y', 'from_high_pct', 'ret_7d', 'ret_30d', 'pe', 'eps_change_pct']):
-                    ret_7d = get_col_safe('ret_7d', 0)
-                    ret_30d = get_col_safe('ret_30d', 0)
-                    ret_1y = get_col_safe('ret_1y', 0)
-                    pe = get_col_safe('pe')
-                    eps_change_pct = get_col_safe('eps_change_pct')
-                    
-                    # Multi-timeframe volume tsunami scoring (75 points max)
-                    vol_tsunami_score = (
-                        np.where(get_col_safe('vol_ratio_7d_90d', 1) > 2.0, 30, 0) +
-                        np.where(get_col_safe('vol_ratio_30d_90d', 1) > 1.5, 25, 0) +
-                        np.where(get_col_safe('vol_ratio_90d_180d', 1) > 1.3, 20, 0)
-                    )
-                    
-                    # Hidden strength - institutions accumulating quietly (25 points)
-                    hidden_strength = np.where(
-                        (ret_1y > 50) & (get_col_safe('from_high_pct', -100) < -20), 
-                        25, 0
-                    )
-                    
-                    # Fresh acceleration confirmation (15 points)
-                    with np.errstate(divide='ignore', invalid='ignore'):
-                        fresh_accel = np.where(ret_7d > ret_30d / 4, 15, 0)
-                    
-                    # Quality confirmation - profitable growth (15 points)
-                    quality_conf = np.where(
-                        pe.notna() & (pe < 30) & eps_change_pct.notna() & (eps_change_pct > 20), 
-                        15, 0
-                    )
-                    
-                    # Total tsunami score (max 130 points)
-                    tsunami_score = vol_tsunami_score + hidden_strength + fresh_accel + quality_conf
-                    
-                    # Requires ≥90 points for institutional tsunami pattern
-                    mask = (tsunami_score >= 90)
-                else:
-                    mask = pd.Series(False, index=df.index)
-            except Exception as e:
-                mask = pd.Series(False, index=df.index)
-                logger.warning(f"Error in INSTITUTIONAL TSUNAMI pattern: {e}")
-            patterns.append(('🌋 INSTITUTIONAL TSUNAMI', mask))
-    
-            # ========== FUNDAMENTAL PATTERNS (12-16) ==========
-        
         # 12. Value Momentum - FIXED: Check master_score existence
         pe = get_col_safe('pe')
         if 'master_score' in df.columns:
