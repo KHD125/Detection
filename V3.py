@@ -1437,16 +1437,6 @@ class RankingEngine:
                         logger.debug(f"{col}: mean={ratio_mean:.2f}, median={ratio_median:.2f}")
         
         return volume_score
-    
-    # Log statistics
-    valid_count = volume_score.notna().sum()
-    logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
-    
-    if valid_count > 0:
-        avg_score = volume_score[volume_score.notna()].mean()
-        logger.debug(f"Average volume score: {avg_score:.1f}")
-    
-        return volume_score.clip(0, 100)
 
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
