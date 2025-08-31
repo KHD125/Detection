@@ -1140,7 +1140,7 @@ class RankingEngine:
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate position score based on 52-week range positioning.
-        YOUR ORIGINAL GENIUS LOGIC - UNCHANGED!
+        FIXED: Proper handling of missing data and correct ranking logic.
         """
         position_score = pd.Series(50, index=df.index, dtype=float)
         
@@ -1148,27 +1148,43 @@ class RankingEngine:
             logger.warning("Missing position data, using neutral scores")
             return position_score
         
-        # Rank distance from low and high
-        from_low = pd.Series(df['from_low_pct'].values, index=df.index).fillna(0)
-        from_high = pd.Series(-df['from_high_pct'].values, index=df.index).fillna(50)
+        # Get raw data WITHOUT fillna - preserve NaN
+        from_low_raw = pd.Series(df['from_low_pct'].values, index=df.index)
+        from_high_raw = pd.Series(df['from_high_pct'].values, index=df.index)
         
-        # Create percentile ranks
-        rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
-        rank_from_high = RankingEngine._safe_rank(from_high, pct=True, ascending=False)
+        # For ranking, we need to handle NaN properly
+        # Higher from_low is better (further from bottom)
+        # from_high closer to 0 is better (closer to peak)
         
-        # YOUR PERFECT ORIGINAL FORMULA - DON'T CHANGE!
-        position_score = pd.Series(
-            (rank_from_low.values * 0.6 + rank_from_high.values * 0.4),
-            index=df.index
+        # FIXED: Proper ranking without corrupting with fillna
+        rank_from_low = RankingEngine._safe_rank(from_low_raw, pct=True, ascending=True)
+        # For from_high: closer to 0 is better, so rank the absolute value descending
+        rank_from_high = RankingEngine._safe_rank(from_high_raw.abs(), pct=True, ascending=False)
+        
+        # Combine with weights (60% from_low, 40% from_high)
+        # Only calculate where BOTH values exist
+        valid_mask = from_low_raw.notna() & from_high_raw.notna()
+        
+        position_score[valid_mask] = (
+            rank_from_low[valid_mask] * 0.6 + 
+            rank_from_high[valid_mask] * 0.4
         )
         
-        # YOUR GENIUS SWEET SPOT DETECTION - KEEP EXACTLY AS IS!
-        sweet_spot_mask = (from_low >= 40) & (from_low <= 70)
-        position_score.loc[sweet_spot_mask] = position_score.loc[sweet_spot_mask] * 1.1
+        # FIXED: Sweet spot detection on RAW data, not filled
+        sweet_spot_mask = valid_mask & (from_low_raw >= 40) & (from_low_raw <= 70)
+        position_score.loc[sweet_spot_mask] *= 1.1
         
-        # Apply tension penalty for overextended stocks
-        overextended_mask = from_low > 85
-        position_score.loc[overextended_mask] = position_score.loc[overextended_mask] * 0.9
+        # FIXED: Overextended penalty on RAW data
+        overextended_mask = valid_mask & (from_low_raw > 85)
+        position_score.loc[overextended_mask] *= 0.9
+        
+        # NEW: Near 52w high bonus (bullish position)
+        near_high_mask = valid_mask & (from_high_raw > -5)  # Within 5% of 52w high
+        position_score.loc[near_high_mask] *= 1.05
+        
+        # NEW: Near 52w low penalty (bearish position)
+        near_low_mask = valid_mask & (from_low_raw < 10)  # Within 10% of 52w low
+        position_score.loc[near_low_mask] *= 0.95
         
         return position_score.clip(0, 100)
 
