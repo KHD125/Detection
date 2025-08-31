@@ -1873,41 +1873,104 @@ class RankingEngine:
     @staticmethod
     def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate liquidity score based on volume metrics.
-        IMPLEMENTATION: This method was also missing!
+        Calculate liquidity score based on dollar volume and consistency.
+        FIXED: Uses dollar volume, proper consistency checks, and market cap weighting.
         """
         liquidity_score = pd.Series(50, index=df.index, dtype=float)
         
-        # Use average volumes and money flow
-        if 'volume_90d' in df.columns:
+        # Primary factor: Dollar volume (price × volume)
+        # This is the TRUE measure of liquidity
+        dollar_volume = pd.Series(0, index=df.index, dtype=float)
+        
+        # Calculate average daily dollar volume
+        if 'volume_90d' in df.columns and 'price' in df.columns:
             vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
-            valid_mask = vol_90d.notna() & (vol_90d > 0)
+            price = pd.Series(df['price'].values, index=df.index)
             
-            # Rank by volume (higher volume = better liquidity)
+            valid_mask = vol_90d.notna() & price.notna() & (vol_90d > 0) & (price > 0)
+            
+            # Dollar volume in millions
+            dollar_volume[valid_mask] = (vol_90d[valid_mask] * price[valid_mask]) / 1_000_000
+            
+            # Rank by dollar volume (this is the core liquidity metric)
             liquidity_score[valid_mask] = RankingEngine._safe_rank(
-                vol_90d[valid_mask], 
-                pct=True, 
+                dollar_volume[valid_mask],
+                pct=True,
                 ascending=True
             )
+            
+            # Apply thresholds for Indian market
+            # Less than ₹10 Cr daily = poor liquidity
+            poor_liquidity = valid_mask & (dollar_volume < 10)  # < ₹10 Cr
+            liquidity_score[poor_liquidity] *= 0.50  # 50% penalty
+            
+            # ₹10-50 Cr = moderate liquidity
+            moderate_liquidity = valid_mask & (dollar_volume >= 10) & (dollar_volume < 50)
+            liquidity_score[moderate_liquidity] *= 0.85  # 15% penalty
+            
+            # ₹50-200 Cr = good liquidity
+            good_liquidity = valid_mask & (dollar_volume >= 50) & (dollar_volume < 200)
+            # No adjustment needed
+            
+            # > ₹200 Cr = excellent liquidity
+            excellent_liquidity = valid_mask & (dollar_volume >= 200)
+            liquidity_score[excellent_liquidity] *= 1.10  # 10% bonus
         
-        # Bonus for consistent volume (low volatility in volume)
+        # Secondary factor: Volume consistency
         if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']):
             vol_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            vol_7d = pd.Series(df['volume_7d'].values, index=df.index)
-            vol_30d = pd.Series(df['volume_30d'].values, index=df.index)
-            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
+            vol_7d = pd.Series(df['volume_7d'].values, index=df.index)  # Already daily average
+            vol_30d = pd.Series(df['volume_30d'].values, index=df.index)  # Already daily average
+            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)  # Already daily average
             
-            # Calculate coefficient of variation (lower = more consistent)
             valid_all = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & vol_90d.notna()
             
-            # Consistent volume (all within 50% of 90d average)
-            consistent = valid_all & (
-                (vol_1d / vol_90d).between(0.5, 1.5) &
-                (vol_7d / vol_90d).between(0.7, 1.3) &
-                (vol_30d / vol_90d).between(0.8, 1.2)
-            )
+            # Calculate coefficient of variation (lower = more consistent)
+            # This measures how stable the volume is
+            volume_mean = (vol_1d + vol_7d + vol_30d + vol_90d) / 4
+            volume_std = pd.Series(np.nan, index=df.index)
             
-            liquidity_score[consistent] *= 1.1  # 10% bonus for consistency
+            for idx in df.index:
+                if valid_all[idx]:
+                    volumes = [vol_1d[idx], vol_7d[idx], vol_30d[idx], vol_90d[idx]]
+                    volume_std[idx] = np.std(volumes)
+            
+            # Low variation = consistent = good for liquidity
+            cv = pd.Series(np.nan, index=df.index)
+            cv[volume_mean > 0] = volume_std[volume_mean > 0] / volume_mean[volume_mean > 0]
+            
+            # Bonus for low coefficient of variation (consistent volume)
+            very_consistent = valid_all & (cv < 0.3)  # CV < 30%
+            liquidity_score[very_consistent] *= 1.05  # 5% bonus
+            
+            # Penalty for high variation (erratic volume)
+            erratic = valid_all & (cv > 1.0)  # CV > 100%
+            liquidity_score[erratic] *= 0.95  # 5% penalty
+        
+        # Tertiary factor: Market cap consideration
+        if 'market_cap' in df.columns:
+            market_cap = pd.Series(df['market_cap'].values, index=df.index)
+            
+            # Parse market cap categories for bonus/penalty
+            mega_large = market_cap.isin(['Mega Cap', 'Large Cap'])
+            mid_cap = market_cap == 'Mid Cap'
+            small_micro = market_cap.isin(['Small Cap', 'Micro Cap'])
+            
+            # Market cap adjustments (larger caps are generally more liquid)
+            liquidity_score[mega_large] *= 1.05  # 5% bonus
+            liquidity_score[small_micro] *= 0.95  # 5% penalty
+        
+        # Additional penalty for price extremes
+        if 'price' in df.columns:
+            price = pd.Series(df['price'].values, index=df.index)
+            
+            # Penny stocks (< ₹10) have poor liquidity
+            penny = price < 10
+            liquidity_score[penny] *= 0.80  # 20% penalty
+            
+            # Very high price (> ₹50,000) might have lower retail liquidity
+            very_high = price > 50000
+            liquidity_score[very_high] *= 0.95  # 5% penalty
         
         return liquidity_score.clip(0, 100)
         
