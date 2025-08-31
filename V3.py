@@ -1042,18 +1042,13 @@ class RankingEngine:
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
         Calculates all component scores, a composite master score, and ranks the stocks.
-        
-        Args:
-            df (pd.DataFrame): The DataFrame containing processed stock data.
-            
-        Returns:
-            pd.DataFrame: The DataFrame with all scores and ranks added.
+        FIXED & OPTIMIZED: Vectorized operations with proper NaN handling.
         """
         if df.empty:
             return df
         
         logger.info("Starting optimized ranking calculations...")
-
+    
         # Calculate component scores
         df['position_score'] = RankingEngine._calculate_position_score(df)
         df['volume_score'] = RankingEngine._calculate_volume_score(df)
@@ -1067,42 +1062,74 @@ class RankingEngine:
         df['long_term_strength'] = RankingEngine._calculate_long_term_strength(df)
         df['liquidity_score'] = RankingEngine._calculate_liquidity_score(df)
         
-        # Calculate master score using numpy - YOUR ORIGINAL PERFECT WEIGHTS
-        scores_matrix = np.column_stack([
-            df['position_score'].fillna(50).values,
-            df['volume_score'].fillna(50).values,
-            df['momentum_score'].fillna(50).values,
-            df['acceleration_score'].fillna(50).values,
-            df['breakout_score'].fillna(50).values,
-            df['rvol_score'].fillna(50).values
-        ])
+        # Data quality calculation
+        score_cols = ['position_score', 'volume_score', 'momentum_score',
+                      'acceleration_score', 'breakout_score', 'rvol_score']
+        df['data_completeness'] = df[score_cols].notna().sum(axis=1) / len(score_cols) * 100
         
-        # YOUR ORIGINAL WEIGHTS - DON'T CHANGE, THEY'RE PERFECT!
+        # VECTORIZED ADAPTIVE SCORING
+        # Create weight matrix based on available data
         weights = np.array([
-            CONFIG.POSITION_WEIGHT,    # 0.30
-            CONFIG.VOLUME_WEIGHT,      # 0.25
-            CONFIG.MOMENTUM_WEIGHT,    # 0.15
-            CONFIG.ACCELERATION_WEIGHT, # 0.10
-            CONFIG.BREAKOUT_WEIGHT,    # 0.10
-            CONFIG.RVOL_WEIGHT         # 0.10
+            CONFIG.POSITION_WEIGHT,
+            CONFIG.VOLUME_WEIGHT,
+            CONFIG.MOMENTUM_WEIGHT,
+            CONFIG.ACCELERATION_WEIGHT,
+            CONFIG.BREAKOUT_WEIGHT,
+            CONFIG.RVOL_WEIGHT
         ])
         
-        # Calculate master score and ensure it's a Series
-        master_scores = np.dot(scores_matrix, weights).clip(0, 100)
-        df['master_score'] = pd.Series(master_scores, index=df.index)
+        # Get scores as numpy array
+        scores_array = df[score_cols].values
         
-        # Apply smart score bonuses (keep your existing bonuses)
+        # Create mask for valid scores
+        valid_mask = ~np.isnan(scores_array)
+        
+        # Calculate weighted sum for each row
+        master_scores = np.zeros(len(df))
+        for i in range(len(df)):
+            row_scores = scores_array[i]
+            row_valid = valid_mask[i]
+            
+            if row_valid.any():
+                # Use only valid scores and their weights
+                valid_scores = row_scores[row_valid]
+                valid_weights = weights[row_valid]
+                
+                # Normalize weights to sum to 1
+                if valid_weights.sum() > 0:
+                    normalized_weights = valid_weights / valid_weights.sum()
+                    master_scores[i] = np.dot(valid_scores, normalized_weights)
+                else:
+                    master_scores[i] = 0
+            else:
+                master_scores[i] = 0
+        
+        df['master_score'] = master_scores
+        
+        # Apply quality multiplier (optional but recommended)
+        df['quality_multiplier'] = 0.7 + (df['data_completeness'] / 100 * 0.3)
+        df['master_score'] = df['master_score'] * df['quality_multiplier']
+        df['master_score'] = df['master_score'].clip(0, 100)
+        
+        # Apply smart bonuses
         df = RankingEngine._apply_smart_bonuses(df)
         
-        # Calculate ranks
+        # Rankings
         df['rank'] = df['master_score'].rank(method='first', ascending=False, na_option='bottom')
         df['rank'] = df['rank'].fillna(len(df) + 1).astype(int)
         
         df['percentile'] = df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
         df['percentile'] = df['percentile'].fillna(0)
         
-        # Calculate category-specific ranks
+        # Category ranks
         df = RankingEngine._calculate_category_ranks(df)
+        
+        # Add confidence indicator
+        df['rank_confidence'] = pd.cut(
+            df['data_completeness'],
+            bins=[0, 50, 75, 90, 100],
+            labels=['Low', 'Fair', 'Good', 'High']
+        )
         
         logger.info(f"Ranking complete: {len(df)} stocks processed")
         
