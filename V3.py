@@ -3055,7 +3055,8 @@ class PatternDetector:
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
             mask = (
                 (get_col_safe('momentum_harmony', 0) == 4) & 
-                (get_col_safe('master_score', 0) > 80)
+                (get_col_safe('ret_30d', 0) > 20) &  # Use return data instead
+                (get_col_safe('rvol', 0) > 2)  # Add volume confirmation
             )
             patterns.append(('⛈️ PERFECT STORM', mask))
 
