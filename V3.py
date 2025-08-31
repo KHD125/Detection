@@ -1173,14 +1173,12 @@ class RankingEngine:
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate position score based on 52-week range positioning.
-        HYBRID APPROACH: Absolute scoring for normal range, special handling for breakouts.
+        FIXED: Proper handling for stocks above/below 52w high using absolute scoring.
         
         Position Score Logic:
-        - Normal range (below 52w high): Absolute scoring
-        - Breakout range (above 52w high): Progressive scoring with decay
-        - Smart bonuses/penalties based on position zones
-        
-        This avoids both percentile ranking inflation AND breakout score saturation.
+        - Below 52w high: Balanced scoring using both from_low and from_high
+        - Above 52w high: Focus on from_low with breakout quality adjustment
+        - No percentile ranking - uses actual values for honest differentiation
         """
         position_score = pd.Series(np.nan, index=df.index, dtype=float)
         
@@ -1200,115 +1198,166 @@ class RankingEngine:
             logger.warning("No valid position data available")
             return position_score
         
-        # SPLIT CALCULATION BASED ON POSITION
+        # CRITICAL: Split based on whether stock is above or below 52w high
+        below_high = valid_mask & (from_high <= 0)  # from_high negative = below high
+        above_high = valid_mask & (from_high > 0)   # from_high positive = above high
         
-        # 1. NORMAL RANGE STOCKS (below or at 52w high)
-        normal_range = valid_mask & (from_high <= 0)
-        if normal_range.any():
-            # Use ABSOLUTE SCORING for honest differentiation
-            # from_low: use directly (0-100 scale)
-            # from_high: convert negative to positive score
-            position_score[normal_range] = (
-                from_low[normal_range].clip(0, 100) * 0.6 +
-                (100 + from_high[normal_range]).clip(0, 100) * 0.4
-            )
-            logger.debug(f"Calculated scores for {normal_range.sum()} normal range stocks")
-        
-        # 2. BREAKOUT STOCKS (above 52w high)
-        breakout_range = valid_mask & (from_high > 0)
-        if breakout_range.any():
-            # Special formula for breakouts that avoids saturation
-            # Base score starts high but decays with overextension
-            for idx in df.index[breakout_range]:
-                breakout_pct = from_high[idx]  # How much above 52w high
-                
-                if breakout_pct <= 5:
-                    # Fresh breakout (0-5% above): Score 85-90
-                    position_score[idx] = 85 + breakout_pct
-                elif breakout_pct <= 15:
-                    # Strong breakout (5-15% above): Score 90-92
-                    position_score[idx] = 90 + min((breakout_pct - 5) * 0.2, 2)
-                elif breakout_pct <= 30:
-                    # Extended breakout (15-30% above): Score 92-85 (starts declining)
-                    position_score[idx] = 92 - (breakout_pct - 15) * 0.5
-                else:
-                    # Overextended (>30% above): Score continues declining
-                    position_score[idx] = max(85 - (breakout_pct - 30) * 0.3, 70)
+        # ============================================
+        # CASE 1: STOCKS BELOW THEIR 52-WEEK HIGH
+        # ============================================
+        if below_high.any():
+            # Use absolute scoring with both metrics
+            # from_low: 0-100 scale (higher is better)
+            # from_high: negative values, closer to 0 is better
             
-            logger.debug(f"Calculated scores for {breakout_range.sum()} breakout stocks")
+            # Score calculation:
+            # from_low component (60% weight): Direct use
+            from_low_component = from_low[below_high].clip(0, 100) * 0.6
+            
+            # from_high component (40% weight): Convert negative to positive score
+            # -50% from high = 50 score, -10% from high = 90 score, 0% = 100 score
+            from_high_component = (100 + from_high[below_high]).clip(0, 100) * 0.4
+            
+            position_score[below_high] = from_low_component + from_high_component
+            
+            logger.debug(f"Calculated scores for {below_high.sum()} stocks below 52w high")
         
-        # APPLY POSITION-BASED MODIFIERS (same as before, but refined)
+        # ============================================
+        # CASE 2: STOCKS ABOVE THEIR 52-WEEK HIGH (BREAKING OUT)
+        # ============================================
+        if above_high.any():
+            # When above high, from_high is POSITIVE (extension above old high)
+            # Focus on from_low as primary metric with breakout quality adjustment
+            
+            # Base score from journey (from_low tells us the full move)
+            # Stocks making new highs typically have from_low > 100
+            base_score = pd.Series(np.nan, index=df.index, dtype=float)
+            
+            for idx in df.index[above_high]:
+                low_dist = from_low[idx]
+                high_ext = from_high[idx]  # Positive value: extension above old high
+                
+                # Calculate base from the journey
+                if low_dist <= 110:
+                    # Just broke out (100-110% from low): Strong position
+                    base_score[idx] = 85 + (low_dist - 100) * 0.5  # 85-90
+                elif low_dist <= 130:
+                    # Good breakout (110-130% from low): Peak scores
+                    base_score[idx] = 90 + min((low_dist - 110) * 0.25, 5)  # 90-95
+                elif low_dist <= 150:
+                    # Extended (130-150% from low): Still good but careful
+                    base_score[idx] = 95 - (low_dist - 130) * 0.25  # 95-90
+                else:
+                    # Very extended (>150% from low): Overextension risk
+                    base_score[idx] = max(90 - (low_dist - 150) * 0.2, 75)  # 90-75
+                
+                # Adjust for breakout quality (how far above old high)
+                if high_ext <= 5:
+                    # Fresh breakout (0-5% above): No adjustment needed
+                    pass
+                elif high_ext <= 15:
+                    # Moderate extension (5-15% above): Small penalty
+                    base_score[idx] *= 0.98
+                elif high_ext <= 30:
+                    # Large extension (15-30% above): Moderate penalty
+                    base_score[idx] *= 0.95
+                else:
+                    # Extreme extension (>30% above): Larger penalty
+                    base_score[idx] *= 0.90
+            
+            position_score[above_high] = base_score[above_high]
+            logger.debug(f"Calculated scores for {above_high.sum()} stocks above 52w high")
         
-        # 1. Sweet spot bonus: 40-70% from low (only for normal range)
-        sweet_spot = normal_range & (from_low >= 40) & (from_low <= 70)
+        # ============================================
+        # APPLY POSITION-BASED MODIFIERS
+        # ============================================
+        
+        # 1. Sweet spot bonus (40-70% from low, only for stocks below high)
+        sweet_spot = below_high & (from_low >= 40) & (from_low <= 70)
         if sweet_spot.any():
             position_score.loc[sweet_spot] *= 1.10
             logger.debug(f"Applied sweet spot bonus (+10%) to {sweet_spot.sum()} stocks")
         
-        # 2. Overextended penalty: >85% from low (only for normal range, not breakouts)
-        overextended = normal_range & (from_low > 85)
-        if overextended.any():
-            position_score.loc[overextended] *= 0.90
-            logger.debug(f"Applied overextended penalty (-10%) to {overextended.sum()} stocks")
-        
-        # 3. Near 52w high bonus: Within 5% of high (approaching breakout)
-        near_high = normal_range & (from_high > -5)
+        # 2. Near 52w high bonus (approaching breakout, only below high)
+        near_high = below_high & (from_high > -5)  # Within 5% of high
         if near_high.any():
             position_score.loc[near_high] *= 1.05
             logger.debug(f"Applied near-high bonus (+5%) to {near_high.sum()} stocks")
         
-        # 4. Near 52w low penalty: Within 10% of low
+        # 3. Near 52w low penalty (weakness signal)
         near_low = valid_mask & (from_low < 10)
         if near_low.any():
             position_score.loc[near_low] *= 0.95
             logger.debug(f"Applied near-low penalty (-5%) to {near_low.sum()} stocks")
         
-        # 5. Danger zone: Very close to 52w low (<5%)
+        # 4. Danger zone (very close to 52w low)
         danger_zone = valid_mask & (from_low < 5)
         if danger_zone.any():
-            position_score.loc[danger_zone] *= 0.90  # Additional penalty
+            position_score.loc[danger_zone] *= 0.90
             logger.debug(f"Applied danger zone penalty to {danger_zone.sum()} stocks")
         
+        # ============================================
         # BREAKOUT-SPECIFIC MODIFIERS
-        if breakout_range.any():
+        # ============================================
+        if above_high.any():
             # Fresh breakout with volume confirmation
             if 'rvol' in df.columns:
                 rvol = pd.Series(df['rvol'].values, index=df.index)
-                fresh_breakout_volume = breakout_range & (from_high <= 5) & (rvol > 2)
-                if fresh_breakout_volume.any():
-                    position_score.loc[fresh_breakout_volume] *= 1.10
-                    logger.debug(f"Applied fresh breakout volume bonus to {fresh_breakout_volume.sum()} stocks")
+                
+                # Fresh breakout (just crossed) with high volume
+                fresh_volume = above_high & (from_high <= 5) & (rvol > 2)
+                if fresh_volume.any():
+                    position_score.loc[fresh_volume] *= 1.10
+                    logger.debug(f"Applied fresh breakout volume bonus to {fresh_volume.sum()} stocks")
+                
+                # Breakout without volume (suspicious)
+                no_volume = above_high & (from_high <= 10) & (rvol < 1)
+                if no_volume.any():
+                    position_score.loc[no_volume] *= 0.90
+                    logger.debug(f"Applied low volume breakout penalty to {no_volume.sum()} stocks")
             
-            # Sustained breakout momentum
+            # Momentum confirmation for breakouts
             if 'ret_7d' in df.columns:
                 ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-                sustained_breakout = breakout_range & (from_high > 5) & (from_high <= 20) & (ret_7d > 5)
-                if sustained_breakout.any():
-                    position_score.loc[sustained_breakout] *= 1.05
-                    logger.debug(f"Applied sustained breakout bonus to {sustained_breakout.sum()} stocks")
+                
+                # Strong momentum breakout
+                strong_momentum = above_high & (ret_7d > 10)
+                if strong_momentum.any():
+                    position_score.loc[strong_momentum] *= 1.05
+                    logger.debug(f"Applied momentum breakout bonus to {strong_momentum.sum()} stocks")
+                
+                # Weak momentum despite breakout (false breakout risk)
+                weak_momentum = above_high & (ret_7d < 2)
+                if weak_momentum.any():
+                    position_score.loc[weak_momentum] *= 0.95
+                    logger.debug(f"Applied weak momentum penalty to {weak_momentum.sum()} stocks")
         
-        # CONTEXT ADJUSTMENTS (category-based)
+        # ============================================
+        # MARKET CAP CONTEXT
+        # ============================================
         if 'category' in df.columns and position_score.notna().any():
             category = pd.Series(df['category'].values, index=df.index)
             
-            # Small caps near lows are riskier
-            is_small = category.isin(['Micro Cap', 'Small Cap'])
-            small_near_low = is_small & valid_mask & (from_low < 20)
-            if small_near_low.any():
-                position_score.loc[small_near_low] *= 0.95
-                logger.debug(f"Applied small cap risk penalty to {small_near_low.sum()} stocks")
-            
-            # Large caps breaking out are more reliable
+            # Large cap breakouts are more reliable
             is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_breakout = is_large & breakout_range
+            large_breakout = is_large & above_high
             if large_breakout.any():
                 position_score.loc[large_breakout] *= 1.05
                 logger.debug(f"Applied large cap breakout bonus to {large_breakout.sum()} stocks")
+            
+            # Small cap near lows are riskier
+            is_small = category.isin(['Micro Cap', 'Small Cap'])
+            small_weak = is_small & valid_mask & (from_low < 20)
+            if small_weak.any():
+                position_score.loc[small_weak] *= 0.95
+                logger.debug(f"Applied small cap weakness penalty to {small_weak.sum()} stocks")
         
-        # Ensure final scores stay within bounds
+        # Ensure scores stay within bounds
         position_score = position_score.clip(0, 100)
         
+        # ============================================
         # DETAILED LOGGING
+        # ============================================
         valid_count = valid_mask.sum()
         logger.info(f"Position scores calculated: {valid_count} valid out of {len(df)} stocks")
         
@@ -1321,29 +1370,18 @@ class RankingEngine:
                        f"Mean: {avg_score:.1f}, "
                        f"Median: {median_score:.1f}")
             
-            # Log breakdown by range type
-            if normal_range.any():
-                normal_avg = position_score[normal_range].mean()
-                logger.debug(f"Normal range stocks: {normal_range.sum()} stocks, avg score: {normal_avg:.1f}")
+            # Separate statistics for below/above high
+            if below_high.any():
+                below_avg = position_score[below_high].mean()
+                logger.debug(f"Below 52w high: {below_high.sum()} stocks, avg score: {below_avg:.1f}")
             
-            if breakout_range.any():
-                breakout_avg = position_score[breakout_range].mean()
-                logger.debug(f"Breakout stocks: {breakout_range.sum()} stocks, avg score: {breakout_avg:.1f}")
-                
-                # Log distribution of breakouts
-                mild_breakout = breakout_range & (from_high <= 10)
-                strong_breakout = breakout_range & (from_high > 10) & (from_high <= 30)
-                extreme_breakout = breakout_range & (from_high > 30)
-                
-                if mild_breakout.any():
-                    logger.debug(f"  - Mild breakouts (0-10% above): {mild_breakout.sum()}")
-                if strong_breakout.any():
-                    logger.debug(f"  - Strong breakouts (10-30% above): {strong_breakout.sum()}")
-                if extreme_breakout.any():
-                    logger.debug(f"  - Extreme breakouts (>30% above): {extreme_breakout.sum()}")
+            if above_high.any():
+                above_avg = position_score[above_high].mean()
+                max_extension = from_high[above_high].max()
+                logger.debug(f"Above 52w high: {above_high.sum()} stocks, avg score: {above_avg:.1f}, "
+                            f"max extension: {max_extension:.1f}%")
         
         return position_score
-
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
