@@ -1259,12 +1259,32 @@ class RankingEngine:
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate volume score using ABSOLUTE scoring, not percentile ranking.
-        FIXED: Uses actual ratio values to determine scores.
+        Calculate comprehensive volume score using ABSOLUTE scoring.
+        FIXED: Uses actual ratio values instead of percentile ranking that artificially spreads scores.
+        
+        Volume Score Components:
+        - 20% weight: 1d/90d ratio (most recent)
+        - 20% weight: 7d/90d ratio (weekly trend)
+        - 20% weight: 30d/90d ratio (monthly trend)
+        - 15% weight: 30d/180d ratio (medium-term)
+        - 25% weight: 90d/180d ratio (long-term trend)
+        
+        Scoring Formula:
+        - Ratio < 0.5: Score 0-25 (dead volume)
+        - Ratio 0.5-0.8: Score 25-40 (low volume)
+        - Ratio 0.8-1.2: Score 40-60 (normal range)
+        - Ratio 1.2-2.0: Score 60-80 (elevated)
+        - Ratio 2.0-5.0: Score 80-95 (high)
+        - Ratio > 5.0: Score 95-100 (extreme)
+        
+        Bonuses/Penalties:
+        - Sustained volume (+10%): All timeframes elevated
+        - One-day spike (-10%): Only 1d high, others low
+        - Distribution detection: RVOL >10 (-15%), >20 (-30%)
         """
         volume_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Volume ratio columns and weights
+        # Define volume ratio columns and weights
         vol_cols = [
             ('vol_ratio_1d_90d', 0.20),
             ('vol_ratio_7d_90d', 0.20),
@@ -1273,61 +1293,72 @@ class RankingEngine:
             ('vol_ratio_90d_180d', 0.25)
         ]
         
+        # Check which columns exist
         available_cols = [(col, weight) for col, weight in vol_cols if col in df.columns]
         
         if not available_cols:
-            logger.warning("No volume ratio data available")
+            logger.warning("No volume ratio data available, returning NaN scores")
             return volume_score
         
-        # FIXED: Use ABSOLUTE scoring based on ratio values
+        # Track which stocks have complete data
+        existing_vol_cols = [col for col, _ in available_cols]
+        has_complete_data = df[existing_vol_cols].notna().all(axis=1) if existing_vol_cols else pd.Series(False, index=df.index)
+        
+        # FIXED: Calculate scores using ABSOLUTE VALUES, not percentile ranking
         weighted_sum = pd.Series(0, index=df.index, dtype=float)
-        weight_sum = pd.Series(0, index=df.index, dtype=float)
+        actual_weight_sum = pd.Series(0, index=df.index, dtype=float)
         
         for col, weight in available_cols:
             col_data = pd.Series(df[col].values, index=df.index)
             valid_mask = col_data.notna()
             
-            # ABSOLUTE SCORING FORMULA:
-            # Ratio < 0.5: Score = 0-25 (very low)
-            # Ratio 0.5-0.8: Score = 25-40 (low)
-            # Ratio 0.8-1.2: Score = 40-60 (normal)
-            # Ratio 1.2-2.0: Score = 60-80 (elevated)
-            # Ratio 2.0-5.0: Score = 80-95 (high)
-            # Ratio > 5.0: Score = 95-100 (extreme)
+            # Create score array
+            col_score = pd.Series(np.nan, index=df.index, dtype=float)
             
-            col_score = pd.Series(50, index=df.index, dtype=float)  # Default normal
+            # ABSOLUTE SCORING based on actual ratio values
+            # This prevents normal volumes (0.9-1.1) from getting extreme scores
+            if valid_mask.any():
+                ratios = col_data[valid_mask]
+                
+                # Score calculation using smooth transitions
+                scores = np.zeros(len(ratios))
+                
+                # Very low volume (ratio < 0.5): Linear 0-25
+                mask_very_low = ratios < 0.5
+                scores[mask_very_low] = ratios[mask_very_low] * 50
+                
+                # Low volume (0.5 <= ratio < 0.8): Linear 25-40
+                mask_low = (ratios >= 0.5) & (ratios < 0.8)
+                scores[mask_low] = 25 + ((ratios[mask_low] - 0.5) / 0.3) * 15
+                
+                # Normal volume (0.8 <= ratio < 1.2): Linear 40-60 (TIGHT RANGE)
+                mask_normal = (ratios >= 0.8) & (ratios < 1.2)
+                scores[mask_normal] = 40 + ((ratios[mask_normal] - 0.8) / 0.4) * 20
+                
+                # Elevated volume (1.2 <= ratio < 2.0): Linear 60-80
+                mask_elevated = (ratios >= 1.2) & (ratios < 2.0)
+                scores[mask_elevated] = 60 + ((ratios[mask_elevated] - 1.2) / 0.8) * 20
+                
+                # High volume (2.0 <= ratio < 5.0): Linear 80-95
+                mask_high = (ratios >= 2.0) & (ratios < 5.0)
+                scores[mask_high] = 80 + ((ratios[mask_high] - 2.0) / 3.0) * 15
+                
+                # Extreme volume (ratio >= 5.0): Logarithmic 95-100 with cap
+                mask_extreme = ratios >= 5.0
+                scores[mask_extreme] = 95 + np.minimum(np.log(ratios[mask_extreme] / 5.0) * 2, 5)
+                
+                # Apply scores
+                col_score.loc[valid_mask] = scores
             
-            # Calculate scores based on absolute values
-            col_score[valid_mask] = np.where(
-                col_data[valid_mask] < 0.5,
-                col_data[valid_mask] * 50,  # 0-25 range
-                np.where(
-                    col_data[valid_mask] < 0.8,
-                    25 + (col_data[valid_mask] - 0.5) * 50,  # 25-40 range
-                    np.where(
-                        col_data[valid_mask] < 1.2,
-                        40 + (col_data[valid_mask] - 0.8) * 50,  # 40-60 range
-                        np.where(
-                            col_data[valid_mask] < 2.0,
-                                60 + (col_data[valid_mask] - 1.2) * 25,  # 60-80 range
-                            np.where(
-                                col_data[valid_mask] < 5.0,
-                                80 + (col_data[valid_mask] - 2.0) * 5,  # 80-95 range
-                                95 + np.minimum((col_data[valid_mask] - 5.0) * 0.5, 5)  # 95-100 cap
-                            )
-                        )
-                    )
-                )
-            )
-            
-            # Add to weighted sum
-            weighted_sum[valid_mask] += col_score[valid_mask] * weight
-            weight_sum[valid_mask] += weight
+            # Add to weighted sum only where data exists
+            valid_scores = col_score.notna()
+            weighted_sum[valid_scores] += col_score[valid_scores] * weight
+            actual_weight_sum[valid_scores] += weight
         
-        # Calculate final score
-        has_data = weight_sum > 0
-        volume_score[has_data] = weighted_sum[has_data] / weight_sum[has_data]
-
+        # Calculate base volume score
+        has_any_data = actual_weight_sum > 0
+        volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data]
+        
         # ENHANCED: Volume persistence analysis (only for complete data)
         if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
             vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
@@ -1349,7 +1380,7 @@ class RankingEngine:
                 volume_score.loc[spike_only] *= 0.90  # 10% penalty
                 logger.debug(f"Applied spike-only penalty to {spike_only.sum()} stocks")
         
-        # FIXED: Distribution detection for extreme volume
+        # FIXED: Distribution detection for extreme RVOL
         if 'rvol' in df.columns:
             rvol_series = pd.Series(df['rvol'].values, index=df.index)
             rvol_valid = rvol_series.notna() & volume_score.notna()
@@ -1369,13 +1400,13 @@ class RankingEngine:
             # Extreme volume = distribution/pump (10-20x)
             extreme = rvol_valid & (rvol_series > 10) & (rvol_series <= 20)
             if extreme.any():
-                volume_score.loc[extreme] *= 0.85  # 15% penalty (FIXED from 0.70)
+                volume_score.loc[extreme] *= 0.85  # 15% penalty
                 logger.debug(f"Applied distribution penalty to {extreme.sum()} stocks")
             
             # Insane volume = stay away (>20x)
             insane = rvol_valid & (rvol_series > 20)
             if insane.any():
-                volume_score.loc[insane] *= 0.70  # 30% penalty (FIXED from 0.50)
+                volume_score.loc[insane] *= 0.70  # 30% penalty
                 logger.debug(f"Applied extreme distribution penalty to {insane.sum()} stocks")
         
         # Data completeness penalty (only for incomplete data)
@@ -1383,9 +1414,29 @@ class RankingEngine:
         if incomplete.any():
             volume_score.loc[incomplete] *= 0.95  # 5% penalty for missing some ratios
             logger.debug(f"Applied incomplete data penalty to {incomplete.sum()} stocks")
-    
-    # Ensure scores stay within bounds
-    volume_score = volume_score.clip(0, 100)
+        
+        # Ensure scores stay within bounds
+        volume_score = volume_score.clip(0, 100)
+        
+        # Log statistics
+        valid_count = volume_score.notna().sum()
+        logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
+        
+        if valid_count > 0:
+            avg_score = volume_score[volume_score.notna()].mean()
+            logger.debug(f"Average volume score: {avg_score:.1f}")
+            
+            # Additional debug info for troubleshooting
+            if avg_score > 80:
+                logger.warning(f"Unusually high average volume score: {avg_score:.1f}")
+                # Check distribution of ratios
+                for col, _ in available_cols[:3]:  # Check first 3 ratios
+                    if col in df.columns:
+                        ratio_mean = df[col].mean()
+                        ratio_median = df[col].median()
+                        logger.debug(f"{col}: mean={ratio_mean:.2f}, median={ratio_median:.2f}")
+        
+        return volume_score
     
     # Log statistics
     valid_count = volume_score.notna().sum()
