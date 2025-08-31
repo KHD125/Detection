@@ -906,37 +906,24 @@ class AdvancedMetrics:
         Calculates a comprehensive set of advanced metrics for the DataFrame.
         All calculations are designed to be vectorized and handle missing data
         without raising errors.
-        FIXED: Money flow overflow prevention added.
-    
+
         Args:
             df (pd.DataFrame): The DataFrame with raw data and core scores.
-    
+
         Returns:
             pd.DataFrame: The DataFrame with all calculated advanced metrics added.
         """
         if df.empty:
             return df
         
-        # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
+        # Money Flow (in millions)
         if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
-            # Clip RVOL to prevent extreme multiplications
-            safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
-            
-            # Calculate money flow with overflow prevention
-            money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
-            
-            # Clip to prevent overflow (max 1 trillion)
-            df['money_flow'] = np.clip(money_flow_raw, 0, 1e12)
-            
-            # Convert to millions for display
+            df['money_flow'] = df['price'].fillna(0) * df['volume_1d'].fillna(0) * df['rvol'].fillna(1.0)
             df['money_flow_mm'] = df['money_flow'] / 1_000_000
-            
-            # Additional safety: clip the millions version too
-            df['money_flow_mm'] = df['money_flow_mm'].clip(0, 1e6)  # Max 1 million millions
         else:
             df['money_flow_mm'] = pd.Series(np.nan, index=df.index)
         
-        # Volume Momentum Index (VMI) - Already safe (dividing by constant 10)
+        # Volume Momentum Index (VMI)
         if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d']):
             df['vmi'] = (
                 df['vol_ratio_1d_90d'].fillna(1.0) * 4 +
@@ -977,7 +964,7 @@ class AdvancedMetrics:
         
         # Wave State
         df['wave_state'] = df.apply(AdvancedMetrics._get_wave_state, axis=1)
-    
+
         # Overall Wave Strength
         score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
         if all(col in df.columns for col in score_cols):
@@ -1005,18 +992,10 @@ class AdvancedMetrics:
             signals += 1
         if row.get('acceleration_score', 0) > 70:
             signals += 1
-        
-        # ENHANCED: Scale signal based on RVOL magnitude
-        rvol_val = row.get('rvol', 0)
-        if rvol_val > 5:
-            signals += 2  # Double signal for extreme volume
-        elif rvol_val > 2:
+        if row.get('rvol', 0) > 2:
             signals += 1
         
-        # UPDATED: Adjust thresholds since max signals is now 5 (not 4)
-        if signals >= 5:
-            return "🌊🌊🌊🔥 TSUNAMI"  # NEW: Ultra-extreme state
-        elif signals >= 4:
+        if signals >= 4:
             return "🌊🌊🌊 CRESTING"
         elif signals >= 3:
             return "🌊🌊 BUILDING"
@@ -1026,30 +1005,33 @@ class AdvancedMetrics:
             return "💥 BREAKING"
         
 # ============================================
-# RANKING ENGINE
-# Only 3 critical improvements to your already perfect system
+# RANKING ENGINE - OPTIMIZED
 # ============================================
 
 class RankingEngine:
     """
     Core ranking calculations using a multi-factor model.
-    FIXED VERSION: Smoothed acceleration, better thresholds, distribution detection.
-    Maintains all your original genius logic and weights.
+    This class is highly optimized with vectorized NumPy operations
+    for speed and designed to be resilient to missing data.
     """
 
     @staticmethod
     @PerformanceMonitor.timer(target_time=0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
-        FULLY OPTIMIZED: Pure vectorized operations, no loops!
+        Calculates all component scores, a composite master score, and ranks the stocks.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing processed stock data.
+
+        Returns:
+            pd.DataFrame: The DataFrame with all scores and ranks added.
         """
         if df.empty:
             return df
-
-        start = time.time()
         
         logger.info("Starting optimized ranking calculations...")
-    
+
         # Calculate component scores
         df['position_score'] = RankingEngine._calculate_position_score(df)
         df['volume_score'] = RankingEngine._calculate_volume_score(df)
@@ -1058,73 +1040,44 @@ class RankingEngine:
         df['breakout_score'] = RankingEngine._calculate_breakout_score(df)
         df['rvol_score'] = RankingEngine._calculate_rvol_score(df)
         
-        # Auxiliary scores
+        # Calculate auxiliary scores
         df['trend_quality'] = RankingEngine._calculate_trend_quality(df)
         df['long_term_strength'] = RankingEngine._calculate_long_term_strength(df)
         df['liquidity_score'] = RankingEngine._calculate_liquidity_score(df)
         
-        # Data quality
-        score_cols = ['position_score', 'volume_score', 'momentum_score',
-                      'acceleration_score', 'breakout_score', 'rvol_score']
-        df['data_completeness'] = df[score_cols].notna().sum(axis=1) / len(score_cols) * 100
-        
-        # FULLY VECTORIZED MASTER SCORE CALCULATION
-        weights = np.array([
-            CONFIG.POSITION_WEIGHT,    # 0.30
-            CONFIG.VOLUME_WEIGHT,      # 0.25
-            CONFIG.MOMENTUM_WEIGHT,    # 0.15
-            CONFIG.ACCELERATION_WEIGHT, # 0.10
-            CONFIG.BREAKOUT_WEIGHT,    # 0.10
-            CONFIG.RVOL_WEIGHT         # 0.10
+        # Calculate master score using numpy (DO NOT MODIFY FORMULA)
+        # FIX: Use safer np.column_stack approach
+        scores_matrix = np.column_stack([
+            df['position_score'].fillna(50),
+            df['volume_score'].fillna(50),
+            df['momentum_score'].fillna(50),
+            df['acceleration_score'].fillna(50),
+            df['breakout_score'].fillna(50),
+            df['rvol_score'].fillna(50)
         ])
         
-        # Get scores and mask
-        scores_array = df[score_cols].values
-        valid_mask = ~np.isnan(scores_array)
+        weights = np.array([
+            CONFIG.POSITION_WEIGHT,
+            CONFIG.VOLUME_WEIGHT,
+            CONFIG.MOMENTUM_WEIGHT,
+            CONFIG.ACCELERATION_WEIGHT,
+            CONFIG.BREAKOUT_WEIGHT,
+            CONFIG.RVOL_WEIGHT
+        ])
         
-        # VECTORIZED: Calculate weighted average for each row
-        # Replace NaN with 0 for multiplication, but track valid weights
-        scores_filled = np.nan_to_num(scores_array, nan=0.0)
+        df['master_score'] = np.dot(scores_matrix, weights).clip(0, 100)
         
-        # Adjust weights per row based on available data
-        weights_matrix = valid_mask * weights
-        weights_sum = weights_matrix.sum(axis=1, keepdims=True)
-        
-        # Avoid division by zero
-        weights_sum = np.where(weights_sum == 0, 1, weights_sum)
-        
-        # Normalized weights per row
-        normalized_weights = weights_matrix / weights_sum
-        
-        # Calculate master scores (vectorized!)
-        df['master_score'] = (scores_filled * normalized_weights).sum(axis=1)
-        
-        # Apply quality multiplier
-        df['quality_multiplier'] = 0.8 + (df['data_completeness'] / 100 * 0.2)  # 0.8 to 1.0
-        df['master_score'] = df['master_score'] * df['quality_multiplier']
-        df['master_score'] = df['master_score'].clip(0, 100)
-        
-        # Apply bonuses
-        df = RankingEngine._apply_smart_bonuses(df)
-        
-        # Rankings
+        # Calculate ranks
         df['rank'] = df['master_score'].rank(method='first', ascending=False, na_option='bottom')
         df['rank'] = df['rank'].fillna(len(df) + 1).astype(int)
         
         df['percentile'] = df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
         df['percentile'] = df['percentile'].fillna(0)
         
-        # Category ranks
+        # Calculate category-specific ranks
         df = RankingEngine._calculate_category_ranks(df)
         
-        # Confidence indicator
-        df['rank_confidence'] = pd.cut(
-            df['data_completeness'],
-            bins=[0, 50, 75, 90, 100],
-            labels=['Low', 'Fair', 'Good', 'High']
-        )
-        
-        logger.info(f"Ranking complete: {len(df)} stocks in {time.time()-start:.3f}s")
+        logger.info(f"Ranking complete: {len(df)} stocks processed")
         
         return df
 
@@ -1132,151 +1085,79 @@ class RankingEngine:
     def _safe_rank(series: pd.Series, pct: bool = True, ascending: bool = True) -> pd.Series:
         """
         Safely ranks a series, handling NaNs and infinite values to prevent errors.
-        FIXED: Preserves NaN values instead of filling with fake data.
         
         Args:
-            series: The pandas Series to rank
-            pct: If True, returns percentile ranks (0-100)
-            ascending: If True, smaller values get lower ranks
+            series (pd.Series): The series to rank.
+            pct (bool): If True, returns percentile ranks (0-100).
+            ascending (bool): The order for ranking.
             
         Returns:
-            pd.Series: Ranked values with NaN preserved for missing data
+            pd.Series: A new series with the calculated ranks.
         """
-        # Handle empty or all-NaN series
-        if series.empty or series.isna().all():
-            # Return NaN for all values, not fake 50s
-            return pd.Series(np.nan, index=series.index, dtype=float)
+        # FIX: Return proper defaults instead of NaN series
+        if series is None or series.empty:
+            return pd.Series(dtype=float)
         
-        # Create a copy and handle infinities
-        clean_series = series.copy()
-        clean_series = clean_series.replace([np.inf, -np.inf], np.nan)
+        # Replace inf values with NaN
+        series = series.replace([np.inf, -np.inf], np.nan)
         
-        # Check if we have any valid values to rank
-        valid_mask = clean_series.notna()
-        if not valid_mask.any():
-            # No valid values - return all NaN
-            return pd.Series(np.nan, index=series.index, dtype=float)
+        # Count valid values
+        valid_count = series.notna().sum()
+        if valid_count == 0:
+            return pd.Series(50, index=series.index)  # FIX: Return 50 default
         
-        # Perform ranking - FIXED to preserve NaN
+        # Rank with proper parameters
         if pct:
-            # Use 'keep' to preserve NaN in their original positions
-            result = clean_series.rank(pct=True, ascending=ascending, na_option='keep') * 100
-            # DON'T fillna! Let NaN stay NaN
+            ranks = series.rank(pct=True, ascending=ascending, na_option='bottom') * 100
+            ranks = ranks.fillna(0 if ascending else 100)
         else:
-            # For non-percentile ranking
-            result = clean_series.rank(method='average', ascending=ascending, na_option='keep')
+            ranks = series.rank(ascending=ascending, method='min', na_option='bottom')
+            ranks = ranks.fillna(valid_count + 1)
         
-        # Ensure it's a Series with proper index
-        return pd.Series(result, index=series.index, dtype=float)
+        return ranks
 
     @staticmethod
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate position score based on 52-week range positioning.
-        FIXED: Proper handling of missing data and correct ranking logic.
+        """Calculate position score from 52-week range (DO NOT MODIFY LOGIC)"""
+        # FIX: Initialize with neutral score 50, not NaN
+        position_score = pd.Series(50, index=df.index, dtype=float)
         
-        Position Score Logic:
-        - 60% weight: Distance from 52w low (higher is better)
-        - 40% weight: Distance from 52w high (closer to 0 is better)
-        - Sweet spot bonus: 40-70% from low (+10%)
-        - Overextended penalty: >85% from low (-10%)
-        - Near high bonus: Within 5% of 52w high (+5%)
-        - Near low penalty: Within 10% of 52w low (-5%)
-        """
-        position_score = pd.Series(np.nan, index=df.index, dtype=float)
+        # Check required columns
+        has_from_low = 'from_low_pct' in df.columns and df['from_low_pct'].notna().any()
+        has_from_high = 'from_high_pct' in df.columns and df['from_high_pct'].notna().any()
         
-        # Check if we have the required columns
-        if 'from_low_pct' not in df.columns or 'from_high_pct' not in df.columns:
-            logger.warning("Missing position data (from_low_pct/from_high_pct), returning NaN scores")
+        if not has_from_low and not has_from_high:
+            logger.warning("No position data available, using neutral position scores")
             return position_score
         
-        # Get raw data WITHOUT fillna - preserve NaN
-        from_low = pd.Series(df['from_low_pct'].values, index=df.index)
-        from_high = pd.Series(df['from_high_pct'].values, index=df.index)
+        # Get data with defaults
+        from_low = df['from_low_pct'].fillna(50) if has_from_low else pd.Series(50, index=df.index)
+        from_high = df['from_high_pct'].fillna(-50) if has_from_high else pd.Series(-50, index=df.index)
         
-        # Only calculate for stocks with BOTH values
-        valid_mask = from_low.notna() & from_high.notna()
+        # Rank components
+        if has_from_low:
+            rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
+        else:
+            rank_from_low = pd.Series(50, index=df.index)
         
-        if not valid_mask.any():
-            logger.warning("No valid position data available")
-            return position_score
+        if has_from_high:
+            # from_high is negative, less negative = closer to high = better
+            rank_from_high = RankingEngine._safe_rank(from_high, pct=True, ascending=False)
+        else:
+            rank_from_high = pd.Series(50, index=df.index)
         
-        # FIXED: Proper ranking logic
-        # For from_low: Higher is better (90% from low > 20% from low)
-        rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
+        # Combined position score (DO NOT MODIFY WEIGHTS)
+        position_score = (rank_from_low * 0.6 + rank_from_high * 0.4)
         
-        # For from_high: Closer to 0 is better
-        # from_high is negative, so -1% (close to high) is better than -50% (far from high)
-        # We want to rank the absolute distance, smaller distance = better
-        from_high_abs = from_high.abs()  # Convert to positive distance
-        rank_from_high = RankingEngine._safe_rank(from_high_abs, pct=True, ascending=False)
-        
-        # Calculate base position score (only where both values exist)
-        position_score[valid_mask] = (
-            rank_from_low[valid_mask] * 0.6 + 
-            rank_from_high[valid_mask] * 0.4
-        )
-        
-        # Apply modifiers based on raw values (not ranks)
-        
-        # 1. Sweet spot bonus: 40-70% from low is ideal range
-        sweet_spot = valid_mask & (from_low >= 40) & (from_low <= 70)
-        if sweet_spot.any():
-            position_score.loc[sweet_spot] *= 1.10
-            logger.debug(f"Applied sweet spot bonus to {sweet_spot.sum()} stocks")
-        
-        # 2. Overextended penalty: >85% from low might reverse
-        overextended = valid_mask & (from_low > 85)
-        if overextended.any():
-            position_score.loc[overextended] *= 0.90
-            logger.debug(f"Applied overextended penalty to {overextended.sum()} stocks")
-        
-        # 3. Near 52w high bonus: Within 5% of high is bullish
-        near_high = valid_mask & (from_high > -5)  # from_high is negative
-        if near_high.any():
-            position_score.loc[near_high] *= 1.05
-            logger.debug(f"Applied near-high bonus to {near_high.sum()} stocks")
-        
-        # 4. Near 52w low penalty: Within 10% of low is bearish
-        near_low = valid_mask & (from_low < 10)
-        if near_low.any():
-            position_score.loc[near_low] *= 0.95
-            logger.debug(f"Applied near-low penalty to {near_low.sum()} stocks")
-        
-        # Ensure scores stay within bounds
-        position_score = position_score.clip(0, 100)
-        
-        # Log statistics
-        valid_count = valid_mask.sum()
-        logger.info(f"Position scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            avg_score = position_score[valid_mask].mean()
-            logger.debug(f"Average position score: {avg_score:.1f}")
-        
-        return position_score
+        return position_score.clip(0, 100)
 
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate comprehensive volume score.
-        FIXED: Proper NaN handling, better weights, and realistic penalties.
+        """Calculate comprehensive volume score"""
+        # FIX: Start with default 50, not NaN
+        volume_score = pd.Series(50, index=df.index, dtype=float)
         
-        Volume Score Components:
-        - 20% weight: 1d/90d ratio (most recent)
-        - 20% weight: 7d/90d ratio (weekly trend)
-        - 20% weight: 30d/90d ratio (monthly trend)
-        - 15% weight: 30d/180d ratio (medium-term)
-        - 25% weight: 90d/180d ratio (long-term trend)
-        
-        Bonuses/Penalties:
-        - Sustained volume (+10%): All timeframes elevated
-        - One-day spike (-10%): Only 1d high, others low
-        - Distribution detection: RVOL >10 (-15%), >20 (-30%)
-        """
-        volume_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Define volume ratio columns and weights
+        # Volume ratio columns with weights
         vol_cols = [
             ('vol_ratio_1d_90d', 0.20),
             ('vol_ratio_7d_90d', 0.20),
@@ -1285,237 +1166,72 @@ class RankingEngine:
             ('vol_ratio_90d_180d', 0.25)
         ]
         
-        # Check which columns exist
-        available_cols = [(col, weight) for col, weight in vol_cols if col in df.columns]
+        # Calculate weighted score
+        total_weight = 0
+        weighted_score = pd.Series(0, index=df.index, dtype=float)
         
-        if not available_cols:
-            logger.warning("No volume ratio data available, returning NaN scores")
-            return volume_score
-        
-        # Track which stocks have complete data
-        all_vol_cols = [col for col, _ in vol_cols]
-        existing_vol_cols = [col for col, _ in available_cols]
-        has_complete_data = df[existing_vol_cols].notna().all(axis=1) if existing_vol_cols else pd.Series(False, index=df.index)
-        
-        # Calculate weighted score using available columns
-        total_weight = sum(weight for _, weight in available_cols)
+        for col, weight in vol_cols:
+            if col in df.columns and df[col].notna().any():
+                col_rank = RankingEngine._safe_rank(df[col], pct=True, ascending=True)
+                weighted_score += col_rank * weight
+                total_weight += weight
         
         if total_weight > 0:
-            # Initialize weighted sum
-            weighted_sum = pd.Series(0, index=df.index, dtype=float)
-            actual_weight_sum = pd.Series(0, index=df.index, dtype=float)
-            
-            for col, weight in available_cols:
-                col_data = pd.Series(df[col].values, index=df.index)
-                # Only rank non-NaN values
-                col_rank = RankingEngine._safe_rank(col_data, pct=True, ascending=True)
-                
-                # Add to weighted sum only where data exists
-                valid_mask = col_rank.notna()
-                weighted_sum[valid_mask] += col_rank[valid_mask] * weight
-                actual_weight_sum[valid_mask] += weight
-            
-            # Calculate score only where we have data
-            has_any_data = actual_weight_sum > 0
-            volume_score[has_any_data] = weighted_sum[has_any_data] / actual_weight_sum[has_any_data] * 100
-            
-            # ENHANCED: Volume persistence analysis (only for complete data)
-            if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
-                vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-                vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-                vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
-                
-                # All three must have data for persistence check
-                persistence_valid = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & volume_score.notna()
-                
-                # Sustained volume (all timeframes elevated) - BULLISH
-                sustained = persistence_valid & (vol_1d > 1.5) & (vol_7d > 1.3) & (vol_30d > 1.2)
-                if sustained.any():
-                    volume_score.loc[sustained] *= 1.10  # 10% bonus
-                    logger.debug(f"Applied sustained volume bonus to {sustained.sum()} stocks")
-                
-                # One-day spike only (likely unsustainable) - BEARISH
-                spike_only = persistence_valid & (vol_1d > 3) & (vol_7d < 1.2)
-                if spike_only.any():
-                    volume_score.loc[spike_only] *= 0.90  # 10% penalty
-                    logger.debug(f"Applied spike-only penalty to {spike_only.sum()} stocks")
-            
-            # FIXED: Distribution detection for extreme volume
-            if 'rvol' in df.columns:
-                rvol_series = pd.Series(df['rvol'].values, index=df.index)
-                rvol_valid = rvol_series.notna() & volume_score.notna()
-                
-                # Moderate surge is good (2-5x = accumulation)
-                good_surge = rvol_valid & (rvol_series > 2) & (rvol_series <= 5)
-                if good_surge.any():
-                    volume_score.loc[good_surge] *= 1.05  # 5% bonus
-                    logger.debug(f"Applied accumulation bonus to {good_surge.sum()} stocks")
-                
-                # High surge needs caution (5-10x)
-                high_surge = rvol_valid & (rvol_series > 5) & (rvol_series <= 10)
-                if high_surge.any():
-                    volume_score.loc[high_surge] *= 0.95  # 5% penalty
-                    logger.debug(f"Applied high volume caution to {high_surge.sum()} stocks")
-                
-                # Extreme volume = distribution/pump (10-20x)
-                extreme = rvol_valid & (rvol_series > 10) & (rvol_series <= 20)
-                if extreme.any():
-                    volume_score.loc[extreme] *= 0.85  # 15% penalty (FIXED from 0.70)
-                    logger.debug(f"Applied distribution penalty to {extreme.sum()} stocks")
-                
-                # Insane volume = stay away (>20x)
-                insane = rvol_valid & (rvol_series > 20)
-                if insane.any():
-                    volume_score.loc[insane] *= 0.70  # 30% penalty (FIXED from 0.50)
-                    logger.debug(f"Applied extreme distribution penalty to {insane.sum()} stocks")
-            
-            # Data completeness penalty (only for incomplete data)
-            incomplete = has_any_data & ~has_complete_data
-            if incomplete.any():
-                volume_score.loc[incomplete] *= 0.95  # 5% penalty for missing some ratios
-                logger.debug(f"Applied incomplete data penalty to {incomplete.sum()} stocks")
+            volume_score = weighted_score / total_weight
+        else:
+            logger.warning("No volume ratio data available, using neutral scores")
         
-        # Ensure scores stay within bounds
-        volume_score = volume_score.clip(0, 100)
+        # FIX: Don't set to NaN, keep default 50
+        # Removed the aggressive NaN masking logic from V2
         
-        # Log statistics
-        valid_count = volume_score.notna().sum()
-        logger.info(f"Volume scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            avg_score = volume_score[volume_score.notna()].mean()
-            logger.debug(f"Average volume score: {avg_score:.1f}")
-        
-        return volume_score
+        return volume_score.clip(0, 100)
 
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate momentum score based on returns.
-        FIXED: Proper handling of missing data and correct decay calculation.
+        """Calculate momentum score based on returns"""
+        # FIX: Start with default 50
+        momentum_score = pd.Series(50, index=df.index, dtype=float)
         
-        Momentum Score Logic:
-        - Primary: 30-day returns (ranked percentile)
-        - Fallback: 7-day returns if 30d unavailable
-        - Consistency bonus: +5 if both 7d & 30d positive
-        - Acceleration bonus: +10 if 7d pace > 30d pace * 1.2
-        - Decay penalty: -10% if momentum is slowing progressively
-        """
-        momentum_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check if we have any return data
-        has_30d = 'ret_30d' in df.columns and df['ret_30d'].notna().any()
-        has_7d = 'ret_7d' in df.columns and df['ret_7d'].notna().any()
-        
-        if not has_30d and not has_7d:
-            logger.warning("No return data available for momentum calculation")
-            return momentum_score
-        
-        # Primary: Use 30-day returns
-        if has_30d:
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            # DON'T fillna(0) - this corrupts ranking!
-            momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
-            logger.info(f"Using 30-day returns for momentum score ({ret_30d.notna().sum()} valid)")
-        
-        # Fallback: Use 7-day returns for stocks missing 30d data
-        if has_7d:
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            
-            if has_30d:
-                # Fill gaps in 30d with 7d scores
-                needs_fallback = momentum_score.isna() & ret_7d.notna()
-                if needs_fallback.any():
-                    fallback_scores = RankingEngine._safe_rank(ret_7d[needs_fallback], pct=True, ascending=True)
-                    momentum_score[needs_fallback] = fallback_scores
-                    logger.info(f"Used 7-day fallback for {needs_fallback.sum()} stocks")
-            else:
-                # Use 7d as primary if no 30d data
+        if 'ret_30d' not in df.columns or df['ret_30d'].notna().sum() == 0:
+            # Fallback to 7-day returns
+            if 'ret_7d' in df.columns and df['ret_7d'].notna().any():
+                ret_7d = df['ret_7d'].fillna(0)
                 momentum_score = RankingEngine._safe_rank(ret_7d, pct=True, ascending=True)
-                logger.info("Using 7-day returns as primary momentum score")
-        
-        # Add consistency and acceleration bonuses (only where we have complete data)
-        if has_30d and has_7d and momentum_score.notna().any():
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+                logger.info("Using 7-day returns for momentum score")
+            else:
+                logger.warning("No return data available for momentum calculation")
             
-            # Only apply bonuses where we have both values AND a momentum score
-            complete_data = ret_30d.notna() & ret_7d.notna() & momentum_score.notna()
+            return momentum_score.clip(0, 100)
+        
+        # Primary: 30-day returns
+        ret_30d = df['ret_30d'].fillna(0)
+        momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
+        
+        # Add consistency bonus
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
+            consistency_bonus = pd.Series(0, index=df.index, dtype=float)
             
-            if complete_data.any():
-                # Consistency bonus: Both positive
-                all_positive = complete_data & (ret_7d > 0) & (ret_30d > 0)
-                if all_positive.any():
-                    momentum_score.loc[all_positive] += 5
-                    logger.debug(f"Applied consistency bonus to {all_positive.sum()} stocks")
-                
-                # Acceleration bonus: 7d pace faster than 30d pace
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Calculate daily paces
-                    daily_7d = ret_7d / 7
-                    daily_30d = ret_30d / 30
-                    
-                    # Strong acceleration (20% faster)
-                    strong_accel = complete_data & all_positive & (daily_7d > daily_30d * 1.2)
-                    if strong_accel.any():
-                        momentum_score.loc[strong_accel] += 10
-                        logger.debug(f"Applied strong acceleration bonus to {strong_accel.sum()} stocks")
-                    
-                    # Moderate acceleration (10% faster, but not 20%)
-                    moderate_accel = complete_data & all_positive & (daily_7d > daily_30d * 1.1) & ~strong_accel
-                    if moderate_accel.any():
-                        momentum_score.loc[moderate_accel] += 7
-                        logger.debug(f"Applied moderate acceleration bonus to {moderate_accel.sum()} stocks")
-        
-        # FIXED: Decay penalty with correct math
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']) and momentum_score.notna().any():
-            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            # Both positive
+            all_positive = (df['ret_7d'] > 0) & (df['ret_30d'] > 0)
+            consistency_bonus[all_positive] = 5
             
-            # Only check decay where all data exists AND we have a momentum score
-            decay_valid = ret_1d.notna() & ret_3d.notna() & ret_7d.notna() & momentum_score.notna()
+            # Accelerating returns
+            with np.errstate(divide='ignore', invalid='ignore'):
+                daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
+                daily_ret_30d = np.where(df['ret_30d'] != 0, df['ret_30d'] / 30, 0)
             
-            if decay_valid.any():
-                # FIXED: Calculate daily paces correctly
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    daily_pace_1d = ret_1d  # Already daily
-                    daily_pace_3d = ret_3d / 3
-                    daily_pace_7d = ret_7d / 7
-                
-                # Momentum is decaying if each timeframe is slower than the last
-                decaying = decay_valid & (daily_pace_1d < daily_pace_3d) & (daily_pace_3d < daily_pace_7d)
-                
-                if decaying.any():
-                    momentum_score.loc[decaying] *= 0.90  # 10% penalty
-                    logger.debug(f"Applied decay penalty to {decaying.sum()} stocks")
-                
-                # Additional check: Sharp reversal (positive 7d but negative 1d)
-                reversal = decay_valid & (ret_7d > 5) & (ret_1d < -2)
-                if reversal.any():
-                    momentum_score.loc[reversal] *= 0.85  # 15% penalty for reversal
-                    logger.debug(f"Applied reversal penalty to {reversal.sum()} stocks")
-        
-        # Ensure scores stay within bounds
-        momentum_score = momentum_score.clip(0, 100)
-        
-        # Log statistics
-        valid_count = momentum_score.notna().sum()
-        logger.info(f"Momentum scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            avg_score = momentum_score[momentum_score.notna()].mean()
-            median_score = momentum_score[momentum_score.notna()].median()
-            logger.debug(f"Momentum score stats - Avg: {avg_score:.1f}, Median: {median_score:.1f}")
+            accelerating = all_positive & (daily_ret_7d > daily_ret_30d)
+            consistency_bonus[accelerating] = 10
+            
+            # FIX: Use simpler approach, no complex masking
+            momentum_score = (momentum_score + consistency_bonus).clip(0, 100)
         
         return momentum_score
 
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate if momentum is accelerating.
-        FIXED: Proper NaN handling, correct smoothing math, and logical categories.
-        """
+        """Calculate if momentum is accelerating with proper division handling"""
+        # FIX: Start with default 50, not NaN
         acceleration_score = pd.Series(50, index=df.index, dtype=float)
         
         req_cols = ['ret_1d', 'ret_7d', 'ret_30d']
@@ -1525,960 +1241,225 @@ class RankingEngine:
             logger.warning("Insufficient return data for acceleration calculation")
             return acceleration_score
         
-        # Get return data WITHOUT fillna corruption
-        ret_1d = pd.Series(df['ret_1d'].values, index=df.index) if 'ret_1d' in df.columns else pd.Series(np.nan, index=df.index)
-        ret_7d = pd.Series(df['ret_7d'].values, index=df.index) if 'ret_7d' in df.columns else pd.Series(np.nan, index=df.index)
-        ret_30d = pd.Series(df['ret_30d'].values, index=df.index) if 'ret_30d' in df.columns else pd.Series(np.nan, index=df.index)
+        # Get return data with defaults
+        ret_1d = df['ret_1d'].fillna(0) if 'ret_1d' in df.columns else pd.Series(0, index=df.index)
+        ret_7d = df['ret_7d'].fillna(0) if 'ret_7d' in df.columns else pd.Series(0, index=df.index)
+        ret_30d = df['ret_30d'].fillna(0) if 'ret_30d' in df.columns else pd.Series(0, index=df.index)
         
-        # FIXED: Proper smoothing using exponential weighting
-        if 'ret_3d' in df.columns:
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
-            # Calculate smoothed 1-day return
-            # Use 3-day return to smooth out 1-day noise
-            valid_smooth = ret_1d.notna() & ret_3d.notna()
-            ret_1d_smooth = ret_1d.copy()
-            
-            # Smooth where both values exist
-            # If 3-day return is 6% and 1-day is 3%, smoothed = weighted average
-            ret_1d_smooth[valid_smooth] = (
-                ret_1d[valid_smooth] * 0.6 + 
-                (ret_3d[valid_smooth] / 3) * 0.4  # Use daily average of 3-day
-            )
-        else:
-            ret_1d_smooth = ret_1d.copy()
-        
-        # Calculate daily averages with proper NaN handling
+        # Calculate daily averages with safe division
         with np.errstate(divide='ignore', invalid='ignore'):
-            avg_daily_1d = ret_1d_smooth  # Already daily
-            avg_daily_7d = pd.Series(np.nan, index=df.index)
-            avg_daily_30d = pd.Series(np.nan, index=df.index)
-            
-            # Only calculate where data exists
-            valid_7d = ret_7d.notna()
-            avg_daily_7d[valid_7d] = ret_7d[valid_7d] / 7
-            
-            valid_30d = ret_30d.notna()
-            avg_daily_30d[valid_30d] = ret_30d[valid_30d] / 30
+            avg_daily_1d = ret_1d  # Already daily
+            avg_daily_7d = np.where(ret_7d != 0, ret_7d / 7, 0)
+            avg_daily_30d = np.where(ret_30d != 0, ret_30d / 30, 0)
         
-        # Only score where we have sufficient data
         if all(col in df.columns for col in req_cols):
-            # Need all three timeframes for proper acceleration
-            valid_data = ret_1d_smooth.notna() & avg_daily_7d.notna() & avg_daily_30d.notna()
+            # Perfect acceleration
+            perfect = (avg_daily_1d > avg_daily_7d) & (avg_daily_7d > avg_daily_30d) & (ret_1d > 0)
+            acceleration_score[perfect] = 100
             
-            # Perfect acceleration - momentum increasing at all timeframes
-            perfect = valid_data & (
-                (avg_daily_1d > avg_daily_7d * 1.15) &  # 15% faster than weekly
-                (avg_daily_7d > avg_daily_30d * 1.10) &  # 10% faster than monthly
-                (ret_1d_smooth > 1)  # At least 1% daily move
-            )
-            acceleration_score[perfect] = 95
-            
-            # Good acceleration - steady increase
-            good = valid_data & ~perfect & (
-                (avg_daily_1d > avg_daily_7d * 1.05) &  # 5% faster than weekly
-                (avg_daily_7d > avg_daily_30d) &  # Faster than monthly
-                (ret_1d_smooth > 0)
-            )
+            # Good acceleration
+            good = (~perfect) & (avg_daily_1d > avg_daily_7d) & (ret_1d > 0)
             acceleration_score[good] = 80
             
-            # FIXED: Mild acceleration (not just positive!)
-            mild = valid_data & ~perfect & ~good & (
-                (avg_daily_1d > avg_daily_30d) &  # At least faster than monthly
-                (ret_1d_smooth > 0) &
-                (ret_7d > 0)  # Positive week
-            )
-            acceleration_score[mild] = 65
+            # Moderate
+            moderate = (~perfect) & (~good) & (ret_1d > 0)
+            acceleration_score[moderate] = 60
             
-            # Neutral - positive but not accelerating
-            neutral = valid_data & ~perfect & ~good & ~mild & (
-                (ret_1d_smooth > 0) & (ret_7d > 0)
-            )
-            acceleration_score[neutral] = 55
-            
-            # Slight deceleration
-            slight_decel = valid_data & (
-                (ret_1d_smooth <= 0) & (ret_7d > 0)
-            )
+            # Deceleration
+            slight_decel = (ret_1d <= 0) & (ret_7d > 0)
             acceleration_score[slight_decel] = 40
             
-            # Strong deceleration
-            strong_decel = valid_data & (
-                (ret_1d_smooth < 0) & (ret_7d < 0)
-            )
+            strong_decel = (ret_1d <= 0) & (ret_7d <= 0)
             acceleration_score[strong_decel] = 20
-            
-            # Crash - everything negative and getting worse
-            crash = valid_data & (
-                (avg_daily_1d < avg_daily_7d) &
-                (avg_daily_7d < avg_daily_30d) &
-                (ret_30d < -10)
-            )
-            acceleration_score[crash] = 10
         
-        return acceleration_score.clip(0, 100)
-        
+        return acceleration_score
+
     @staticmethod
     def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate breakout probability score.
-        FIXED: Proper NaN handling, no fake data creation.
-        
-        Breakout Score Components:
-        - 40% weight: Distance from 52w high (closer = higher score)
-        - 40% weight: Volume surge (7d/90d ratio)
-        - 20% weight: Trend support (price above SMAs)
-        - Bonus: +10 if momentum confirmed (7d & 30d positive)
-        """
-        breakout_score = pd.Series(np.nan, index=df.index, dtype=float)
+        """Calculate breakout probability"""
+        # FIX: Start with default 50
+        breakout_score = pd.Series(50, index=df.index, dtype=float)
         
         # Factor 1: Distance from high (40% weight)
-        distance_factor = pd.Series(np.nan, index=df.index, dtype=float)
         if 'from_high_pct' in df.columns:
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            # DON'T fillna(-50)! Keep NaN as NaN
-            
-            # from_high is negative (e.g., -5 means 5% below high)
-            # Convert to positive distance, then to score
-            # -1% from high = 99 score, -50% from high = 50 score
-            valid_high = from_high.notna()
-            if valid_high.any():
-                # Closer to high = better score
-                distance_from_high = -from_high[valid_high]  # Make positive
-                distance_factor[valid_high] = (100 - distance_from_high).clip(0, 100)
+            # from_high_pct is negative, closer to 0 = closer to high
+            distance_from_high = -df['from_high_pct'].fillna(-50)
+            distance_factor = (100 - distance_from_high).clip(0, 100)
+        else:
+            distance_factor = pd.Series(50, index=df.index)
         
         # Factor 2: Volume surge (40% weight)
-        volume_factor = pd.Series(np.nan, index=df.index, dtype=float)
+        volume_factor = pd.Series(50, index=df.index)
         if 'vol_ratio_7d_90d' in df.columns:
-            vol_ratio = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-            # DON'T fillna(1.0)! Keep NaN as NaN
-            
-            valid_vol = vol_ratio.notna()
-            if valid_vol.any():
-                # Convert ratio to score (1.0 = 0, 2.0 = 100, 3.0+ = 100)
-                volume_factor[valid_vol] = ((vol_ratio[valid_vol] - 1) * 100).clip(0, 100)
+            vol_ratio = df['vol_ratio_7d_90d'].fillna(1.0)
+            volume_factor = ((vol_ratio - 1) * 100).clip(0, 100)
         
         # Factor 3: Trend support (20% weight)
-        trend_factor = pd.Series(np.nan, index=df.index, dtype=float)
+        trend_factor = pd.Series(0, index=df.index, dtype=float)
+        
         if 'price' in df.columns:
-            current_price = pd.Series(df['price'].values, index=df.index)
-            price_valid = current_price.notna()
+            current_price = df['price']
+            trend_count = 0
             
-            if price_valid.any():
-                trend_points = pd.Series(0, index=df.index, dtype=float)
-                sma_count = 0
-                
-                # Check each SMA (33.33 points each)
-                for sma_col, points in [('sma_20d', 33.33), ('sma_50d', 33.33), ('sma_200d', 33.34)]:
-                    if sma_col in df.columns:
-                        sma_values = pd.Series(df[sma_col].values, index=df.index)
-                        # Only check where both price and SMA exist
-                        check_mask = price_valid & sma_values.notna()
-                        if check_mask.any():
-                            above_sma = check_mask & (current_price > sma_values)
-                            trend_points[above_sma] += points
-                            sma_count += 1
-                
-                # Only assign trend factor if we had at least one SMA
-                if sma_count > 0:
-                    trend_factor[price_valid] = trend_points[price_valid]
-        
-        # Combine factors with adaptive weighting
-        # Only calculate where we have at least one factor
-        has_distance = distance_factor.notna()
-        has_volume = volume_factor.notna()
-        has_trend = trend_factor.notna()
-        
-        # Track which stocks have data for scoring
-        has_any_factor = has_distance | has_volume | has_trend
-        
-        if has_any_factor.any():
-            for idx in df.index[has_any_factor]:
-                factors = []
-                weights = []
-                
-                # Add available factors
-                if has_distance[idx]:
-                    factors.append(distance_factor[idx])
-                    weights.append(0.4)
-                
-                if has_volume[idx]:
-                    factors.append(volume_factor[idx])
-                    weights.append(0.4)
-                
-                if has_trend[idx]:
-                    factors.append(trend_factor[idx])
-                    weights.append(0.2)
-                
-                # Calculate weighted average if we have factors
-                if factors and weights:
-                    total_weight = sum(weights)
-                    if total_weight > 0:
-                        weighted_sum = sum(f * w for f, w in zip(factors, weights))
-                        breakout_score[idx] = weighted_sum / total_weight
-        
-        # Momentum confirmation bonus (only where breakout score exists)
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d']) and breakout_score.notna().any():
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            for sma_col, points in [('sma_20d', 33.33), ('sma_50d', 33.33), ('sma_200d', 33.34)]:
+                if sma_col in df.columns:
+                    above_sma = (current_price > df[sma_col]).fillna(False)
+                    trend_factor += above_sma.astype(float) * points
+                    trend_count += 1
             
-            # Only apply bonus where all data exists
-            momentum_confirm = (
-                breakout_score.notna() & 
-                ret_7d.notna() & 
-                ret_30d.notna() & 
-                (ret_7d > 0) & 
-                (ret_30d > 0)
-            )
-            
-            if momentum_confirm.any():
-                breakout_score[momentum_confirm] += 10
-                logger.debug(f"Applied momentum confirmation bonus to {momentum_confirm.sum()} stocks")
+            if trend_count > 0 and trend_count < 3:
+                trend_factor = trend_factor * (3 / trend_count)
         
-        # Additional breakout signals
-        if breakout_score.notna().any():
-            # Near 52w high with volume = strong breakout potential
-            if 'from_high_pct' in df.columns and 'rvol' in df.columns:
-                from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-                rvol = pd.Series(df['rvol'].values, index=df.index)
-                
-                imminent_breakout = (
-                    breakout_score.notna() &
-                    from_high.notna() &
-                    rvol.notna() &
-                    (from_high > -3) &  # Within 3% of high
-                    (rvol > 2)  # With strong volume
-                )
-                
-                if imminent_breakout.any():
-                    breakout_score[imminent_breakout] += 5
-                    logger.debug(f"Applied imminent breakout bonus to {imminent_breakout.sum()} stocks")
+        trend_factor = trend_factor.clip(0, 100)
         
-        # Ensure scores stay within bounds
-        breakout_score = breakout_score.clip(0, 100)
-        
-        # Log statistics
-        valid_count = breakout_score.notna().sum()
-        logger.info(f"Breakout scores calculated: {valid_count} valid out of {len(df)} stocks")
-        
-        if valid_count > 0:
-            # Log factor availability
-            logger.debug(f"Distance factor: {has_distance.sum()} stocks")
-            logger.debug(f"Volume factor: {has_volume.sum()} stocks")
-            logger.debug(f"Trend factor: {has_trend.sum()} stocks")
-            
-            avg_score = breakout_score[breakout_score.notna()].mean()
-            high_breakout = (breakout_score > 80).sum()
-            logger.debug(f"Average breakout score: {avg_score:.1f}, High potential: {high_breakout}")
-        
-        return breakout_score
-    @staticmethod
-    def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate RVOL score with exponential scaling and context awareness.
-        FIXED: Proper NaN handling, logarithmic scaling, and context detection.
-        """
-        rvol_score = pd.Series(50, index=df.index, dtype=float)
-        
-        if 'rvol' not in df.columns:
-            logger.warning("RVOL data not available")
-            return rvol_score
-        
-        # DON'T fillna! Preserve NaN for missing data
-        rvol = pd.Series(df['rvol'].values, index=df.index)
-        valid_rvol = rvol.notna() & (rvol > 0)  # Only valid positive RVOL
-        
-        # FIXED: Logarithmic scaling for exponential data
-        # This gives proper weight to exponential increases
-        # log(1) = 0, log(2) = 0.69, log(5) = 1.61, log(10) = 2.30
-        
-        # Base score calculation using logarithmic scale
-        rvol_score[valid_rvol] = np.where(
-            rvol[valid_rvol] >= 1,
-            50 + (np.log(rvol[valid_rvol]) / np.log(10)) * 25,  # Above normal: 50-100 range
-            50 - (1 - rvol[valid_rvol]) * 50  # Below normal: 0-50 range
+        # FIX: Simple combination without complex NaN masking
+        breakout_score = (
+            distance_factor * 0.4 +
+            volume_factor * 0.4 +
+            trend_factor * 0.2
         )
         
-        # Apply thresholds for extreme cases (non-linear bonuses)
-        extreme_low = valid_rvol & (rvol < 0.3)  # Dead volume
-        very_low = valid_rvol & (rvol >= 0.3) & (rvol < 0.7)  # Low volume
-        normal_range = valid_rvol & (rvol >= 0.7) & (rvol <= 1.5)  # Normal
-        elevated = valid_rvol & (rvol > 1.5) & (rvol <= 2.5)  # Elevated
-        high = valid_rvol & (rvol > 2.5) & (rvol <= 5)  # High
-        explosive = valid_rvol & (rvol > 5) & (rvol <= 10)  # Explosive
-        volcanic = valid_rvol & (rvol > 10) & (rvol <= 20)  # Volcanic
-        nuclear = valid_rvol & (rvol > 20)  # Nuclear (likely manipulation)
+        return breakout_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate RVOL-based score"""
+        if 'rvol' not in df.columns:
+            return pd.Series(50, index=df.index)
         
-        # Override with specific scores for clarity
-        rvol_score[extreme_low] = 10  # Dead stock
-        rvol_score[very_low] = 30  # Low interest
-        rvol_score[normal_range] = 50  # Baseline
-        rvol_score[elevated] = 70  # Good interest
-        rvol_score[high] = 85  # Strong interest
-        rvol_score[explosive] = 95  # Extreme interest
-        rvol_score[volcanic] = 90  # Suspicious (too high)
-        rvol_score[nuclear] = 75  # Likely manipulation (penalty)
+        rvol = df['rvol'].fillna(1.0)
+        rvol_score = pd.Series(50, index=df.index, dtype=float)
         
-        # CONTEXT ADJUSTMENT: Consider market cap category
-        if 'category' in df.columns:
-            category = pd.Series(df['category'].values, index=df.index)
-            
-            # Penny/Micro caps: High RVOL is normal, reduce score
-            is_penny = category.isin(['Micro Cap', 'Small Cap'])
-            penny_high_rvol = is_penny & (rvol > 3)
-            rvol_score[penny_high_rvol] *= 0.9  # 10% penalty
-            
-            # Large/Mega caps: High RVOL is significant, boost score
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_high_rvol = is_large & (rvol > 2)
-            rvol_score[large_high_rvol] *= 1.1  # 10% bonus
+        # Score based on RVOL ranges
+        rvol_score[rvol > 10] = 95
+        rvol_score[(rvol > 5) & (rvol <= 10)] = 90
+        rvol_score[(rvol > 3) & (rvol <= 5)] = 85
+        rvol_score[(rvol > 2) & (rvol <= 3)] = 80
+        rvol_score[(rvol > 1.5) & (rvol <= 2)] = 70
+        rvol_score[(rvol > 1.2) & (rvol <= 1.5)] = 60
+        rvol_score[(rvol > 0.8) & (rvol <= 1.2)] = 50
+        rvol_score[(rvol > 0.5) & (rvol <= 0.8)] = 40
+        rvol_score[(rvol > 0.3) & (rvol <= 0.5)] = 30
+        rvol_score[rvol <= 0.3] = 20
         
-        # SUSTAINED vs SPIKE ADJUSTMENT
-        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d']):
-            vol_1d_90d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-            vol_7d_90d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-            
-            # Sustained elevation (both 1d and 7d are elevated)
-            sustained = valid_rvol & (vol_1d_90d > 2) & (vol_7d_90d > 1.5)
-            rvol_score[sustained] *= 1.05  # 5% bonus
-            
-            # One-day spike only (1d high but 7d normal)
-            spike_only = valid_rvol & (vol_1d_90d > 3) & (vol_7d_90d < 1.2)
-            rvol_score[spike_only] *= 0.85  # 15% penalty for unsustained spike
-        
-        # PRICE ACTION CONTEXT
-        if 'ret_1d' in df.columns:
-            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
-            
-            # High volume with no price movement = distribution
-            high_vol_no_move = valid_rvol & (rvol > 3) & (ret_1d.abs() < 0.5)
-            rvol_score[high_vol_no_move] *= 0.8  # 20% penalty
-            
-            # High volume with strong price movement = confirmation
-            high_vol_strong_move = valid_rvol & (rvol > 2) & (ret_1d.abs() > 3)
-            rvol_score[high_vol_strong_move] *= 1.1  # 10% bonus
-        
-        # Penalize missing data (unlike fillna which gives average)
-        rvol_score[~valid_rvol] = 40  # Below average for missing data
-        
-        return rvol_score.clip(0, 100)
+        return rvol_score
 
     @staticmethod
     def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate trend quality based on SMA alignment.
-        FIXED: Proper normalization, better weights, and logical golden cross detection.
-        """
+        """Calculate trend quality based on SMA alignment"""
         trend_quality = pd.Series(50, index=df.index, dtype=float)
         
-        # Check if we have the necessary columns
-        required_cols = ['price', 'sma_20d', 'sma_50d', 'sma_200d']
-        available_cols = [col for col in required_cols if col in df.columns]
-        
-        if len(available_cols) < 2:
-            logger.warning("Insufficient SMA data for trend quality calculation")
+        if 'price' not in df.columns:
             return trend_quality
         
-        # Get price and SMA data WITHOUT fillna (good!)
-        price = pd.Series(df['price'].values, index=df.index) if 'price' in df.columns else pd.Series(np.nan, index=df.index)
-        sma_20 = pd.Series(df['sma_20d'].values, index=df.index) if 'sma_20d' in df.columns else pd.Series(np.nan, index=df.index)
-        sma_50 = pd.Series(df['sma_50d'].values, index=df.index) if 'sma_50d' in df.columns else pd.Series(np.nan, index=df.index)
-        sma_200 = pd.Series(df['sma_200d'].values, index=df.index) if 'sma_200d' in df.columns else pd.Series(np.nan, index=df.index)
+        current_price = df['price']
+        sma_cols = ['sma_20d', 'sma_50d', 'sma_200d']
+        available_smas = [col for col in sma_cols if col in df.columns]
         
-        # FIXED: Track both score and max possible score for normalization
-        alignment_score = pd.Series(0, index=df.index, dtype=float)
-        max_possible = pd.Series(0, index=df.index, dtype=float)
+        if not available_smas:
+            return trend_quality
         
-        # FIXED: Better weights based on importance
-        # Price position is most important, then short-term alignment, then long-term
+        # Check alignment
+        conditions = pd.DataFrame(index=df.index)
         
-        # Price > SMA20 (30 points - most reactive)
-        if 'price' in df.columns and 'sma_20d' in df.columns:
-            valid_mask = price.notna() & sma_20.notna() & (sma_20 > 0)
-            alignment_score[valid_mask & (price > sma_20)] += 30
-            max_possible[valid_mask] += 30
+        for sma_col in available_smas:
+            conditions[f'above_{sma_col}'] = (current_price > df[sma_col]).fillna(False)
         
-        # Price > SMA50 (25 points - medium-term trend)
-        if 'price' in df.columns and 'sma_50d' in df.columns:
-            valid_mask = price.notna() & sma_50.notna() & (sma_50 > 0)
-            alignment_score[valid_mask & (price > sma_50)] += 25
-            max_possible[valid_mask] += 25
+        # Calculate score based on alignment
+        total_conditions = len(available_smas)
         
-        # Price > SMA200 (20 points - long-term trend)
-        if 'price' in df.columns and 'sma_200d' in df.columns:
-            valid_mask = price.notna() & sma_200.notna() & (sma_200 > 0)
-            alignment_score[valid_mask & (price > sma_200)] += 20
-            max_possible[valid_mask] += 20
-        
-        # SMA20 > SMA50 (10 points - short-term strength)
-        if 'sma_20d' in df.columns and 'sma_50d' in df.columns:
-            valid_mask = sma_20.notna() & sma_50.notna() & (sma_20 > 0) & (sma_50 > 0)
-            alignment_score[valid_mask & (sma_20 > sma_50)] += 10
-            max_possible[valid_mask] += 10
-        
-        # SMA50 > SMA200 (10 points - medium-term strength)
-        if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-            valid_mask = sma_50.notna() & sma_200.notna() & (sma_50 > 0) & (sma_200 > 0)
-            alignment_score[valid_mask & (sma_50 > sma_200)] += 10
-            max_possible[valid_mask] += 10
-        
-        # SMA20 > SMA200 (5 points - additional confirmation)
-        if 'sma_20d' in df.columns and 'sma_200d' in df.columns:
-            valid_mask = sma_20.notna() & sma_200.notna() & (sma_20 > 0) & (sma_200 > 0)
-            alignment_score[valid_mask & (sma_20 > sma_200)] += 5
-            max_possible[valid_mask] += 5
-        
-        # FIXED: Normalize score based on what's actually possible
-        has_data = max_possible > 0
-        trend_quality[has_data] = (alignment_score[has_data] / max_possible[has_data]) * 100
-        
-        # FIXED: Special patterns as BONUSES, not overrides
-        if all(col in df.columns for col in required_cols):
-            all_valid = price.notna() & sma_20.notna() & sma_50.notna() & sma_200.notna() & \
-                       (sma_20 > 0) & (sma_50 > 0) & (sma_200 > 0)
+        if total_conditions == 3:
+            # All SMAs available
+            all_above = conditions.all(axis=1)
+            all_below = (~conditions).all(axis=1)
             
-            # Perfect bullish alignment: Bonus, not override
-            perfect_bullish = all_valid & (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
-            trend_quality[perfect_bullish] = np.maximum(trend_quality[perfect_bullish], 95)  # Ensure at least 95
+            # Perfect uptrend: price > 20 > 50 > 200
+            if 'sma_20d' in df.columns and 'sma_50d' in df.columns and 'sma_200d' in df.columns:
+                perfect_uptrend = (
+                    (current_price > df['sma_20d']) &
+                    (df['sma_20d'] > df['sma_50d']) &
+                    (df['sma_50d'] > df['sma_200d'])
+                )
+                trend_quality[perfect_uptrend] = 100
             
-            # Perfect bearish alignment: Strong penalty
-            perfect_bearish = all_valid & (price < sma_20) & (sma_20 < sma_50) & (sma_50 < sma_200)
-            trend_quality[perfect_bearish] = np.minimum(trend_quality[perfect_bearish], 10)  # Cap at 10
-            
-            # FIXED: Better golden cross detection (recent cross)
-            if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-                # Golden cross: SMA50 above SMA200 but close (likely recent)
-                sma50_above = (sma_50 > sma_200)
-                close_to_cross = ((sma_50 - sma_200).abs() / sma_200 < 0.03)  # Within 3%
-                
-                # Additional check: Price momentum confirms
-                if 'ret_30d' in df.columns:
-                    price_confirms = df['ret_30d'] > 5  # Positive 30d momentum
-                    golden_cross = all_valid & sma50_above & close_to_cross & price_confirms
-                    trend_quality[golden_cross] *= 1.15  # 15% bonus
-                
-                # Death cross with confirmation
-                sma50_below = (sma_50 < sma_200)
-                if 'ret_30d' in df.columns:
-                    price_confirms_down = df['ret_30d'] < -5  # Negative momentum
-                    death_cross = all_valid & sma50_below & close_to_cross & price_confirms_down
-                    trend_quality[death_cross] *= 0.70  # 30% penalty
+            trend_quality[all_above & ~perfect_uptrend] = 85
+            trend_quality[conditions.sum(axis=1) == 2] = 70
+            trend_quality[conditions.sum(axis=1) == 1] = 55
+            trend_quality[all_below] = 20
+        else:
+            # Partial SMAs available
+            proportion_above = conditions.sum(axis=1) / total_conditions
+            trend_quality = (proportion_above * 80 + 20).round()
         
         return trend_quality.clip(0, 100)
-    
+
     @staticmethod
     def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate TRUE long-term strength based on multi-period returns.
-        FIXED: Proper weighting, realistic scaling, and correct math.
-        """
-        long_term_strength = pd.Series(50, index=df.index, dtype=float)
+        """Calculate long-term strength based on multiple timeframe returns"""
+        strength_score = pd.Series(50, index=df.index, dtype=float)
         
-        # FIXED: TRUE long-term weights (emphasis on longer periods)
-        weights = {
-            'ret_3m': 0.05,   # Very short term - minimal weight
-            'ret_6m': 0.10,   # Short term - low weight
-            'ret_1y': 0.20,   # Medium term - moderate weight
-            'ret_3y': 0.35,   # Long term - high weight (INCREASED)
-            'ret_5y': 0.30    # Very long term - high weight (INCREASED)
-        }
+        # Get available return columns
+        return_cols = ['ret_3m', 'ret_6m', 'ret_1y']
+        available_returns = [col for col in return_cols if col in df.columns]
         
-        # Track which stocks have sufficient long-term data
-        has_long_term = pd.Series(False, index=df.index)
+        if not available_returns:
+            return strength_score
         
-        # Calculate scores for each period
-        period_scores = {}
+        # Calculate average return
+        returns_df = df[available_returns].fillna(0)
+        avg_return = returns_df.mean(axis=1)
         
-        for col, weight in weights.items():
-            if col in df.columns:
-                ret_data = pd.Series(df[col].values, index=df.index)
-                valid_mask = ret_data.notna()
-                
-                # Mark stocks with 3y or 5y data as having long-term history
-                if col in ['ret_3y', 'ret_5y'] and valid_mask.any():
-                    has_long_term |= valid_mask
-                
-                # FIXED: Realistic scoring for Indian market returns
-                # Use logarithmic scaling for better distribution
-                # This handles -100% to +1000% returns properly
-                
-                score = pd.Series(np.nan, index=df.index)
-                
-                # For valid data, calculate score
-                if valid_mask.any():
-                    # Shift returns to handle negative values
-                    # -100% = 0, 0% = 100, 100% = 200, 500% = 600
-                    shifted_returns = ret_data[valid_mask] + 100
-                    
-                    # Apply logarithmic scaling
-                    # log(0) undefined, so handle -100% specially
-                    score[valid_mask] = np.where(
-                        shifted_returns <= 0,
-                        0,  # -100% or worse = 0 score
-                        np.log(shifted_returns) / np.log(700) * 100  # log base 700 for scaling
-                    )
-                    
-                    # Alternative linear scaling for different return ranges
-                    # This gives better granularity
-                    score[valid_mask] = np.where(
-                        ret_data[valid_mask] < -50,
-                        0,  # Below -50% = 0 score
-                        np.where(
-                            ret_data[valid_mask] < 0,
-                            25 + (ret_data[valid_mask] + 50) * 0.5,  # -50% to 0% = 0-25 score
-                            np.where(
-                                ret_data[valid_mask] < 100,
-                                50 + ret_data[valid_mask] * 0.3,  # 0% to 100% = 50-80 score
-                                np.where(
-                                    ret_data[valid_mask] < 500,
-                                    80 + (ret_data[valid_mask] - 100) * 0.05,  # 100% to 500% = 80-100 score
-                                    100  # Above 500% = 100 score (capped)
-                                )
-                            )
-                        )
-                    )
-                
-                period_scores[col] = (score, weight)
+        # Score based on average return
+        strength_score[avg_return > 50] = 90
+        strength_score[(avg_return > 30) & (avg_return <= 50)] = 80
+        strength_score[(avg_return > 15) & (avg_return <= 30)] = 70
+        strength_score[(avg_return > 5) & (avg_return <= 15)] = 60
+        strength_score[(avg_return > 0) & (avg_return <= 5)] = 50
+        strength_score[(avg_return > -10) & (avg_return <= 0)] = 40
+        strength_score[(avg_return > -25) & (avg_return <= -10)] = 30
+        strength_score[avg_return <= -25] = 20
         
-        # Calculate weighted average ONLY where data exists
-        if period_scores:
-            numerator = pd.Series(0, index=df.index, dtype=float)
-            denominator = pd.Series(0, index=df.index, dtype=float)
-            
-            for col, (score, weight) in period_scores.items():
-                valid_mask = score.notna()
-                numerator[valid_mask] += score[valid_mask] * weight
-                denominator[valid_mask] += weight
-            
-            # Only calculate where we have data
-            valid_calc = denominator > 0
-            long_term_strength[valid_calc] = numerator[valid_calc] / denominator[valid_calc]
-            
-            # PENALTY for stocks without true long-term history
-            no_history = ~has_long_term & valid_calc
-            long_term_strength[no_history] *= 0.85  # 15% penalty
-            
-            # BONUS for consistent long-term performers
-            if all(col in period_scores for col in ['ret_1y', 'ret_3y', 'ret_5y']):
-                ret_1y = pd.Series(df['ret_1y'].values, index=df.index) if 'ret_1y' in df.columns else pd.Series(np.nan, index=df.index)
-                ret_3y = pd.Series(df['ret_3y'].values, index=df.index) if 'ret_3y' in df.columns else pd.Series(np.nan, index=df.index)
-                ret_5y = pd.Series(df['ret_5y'].values, index=df.index) if 'ret_5y' in df.columns else pd.Series(np.nan, index=df.index)
-                
-                # All positive and increasing = consistency bonus
-                consistent = (ret_1y > 50) & (ret_3y > 150) & (ret_5y > 250)
-                long_term_strength[consistent] *= 1.10  # 10% bonus
-            
-            # Set stocks with NO data to neutral (not average)
-            no_data = denominator == 0
-            long_term_strength[no_data] = 45  # Below average for no history
-        
-        return long_term_strength.clip(0, 100)
-    
+        return strength_score.clip(0, 100)
+
     @staticmethod
     def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate liquidity score based on dollar volume and consistency.
-        FIXED: Uses dollar volume, proper consistency checks, and market cap weighting.
-        """
+        """Calculate liquidity score based on trading volume"""
         liquidity_score = pd.Series(50, index=df.index, dtype=float)
         
-        # Primary factor: Dollar volume (price × volume)
-        # This is the TRUE measure of liquidity
-        dollar_volume = pd.Series(0, index=df.index, dtype=float)
-        
-        # Calculate average daily dollar volume
-        if 'volume_90d' in df.columns and 'price' in df.columns:
-            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
-            price = pd.Series(df['price'].values, index=df.index)
+        if 'volume_30d' in df.columns and 'price' in df.columns:
+            # Calculate dollar volume
+            dollar_volume = df['volume_30d'].fillna(0) * df['price'].fillna(0)
             
-            valid_mask = vol_90d.notna() & price.notna() & (vol_90d > 0) & (price > 0)
-            
-            # Dollar volume in millions
-            dollar_volume[valid_mask] = (vol_90d[valid_mask] * price[valid_mask]) / 1_000_000
-            
-            # Rank by dollar volume (this is the core liquidity metric)
-            liquidity_score[valid_mask] = RankingEngine._safe_rank(
-                dollar_volume[valid_mask],
-                pct=True,
-                ascending=True
-            )
-            
-            # Apply thresholds for Indian market
-            # Less than ₹10 Cr daily = poor liquidity
-            poor_liquidity = valid_mask & (dollar_volume < 10)  # < ₹10 Cr
-            liquidity_score[poor_liquidity] *= 0.50  # 50% penalty
-            
-            # ₹10-50 Cr = moderate liquidity
-            moderate_liquidity = valid_mask & (dollar_volume >= 10) & (dollar_volume < 50)
-            liquidity_score[moderate_liquidity] *= 0.85  # 15% penalty
-            
-            # ₹50-200 Cr = good liquidity
-            good_liquidity = valid_mask & (dollar_volume >= 50) & (dollar_volume < 200)
-            # No adjustment needed
-            
-            # > ₹200 Cr = excellent liquidity
-            excellent_liquidity = valid_mask & (dollar_volume >= 200)
-            liquidity_score[excellent_liquidity] *= 1.10  # 10% bonus
-        
-        # Secondary factor: Volume consistency
-        if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']):
-            vol_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            vol_7d = pd.Series(df['volume_7d'].values, index=df.index)  # Already daily average
-            vol_30d = pd.Series(df['volume_30d'].values, index=df.index)  # Already daily average
-            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)  # Already daily average
-            
-            valid_all = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & vol_90d.notna()
-            
-            # Calculate coefficient of variation (lower = more consistent)
-            # This measures how stable the volume is
-            volume_mean = (vol_1d + vol_7d + vol_30d + vol_90d) / 4
-            volume_std = pd.Series(np.nan, index=df.index)
-            
-            for idx in df.index:
-                if valid_all[idx]:
-                    volumes = [vol_1d[idx], vol_7d[idx], vol_30d[idx], vol_90d[idx]]
-                    volume_std[idx] = np.std(volumes)
-            
-            # Low variation = consistent = good for liquidity
-            cv = pd.Series(np.nan, index=df.index)
-            cv[volume_mean > 0] = volume_std[volume_mean > 0] / volume_mean[volume_mean > 0]
-            
-            # Bonus for low coefficient of variation (consistent volume)
-            very_consistent = valid_all & (cv < 0.3)  # CV < 30%
-            liquidity_score[very_consistent] *= 1.05  # 5% bonus
-            
-            # Penalty for high variation (erratic volume)
-            erratic = valid_all & (cv > 1.0)  # CV > 100%
-            liquidity_score[erratic] *= 0.95  # 5% penalty
-        
-        # Tertiary factor: Market cap consideration
-        if 'market_cap' in df.columns:
-            market_cap = pd.Series(df['market_cap'].values, index=df.index)
-            
-            # Parse market cap categories for bonus/penalty
-            mega_large = market_cap.isin(['Mega Cap', 'Large Cap'])
-            mid_cap = market_cap == 'Mid Cap'
-            small_micro = market_cap.isin(['Small Cap', 'Micro Cap'])
-            
-            # Market cap adjustments (larger caps are generally more liquid)
-            liquidity_score[mega_large] *= 1.05  # 5% bonus
-            liquidity_score[small_micro] *= 0.95  # 5% penalty
-        
-        # Additional penalty for price extremes
-        if 'price' in df.columns:
-            price = pd.Series(df['price'].values, index=df.index)
-            
-            # Penny stocks (< ₹10) have poor liquidity
-            penny = price < 10
-            liquidity_score[penny] *= 0.80  # 20% penalty
-            
-            # Very high price (> ₹50,000) might have lower retail liquidity
-            very_high = price > 50000
-            liquidity_score[very_high] *= 0.95  # 5% penalty
+            # Rank based on dollar volume
+            liquidity_score = RankingEngine._safe_rank(dollar_volume, pct=True, ascending=True)
         
         return liquidity_score.clip(0, 100)
-        
-    @staticmethod
-    def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply smart scoring bonuses based on exceptional conditions.
-        FIXED: Bonuses are now CUMULATIVE (multiply together) instead of overwriting.
-        
-        Bonuses Applied:
-        1. Perfect Setup: +5% (momentum_harmony >= 3, rvol > 3, wave CRESTING)
-        2. Pattern Bonus: +3% (has PERFECT STORM pattern)
-        3. Extreme Opportunity: +7% (score > 85, rvol > 3, harmony >= 3, near high)
-        
-        Maximum possible bonus: 1.05 * 1.03 * 1.07 = 15.7% total
-        """
-        if df.empty or 'master_score' not in df.columns:
-            return df
-        
-        # Initialize bonus multiplier column (start at 1.0 = no bonus)
-        df['bonus_multiplier'] = 1.0
-        
-        # Track which bonuses are applied
-        bonuses_applied = {
-            'perfect_setup': 0,
-            'pattern_bonus': 0,
-            'extreme_opportunity': 0
-        }
-        
-        # BONUS 1: Perfect Setup (5% boost)
-        if all(col in df.columns for col in ['momentum_harmony', 'rvol', 'wave_state']):
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            wave_state = pd.Series(df['wave_state'].values, index=df.index)
-            
-            # Perfect setup conditions
-            perfect_setup = (
-                momentum_harmony.notna() &
-                rvol.notna() &
-                wave_state.notna() &
-                (momentum_harmony >= 3) & 
-                (rvol > 3) & 
-                (wave_state.str.contains('CRESTING|TSUNAMI', na=False))  # Added TSUNAMI
-            )
-            
-            if perfect_setup.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[perfect_setup, 'bonus_multiplier'] *= 1.05
-                bonuses_applied['perfect_setup'] = perfect_setup.sum()
-                logger.info(f"Applied perfect setup bonus (+5%) to {bonuses_applied['perfect_setup']} stocks")
-        
-        # BONUS 2: Pattern Bonus (3% boost for PERFECT STORM)
-        if 'patterns' in df.columns:
-            patterns = pd.Series(df['patterns'].values, index=df.index)
-            
-            # Check for PERFECT STORM pattern
-            has_perfect_storm = (
-                patterns.notna() &
-                patterns.str.contains('PERFECT STORM', na=False)
-            )
-            
-            if has_perfect_storm.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[has_perfect_storm, 'bonus_multiplier'] *= 1.03
-                bonuses_applied['pattern_bonus'] = has_perfect_storm.sum()
-                logger.info(f"Applied PERFECT STORM pattern bonus (+3%) to {bonuses_applied['pattern_bonus']} stocks")
-            
-            # Additional pattern bonuses (optional but useful)
-            has_tsunami = patterns.str.contains('INSTITUTIONAL TSUNAMI', na=False)
-            if has_tsunami.any():
-                df.loc[has_tsunami, 'bonus_multiplier'] *= 1.02  # 2% for tsunami
-                logger.debug(f"Applied TSUNAMI pattern bonus (+2%) to {has_tsunami.sum()} stocks")
-        
-        # BONUS 3: Extreme Opportunity (7% boost)
-        if all(col in df.columns for col in ['master_score', 'rvol', 'momentum_harmony', 'from_high_pct']):
-            master_score = pd.Series(df['master_score'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
-            from_high_pct = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Extreme opportunity conditions
-            extreme_opp = (
-                master_score.notna() &
-                rvol.notna() &
-                momentum_harmony.notna() &
-                from_high_pct.notna() &
-                (master_score > 85) &
-                (rvol > 3) &
-                (momentum_harmony >= 3) &
-                (from_high_pct > -10)  # Within 10% of 52w high
-            )
-            
-            if extreme_opp.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[extreme_opp, 'bonus_multiplier'] *= 1.07
-                bonuses_applied['extreme_opportunity'] = extreme_opp.sum()
-                logger.info(f"Applied extreme opportunity bonus (+7%) to {bonuses_applied['extreme_opportunity']} stocks")
-        
-        # BONUS 4: Category Leader Bonus (optional, add if you want)
-        if 'category_percentile' in df.columns and 'master_score' in df.columns:
-            category_percentile = pd.Series(df['category_percentile'].values, index=df.index)
-            master_score = pd.Series(df['master_score'].values, index=df.index)
-            
-            category_leader = (
-                category_percentile.notna() &
-                master_score.notna() &
-                (category_percentile >= 95) &  # Top 5% in category
-                (master_score > 75)  # Also high overall score
-            )
-            
-            if category_leader.any():
-                df.loc[category_leader, 'bonus_multiplier'] *= 1.02  # 2% bonus
-                logger.debug(f"Applied category leader bonus (+2%) to {category_leader.sum()} stocks")
-        
-        # BONUS 5: Momentum Acceleration Bonus (optional)
-        if all(col in df.columns for col in ['acceleration_score', 'momentum_score']):
-            acceleration = pd.Series(df['acceleration_score'].values, index=df.index)
-            momentum = pd.Series(df['momentum_score'].values, index=df.index)
-            
-            accelerating = (
-                acceleration.notna() &
-                momentum.notna() &
-                (acceleration > 90) &
-                (momentum > 80)
-            )
-            
-            if accelerating.any():
-                df.loc[accelerating, 'bonus_multiplier'] *= 1.03  # 3% bonus
-                logger.debug(f"Applied acceleration bonus (+3%) to {accelerating.sum()} stocks")
-        
-        # Apply all bonuses to master score
-        has_bonus = df['bonus_multiplier'] > 1.0
-        if has_bonus.any():
-            # Apply multiplier and ensure within bounds
-            df['master_score'] = (df['master_score'] * df['bonus_multiplier']).clip(0, 100)
-            
-            # Log summary statistics
-            total_with_bonus = has_bonus.sum()
-            max_bonus = df.loc[has_bonus, 'bonus_multiplier'].max()
-            avg_bonus = df.loc[has_bonus, 'bonus_multiplier'].mean()
-            
-            logger.info(f"Bonus summary: {total_with_bonus} stocks received bonuses")
-            logger.info(f"Max bonus multiplier: {max_bonus:.3f}, Avg: {avg_bonus:.3f}")
-            
-            # Track stocks with multiple bonuses
-            multi_bonus = df['bonus_multiplier'] > 1.08  # More than one bonus
-            if multi_bonus.any():
-                logger.info(f"{multi_bonus.sum()} stocks received multiple bonuses")
-                
-                # Log top beneficiaries
-                if 'ticker' in df.columns:
-                    top_bonus_stocks = df.loc[multi_bonus].nlargest(5, 'bonus_multiplier')[['ticker', 'bonus_multiplier', 'master_score']]
-                    logger.debug(f"Top bonus recipients:\n{top_bonus_stocks}")
-        else:
-            logger.info("No stocks qualified for bonuses")
-        
-        # Clean up: Remove bonus_multiplier column if you don't want to keep it
-        # df = df.drop('bonus_multiplier', axis=1)
-        # Or keep it for transparency!
-        
-        return df
 
     @staticmethod
     def _calculate_category_ranks(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate percentile ranks within each category.
-        FIXED: Now properly handles "Unknown" category instead of penalizing it.
+        """Calculate percentile ranks within each category"""
+        # FIX: Initialize with proper defaults, not NaN
+        df['category_rank'] = 9999
+        df['category_percentile'] = 0.0
         
-        Adds columns:
-        - category_rank: Rank within category (1 = best)
-        - category_percentile: Percentile within category (100 = best)
-        """
-        # Initialize with NaN (not 9999!)
-        df['category_rank'] = np.nan
-        df['category_percentile'] = np.nan
-        
-        # Check if we have required columns
-        if 'category' not in df.columns or 'master_score' not in df.columns:
-            logger.warning("Missing category or master_score columns for category ranking")
-            return df
-        
-        # Get all unique categories (INCLUDING Unknown!)
-        categories = df['category'].unique()
-        
-        # Track statistics
-        category_stats = {}
-        
-        for category in categories:
-            # FIXED: Don't skip Unknown or any category
-            if pd.isna(category):
-                # Skip actual NaN categories (not the string "Unknown")
-                continue
+        # Get unique categories
+        if 'category' in df.columns:
+            categories = df['category'].unique()
             
-            # Get all stocks in this category
-            mask = df['category'] == category
-            cat_df = df[mask]
-            
-            if len(cat_df) == 0:
-                continue
-            
-            # Only rank stocks that have a master_score
-            has_score = cat_df['master_score'].notna()
-            
-            if has_score.any():
-                # Calculate ranks within category
-                cat_ranks = cat_df.loc[has_score, 'master_score'].rank(
-                    method='first',
-                    ascending=False,
-                    na_option='bottom'
-                )
-                
-                # Assign ranks (only to stocks with scores)
-                df.loc[cat_df[has_score].index, 'category_rank'] = cat_ranks.astype(int)
-                
-                # Calculate percentiles within category
-                cat_percentiles = cat_df.loc[has_score, 'master_score'].rank(
-                    pct=True,
-                    ascending=True,
-                    na_option='bottom'
-                ) * 100
-                
-                # Assign percentiles
-                df.loc[cat_df[has_score].index, 'category_percentile'] = cat_percentiles
-                
-                # Track statistics
-                category_stats[category] = {
-                    'total': len(cat_df),
-                    'with_scores': has_score.sum(),
-                    'avg_score': cat_df.loc[has_score, 'master_score'].mean(),
-                    'top_score': cat_df.loc[has_score, 'master_score'].max()
-                }
-                
-                logger.debug(f"Category '{category}': {has_score.sum()}/{len(cat_df)} stocks ranked, "
-                            f"avg score: {category_stats[category]['avg_score']:.1f}")
-        
-        # Handle stocks with no category (actual NaN, not string "Unknown")
-        no_category = df['category'].isna()
-        if no_category.any():
-            # Option 1: Give them worst category rank (current behavior)
-            # df.loc[no_category, 'category_rank'] = 9999
-            # df.loc[no_category, 'category_percentile'] = 0
-            
-            # Option 2: Rank them together as "No Category" group (BETTER!)
-            no_cat_df = df[no_category]
-            has_score = no_cat_df['master_score'].notna()
-            
-            if has_score.any():
-                # Rank within the "no category" group
-                no_cat_ranks = no_cat_df.loc[has_score, 'master_score'].rank(
-                    method='first',
-                    ascending=False,
-                    na_option='bottom'
-                )
-                df.loc[no_cat_df[has_score].index, 'category_rank'] = no_cat_ranks.astype(int) + 9000  # Offset to show they're different
-                
-                no_cat_percentiles = no_cat_df.loc[has_score, 'master_score'].rank(
-                    pct=True,
-                    ascending=True,
-                    na_option='bottom'
-                ) * 100
-                df.loc[no_cat_df[has_score].index, 'category_percentile'] = no_cat_percentiles
-                
-                logger.info(f"Ranked {has_score.sum()} stocks with no category")
-        
-        # Fill any remaining NaN ranks (stocks with no master_score)
-        # These are truly unrankable
-        still_na = df['category_rank'].isna()
-        if still_na.any():
-            # Use category size + 1 as the rank for stocks with no score
+            # Rank within each category
             for category in categories:
-                if pd.isna(category):
-                    continue
-                mask = (df['category'] == category) & still_na
-                if mask.any():
-                    category_size = (df['category'] == category).sum()
-                    df.loc[mask, 'category_rank'] = category_size + 1
-                    df.loc[mask, 'category_percentile'] = 0
-        
-        # Log summary statistics
-        logger.info(f"Category ranking complete: {len(category_stats)} categories processed")
-        
-        if category_stats:
-            # Find best performing category
-            best_category = max(category_stats.items(), 
-                              key=lambda x: x[1]['avg_score'] if x[1]['with_scores'] > 0 else 0)
-            logger.info(f"Best performing category: '{best_category[0]}' "
-                       f"(avg score: {best_category[1]['avg_score']:.1f})")
-            
-            # Check if Unknown category exists and how it performs
-            if 'Unknown' in category_stats:
-                unknown_stats = category_stats['Unknown']
-                logger.info(f"Unknown category: {unknown_stats['with_scores']} stocks, "
-                           f"avg score: {unknown_stats['avg_score']:.1f}")
-                
-                # Alert if Unknown category is performing well but being penalized
-                if unknown_stats['avg_score'] > 50:
-                    logger.warning(f"Unknown category has decent avg score ({unknown_stats['avg_score']:.1f}) "
-                                 "- consider investigating why these stocks lack category data")
-        
-        # Add category quality indicator
-        df['category_data_quality'] = df['category'].apply(
-            lambda x: 'Good' if pd.notna(x) and x != 'Unknown' else 
-                      'Unknown' if x == 'Unknown' else 
-                      'Missing'
-        )
+                if category != 'Unknown':
+                    mask = df['category'] == category
+                    cat_df = df[mask]
+                    
+                    if len(cat_df) > 0:
+                        # Calculate ranks
+                        cat_ranks = cat_df['master_score'].rank(method='first', ascending=False, na_option='bottom')
+                        df.loc[mask, 'category_rank'] = cat_ranks.astype(int)
+                        
+                        # Calculate percentiles
+                        cat_percentiles = cat_df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
+                        df.loc[mask, 'category_percentile'] = cat_percentiles
         
         return df
 
@@ -2677,7 +1658,6 @@ class PatternDetector:
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
         Defines all 41 patterns using vectorized boolean masks.
-        FIXED: Uses raw data instead of scores that don't exist yet.
         Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
@@ -2696,110 +1676,85 @@ class PatternDetector:
                 return pd.Series(mask, index=df.index)
             else:
                 return pd.Series(mask, index=df.index)
-    
+
         # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
         
-        # 1. Category Leader - FIXED: category_percentile might not exist yet
-        if 'category_percentile' in df.columns:
-            mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
-        else:
-            # Calculate on the fly if needed
-            mask = pd.Series(False, index=df.index)
-        patterns.append(('🔥 CAT LEADER', mask))
+        # 1. Category Leader - Top in its market cap category
+        mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
+        patterns.append(('🐱 CAT LEADER', mask))
         
-        # 2. Hidden Gem - FIXED: percentile might not exist yet
-        if 'category_percentile' in df.columns and 'percentile' in df.columns:
-            mask = ensure_series((
-                (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
-                (get_col_safe('percentile', 100) < 70)
-            ))
-        else:
-            mask = pd.Series(False, index=df.index)
+        # 2. Hidden Gem - High category rank but low overall rank
+        mask = ensure_series((
+            (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
+            (get_col_safe('percentile', 100) < 70)
+        ))
         patterns.append(('💎 HIDDEN GEM', mask))
         
-        # 3. Institutional - FIXED: Use raw volume ratios
+        # 3. Institutional - Smart money accumulation detection
         if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
             mask = (
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &
-                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &
-                (get_col_safe('ret_3m', 0).between(5, 25)) &
-                (get_col_safe('from_low_pct', 0) > 30) &
-                (get_col_safe('from_high_pct', -100) > -30)
+                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &                # Long-term volume increase
+                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &     # Steady, not spiky
+                (get_col_safe('ret_3m', 0).between(5, 25)) &                   # Gradual appreciation
+                (get_col_safe('from_low_pct', 0) > 30) &                       # Off lows
+                (get_col_safe('from_high_pct', -100) > -30)                    # Not extended
             )
         else:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🏦 INSTITUTIONAL', mask))
         
-        # 4. Volume Explosion - Works with raw data
+        # 4. Volume Explosion - Extreme volume surge
         mask = get_col_safe('rvol', 0) > 3
         patterns.append(('⚡ VOL EXPLOSION', mask))
         
-        # 5. Market Leader - FIXED: percentile might not exist
-        if 'percentile' in df.columns:
-            mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
-        else:
-            mask = pd.Series(False, index=df.index)
+        # 5. Market Leader - Top overall percentile
+        mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
         patterns.append(('👑 MARKET LEADER', mask))
         
-        # 6. Momentum Wave - FIXED: Use return data directly
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'rvol']):
-            ret_7d = get_col_safe('ret_7d', 0)
-            ret_30d = get_col_safe('ret_30d', 0)
-            
-            # Calculate acceleration
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_7d = ret_7d / 7
-                daily_30d = ret_30d / 30
-                accelerating = (daily_7d > daily_30d * 1.2)  # 20% faster pace
-            
-            mask = (
-                (ret_30d >= 15) &  # Strong 30-day momentum
-                (ret_7d >= 5) &    # Good 7-day momentum
-                accelerating &      # Acceleration confirmed
-                (get_col_safe('rvol', 1) > 1.5)  # Volume confirmation
-            )
-        else:
-            mask = pd.Series(False, index=df.index)
+        # 6. Momentum Wave - Combined momentum and acceleration
+        mask = (
+            (get_col_safe('momentum_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('momentum_wave', 75)) & 
+            (get_col_safe('acceleration_score', 0) >= 70)
+        )
         patterns.append(('🌊 MOMENTUM WAVE', mask))
         
-        # 7. Liquid Leader - FIXED: Check if liquidity_score exists
-        if 'liquidity_score' in df.columns and 'percentile' in df.columns:
-            mask = (
-                (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
-                (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
-            )
-        else:
-            # Use volume as proxy for liquidity
-            mask = (
-                (get_col_safe('volume_1d', 0) > df['volume_1d'].median() * 2) &
-                (get_col_safe('rvol', 1) > 1.5)
-            )
+        # 7. Liquid Leader - High liquidity and performance
+        mask = (
+            (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
+            (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
+        )
         patterns.append(('💰 LIQUID LEADER', mask))
         
-        # 8. Premium Momentum Grade - FIXED: Use master_score if available
+        # 8. Premium Momentum Grade - Genetic momentum pattern
         try:
-            ret_1d = get_col_safe('ret_1d', 0)
-            ret_7d = get_col_safe('ret_7d', 0)
-            ret_30d = get_col_safe('ret_30d', 0)
+            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
             
-            # Build momentum DNA without master_score
+            # Genetic momentum template (successful pattern DNA)
             momentum_dna_score = (
+                # Gene 1: Acceleration consistency (25 points)
                 np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
+                
+                # Gene 2: Progressive strength (30 points) 
                 np.where(ret_7d > (ret_30d / 4), 30, 0) +
+                
+                # Gene 3: Volume confirmation (20 points)
                 np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
-                np.where(ret_30d > 20, 25, 0)  # Use return instead of score
+                
+                # Gene 4: Quality foundation (25 points)
+                np.where(get_col_safe('master_score', 0) >= 70, 25, 0)
             )
             
+            # Genetic pattern strength threshold
             mask = (
-                (momentum_dna_score >= 75) &
-                (get_col_safe('from_low_pct', 0) > 15) &
-                (get_col_safe('from_high_pct', 0) > -15) &
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)
+                (momentum_dna_score >= 75) &                     # Strong genetic match
+                (get_col_safe('from_low_pct', 0) > 15) &        # Not at bottom
+                (get_col_safe('from_high_pct', 0) > -15) &      # Room to run
+                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)     # Volume increasing
             )
-        except Exception:
+        except Exception as e:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
-
+        
         # 9. Entropy Compression - Volatility breakout prediction using information theory
         try:
             ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
@@ -2918,29 +1873,15 @@ class PatternDetector:
         patterns.append(('🌋 INSTITUTIONAL TSUNAMI', mask))
 
         # ========== FUNDAMENTAL PATTERNS (12-16) ==========
-    
-        # 12. Value Momentum - FIXED: Check master_score existence
+        
+        # 12. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
-        if 'master_score' in df.columns:
-            mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
-        else:
-            # Use returns as proxy for score
-            mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('ret_30d', 0) > 20)
+        mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
         patterns.append(('📈 VALUE MOMENTUM', mask))
         
-        # 13. Earnings Rocket - FIXED: acceleration_score doesn't exist
+        # 13. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
-        if 'acceleration_score' in df.columns:
-            mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
-        else:
-            # Calculate acceleration directly
-            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    accel = (get_col_safe('ret_1d', 0) > get_col_safe('ret_7d', 0)/7) & \
-                           (get_col_safe('ret_7d', 0)/7 > get_col_safe('ret_30d', 0)/30)
-                mask = eps_change_pct.notna() & (eps_change_pct > 50) & accel
-            else:
-                mask = eps_change_pct.notna() & (eps_change_pct > 50)
+        mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
         patterns.append(('🎯 EARNINGS ROCKET', mask))
 
         # 14. Quality Leader - Good PE, EPS growth, and percentile
@@ -3057,8 +1998,7 @@ class PatternDetector:
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
             mask = (
                 (get_col_safe('momentum_harmony', 0) == 4) & 
-                (get_col_safe('ret_30d', 0) > 20) &  # Use return data instead
-                (get_col_safe('rvol', 0) > 2)  # Add volume confirmation
+                (get_col_safe('master_score', 0) > 80)
             )
             patterns.append(('⛈️ PERFECT STORM', mask))
 
@@ -3426,7 +2366,7 @@ class PatternDetector:
         except Exception as e:
             logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
             patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
-        
+
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
         
@@ -4756,9 +3696,7 @@ class FilterEngine:
         if 'sectors' in filters:
             masks.append(create_mask_from_isin('sector', filters['sectors']))
         if 'industries' in filters:
-            mask = create_mask_from_isin('industry', filters['industries'])
-            if mask is not None:
-                masks.append(mask)
+            masks.append(create_mask_from_isin('industry', filters['industries']))
         
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
