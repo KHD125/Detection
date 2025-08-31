@@ -1252,9 +1252,7 @@ class RankingEngine:
             consistency_bonus.loc[accelerating] = 10
             
             momentum_score = (momentum_score + consistency_bonus).clip(0, 100)
-        # ============================================
-        # ADD THE MOMENTUM DECAY TRACKING HERE! (NEW)
-        # ============================================
+       
         if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']):
             ret_1d = pd.Series(df['ret_1d'].values, index=df.index).fillna(0)
             ret_3d = pd.Series(df['ret_3d'].values, index=df.index).fillna(0)
@@ -1268,9 +1266,8 @@ class RankingEngine:
             
             # Apply penalty for decaying momentum
             momentum_score.loc[decay_signal] = momentum_score.loc[decay_signal] * 0.90
-        # ============================================
         
-        return momentum_score.clip(0, 100)  # Final clip (EXISTING)
+        return momentum_score.clip(0, 100)
 
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
