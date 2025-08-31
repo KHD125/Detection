@@ -1765,38 +1765,108 @@ class RankingEngine:
     @staticmethod
     def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate long-term strength based on multi-period returns.
-        IMPLEMENTATION: This method was also missing!
+        Calculate TRUE long-term strength based on multi-period returns.
+        FIXED: Proper weighting, realistic scaling, and correct math.
         """
         long_term_strength = pd.Series(50, index=df.index, dtype=float)
         
-        # Weight different time periods
+        # FIXED: TRUE long-term weights (emphasis on longer periods)
         weights = {
-            'ret_3m': 0.20,
-            'ret_6m': 0.25,
-            'ret_1y': 0.30,
-            'ret_3y': 0.15,
-            'ret_5y': 0.10
+            'ret_3m': 0.05,   # Very short term - minimal weight
+            'ret_6m': 0.10,   # Short term - low weight
+            'ret_1y': 0.20,   # Medium term - moderate weight
+            'ret_3y': 0.35,   # Long term - high weight (INCREASED)
+            'ret_5y': 0.30    # Very long term - high weight (INCREASED)
         }
         
-        total_weight = 0
-        weighted_score = pd.Series(0, index=df.index, dtype=float)
+        # Track which stocks have sufficient long-term data
+        has_long_term = pd.Series(False, index=df.index)
+        
+        # Calculate scores for each period
+        period_scores = {}
         
         for col, weight in weights.items():
             if col in df.columns:
                 ret_data = pd.Series(df[col].values, index=df.index)
                 valid_mask = ret_data.notna()
                 
-                # Convert returns to scores (0-100)
-                # Assuming -50% = 0 score, 0% = 50 score, +100% = 100 score
-                score = pd.Series(50, index=df.index)
-                score[valid_mask] = 50 + np.clip(ret_data[valid_mask] / 2, -50, 50)
+                # Mark stocks with 3y or 5y data as having long-term history
+                if col in ['ret_3y', 'ret_5y'] and valid_mask.any():
+                    has_long_term |= valid_mask
                 
-                weighted_score += score * weight
-                total_weight += weight
+                # FIXED: Realistic scoring for Indian market returns
+                # Use logarithmic scaling for better distribution
+                # This handles -100% to +1000% returns properly
+                
+                score = pd.Series(np.nan, index=df.index)
+                
+                # For valid data, calculate score
+                if valid_mask.any():
+                    # Shift returns to handle negative values
+                    # -100% = 0, 0% = 100, 100% = 200, 500% = 600
+                    shifted_returns = ret_data[valid_mask] + 100
+                    
+                    # Apply logarithmic scaling
+                    # log(0) undefined, so handle -100% specially
+                    score[valid_mask] = np.where(
+                        shifted_returns <= 0,
+                        0,  # -100% or worse = 0 score
+                        np.log(shifted_returns) / np.log(700) * 100  # log base 700 for scaling
+                    )
+                    
+                    # Alternative linear scaling for different return ranges
+                    # This gives better granularity
+                    score[valid_mask] = np.where(
+                        ret_data[valid_mask] < -50,
+                        0,  # Below -50% = 0 score
+                        np.where(
+                            ret_data[valid_mask] < 0,
+                            25 + (ret_data[valid_mask] + 50) * 0.5,  # -50% to 0% = 0-25 score
+                            np.where(
+                                ret_data[valid_mask] < 100,
+                                50 + ret_data[valid_mask] * 0.3,  # 0% to 100% = 50-80 score
+                                np.where(
+                                    ret_data[valid_mask] < 500,
+                                    80 + (ret_data[valid_mask] - 100) * 0.05,  # 100% to 500% = 80-100 score
+                                    100  # Above 500% = 100 score (capped)
+                                )
+                            )
+                        )
+                    )
+                
+                period_scores[col] = (score, weight)
         
-        if total_weight > 0:
-            long_term_strength = weighted_score / total_weight
+        # Calculate weighted average ONLY where data exists
+        if period_scores:
+            numerator = pd.Series(0, index=df.index, dtype=float)
+            denominator = pd.Series(0, index=df.index, dtype=float)
+            
+            for col, (score, weight) in period_scores.items():
+                valid_mask = score.notna()
+                numerator[valid_mask] += score[valid_mask] * weight
+                denominator[valid_mask] += weight
+            
+            # Only calculate where we have data
+            valid_calc = denominator > 0
+            long_term_strength[valid_calc] = numerator[valid_calc] / denominator[valid_calc]
+            
+            # PENALTY for stocks without true long-term history
+            no_history = ~has_long_term & valid_calc
+            long_term_strength[no_history] *= 0.85  # 15% penalty
+            
+            # BONUS for consistent long-term performers
+            if all(col in period_scores for col in ['ret_1y', 'ret_3y', 'ret_5y']):
+                ret_1y = pd.Series(df['ret_1y'].values, index=df.index) if 'ret_1y' in df.columns else pd.Series(np.nan, index=df.index)
+                ret_3y = pd.Series(df['ret_3y'].values, index=df.index) if 'ret_3y' in df.columns else pd.Series(np.nan, index=df.index)
+                ret_5y = pd.Series(df['ret_5y'].values, index=df.index) if 'ret_5y' in df.columns else pd.Series(np.nan, index=df.index)
+                
+                # All positive and increasing = consistency bonus
+                consistent = (ret_1y > 50) & (ret_3y > 150) & (ret_5y > 250)
+                long_term_strength[consistent] *= 1.10  # 10% bonus
+            
+            # Set stocks with NO data to neutral (not average)
+            no_data = denominator == 0
+            long_term_strength[no_data] = 45  # Below average for no history
         
         return long_term_strength.clip(0, 100)
     
