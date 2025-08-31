@@ -1735,21 +1735,16 @@ class PatternDetector:
     def _calculate_pattern_confidence(df: pd.DataFrame) -> pd.DataFrame:
         """
         FIXED: Calculate confidence score based on pattern importance weights.
-        Now properly calculates max_possible_score based on ACTUAL patterns detected.
+        Now properly calculates max_possible_score.
         """
         
-        # If no patterns column or all empty, return 0 confidence
-        if 'patterns' not in df.columns or df['patterns'].eq('').all():
-            df['pattern_confidence'] = 0.0
-            df['confidence_tier'] = 'Low'
-            return df
-        
-        # Get all positive weights for reference
+        # Calculate maximum possible score for normalization
         all_positive_weights = [
             abs(meta['importance_weight']) 
             for meta in PatternDetector.PATTERN_METADATA.values()
             if meta['importance_weight'] > 0
         ]
+        max_possible_score = sum(sorted(all_positive_weights, reverse=True)[:5])  # Top 5 patterns
         
         def calculate_confidence(patterns_str):
             """Calculate confidence for a single stock's patterns"""
@@ -1757,87 +1752,38 @@ class PatternDetector:
                 return 0.0
             
             patterns = [p.strip() for p in patterns_str.split(' | ')]
-            
-            # FIXED: Use actual number of patterns for this stock, not fixed 5
-            num_patterns = len(patterns)
-            if num_patterns == 0:
-                return 0.0
-            
-            # Calculate max possible score based on actual pattern count
-            # Take the top N weights where N is the number of patterns this stock has
-            max_patterns_to_consider = min(num_patterns, len(all_positive_weights))
-            max_possible_score = sum(sorted(all_positive_weights, reverse=True)[:max_patterns_to_consider])
-            
-            # If somehow max_possible_score is 0, use a default
-            if max_possible_score == 0:
-                max_possible_score = 100
-            
-            # Calculate total weight from actual patterns
             total_weight = 0
             pattern_categories = set()
-            matched_patterns = 0
             
             for pattern in patterns:
                 # Match pattern with metadata (handle emoji differences)
                 for key, meta in PatternDetector.PATTERN_METADATA.items():
-                    # Clean comparison - remove emojis and extra spaces for matching
-                    clean_pattern = pattern.strip()
-                    clean_key = key.strip()
-                    
-                    # Try exact match first
-                    if clean_pattern == clean_key:
-                        total_weight += abs(meta['importance_weight'])
+                    if pattern == key or pattern.replace(' ', '') == key.replace(' ', ''):
+                        total_weight += meta['importance_weight']
                         pattern_categories.add(meta.get('category', 'unknown'))
-                        matched_patterns += 1
-                        break
-                    # Try without spaces
-                    elif clean_pattern.replace(' ', '') == clean_key.replace(' ', ''):
-                        total_weight += abs(meta['importance_weight'])
-                        pattern_categories.add(meta.get('category', 'unknown'))
-                        matched_patterns += 1
                         break
             
-            # Bonus for diverse categories (2 points per unique category)
+            # Bonus for diverse categories
             category_bonus = len(pattern_categories) * 2
             
-            # Calculate raw confidence
-            raw_confidence = ((total_weight + category_bonus) / max_possible_score) * 100
-            
-            # Apply sigmoid smoothing for better distribution
-            # This ensures values stay between 0-100 with nice distribution
-            if raw_confidence > 0:
-                # Sigmoid function: 2 / (1 + e^(-x/50)) - 1, scaled to 0-100
-                smoothed_confidence = 100 * (2 / (1 + np.exp(-raw_confidence/50)) - 1)
-                # Final clipping to ensure 0-100 range
-                confidence = min(100, max(0, smoothed_confidence))
-            else:
-                confidence = 0.0
-            
-            return round(confidence, 2)
+            # Calculate final confidence
+            if max_possible_score > 0:
+                raw_confidence = (abs(total_weight) + category_bonus) / max_possible_score * 100
+                # Apply sigmoid smoothing for better distribution
+                confidence = 100 * (2 / (1 + np.exp(-raw_confidence/50)) - 1)
+                return min(100, max(0, confidence))
+            return 0.0
         
         # Apply calculation to all rows
-        df['pattern_confidence'] = df['patterns'].apply(calculate_confidence)
+        df['pattern_confidence'] = df['patterns'].apply(calculate_confidence).round(2)
         
-        # Add confidence tier based on score
+        # Add confidence tier
         df['confidence_tier'] = pd.cut(
             df['pattern_confidence'],
-            bins=[-0.1, 25, 50, 75, 100.1],  # Slightly adjusted bins to handle edge cases
+            bins=[0, 25, 50, 75, 100],
             labels=['Low', 'Medium', 'High', 'Very High'],
             include_lowest=True
         )
-        
-        # Log statistics for debugging
-        patterns_with_confidence = (df['pattern_confidence'] > 0).sum()
-        avg_confidence = df['pattern_confidence'].mean()
-        max_confidence = df['pattern_confidence'].max()
-        
-        logger.debug(f"Pattern confidence calculated: {patterns_with_confidence} stocks with patterns, "
-                    f"avg confidence {avg_confidence:.1f}, max {max_confidence:.1f}")
-        
-        # Verify no confidence exceeds 100
-        if (df['pattern_confidence'] > 100).any():
-            logger.warning("Some pattern confidence scores exceed 100, capping them")
-            df['pattern_confidence'] = df['pattern_confidence'].clip(0, 100)
         
         return df
     
