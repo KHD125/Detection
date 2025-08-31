@@ -1618,113 +1618,157 @@ class RankingEngine:
     @staticmethod
     def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate breakout probability.
-        FIXED: Correct math, proper scaling, and logical bonuses.
-        """
-        breakout_score = pd.Series(50, index=df.index, dtype=float)
+        Calculate breakout probability score.
+        FIXED: Proper NaN handling, no fake data creation.
         
-        # Factor 1: Distance from 52-week high (40% weight)
-        # FIXED: Closer to high = higher score
-        distance_factor = pd.Series(50, index=df.index, dtype=float)
+        Breakout Score Components:
+        - 40% weight: Distance from 52w high (closer = higher score)
+        - 40% weight: Volume surge (7d/90d ratio)
+        - 20% weight: Trend support (price above SMAs)
+        - Bonus: +10 if momentum confirmed (7d & 30d positive)
+        """
+        breakout_score = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        # Factor 1: Distance from high (40% weight)
+        distance_factor = pd.Series(np.nan, index=df.index, dtype=float)
         if 'from_high_pct' in df.columns:
             from_high = pd.Series(df['from_high_pct'].values, index=df.index)
+            # DON'T fillna(-50)! Keep NaN as NaN
             
-            # from_high_pct is negative (e.g., -10 means 10% below high)
-            # Convert to positive distance: abs(from_high_pct)
-            distance_from_high = from_high.abs()
-            
-            # Score calculation: closer to high = higher score
-            # 0% from high = 100 score, 50% from high = 50 score, 100% from high = 0 score
-            valid_mask = from_high.notna()
-            distance_factor[valid_mask] = (100 - distance_from_high[valid_mask]).clip(0, 100)
-            
-            # Special bonuses for proximity
-            at_high = valid_mask & (distance_from_high <= 2)  # Within 2% of high
-            near_high = valid_mask & (distance_from_high <= 5) & ~at_high  # Within 5%
-            approaching = valid_mask & (distance_from_high <= 10) & ~near_high & ~at_high  # Within 10%
-            
-            distance_factor[at_high] = 100  # Perfect score at highs
-            distance_factor[near_high] = 95  # Very high score near highs
-            distance_factor[approaching] = 85  # Good score approaching highs
+            # from_high is negative (e.g., -5 means 5% below high)
+            # Convert to positive distance, then to score
+            # -1% from high = 99 score, -50% from high = 50 score
+            valid_high = from_high.notna()
+            if valid_high.any():
+                # Closer to high = better score
+                distance_from_high = -from_high[valid_high]  # Make positive
+                distance_factor[valid_high] = (100 - distance_from_high).clip(0, 100)
         
         # Factor 2: Volume surge (40% weight)
-        # FIXED: Better scaling for volume ratios
-        volume_factor = pd.Series(50, index=df.index, dtype=float)
+        volume_factor = pd.Series(np.nan, index=df.index, dtype=float)
         if 'vol_ratio_7d_90d' in df.columns:
             vol_ratio = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
+            # DON'T fillna(1.0)! Keep NaN as NaN
+            
             valid_vol = vol_ratio.notna()
-            
-            # Logarithmic scaling for better distribution
-            # ratio 1.0 = 0, ratio 2.0 = 69, ratio 3.0 = 85, ratio 5.0 = 95
-            volume_factor[valid_vol] = np.where(
-                vol_ratio[valid_vol] > 1,
-                np.log(vol_ratio[valid_vol]) / np.log(5) * 100,  # log base 5 scaling
-                0
-            ).clip(0, 100)
-            
-            # Additional check for sustained volume
-            if 'vol_ratio_30d_90d' in df.columns:
-                vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
-                sustained = valid_vol & (vol_ratio > 1.3) & (vol_30d > 1.2)
-                volume_factor[sustained] *= 1.1  # 10% bonus for sustained volume
+            if valid_vol.any():
+                # Convert ratio to score (1.0 = 0, 2.0 = 100, 3.0+ = 100)
+                volume_factor[valid_vol] = ((vol_ratio[valid_vol] - 1) * 100).clip(0, 100)
         
         # Factor 3: Trend support (20% weight)
-        # FIXED: Gradual scoring based on distance from SMAs
-        trend_factor = pd.Series(0, index=df.index, dtype=float)
+        trend_factor = pd.Series(np.nan, index=df.index, dtype=float)
         if 'price' in df.columns:
             current_price = pd.Series(df['price'].values, index=df.index)
+            price_valid = current_price.notna()
             
-            sma_scores = []
-            sma_weights = []
-            
-            for sma_col, weight in [('sma_20d', 0.4), ('sma_50d', 0.3), ('sma_200d', 0.3)]:
-                if sma_col in df.columns:
-                    sma_values = pd.Series(df[sma_col].values, index=df.index)
-                    valid_sma = current_price.notna() & sma_values.notna() & (sma_values > 0)
-                    
-                    # Calculate percentage above/below SMA
-                    pct_above = pd.Series(0.0, index=df.index)
-                    pct_above[valid_sma] = ((current_price[valid_sma] - sma_values[valid_sma]) / sma_values[valid_sma]) * 100
-                    
-                    # Score based on position relative to SMA
-                    sma_score = pd.Series(50, index=df.index)
-                    sma_score[pct_above > 0] = 50 + np.minimum(pct_above[pct_above > 0] * 2, 50)  # Cap at 100
-                    sma_score[pct_above < 0] = 50 + np.maximum(pct_above[pct_above < 0] * 2, -50)  # Floor at 0
-                    
-                    sma_scores.append(sma_score)
-                    sma_weights.append(weight)
-            
-            if sma_scores:
-                # Weighted average of SMA scores
-                total_weight = sum(sma_weights)
-                for score, weight in zip(sma_scores, sma_weights):
-                    trend_factor += score * (weight / total_weight)
+            if price_valid.any():
+                trend_points = pd.Series(0, index=df.index, dtype=float)
+                sma_count = 0
+                
+                # Check each SMA (33.33 points each)
+                for sma_col, points in [('sma_20d', 33.33), ('sma_50d', 33.33), ('sma_200d', 33.34)]:
+                    if sma_col in df.columns:
+                        sma_values = pd.Series(df[sma_col].values, index=df.index)
+                        # Only check where both price and SMA exist
+                        check_mask = price_valid & sma_values.notna()
+                        if check_mask.any():
+                            above_sma = check_mask & (current_price > sma_values)
+                            trend_points[above_sma] += points
+                            sma_count += 1
+                
+                # Only assign trend factor if we had at least one SMA
+                if sma_count > 0:
+                    trend_factor[price_valid] = trend_points[price_valid]
         
-        # Combine factors with weights
-        valid_data = (distance_factor != 50) | (volume_factor != 50) | (trend_factor != 0)
+        # Combine factors with adaptive weighting
+        # Only calculate where we have at least one factor
+        has_distance = distance_factor.notna()
+        has_volume = volume_factor.notna()
+        has_trend = trend_factor.notna()
         
-        breakout_score[valid_data] = (
-            distance_factor[valid_data] * 0.4 +
-            volume_factor[valid_data] * 0.4 +
-            trend_factor[valid_data] * 0.2
-        )
+        # Track which stocks have data for scoring
+        has_any_factor = has_distance | has_volume | has_trend
         
-        # FIXED: Scaled momentum confirmation bonus
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
+        if has_any_factor.any():
+            for idx in df.index[has_any_factor]:
+                factors = []
+                weights = []
+                
+                # Add available factors
+                if has_distance[idx]:
+                    factors.append(distance_factor[idx])
+                    weights.append(0.4)
+                
+                if has_volume[idx]:
+                    factors.append(volume_factor[idx])
+                    weights.append(0.4)
+                
+                if has_trend[idx]:
+                    factors.append(trend_factor[idx])
+                    weights.append(0.2)
+                
+                # Calculate weighted average if we have factors
+                if factors and weights:
+                    total_weight = sum(weights)
+                    if total_weight > 0:
+                        weighted_sum = sum(f * w for f, w in zip(factors, weights))
+                        breakout_score[idx] = weighted_sum / total_weight
+        
+        # Momentum confirmation bonus (only where breakout score exists)
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d']) and breakout_score.notna().any():
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
             ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
             
-            # Scale bonus based on momentum strength
-            weak_momentum = (ret_7d > 0) & (ret_30d > 0) & (ret_7d < 5)
-            moderate_momentum = (ret_7d >= 5) & (ret_30d >= 10)
-            strong_momentum = (ret_7d >= 10) & (ret_30d >= 20)
+            # Only apply bonus where all data exists
+            momentum_confirm = (
+                breakout_score.notna() & 
+                ret_7d.notna() & 
+                ret_30d.notna() & 
+                (ret_7d > 0) & 
+                (ret_30d > 0)
+            )
             
-            breakout_score[weak_momentum] += 5
-            breakout_score[moderate_momentum] += 10
-            breakout_score[strong_momentum] += 15
+            if momentum_confirm.any():
+                breakout_score[momentum_confirm] += 10
+                logger.debug(f"Applied momentum confirmation bonus to {momentum_confirm.sum()} stocks")
         
-        return breakout_score.clip(0, 100)
-
+        # Additional breakout signals
+        if breakout_score.notna().any():
+            # Near 52w high with volume = strong breakout potential
+            if 'from_high_pct' in df.columns and 'rvol' in df.columns:
+                from_high = pd.Series(df['from_high_pct'].values, index=df.index)
+                rvol = pd.Series(df['rvol'].values, index=df.index)
+                
+                imminent_breakout = (
+                    breakout_score.notna() &
+                    from_high.notna() &
+                    rvol.notna() &
+                    (from_high > -3) &  # Within 3% of high
+                    (rvol > 2)  # With strong volume
+                )
+                
+                if imminent_breakout.any():
+                    breakout_score[imminent_breakout] += 5
+                    logger.debug(f"Applied imminent breakout bonus to {imminent_breakout.sum()} stocks")
+        
+        # Ensure scores stay within bounds
+        breakout_score = breakout_score.clip(0, 100)
+        
+        # Log statistics
+        valid_count = breakout_score.notna().sum()
+        logger.info(f"Breakout scores calculated: {valid_count} valid out of {len(df)} stocks")
+        
+        if valid_count > 0:
+            # Log factor availability
+            logger.debug(f"Distance factor: {has_distance.sum()} stocks")
+            logger.debug(f"Volume factor: {has_volume.sum()} stocks")
+            logger.debug(f"Trend factor: {has_trend.sum()} stocks")
+            
+            avg_score = breakout_score[breakout_score.notna()].mean()
+            high_breakout = (breakout_score > 80).sum()
+            logger.debug(f"Average breakout score: {avg_score:.1f}, High potential: {high_breakout}")
+        
+        return breakout_score
     @staticmethod
     def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
         """
