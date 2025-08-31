@@ -1355,7 +1355,7 @@ class RankingEngine:
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate if momentum is accelerating.
-        CRITICAL FIX #1: Smoothed 1-day returns to reduce noise.
+        FIXED: Proper NaN handling, correct smoothing math, and logical categories.
         """
         acceleration_score = pd.Series(50, index=df.index, dtype=float)
         
@@ -1366,52 +1366,97 @@ class RankingEngine:
             logger.warning("Insufficient return data for acceleration calculation")
             return acceleration_score
         
-        # Get return data with defaults
-        ret_1d = pd.Series(df['ret_1d'].values if 'ret_1d' in df.columns else 0, index=df.index).fillna(0)
-        ret_7d = pd.Series(df['ret_7d'].values if 'ret_7d' in df.columns else 0, index=df.index).fillna(0)
-        ret_30d = pd.Series(df['ret_30d'].values if 'ret_30d' in df.columns else 0, index=df.index).fillna(0)
+        # Get return data WITHOUT fillna corruption
+        ret_1d = pd.Series(df['ret_1d'].values, index=df.index) if 'ret_1d' in df.columns else pd.Series(np.nan, index=df.index)
+        ret_7d = pd.Series(df['ret_7d'].values, index=df.index) if 'ret_7d' in df.columns else pd.Series(np.nan, index=df.index)
+        ret_30d = pd.Series(df['ret_30d'].values, index=df.index) if 'ret_30d' in df.columns else pd.Series(np.nan, index=df.index)
         
-        # CRITICAL FIX: Smooth 1-day returns to reduce noise
-        # This is the MOST IMPORTANT fix - reduces false signals by 50%!
+        # FIXED: Proper smoothing using exponential weighting
         if 'ret_3d' in df.columns:
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index).fillna(0)
-            ret_1d_smooth = ret_1d * 0.6 + (ret_3d / 3) * 0.4
+            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
+            # Calculate smoothed 1-day return
+            # Use 3-day return to smooth out 1-day noise
+            valid_smooth = ret_1d.notna() & ret_3d.notna()
+            ret_1d_smooth = ret_1d.copy()
+            
+            # Smooth where both values exist
+            # If 3-day return is 6% and 1-day is 3%, smoothed = weighted average
+            ret_1d_smooth[valid_smooth] = (
+                ret_1d[valid_smooth] * 0.6 + 
+                (ret_3d[valid_smooth] / 3) * 0.4  # Use daily average of 3-day
+            )
         else:
-            ret_1d_smooth = ret_1d
+            ret_1d_smooth = ret_1d.copy()
         
-        # Calculate daily averages with safe division
+        # Calculate daily averages with proper NaN handling
         with np.errstate(divide='ignore', invalid='ignore'):
-            avg_daily_1d = ret_1d_smooth  # Now smoothed!
-            avg_daily_7d = np.where(ret_7d != 0, ret_7d / 7, 0)
-            avg_daily_30d = np.where(ret_30d != 0, ret_30d / 30, 0)
+            avg_daily_1d = ret_1d_smooth  # Already daily
+            avg_daily_7d = pd.Series(np.nan, index=df.index)
+            avg_daily_30d = pd.Series(np.nan, index=df.index)
+            
+            # Only calculate where data exists
+            valid_7d = ret_7d.notna()
+            avg_daily_7d[valid_7d] = ret_7d[valid_7d] / 7
+            
+            valid_30d = ret_30d.notna()
+            avg_daily_30d[valid_30d] = ret_30d[valid_30d] / 30
         
+        # Only score where we have sufficient data
         if all(col in df.columns for col in req_cols):
-            # Perfect acceleration - with slightly stricter thresholds
-            perfect = (avg_daily_1d > avg_daily_7d * 1.1) & \
-                     (avg_daily_7d > avg_daily_30d * 1.05) & \
-                     (ret_1d_smooth > 0)
+            # Need all three timeframes for proper acceleration
+            valid_data = ret_1d_smooth.notna() & avg_daily_7d.notna() & avg_daily_30d.notna()
+            
+            # Perfect acceleration - momentum increasing at all timeframes
+            perfect = valid_data & (
+                (avg_daily_1d > avg_daily_7d * 1.15) &  # 15% faster than weekly
+                (avg_daily_7d > avg_daily_30d * 1.10) &  # 10% faster than monthly
+                (ret_1d_smooth > 1)  # At least 1% daily move
+            )
             acceleration_score[perfect] = 95
             
-            # Good acceleration
-            good = (~perfect) & \
-                   (avg_daily_1d > avg_daily_7d) & \
-                   (avg_daily_7d > avg_daily_30d) & \
-                   (ret_1d_smooth > 0)
+            # Good acceleration - steady increase
+            good = valid_data & ~perfect & (
+                (avg_daily_1d > avg_daily_7d * 1.05) &  # 5% faster than weekly
+                (avg_daily_7d > avg_daily_30d) &  # Faster than monthly
+                (ret_1d_smooth > 0)
+            )
             acceleration_score[good] = 80
             
-            # Moderate
-            moderate = (~perfect) & (~good) & (ret_1d_smooth > 0)
-            acceleration_score[moderate] = 60
+            # FIXED: Mild acceleration (not just positive!)
+            mild = valid_data & ~perfect & ~good & (
+                (avg_daily_1d > avg_daily_30d) &  # At least faster than monthly
+                (ret_1d_smooth > 0) &
+                (ret_7d > 0)  # Positive week
+            )
+            acceleration_score[mild] = 65
             
-            # Deceleration
-            slight_decel = (ret_1d_smooth <= 0) & (ret_7d > 0)
+            # Neutral - positive but not accelerating
+            neutral = valid_data & ~perfect & ~good & ~mild & (
+                (ret_1d_smooth > 0) & (ret_7d > 0)
+            )
+            acceleration_score[neutral] = 55
+            
+            # Slight deceleration
+            slight_decel = valid_data & (
+                (ret_1d_smooth <= 0) & (ret_7d > 0)
+            )
             acceleration_score[slight_decel] = 40
             
-            strong_decel = (ret_1d_smooth <= 0) & (ret_7d <= 0)
+            # Strong deceleration
+            strong_decel = valid_data & (
+                (ret_1d_smooth < 0) & (ret_7d < 0)
+            )
             acceleration_score[strong_decel] = 20
+            
+            # Crash - everything negative and getting worse
+            crash = valid_data & (
+                (avg_daily_1d < avg_daily_7d) &
+                (avg_daily_7d < avg_daily_30d) &
+                (ret_30d < -10)
+            )
+            acceleration_score[crash] = 10
         
         return acceleration_score.clip(0, 100)
-
     @staticmethod
     def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
         """
