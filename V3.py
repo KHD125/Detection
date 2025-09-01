@@ -7034,7 +7034,7 @@ class FilterEngine:
                 'max_pe': None,
                 'require_fundamental_data': False,
                 'market_states': [],
-                
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -7110,7 +7110,7 @@ class FilterEngine:
         if filters.get('max_pe') is not None: count += 1
         if filters.get('require_fundamental_data'): count += 1
         if filters.get('market_states'): count += 1
-        
+        if filters.get('market_strength_range') != (0, 100): count += 1
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
@@ -7146,7 +7146,7 @@ class FilterEngine:
             'max_pe': None,
             'require_fundamental_data': False,
             'market_states': [],
-            
+            'market_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False,
             'performance_tiers': [],
@@ -7281,7 +7281,7 @@ class FilterEngine:
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
             'require_fundamental_data', 'market_states_filter',
-            
+            'market_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -7296,7 +7296,7 @@ class FilterEngine:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == :
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -7372,6 +7372,8 @@ class FilterEngine:
             filters['require_fundamental_data'] = True
         if state.get('market_states'):
             filters['market_states'] = state['market_states']
+        if state.get('market_strength_range') != (0, 100):
+            filters['market_strength_range'] = state['market_strength_range']
             
         return filters
     
@@ -7775,7 +7777,7 @@ class FilterEngine:
             'max_pe': None,
             'require_fundamental_data': False,
             'market_states': [],
-            
+            'market_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False
         }
@@ -8409,7 +8411,7 @@ class SessionStateManager:
             
             # Wave Radar specific filters
             'market_states_filter': [],
-            : (0, 100),
+            'market_strength_range_slider': (0, 100),
             'show_sensitivity_details': False,
             'show_market_regime': True,
             'wave_timeframe_select': "All Waves",
@@ -8450,7 +8452,7 @@ class SessionStateManager:
                 'max_pe': None,
                 'require_fundamental_data': False,
                 'market_states': [],
-                
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8543,6 +8545,8 @@ class SessionStateManager:
                 filters['require_fundamental_data'] = True
             if state.get('market_states'):
                 filters['market_states'] = state['market_states']
+            if state.get('market_strength_range') != (0, 100):
+                filters['market_strength_range'] = state['market_strength_range']
             if state.get('performance_tiers'):
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
@@ -8624,6 +8628,9 @@ class SessionStateManager:
                 filters['trend_range'] = trend_options.get(st.session_state['trend_filter'], (0, 100))
             
             # Market filters
+            if st.session_state.get('market_strength_range_slider') != (0, 100):
+                filters['market_strength_range'] = st.session_state['market_strength_range_slider']
+            
             if st.session_state.get('market_states_filter') and st.session_state['market_states_filter']:
                 filters['market_states'] = st.session_state['market_states_filter']
             
@@ -8665,7 +8672,7 @@ class SessionStateManager:
                 'max_pe': None,
                 'require_fundamental_data': False,
                 'market_states': [],
-                
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8688,7 +8695,7 @@ class SessionStateManager:
             'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
             'min_pe', 'max_pe', 'require_fundamental_data',
             'quick_filter', 'quick_filter_applied', 'market_states_filter',
-            , 'show_sensitivity_details', 'show_market_regime',
+            'market_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
         ]
         
@@ -8708,7 +8715,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == :
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -8811,7 +8818,7 @@ class SessionStateManager:
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
             'require_fundamental_data', 'market_states_filter',
-            
+            'market_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -8826,7 +8833,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == :
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -8876,6 +8883,7 @@ class SessionStateManager:
             ('max_pe', 'max_pe'),
             ('require_fundamental_data', 'require_fundamental_data'),
             ('market_states', 'market_states_filter'),
+            ('market_strength_range', 'market_strength_range_slider'),
         ]
         
         for state_key, session_key in mappings:
@@ -8909,6 +8917,7 @@ class SessionStateManager:
             if state.get('max_pe') is not None: count += 1
             if state.get('require_fundamental_data'): count += 1
             if state.get('market_states'): count += 1
+            if state.get('market_strength_range') != (0, 100): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -8926,7 +8935,7 @@ class SessionStateManager:
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
                 ('market_states_filter', lambda x: x and len(x) > 0),
-                (, lambda x: x != (0, 100))
+                ('market_strength_range_slider', lambda x: x != (0, 100))
             ]
             
             for key, check_func in filter_checks:
@@ -9295,7 +9304,7 @@ def main():
             ('max_pe', lambda x: x is not None and str(x).strip() != ''),
             ('require_fundamental_data', lambda x: x),
             ('market_states_filter', lambda x: x and len(x) > 0),
-            (, lambda x: x != (0, 100))
+            ('market_strength_range_slider', lambda x: x != (0, 100))
         ]
         
         for key, check_func in filter_checks:
@@ -10701,7 +10710,7 @@ def main():
                 'ticker': 'Ticker',
                 'company_name': 'Company',
                 'master_score': 'Score',
-                'wave_state': 'Wave'
+                'market_state': 'Market State'
             }
             
             if 'trend_indicator' in display_df.columns:
@@ -11404,7 +11413,7 @@ def main():
                 top_shifts = momentum_shifts.sort_values(['signal_count', 'shift_strength'], ascending=[False, False]).head(20)
                 
                 display_columns = ['ticker', 'company_name', 'master_score', 'momentum_score', 
-                                 'acceleration_score', 'rvol', 'signal_count', 'wave_state']
+                                 'acceleration_score', 'rvol', 'signal_count', 'market_state']
                 
                 if 'ret_7d' in top_shifts.columns:
                     display_columns.insert(-2, 'ret_7d')
@@ -11430,7 +11439,7 @@ def main():
                     'master_score': 'Score',
                     'momentum_score': 'Momentum',
                     'acceleration_score': 'Acceleration',
-                    'wave_state': 'Wave',
+                    'market_state': 'market_state',
                     'category': 'Category'
                 }
                 
@@ -11772,7 +11781,7 @@ def main():
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    display_cols = ['ticker', 'company_name', 'rvol', 'price', 'money_flow_mm', 'wave_state', 'category']
+                    display_cols = ['ticker', 'company_name', 'rvol', 'price', 'money_flow_mm', 'market_state', 'category']
                     
                     if 'ret_1d' in top_surges.columns:
                         display_cols.insert(3, 'ret_1d')
@@ -11798,7 +11807,7 @@ def main():
                         'rvol': 'RVOL',
                         'price': 'Price',
                         'money_flow_mm': 'Money Flow',
-                        'wave_state': 'Wave',
+                        'market_state': 'Market State',
                         'category': 'Category',
                         'ret_1d': '1D Ret'
                     }
@@ -12202,7 +12211,7 @@ def main():
                 
                 # Create summary dataframe for search results
                 summary_columns = ['ticker', 'company_name', 'rank', 'master_score', 'price', 
-                                  'ret_30d', 'rvol', 'wave_state', 'category']
+                                  'ret_30d', 'rvol', 'market_state', 'category']
                 
                 available_summary_cols = [col for col in summary_columns if col in search_results.columns]
                 search_summary = search_results[available_summary_cols].copy()
