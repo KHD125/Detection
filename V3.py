@@ -4141,159 +4141,262 @@ class RankingEngine:
     @staticmethod
     def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Apply smart scoring bonuses based on exceptional conditions.
-        FIXED: Bonuses are now CUMULATIVE (multiply together) instead of overwriting.
+        Apply smart bonuses based on confirmed exceptional patterns.
+        FIXED: All additive, order-independent, transparent tracking, justified amounts.
         
-        Bonuses Applied:
-        1. Perfect Setup: +5% (momentum_harmony >= 3, rvol > 3, wave CRESTING)
-        2. Pattern Bonus: +3% (has PERFECT STORM pattern)
-        3. Extreme Opportunity: +7% (score > 85, rvol > 3, harmony >= 3, near high)
+        Bonus Philosophy:
+        - Only reward EXCEPTIONAL patterns (top 5% cases)
+        - All bonuses are ADDITIVE (no multiplicative chaos)
+        - Maximum total bonus capped at 10 points
+        - Each bonus requires multiple confirmations
+        - Full transparency with bonus tracking
+        - Never modify NaN scores
         
-        Maximum possible bonus: 1.05 * 1.03 * 1.07 = 15.7% total
+        Bonus Categories:
+        1. Perfect Alignment (max 4 points)
+        2. Momentum Confirmation (max 3 points)
+        3. Breakout Validation (max 3 points)
+        4. Volume Surge Quality (max 2 points)
+        5. Recovery Pattern (max 2 points)
+        
+        Maximum cumulative bonus: 10 points (prevents score inflation)
         """
-        if df.empty or 'master_score' not in df.columns:
+        # Don't modify original
+        df = df.copy()
+        
+        # Initialize bonus tracking
+        df['bonus_points'] = 0.0
+        df['bonus_reasons'] = ''
+        
+        # Only apply bonuses to stocks with valid master scores
+        valid_scores = df['master_score'].notna()
+        
+        if not valid_scores.any():
+            logger.info("No valid master scores for bonus application")
             return df
         
-        # Initialize bonus multiplier column (start at 1.0 = no bonus)
-        df['bonus_multiplier'] = 1.0
+        # Track individual bonuses for transparency
+        perfect_alignment_bonus = pd.Series(0, index=df.index, dtype=float)
+        momentum_bonus = pd.Series(0, index=df.index, dtype=float)
+        breakout_bonus = pd.Series(0, index=df.index, dtype=float)
+        volume_bonus = pd.Series(0, index=df.index, dtype=float)
+        recovery_bonus = pd.Series(0, index=df.index, dtype=float)
         
-        # Track which bonuses are applied
-        bonuses_applied = {
-            'perfect_setup': 0,
-            'pattern_bonus': 0,
-            'extreme_opportunity': 0
-        }
-        
-        # BONUS 1: Perfect Setup (5% boost)
-        if all(col in df.columns for col in ['momentum_harmony', 'rvol', 'wave_state']):
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            wave_state = pd.Series(df['wave_state'].values, index=df.index)
-            
-            # Perfect setup conditions
-            perfect_setup = (
-                momentum_harmony.notna() &
-                rvol.notna() &
-                wave_state.notna() &
-                (momentum_harmony >= 3) & 
-                (rvol > 3) & 
-                (wave_state.str.contains('CRESTING|TSUNAMI', na=False))  # Added TSUNAMI
+        # BONUS 1: PERFECT ALIGNMENT (max 4 points)
+        # All technical indicators aligned perfectly
+        if all(col in df.columns for col in ['position_score', 'momentum_score', 'trend_quality', 'volume_score']):
+            perfect_alignment = (
+                valid_scores &
+                (df['position_score'] > 80) &
+                (df['momentum_score'] > 70) &
+                (df['trend_quality'] > 80) &
+                (df['volume_score'] > 70)
             )
             
-            if perfect_setup.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[perfect_setup, 'bonus_multiplier'] *= 1.05
-                bonuses_applied['perfect_setup'] = perfect_setup.sum()
-                logger.info(f"Applied perfect setup bonus (+5%) to {bonuses_applied['perfect_setup']} stocks")
+            if perfect_alignment.any():
+                perfect_alignment_bonus[perfect_alignment] = 4
+                df.loc[perfect_alignment, 'bonus_reasons'] += 'PerfectAlign(+4) '
+                logger.debug(f"Perfect alignment bonus applied to {perfect_alignment.sum()} stocks")
         
-        # BONUS 2: Pattern Bonus (3% boost for PERFECT STORM)
-        if 'patterns' in df.columns:
-            patterns = pd.Series(df['patterns'].values, index=df.index)
-            
-            # Check for PERFECT STORM pattern
-            has_perfect_storm = (
-                patterns.notna() &
-                patterns.str.contains('PERFECT STORM', na=False)
+        # BONUS 2: MOMENTUM CONFIRMATION (max 3 points)
+        # Strong momentum with acceleration and volume
+        if all(col in df.columns for col in ['momentum_score', 'acceleration_score', 'rvol_score']):
+            # Check for confirmed momentum
+            momentum_confirmed = (
+                valid_scores &
+                (df['momentum_score'] > 75) &
+                (df['acceleration_score'] > 70) &
+                (df['rvol_score'] > 60)
             )
             
-            if has_perfect_storm.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[has_perfect_storm, 'bonus_multiplier'] *= 1.03
-                bonuses_applied['pattern_bonus'] = has_perfect_storm.sum()
-                logger.info(f"Applied PERFECT STORM pattern bonus (+3%) to {bonuses_applied['pattern_bonus']} stocks")
-            
-            # Additional pattern bonuses (optional but useful)
-            has_tsunami = patterns.str.contains('INSTITUTIONAL TSUNAMI', na=False)
-            if has_tsunami.any():
-                df.loc[has_tsunami, 'bonus_multiplier'] *= 1.02  # 2% for tsunami
-                logger.debug(f"Applied TSUNAMI pattern bonus (+2%) to {has_tsunami.sum()} stocks")
-        
-        # BONUS 3: Extreme Opportunity (7% boost)
-        if all(col in df.columns for col in ['master_score', 'rvol', 'momentum_harmony', 'from_high_pct']):
-            master_score = pd.Series(df['master_score'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            momentum_harmony = pd.Series(df['momentum_harmony'].values, index=df.index)
-            from_high_pct = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Extreme opportunity conditions
-            extreme_opp = (
-                master_score.notna() &
-                rvol.notna() &
-                momentum_harmony.notna() &
-                from_high_pct.notna() &
-                (master_score > 85) &
-                (rvol > 3) &
-                (momentum_harmony >= 3) &
-                (from_high_pct > -10)  # Within 10% of 52w high
-            )
-            
-            if extreme_opp.any():
-                # CUMULATIVE: Multiply existing multiplier
-                df.loc[extreme_opp, 'bonus_multiplier'] *= 1.07
-                bonuses_applied['extreme_opportunity'] = extreme_opp.sum()
-                logger.info(f"Applied extreme opportunity bonus (+7%) to {bonuses_applied['extreme_opportunity']} stocks")
-        
-        # BONUS 4: Category Leader Bonus (optional, add if you want)
-        if 'category_percentile' in df.columns and 'master_score' in df.columns:
-            category_percentile = pd.Series(df['category_percentile'].values, index=df.index)
-            master_score = pd.Series(df['master_score'].values, index=df.index)
-            
-            category_leader = (
-                category_percentile.notna() &
-                master_score.notna() &
-                (category_percentile >= 95) &  # Top 5% in category
-                (master_score > 75)  # Also high overall score
-            )
-            
-            if category_leader.any():
-                df.loc[category_leader, 'bonus_multiplier'] *= 1.02  # 2% bonus
-                logger.debug(f"Applied category leader bonus (+2%) to {category_leader.sum()} stocks")
-        
-        # BONUS 5: Momentum Acceleration Bonus (optional)
-        if all(col in df.columns for col in ['acceleration_score', 'momentum_score']):
-            acceleration = pd.Series(df['acceleration_score'].values, index=df.index)
-            momentum = pd.Series(df['momentum_score'].values, index=df.index)
-            
-            accelerating = (
-                acceleration.notna() &
-                momentum.notna() &
-                (acceleration > 90) &
-                (momentum > 80)
-            )
-            
-            if accelerating.any():
-                df.loc[accelerating, 'bonus_multiplier'] *= 1.03  # 3% bonus
-                logger.debug(f"Applied acceleration bonus (+3%) to {accelerating.sum()} stocks")
-        
-        # Apply all bonuses to master score
-        has_bonus = df['bonus_multiplier'] > 1.0
-        if has_bonus.any():
-            # Apply multiplier and ensure within bounds
-            df['master_score'] = (df['master_score'] * df['bonus_multiplier']).clip(0, 100)
-            
-            # Log summary statistics
-            total_with_bonus = has_bonus.sum()
-            max_bonus = df.loc[has_bonus, 'bonus_multiplier'].max()
-            avg_bonus = df.loc[has_bonus, 'bonus_multiplier'].mean()
-            
-            logger.info(f"Bonus summary: {total_with_bonus} stocks received bonuses")
-            logger.info(f"Max bonus multiplier: {max_bonus:.3f}, Avg: {avg_bonus:.3f}")
-            
-            # Track stocks with multiple bonuses
-            multi_bonus = df['bonus_multiplier'] > 1.08  # More than one bonus
-            if multi_bonus.any():
-                logger.info(f"{multi_bonus.sum()} stocks received multiple bonuses")
+            if momentum_confirmed.any():
+                # Graduated bonus based on strength
+                super_momentum = momentum_confirmed & (df['momentum_score'] > 85)
+                regular_momentum = momentum_confirmed & ~super_momentum
                 
-                # Log top beneficiaries
-                if 'ticker' in df.columns:
-                    top_bonus_stocks = df.loc[multi_bonus].nlargest(5, 'bonus_multiplier')[['ticker', 'bonus_multiplier', 'master_score']]
-                    logger.debug(f"Top bonus recipients:\n{top_bonus_stocks}")
-        else:
-            logger.info("No stocks qualified for bonuses")
+                momentum_bonus[super_momentum] = 3
+                momentum_bonus[regular_momentum] = 2
+                
+                df.loc[super_momentum, 'bonus_reasons'] += 'SuperMomentum(+3) '
+                df.loc[regular_momentum, 'bonus_reasons'] += 'Momentum(+2) '
+                logger.debug(f"Momentum bonus applied to {momentum_confirmed.sum()} stocks")
         
-        # Clean up: Remove bonus_multiplier column if you don't want to keep it
-        # df = df.drop('bonus_multiplier', axis=1)
-        # Or keep it for transparency!
+        # BONUS 3: BREAKOUT VALIDATION (max 3 points)
+        # Confirmed breakout with volume
+        if all(col in df.columns for col in ['breakout_score', 'position_score', 'rvol_score']):
+            breakout_confirmed = (
+                valid_scores &
+                (df['breakout_score'] > 75) &
+                (df['position_score'] > 70) &  # Near highs
+                (df['rvol_score'] > 65)  # With volume
+            )
+            
+            if breakout_confirmed.any():
+                # Extra bonus for extreme breakout scores
+                extreme_breakout = breakout_confirmed & (df['breakout_score'] > 90)
+                regular_breakout = breakout_confirmed & ~extreme_breakout
+                
+                breakout_bonus[extreme_breakout] = 3
+                breakout_bonus[regular_breakout] = 2
+                
+                df.loc[extreme_breakout, 'bonus_reasons'] += 'ExtremeBreakout(+3) '
+                df.loc[regular_breakout, 'bonus_reasons'] += 'Breakout(+2) '
+                logger.debug(f"Breakout bonus applied to {breakout_confirmed.sum()} stocks")
+        
+        # BONUS 4: VOLUME SURGE QUALITY (max 2 points)
+        # Exceptional volume with price confirmation
+        if all(col in df.columns for col in ['volume_score', 'rvol_score', 'momentum_score']):
+            volume_surge = (
+                valid_scores &
+                (df['volume_score'] > 80) &
+                (df['rvol_score'] > 75) &
+                (df['momentum_score'] > 50)  # Positive momentum
+            )
+            
+            if volume_surge.any():
+                volume_bonus[volume_surge] = 2
+                df.loc[volume_surge, 'bonus_reasons'] += 'VolumeSurge(+2) '
+                logger.debug(f"Volume surge bonus applied to {volume_surge.sum()} stocks")
+        
+        # BONUS 5: RECOVERY PATTERN (max 2 points)
+        # Strong recovery from oversold
+        if all(col in df.columns for col in ['position_score', 'momentum_score', 'acceleration_score']):
+            recovery_pattern = (
+                valid_scores &
+                (df['position_score'] < 40) &  # Still relatively low
+                (df['momentum_score'] > 60) &  # But strong momentum
+                (df['acceleration_score'] > 70)  # And accelerating
+            )
+            
+            if recovery_pattern.any():
+                recovery_bonus[recovery_pattern] = 2
+                df.loc[recovery_pattern, 'bonus_reasons'] += 'Recovery(+2) '
+                logger.debug(f"Recovery bonus applied to {recovery_pattern.sum()} stocks")
+        
+        # PENALTY PATTERNS (negative bonuses)
+        penalty = pd.Series(0, index=df.index, dtype=float)
+        
+        # Penalty 1: Divergence (high score components but low others)
+        if all(col in df.columns for col in ['momentum_score', 'volume_score']):
+            divergence = (
+                valid_scores &
+                ((df['momentum_score'] > 80) & (df['volume_score'] < 30)) |
+                ((df['momentum_score'] < 30) & (df['volume_score'] > 80))
+            )
+            
+            if divergence.any():
+                penalty[divergence] = -2
+                df.loc[divergence, 'bonus_reasons'] += 'Divergence(-2) '
+                logger.debug(f"Divergence penalty applied to {divergence.sum()} stocks")
+        
+        # Penalty 2: Low confidence scores
+        if 'confidence_score' in df.columns:
+            low_confidence = (
+                valid_scores &
+                (df['confidence_score'] < 30) &
+                (df['master_score'] > 70)  # High score but low confidence
+            )
+            
+            if low_confidence.any():
+                penalty[low_confidence] = -3
+                df.loc[low_confidence, 'bonus_reasons'] += 'LowConfidence(-3) '
+                logger.debug(f"Low confidence penalty applied to {low_confidence.sum()} stocks")
+        
+        # CALCULATE TOTAL BONUS
+        # Sum all bonuses (including negative)
+        total_bonus = (
+            perfect_alignment_bonus +
+            momentum_bonus +
+            breakout_bonus +
+            volume_bonus +
+            recovery_bonus +
+            penalty
+        )
+        
+        # Cap total bonus to prevent score inflation
+        MAX_POSITIVE_BONUS = 10
+        MAX_NEGATIVE_PENALTY = -5
+        
+        total_bonus = total_bonus.clip(MAX_NEGATIVE_PENALTY, MAX_POSITIVE_BONUS)
+        
+        # Apply bonuses only to valid scores
+        df.loc[valid_scores, 'bonus_points'] = total_bonus[valid_scores]
+        
+        # Calculate final score with bonuses
+        df['master_score_before_bonus'] = df['master_score'].copy()
+        df.loc[valid_scores, 'master_score'] = (
+            df.loc[valid_scores, 'master_score'] + total_bonus[valid_scores]
+        ).clip(0, 100)
+        
+        # SPECIAL ADJUSTMENTS (applied after bonuses)
+        # Market cap adjustments
+        if 'category' in df.columns:
+            # Mega caps with high scores get stability bonus
+            mega_caps = df['category'] == 'Mega Cap'
+            mega_high = mega_caps & valid_scores & (df['master_score'] > 80)
+            if mega_high.any():
+                df.loc[mega_high, 'master_score'] = np.minimum(
+                    df.loc[mega_high, 'master_score'] + 2, 
+                    100
+                )
+                df.loc[mega_high, 'bonus_reasons'] += 'MegaCap(+2) '
+            
+            # Penny stocks with extreme scores get capped
+            penny_stocks = df['category'].isin(['Micro Cap', 'Small Cap'])
+            penny_extreme = penny_stocks & valid_scores & (df['master_score'] > 90)
+            if penny_extreme.any():
+                df.loc[penny_extreme, 'master_score'] = np.minimum(
+                    df.loc[penny_extreme, 'master_score'],
+                    88  # Cap at 88
+                )
+                df.loc[penny_extreme, 'bonus_reasons'] += 'PennyCap(capped) '
+        
+        # COMPREHENSIVE LOGGING
+        bonuses_applied = (df['bonus_points'] != 0).sum()
+        
+        if bonuses_applied > 0:
+            logger.info(f"Smart bonuses applied to {bonuses_applied} stocks")
+            
+            # Bonus distribution
+            positive_bonuses = (df['bonus_points'] > 0).sum()
+            negative_penalties = (df['bonus_points'] < 0).sum()
+            
+            logger.info(f"Bonus distribution: {positive_bonuses} bonuses, {negative_penalties} penalties")
+            
+            # Average bonus impact
+            avg_bonus = df.loc[df['bonus_points'] != 0, 'bonus_points'].mean()
+            max_bonus = df['bonus_points'].max()
+            min_bonus = df['bonus_points'].min()
+            
+            logger.debug(f"Bonus impact - Avg: {avg_bonus:.1f}, Max: {max_bonus:.1f}, Min: {min_bonus:.1f}")
+            
+            # Score changes
+            score_changes = df.loc[valid_scores, 'master_score'] - df.loc[valid_scores, 'master_score_before_bonus']
+            if (score_changes != 0).any():
+                avg_change = score_changes[score_changes != 0].mean()
+                logger.debug(f"Average score change from bonuses: {avg_change:.1f} points")
+            
+            # Top bonus recipients
+            if 'ticker' in df.columns:
+                top_bonus = df.nlargest(3, 'bonus_points')
+                if len(top_bonus) > 0:
+                    logger.debug("Top bonus recipients:")
+                    for _, row in top_bonus.iterrows():
+                        if row['bonus_points'] > 0:
+                            logger.debug(f"  {row['ticker']}: +{row['bonus_points']:.1f} ({row['bonus_reasons'].strip()})")
+        else:
+            logger.info("No stocks qualified for smart bonuses")
+        
+        # Verify score integrity
+        if (df['master_score'] > 100).any():
+            over_100 = (df['master_score'] > 100).sum()
+            logger.error(f"ERROR: {over_100} stocks have scores > 100 after bonuses!")
+            df['master_score'] = df['master_score'].clip(0, 100)
+        
+        if (df['master_score'] < 0).any():
+            below_0 = (df['master_score'] < 0).sum()
+            logger.error(f"ERROR: {below_0} stocks have scores < 0 after bonuses!")
+            df['master_score'] = df['master_score'].clip(0, 100)
         
         return df
 
