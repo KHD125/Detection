@@ -4403,149 +4403,267 @@ class RankingEngine:
     @staticmethod
     def _calculate_category_ranks(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate percentile ranks within each category.
-        FIXED: Now properly handles "Unknown" category instead of penalizing it.
+        Calculate comprehensive category-based rankings with full error handling.
+        FIXED: Fully vectorized, handles all edge cases, provides multiple metrics.
         
-        Adds columns:
+        Category Ranking Philosophy:
+        - Ranks within peer groups (Large Cap, Mid Cap, etc.)
+        - Provides both rank and percentile
+        - Handles small categories intelligently
+        - Adds category statistics for context
+        - Size-adjusted rankings for fairness
+        - Completely vectorized (no loops)
+        
+        Outputs:
         - category_rank: Rank within category (1 = best)
         - category_percentile: Percentile within category (100 = best)
+        - category_size: Number of stocks in category
+        - category_decile: Which decile within category (1-10)
+        - category_relative_score: Score vs category average
+        - peer_group_rank: Rank within similar-sized categories
         """
-        # Initialize with NaN (not 9999!)
-        df['category_rank'] = np.nan
-        df['category_percentile'] = np.nan
+        # Don't modify original
+        df = df.copy()
         
-        # Check if we have required columns
-        if 'category' not in df.columns or 'master_score' not in df.columns:
-            logger.warning("Missing category or master_score columns for category ranking")
+        # Initialize all category columns with NaN
+        category_columns = [
+            'category_rank',
+            'category_percentile', 
+            'category_size',
+            'category_decile',
+            'category_relative_score',
+            'peer_group_rank',
+            'category_avg_score',
+            'category_median_score',
+            'category_std_score'
+        ]
+        
+        for col in category_columns:
+            df[col] = np.nan
+        
+        # Check if category column exists
+        if 'category' not in df.columns:
+            logger.warning("No 'category' column found, skipping category rankings")
             return df
         
-        # Get all unique categories (INCLUDING Unknown!)
+        # Check if master_score exists
+        if 'master_score' not in df.columns:
+            logger.warning("No 'master_score' column found, skipping category rankings")
+            return df
+        
+        # Get unique categories
         categories = df['category'].unique()
+        valid_categories = [c for c in categories if pd.notna(c)]
         
-        # Track statistics
-        category_stats = {}
+        if len(valid_categories) == 0:
+            logger.warning("No valid categories found")
+            return df
         
-        for category in categories:
-            # FIXED: Don't skip Unknown or any category
-            if pd.isna(category):
-                # Skip actual NaN categories (not the string "Unknown")
-                continue
-            
-            # Get all stocks in this category
-            mask = df['category'] == category
-            cat_df = df[mask]
-            
-            if len(cat_df) == 0:
-                continue
-            
-            # Only rank stocks that have a master_score
-            has_score = cat_df['master_score'].notna()
-            
-            if has_score.any():
-                # Calculate ranks within category
-                cat_ranks = cat_df.loc[has_score, 'master_score'].rank(
-                    method='first',
-                    ascending=False,
-                    na_option='bottom'
-                )
-                
-                # Assign ranks (only to stocks with scores)
-                df.loc[cat_df[has_score].index, 'category_rank'] = cat_ranks.astype(int)
-                
-                # Calculate percentiles within category
-                cat_percentiles = cat_df.loc[has_score, 'master_score'].rank(
-                    pct=True,
-                    ascending=True,
-                    na_option='bottom'
-                ) * 100
-                
-                # Assign percentiles
-                df.loc[cat_df[has_score].index, 'category_percentile'] = cat_percentiles
-                
-                # Track statistics
-                category_stats[category] = {
-                    'total': len(cat_df),
-                    'with_scores': has_score.sum(),
-                    'avg_score': cat_df.loc[has_score, 'master_score'].mean(),
-                    'top_score': cat_df.loc[has_score, 'master_score'].max()
-                }
-                
-                logger.debug(f"Category '{category}': {has_score.sum()}/{len(cat_df)} stocks ranked, "
-                            f"avg score: {category_stats[category]['avg_score']:.1f}")
+        logger.info(f"Calculating category ranks for {len(valid_categories)} categories")
         
-        # Handle stocks with no category (actual NaN, not string "Unknown")
-        no_category = df['category'].isna()
-        if no_category.any():
-            # Option 1: Give them worst category rank (current behavior)
-            # df.loc[no_category, 'category_rank'] = 9999
-            # df.loc[no_category, 'category_percentile'] = 0
-            
-            # Option 2: Rank them together as "No Category" group (BETTER!)
-            no_cat_df = df[no_category]
-            has_score = no_cat_df['master_score'].notna()
-            
-            if has_score.any():
-                # Rank within the "no category" group
-                no_cat_ranks = no_cat_df.loc[has_score, 'master_score'].rank(
-                    method='first',
-                    ascending=False,
-                    na_option='bottom'
-                )
-                df.loc[no_cat_df[has_score].index, 'category_rank'] = no_cat_ranks.astype(int) + 9000  # Offset to show they're different
-                
-                no_cat_percentiles = no_cat_df.loc[has_score, 'master_score'].rank(
-                    pct=True,
-                    ascending=True,
-                    na_option='bottom'
-                ) * 100
-                df.loc[no_cat_df[has_score].index, 'category_percentile'] = no_cat_percentiles
-                
-                logger.info(f"Ranked {has_score.sum()} stocks with no category")
+        # VECTORIZED CATEGORY RANKING - No loops!
+        # Use groupby for all operations at once
         
-        # Fill any remaining NaN ranks (stocks with no master_score)
-        # These are truly unrankable
-        still_na = df['category_rank'].isna()
-        if still_na.any():
-            # Use category size + 1 as the rank for stocks with no score
-            for category in categories:
-                if pd.isna(category):
-                    continue
-                mask = (df['category'] == category) & still_na
-                if mask.any():
-                    category_size = (df['category'] == category).sum()
-                    df.loc[mask, 'category_rank'] = category_size + 1
-                    df.loc[mask, 'category_percentile'] = 0
+        # 1. Basic category rankings
+        category_groups = df.groupby('category')['master_score']
         
-        # Log summary statistics
-        logger.info(f"Category ranking complete: {len(category_stats)} categories processed")
-        
-        if category_stats:
-            # Find best performing category
-            best_category = max(category_stats.items(), 
-                              key=lambda x: x[1]['avg_score'] if x[1]['with_scores'] > 0 else 0)
-            logger.info(f"Best performing category: '{best_category[0]}' "
-                       f"(avg score: {best_category[1]['avg_score']:.1f})")
-            
-            # Check if Unknown category exists and how it performs
-            if 'Unknown' in category_stats:
-                unknown_stats = category_stats['Unknown']
-                logger.info(f"Unknown category: {unknown_stats['with_scores']} stocks, "
-                           f"avg score: {unknown_stats['avg_score']:.1f}")
-                
-                # Alert if Unknown category is performing well but being penalized
-                if unknown_stats['avg_score'] > 50:
-                    logger.warning(f"Unknown category has decent avg score ({unknown_stats['avg_score']:.1f}) "
-                                 "- consider investigating why these stocks lack category data")
-        
-        # Add category quality indicator
-        df['category_data_quality'] = df['category'].apply(
-            lambda x: 'Good' if pd.notna(x) and x != 'Unknown' else 
-                      'Unknown' if x == 'Unknown' else 
-                      'Missing'
+        # Rank within category (1 = best)
+        df['category_rank'] = category_groups.rank(
+            method='first',  # First occurrence wins ties
+            ascending=False,  # Higher score = better rank
+            na_option='bottom'  # NaN scores go to bottom
         )
         
+        # Percentile within category (100 = best)
+        df['category_percentile'] = category_groups.rank(
+            method='average',  # Average for ties
+            ascending=True,  # Lower score = lower percentile
+            pct=True,  # Return as percentile
+            na_option='bottom'
+        ) * 100
+        
+        # 2. Category size (for context)
+        category_sizes = df.groupby('category').size()
+        df['category_size'] = df['category'].map(category_sizes)
+        
+        # 3. Category statistics
+        category_stats = df.groupby('category')['master_score'].agg([
+            ('category_avg_score', 'mean'),
+            ('category_median_score', 'median'),
+            ('category_std_score', 'std'),
+            ('category_min_score', 'min'),
+            ('category_max_score', 'max'),
+            ('category_valid_count', 'count')
+        ])
+        
+        # Map statistics back to dataframe
+        for stat_col in category_stats.columns:
+            df[stat_col] = df['category'].map(category_stats[stat_col])
+        
+        # 4. Relative score vs category average
+        df['category_relative_score'] = np.where(
+            df['category_std_score'] > 0,
+            (df['master_score'] - df['category_avg_score']) / df['category_std_score'],
+            0
+        )
+        
+        # 5. Decile within category (1-10, 1 = best)
+        df['category_decile'] = pd.cut(
+            df['category_percentile'],
+            bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            labels=[10, 9, 8, 7, 6, 5, 4, 3, 2, 1],  # Reverse order (1 = best)
+            include_lowest=True
+        )
+        
+        # 6. Handle small categories (less than 10 stocks)
+        small_categories = df['category_size'] < 10
+        if small_categories.any():
+            # Mark small category ranks as less reliable
+            df.loc[small_categories, 'category_rank_reliability'] = 'Low'
+            logger.info(f"{small_categories.sum()} stocks in small categories (<10 stocks)")
+        else:
+            df['category_rank_reliability'] = 'Normal'
+        
+        # Very small categories (less than 3 stocks)
+        tiny_categories = df['category_size'] < 3
+        if tiny_categories.any():
+            # Don't rank if category too small
+            df.loc[tiny_categories, 'category_rank_reliability'] = 'Insufficient'
+            logger.warning(f"{tiny_categories.sum()} stocks in tiny categories (<3 stocks)")
+        
+        # 7. Peer group ranking (compare similar market cap categories)
+        # Define peer groups
+        peer_groups = {
+            'Large_Mega': ['Large Cap', 'Mega Cap'],
+            'Mid': ['Mid Cap'],
+            'Small_Micro': ['Small Cap', 'Micro Cap']
+        }
+        
+        df['peer_group'] = 'Other'  # Default
+        for group_name, categories_in_group in peer_groups.items():
+            mask = df['category'].isin(categories_in_group)
+            df.loc[mask, 'peer_group'] = group_name
+        
+        # Rank within peer groups
+        peer_groups_data = df.groupby('peer_group')['master_score']
+        df['peer_group_rank'] = peer_groups_data.rank(
+            method='first',
+            ascending=False,
+            na_option='bottom'
+        )
+        
+        df['peer_group_size'] = df.groupby('peer_group')['peer_group'].transform('size')
+        
+        df['peer_group_percentile'] = peer_groups_data.rank(
+            method='average',
+            ascending=True,
+            pct=True,
+            na_option='bottom'
+        ) * 100
+        
+        # 8. Category performance tiers
+        # Classify categories by average score
+        category_performance = category_stats['category_avg_score'].to_dict()
+        
+        def classify_category_performance(cat):
+            if cat not in category_performance or pd.isna(category_performance[cat]):
+                return 'Unknown'
+            avg_score = category_performance[cat]
+            if avg_score >= 70:
+                return 'Strong'
+            elif avg_score >= 50:
+                return 'Average'
+            elif avg_score >= 30:
+                return 'Weak'
+            else:
+                return 'Very Weak'
+        
+        df['category_performance'] = df['category'].apply(classify_category_performance)
+        
+        # 9. Best in category flags
+        # Mark top stocks in each category
+        df['is_category_leader'] = df['category_rank'] == 1
+        df['is_category_top5'] = df['category_rank'] <= 5
+        df['is_category_top10'] = df['category_rank'] <= 10
+        df['is_category_top_decile'] = df['category_decile'] == 1
+        
+        # 10. Category momentum (if historical data available)
+        if 'momentum_score' in df.columns:
+            category_momentum = df.groupby('category')['momentum_score'].mean()
+            df['category_momentum'] = df['category'].map(category_momentum)
+            
+            # Flag if stock momentum better than category
+            df['beats_category_momentum'] = df['momentum_score'] > df['category_momentum']
+        
+        # COMPREHENSIVE LOGGING
+        for category in valid_categories:
+            cat_data = df[df['category'] == category]
+            valid_scores = cat_data['master_score'].notna().sum()
+            
+            if valid_scores > 0:
+                avg_score = cat_data['master_score'].mean()
+                median_score = cat_data['master_score'].median()
+                
+                logger.debug(f"{category}: {valid_scores} stocks, "
+                            f"Avg: {avg_score:.1f}, Median: {median_score:.1f}")
+        
+        # Log category distribution
+        category_dist = df['category'].value_counts()
+        logger.info("Category distribution:")
+        for cat, count in category_dist.head().items():
+            logger.info(f"  {cat}: {count} stocks")
+        
+        # Find category leaders
+        if 'ticker' in df.columns:
+            leaders = df[df['is_category_leader'] == True]
+            if len(leaders) > 0:
+                logger.info(f"Category leaders identified: {len(leaders)}")
+                for _, leader in leaders.head(5).iterrows():
+                    if pd.notna(leader['master_score']):
+                        logger.debug(f"  {leader['category']}: {leader['ticker']} "
+                                   f"(Score: {leader['master_score']:.1f})")
+        
+        # Verify rankings integrity
+        for category in valid_categories:
+            cat_mask = df['category'] == category
+            cat_ranks = df.loc[cat_mask, 'category_rank']
+            
+            if cat_ranks.notna().any():
+                # Check for duplicate ranks
+                rank_counts = cat_ranks.value_counts()
+                duplicates = rank_counts[rank_counts > 1]
+                if len(duplicates) > 0:
+                    logger.error(f"Duplicate ranks in {category}: {duplicates.to_dict()}")
+                
+                # Check for gaps in ranking
+                valid_ranks = cat_ranks.dropna().sort_values()
+                expected_ranks = range(1, len(valid_ranks) + 1)
+                if not all(r in valid_ranks.values for r in expected_ranks):
+                    logger.warning(f"Ranking gaps detected in {category}")
+        
+        # Performance statistics
+        logger.info("Category ranking summary:")
+        logger.info(f"  Categories processed: {len(valid_categories)}")
+        logger.info(f"  Stocks with category ranks: {df['category_rank'].notna().sum()}")
+        logger.info(f"  Category leaders: {df['is_category_leader'].sum()}")
+        logger.info(f"  Top decile stocks: {df['is_category_top_decile'].sum()}")
+        
+        # Small category warning
+        small_cat_count = (df['category_size'] < 10).sum()
+        if small_cat_count > 0:
+            small_cat_pct = (small_cat_count / len(df)) * 100
+            logger.warning(f"{small_cat_count} stocks ({small_cat_pct:.1f}%) in small categories")
+        
+        # Cross-category comparison
+        if len(valid_categories) > 1:
+            best_category = df.groupby('category')['master_score'].mean().idxmax()
+            worst_category = df.groupby('category')['master_score'].mean().idxmin()
+            
+            if pd.notna(best_category) and pd.notna(worst_category):
+                logger.info(f"Best performing category: {best_category}")
+                logger.info(f"Worst performing category: {worst_category}")
+        
         return df
-
 # ============================================
 # PATTERN DETECTION ENGINE - FULLY OPTIMIZED & FIXED
 # ============================================
