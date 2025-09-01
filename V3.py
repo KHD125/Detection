@@ -7033,8 +7033,8 @@ class FilterEngine:
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'wave_states': [],
-                'wave_strength_range': (0, 100),
+                'market_states': [],
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -7109,8 +7109,8 @@ class FilterEngine:
         if filters.get('min_pe') is not None: count += 1
         if filters.get('max_pe') is not None: count += 1
         if filters.get('require_fundamental_data'): count += 1
-        if filters.get('wave_states'): count += 1
-        if filters.get('wave_strength_range') != (0, 100): count += 1
+        if filters.get('market_states'): count += 1
+        if filters.get('market_strength_range') != (0, 100): count += 1
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
@@ -7145,8 +7145,8 @@ class FilterEngine:
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
-            'wave_states': [],
-            'wave_strength_range': (0, 100),
+            'market_states': [],
+            'market_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False,
             'performance_tiers': [],
@@ -7183,7 +7183,7 @@ class FilterEngine:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
-            'patterns_multiselect', 'wave_states_multiselect',
+            'patterns_multiselect', 'market_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
@@ -7191,7 +7191,7 @@ class FilterEngine:
             'position_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
+            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -7280,8 +7280,8 @@ class FilterEngine:
             'min_score', 'patterns', 'trend_filter',
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
-            'require_fundamental_data', 'wave_states_filter',
-            'wave_strength_range_slider'
+            'require_fundamental_data', 'market_states_filter',
+            'market_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -7296,7 +7296,7 @@ class FilterEngine:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'wave_strength_range_slider':
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -7370,10 +7370,10 @@ class FilterEngine:
             filters['max_pe'] = state['max_pe']
         if state.get('require_fundamental_data'):
             filters['require_fundamental_data'] = True
-        if state.get('wave_states'):
-            filters['wave_states'] = state['wave_states']
-        if state.get('wave_strength_range') != (0, 100):
-            filters['wave_strength_range'] = state['wave_strength_range']
+        if state.get('market_states'):
+            filters['market_states'] = state['market_states']
+        if state.get('market_strength_range') != (0, 100):
+            filters['market_strength_range'] = state['market_strength_range']
             
         return filters
     
@@ -7631,19 +7631,36 @@ class FilterEngine:
             if all(col in df.columns for col in ['pe', 'eps_change_pct']):
                 masks.append(df['pe'].notna() & (df['pe'] > 0) & df['eps_change_pct'].notna())
         
-        # 9. Wave filters
-        if 'wave_states' in filters:
-            selected_states = filters['wave_states']
-            if selected_states and "🎯 Custom Range" not in selected_states:
-                masks.append(create_mask_from_isin('market_state', selected_states))
-        
-        # Custom wave strength range filter (only if "🎯 Custom Range" is selected)
-        if 'wave_states' in filters and "🎯 Custom Range" in filters['wave_states']:
-            wave_strength_range = filters.get('wave_strength_range')
-            if wave_strength_range and wave_strength_range != (0, 100) and 'overall_market_strength' in df.columns:
-                min_ws, max_ws = wave_strength_range
-                masks.append((df['overall_market_strength'] >= min_ws) & 
-                            (df['overall_market_strength'] <= max_ws))
+        # 9. Market State filters
+        if 'market_states' in filters:
+            selected_states = filters['market_states']
+            if selected_states:
+                # Handle preset filters
+                preset_mapping = {
+                    "🎯 MOMENTUM (Default)": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK'],
+                    "⚡ AGGRESSIVE": ['STRONG_UPTREND'],
+                    "💎 VALUE": ['PULLBACK', 'BOUNCE', 'SIDEWAYS'],
+                    "🛡️ DEFENSIVE": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
+                    "🌍 ALL": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
+                }
+                
+                # Collect all allowed states from presets and custom selections
+                allowed_states = []
+                custom_selection_active = False
+                
+                for state in selected_states:
+                    if state in preset_mapping:
+                        allowed_states.extend(preset_mapping[state])
+                    elif state == "📊 Custom Selection":
+                        custom_selection_active = True
+                    elif custom_selection_active:
+                        # Individual state selection (only active if Custom Selection was chosen)
+                        allowed_states.append(state)
+                
+                # Remove duplicates and apply filter
+                if allowed_states:
+                    unique_states = list(set(allowed_states))
+                    masks.append(create_mask_from_isin('market_state', unique_states))
         
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
@@ -7683,7 +7700,7 @@ class FilterEngine:
             'pe_tier': 'pe_tiers',
             'price_tier': 'price_tiers',
             'eps_change_tier': 'eps_change_tiers',
-            'market_state': 'wave_states'
+            'market_state': 'market_states'
         }
         
         if column in filter_key_map:
@@ -7727,8 +7744,8 @@ class FilterEngine:
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
-            'wave_states': [],
-            'wave_strength_range': (0, 100),
+            'market_states': [],
+            'market_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False
         }
@@ -8361,8 +8378,8 @@ class SessionStateManager:
             'require_fundamental_data': False,
             
             # Wave Radar specific filters
-            'wave_states_filter': [],
-            'wave_strength_range_slider': (0, 100),
+            'market_states_filter': [],
+            'market_strength_range_slider': (0, 100),
             'show_sensitivity_details': False,
             'show_market_regime': True,
             'wave_timeframe_select': "All Waves",
@@ -8402,8 +8419,8 @@ class SessionStateManager:
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'wave_states': [],
-                'wave_strength_range': (0, 100),
+                'market_states': [],
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8494,10 +8511,10 @@ class SessionStateManager:
                 filters['max_pe'] = state['max_pe']
             if state.get('require_fundamental_data'):
                 filters['require_fundamental_data'] = True
-            if state.get('wave_states'):
-                filters['wave_states'] = state['wave_states']
-            if state.get('wave_strength_range') != (0, 100):
-                filters['wave_strength_range'] = state['wave_strength_range']
+            if state.get('market_states'):
+                filters['market_states'] = state['market_states']
+            if state.get('market_strength_range') != (0, 100):
+                filters['market_strength_range'] = state['market_strength_range']
             if state.get('performance_tiers'):
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
@@ -8578,12 +8595,12 @@ class SessionStateManager:
                 filters['trend_filter'] = st.session_state['trend_filter']
                 filters['trend_range'] = trend_options.get(st.session_state['trend_filter'], (0, 100))
             
-            # Wave filters
-            if st.session_state.get('wave_strength_range_slider') != (0, 100):
-                filters['wave_strength_range'] = st.session_state['wave_strength_range_slider']
+            # Market filters
+            if st.session_state.get('market_strength_range_slider') != (0, 100):
+                filters['market_strength_range'] = st.session_state['market_strength_range_slider']
             
-            if st.session_state.get('wave_states_filter') and st.session_state['wave_states_filter']:
-                filters['wave_states'] = st.session_state['wave_states_filter']
+            if st.session_state.get('market_states_filter') and st.session_state['market_states_filter']:
+                filters['market_states'] = st.session_state['market_states_filter']
             
             # Checkbox filters
             if st.session_state.get('require_fundamental_data', False):
@@ -8622,8 +8639,8 @@ class SessionStateManager:
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'wave_states': [],
-                'wave_strength_range': (0, 100),
+                'market_states': [],
+                'market_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8645,8 +8662,8 @@ class SessionStateManager:
             'category_filter', 'sector_filter', 'industry_filter', 'eps_tier_filter',
             'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
             'min_pe', 'max_pe', 'require_fundamental_data',
-            'quick_filter', 'quick_filter_applied', 'wave_states_filter',
-            'wave_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
+            'quick_filter', 'quick_filter_applied', 'market_states_filter',
+            'market_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
         ]
         
@@ -8666,7 +8683,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'wave_strength_range_slider':
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -8680,7 +8697,7 @@ class SessionStateManager:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
-            'patterns_multiselect', 'wave_states_multiselect',
+            'patterns_multiselect', 'market_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
@@ -8688,7 +8705,7 @@ class SessionStateManager:
             'position_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
+            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -8768,8 +8785,8 @@ class SessionStateManager:
             'min_score', 'patterns', 'trend_filter',
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
-            'require_fundamental_data', 'wave_states_filter',
-            'wave_strength_range_slider'
+            'require_fundamental_data', 'market_states_filter',
+            'market_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -8784,7 +8801,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'wave_strength_range_slider':
+                    if key == 'market_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -8833,8 +8850,8 @@ class SessionStateManager:
             ('min_pe', 'min_pe'),
             ('max_pe', 'max_pe'),
             ('require_fundamental_data', 'require_fundamental_data'),
-            ('wave_states', 'wave_states_filter'),
-            ('wave_strength_range', 'wave_strength_range_slider'),
+            ('market_states', 'market_states_filter'),
+            ('market_strength_range', 'market_strength_range_slider'),
         ]
         
         for state_key, session_key in mappings:
@@ -8867,8 +8884,8 @@ class SessionStateManager:
             if state.get('min_pe') is not None: count += 1
             if state.get('max_pe') is not None: count += 1
             if state.get('require_fundamental_data'): count += 1
-            if state.get('wave_states'): count += 1
-            if state.get('wave_strength_range') != (0, 100): count += 1
+            if state.get('market_states'): count += 1
+            if state.get('market_strength_range') != (0, 100): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -8885,8 +8902,8 @@ class SessionStateManager:
                 ('min_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
-                ('wave_states_filter', lambda x: x and len(x) > 0),
-                ('wave_strength_range_slider', lambda x: x != (0, 100))
+                ('market_states_filter', lambda x: x and len(x) > 0),
+                ('market_strength_range_slider', lambda x: x != (0, 100))
             ]
             
             for key, check_func in filter_checks:
@@ -9082,7 +9099,7 @@ def main():
         margin-bottom: 2rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     ">
-        <h1 style="margin: 0; font-size: 2.5rem;">🌊 Wave Detection Ultimate 3.0</h1>
+        <h1 style="margin: 0; font-size: 2.5rem;">📈 Market Detection Ultimate 3.0</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">
             Professional Stock Ranking System • Final Perfected Production Version
         </p>
@@ -9254,8 +9271,8 @@ def main():
             ('min_pe', lambda x: x is not None and str(x).strip() != ''),
             ('max_pe', lambda x: x is not None and str(x).strip() != ''),
             ('require_fundamental_data', lambda x: x),
-            ('wave_states_filter', lambda x: x and len(x) > 0),
-            ('wave_strength_range_slider', lambda x: x != (0, 100))
+            ('market_states_filter', lambda x: x and len(x) > 0),
+            ('market_strength_range_slider', lambda x: x != (0, 100))
         ]
         
         for key, check_func in filter_checks:
@@ -9485,13 +9502,13 @@ def main():
                 st.session_state.filter_state['trend_filter'] = st.session_state.trend_selectbox
                 st.session_state.filter_state['trend_range'] = trend_options[st.session_state.trend_selectbox]
         
-        def sync_wave_states():
-            if 'wave_states_multiselect' in st.session_state:
-                st.session_state.filter_state['wave_states'] = st.session_state.wave_states_multiselect
+        def sync_market_states():
+            if 'market_states_multiselect' in st.session_state:
+                st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
         
-        def sync_wave_strength():
-            if 'wave_strength_slider' in st.session_state:
-                st.session_state.filter_state['wave_strength_range'] = st.session_state.wave_strength_slider
+        def sync_market_strength():
+            if 'market_strength_slider' in st.session_state:
+                st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
         
         # Intelligence Score Dropdown and Slider Sync Functions
         def sync_position_score_dropdown():
@@ -9637,29 +9654,32 @@ def main():
             filters['trend_filter'] = selected_trend
             filters['trend_range'] = trend_options[selected_trend]
         
-        # Wave filters with callbacks
-        st.markdown("#### 🌊 Wave Filters")
-        wave_states_options = FilterEngine.get_filter_options(ranked_df_display, 'wave_state', filters)
+        # Market State filters with callbacks
+        st.markdown("#### 📈 Market State Filters")
         
-        # Add custom range option to wave states
-        wave_states_with_custom = wave_states_options + ["🎯 Custom Range"]
+        # Get current market state options from data
+        market_state_options = FilterEngine.get_filter_options(ranked_df_display, 'market_state', filters)
         
-        selected_wave_states = st.multiselect(
-            "Wave State",
-            options=wave_states_with_custom,
-            default=st.session_state.filter_state.get('wave_states', []),
-            placeholder="Select wave states (empty = All)",
-            help="Filter by the detected 'Wave State' or use custom range",
-            key="wave_states_multiselect",
-            on_change=sync_wave_states  # SYNC ON CHANGE
+        # Add filter presets and custom range option
+        preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡️ DEFENSIVE", "🌍 ALL"]
+        market_state_with_presets = preset_options + ["📊 Custom Selection"] + market_state_options
+        
+        selected_market_states = st.multiselect(
+            "Market State",
+            options=market_state_with_presets,
+            default=st.session_state.filter_state.get('market_states', []),
+            placeholder="Select market states or use preset strategy",
+            help="Filter by market momentum state. Use presets for different trading strategies or select individual states",
+            key="market_states_multiselect",
+            on_change=sync_market_states  # SYNC ON CHANGE
         )
         
-        if selected_wave_states:
-            filters['wave_states'] = selected_wave_states
+        if selected_market_states:
+            filters['market_states'] = selected_market_states
         
-        # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
-        custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
-        if custom_wave_range_selected and 'overall_market_strength' in ranked_df_display.columns:
+        # Show Overall Market Strength slider only when "📊 Custom Selection" is selected
+        custom_selection_active = "📊 Custom Selection" in selected_market_states
+        if custom_selection_active and 'overall_market_strength' in ranked_df_display.columns:
             st.write("📊 **Custom Market Strength Range Filter**")
             
             min_strength = float(ranked_df_display['overall_market_strength'].min())
@@ -9673,25 +9693,25 @@ def main():
             else:
                 default_range_value = (0, 100)
             
-            current_wave_range = st.session_state.filter_state.get('wave_strength_range', default_range_value)
-            current_wave_range = (
-                max(slider_min_val, min(slider_max_val, current_wave_range[0])),
-                max(slider_min_val, min(slider_max_val, current_wave_range[1]))
+            current_market_range = st.session_state.filter_state.get('market_strength_range', default_range_value)
+            current_market_range = (
+                max(slider_min_val, min(slider_max_val, current_market_range[0])),
+                max(slider_min_val, min(slider_max_val, current_market_range[1]))
             )
             
-            wave_strength_range = st.slider(
-                "🎯 Overall Wave Strength Range",
+            market_strength_range = st.slider(
+                "🎯 Overall Market Strength Range",
                 min_value=slider_min_val,
                 max_value=slider_max_val,
-                value=current_wave_range,
+                value=current_market_range,
                 step=1,
-                help="Filter by the calculated 'Overall Wave Strength' score (0-100)",
-                key="wave_strength_slider",
-                on_change=sync_wave_strength  # SYNC ON CHANGE
+                help="Filter by the calculated 'Overall Market Strength' score (0-100)",
+                key="market_strength_slider",
+                on_change=sync_market_strength  # SYNC ON CHANGE
             )
             
-            if wave_strength_range != (0, 100):
-                filters['wave_strength_range'] = wave_strength_range
+            if market_strength_range != (0, 100):
+                filters['market_strength_range'] = market_strength_range
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
@@ -10574,7 +10594,7 @@ def main():
             UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
     
     tabs = st.tabs([
-        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
+        "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
     ])
     
     with tabs[0]:
@@ -10814,9 +10834,9 @@ def main():
                     help="Master Score (0-100)",
                     width="small"
                 ),
-                "Wave": st.column_config.TextColumn(
-                    "Wave",
-                    help="Current wave state - momentum indicator",
+                "Market State": st.column_config.TextColumn(
+                    "Market State",
+                    help="Current market state - momentum indicator",
                     width="medium"
                 ),
                 "Price": st.column_config.TextColumn(
@@ -11210,7 +11230,7 @@ def main():
         
     # Tab 2: Wave Radar
     with tabs[2]:
-        st.markdown("### 🌊 Wave Radar - Early Momentum Detection System")
+        st.markdown("### 📈 Market Radar - Early Momentum Detection System")
         st.markdown("*Catch waves as they form, not after they've peaked!*")
         
         radar_col1, radar_col2, radar_col3, radar_col4 = st.columns([2, 2, 2, 1])
@@ -11265,12 +11285,12 @@ def main():
         with radar_col4:
             if not wave_filtered_df.empty and 'overall_market_strength' in wave_filtered_df.columns:
                 try:
-                    wave_strength_score = wave_filtered_df['overall_market_strength'].mean()
+                    market_strength_score = wave_filtered_df['overall_market_strength'].mean()
                     
-                    if wave_strength_score > 70:
+                    if market_strength_score > 70:
                         wave_emoji = "🌊🔥"
                         wave_color = "🟢"
-                    elif wave_strength_score > 50:
+                    elif market_strength_score > 50:
                         wave_emoji = "🌊"
                         wave_color = "🟡"
                     else:
@@ -11279,7 +11299,7 @@ def main():
                     
                     UIComponents.render_metric_card(
                         "Wave Strength",
-                        f"{wave_emoji} {wave_strength_score:.0f}%",
+                        f"{wave_emoji} {market_strength_score:.0f}%",
                         f"{wave_color} Market"
                     )
                 except Exception as e:
@@ -11491,9 +11511,9 @@ def main():
                             help="7-day return percentage",
                             width="small"
                         ),
-                        'Wave': st.column_config.TextColumn(
-                            'Wave',
-                            help="Current wave state",
+                        'Market State': st.column_config.TextColumn(
+                            'Market State',
+                            help="Current market state",
                             width="medium"
                         ),
                         'Category': st.column_config.TextColumn(
@@ -11842,9 +11862,9 @@ def main():
                                 help="Money flow in millions",
                                 width="small"
                             ),
-                            'Wave': st.column_config.TextColumn(
-                                'Wave',
-                                help="Current wave state",
+                            'Market State': st.column_config.TextColumn(
+                                'Market State',
+                                help="Current market state",
                                 width="medium"
                             ),
                             'Category': st.column_config.TextColumn(
@@ -12232,7 +12252,7 @@ def main():
                     'price_display': 'Price',
                     'ret_30d_display': '30D Return',
                     'rvol_display': 'RVOL',
-                    'wave_state': 'Wave State',
+                    'market_state': 'Market State',
                     'category': 'Category'
                 }
                 
@@ -12284,9 +12304,9 @@ def main():
                             help="Relative Volume",
                             width="small"
                         ),
-                        'Wave State': st.column_config.TextColumn(
-                            'Wave State',
-                            help="Current momentum wave state",
+                        'Market State': st.column_config.TextColumn(
+                            'Market State',
+                            help="Current momentum market state",
                             width="medium"
                         ),
                         'Category': st.column_config.TextColumn(
@@ -12347,8 +12367,8 @@ def main():
                         
                         with metric_cols[5]:
                             UIComponents.render_metric_card(
-                                "Wave State",
-                                stock.get('wave_state', 'N/A'),
+                                "Market State",
+                                stock.get('market_state', 'N/A'),
                                 stock.get('category', 'N/A')
                             )
                         
@@ -12924,7 +12944,7 @@ def main():
                 "- All ranking scores\n"
                 "- Advanced metrics (VMI, Money Flow)\n"
                 "- Pattern detections\n"
-                "- Wave states\n"
+                "- Market states\n"
                 "- Category classifications\n"
                 "- Optimized for further analysis"
             )
@@ -12994,8 +13014,8 @@ def main():
             - **VMI (Volume Momentum Index)** - Weighted volume trend score
             - **Position Tension** - Range position stress indicator
             - **Momentum Harmony** - Multi-timeframe alignment (0-4)
-            - **Wave State** - Real-time momentum classification
-            - **Overall Wave Strength** - Composite score for wave filter
+            - **Market State** - Real-time momentum classification
+            - **Overall Market Strength** - Composite score for market filter
             
             **41 Pattern Detection** - Optimized Professional Set:
             - 7 Core Technical patterns (market leaders, volume dynamics, institutional flow)
