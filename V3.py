@@ -7644,23 +7644,55 @@ class FilterEngine:
                     "🌍 ALL": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
                 }
                 
+                # Valid individual market states
+                valid_market_states = {'STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'}
+                
                 # Collect all allowed states from presets and custom selections
                 allowed_states = []
-                custom_selection_active = False
+                custom_selection_active = "📊 Custom Selection" in selected_states
                 
                 for state in selected_states:
                     if state in preset_mapping:
+                        # Handle preset selection
                         allowed_states.extend(preset_mapping[state])
-                    elif state == "📊 Custom Selection":
-                        custom_selection_active = True
-                    elif custom_selection_active:
-                        # Individual state selection (only active if Custom Selection was chosen)
-                        allowed_states.append(state)
+                    elif state in valid_market_states:
+                        # Handle individual state selection (always include individual states if selected)
+                        if custom_selection_active:
+                            allowed_states.append(state)
+                        else:
+                            # If custom selection is not active, but individual states are selected,
+                            # this might be a legacy case - still include them
+                            allowed_states.append(state)
+                    # Skip "📊 Custom Selection" itself as it's just an enabler
                 
-                # Remove duplicates and apply filter
+                # Debug logging for troubleshooting
+                if custom_selection_active:
+                    individual_states = [s for s in selected_states if s in valid_market_states]
+                    logger.info(f"Market State Filter Debug:")
+                    logger.info(f"  - Selected states: {selected_states}")
+                    logger.info(f"  - Individual states: {individual_states}")
+                    logger.info(f"  - Final allowed states: {allowed_states}")
+                    
+                    # Additional debug: check if market_state column exists and has expected values
+                    if 'market_state' in df.columns:
+                        unique_values = df['market_state'].value_counts().head(10)
+                        logger.info(f"  - Market state values in data: {unique_values.to_dict()}")
+                
+                # Remove duplicates and apply filter - but only if we have allowed states
                 if allowed_states:
                     unique_states = list(set(allowed_states))
-                    masks.append(create_mask_from_isin('market_state', unique_states))
+                    logger.info(f"  - Applying filter for states: {unique_states}")
+                    mask = create_mask_from_isin('market_state', unique_states)
+                    if mask is not None:
+                        masks.append(mask)
+                        logger.info(f"  - Filter mask created successfully, {mask.sum()} stocks match")
+                    else:
+                        logger.warning("  - Failed to create market state filter mask")
+                elif custom_selection_active:
+                    # User selected "📊 Custom Selection" but no individual states
+                    logger.info("  - Custom selection active but no individual states selected, skipping filter")
+                else:
+                    logger.warning(f"  - No allowed states found for selection: {selected_states}")
         
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
