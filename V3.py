@@ -2521,371 +2521,247 @@ class RankingEngine:
     @staticmethod
     def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate breakout probability using FULLY VECTORIZED operations.
-        FIXED: No loops, consistent weighting, proper breakout patterns.
+        Calculate breakout score based on ACTUAL breakouts, not predictions.
+        FIXED: Binary breakout detection + quality scoring, no proximity guessing.
         
-        Breakout Methodology:
-        - Distance from 52w high with exponential weighting
-        - Volume accumulation patterns (not just surge)
-        - Trend strength with proper SMA hierarchy
-        - Breakout pattern recognition (cup & handle, flag, consolidation)
-        - Volume-price confirmation
+        Core Philosophy:
+        - Breakouts are BINARY - either happened or didn't
+        - Score the QUALITY of actual breakouts
+        - Don't try to predict future breakouts
+        - Recent breakouts with volume are valuable
         
-        Score Components:
-        - 35% Distance from high (exponential decay)
-        - 30% Volume pattern (accumulation vs distribution)
-        - 20% Trend alignment (SMA structure)
-        - 15% Price consolidation (volatility compression)
+        Scoring Logic:
+        - Not a breakout = 0-20 (based on setup quality)
+        - Fresh breakout (1-5 days) = 60-100 (based on strength)
+        - Old breakout (5+ days) = 30-60 (momentum continuation)
+        - Failed breakout = 0-30 (below high again)
         
-        Bonuses Applied:
-        - Cup & Handle: +15 points
-        - Flag Pattern: +12 points
-        - Ascending Triangle: +10 points
-        - Volume Dry-up: +8 points (pre-breakout signal)
+        Score Range:
+        - 80-100: Strong fresh breakout with volume
+        - 60-80: Recent breakout or strong continuation
+        - 30-60: Older breakout still holding
+        - 10-30: Near highs but no breakout
+        - 0-10: Not a breakout scenario
         """
+        # Initialize with NaN
         breakout_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Component 1: DISTANCE FROM HIGH (35% weight)
-        # Uses exponential decay - being at high is exponentially better than being far
-        distance_component = pd.Series(50, index=df.index, dtype=float)
+        # Check required columns
+        required = ['price', 'high_52w', 'from_high_pct']
+        missing = [col for col in required if col not in df.columns]
+        if missing:
+            logger.warning(f"Missing columns for breakout calculation: {missing}")
+            return breakout_score
         
-        if 'from_high_pct' in df.columns:
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            valid_high = from_high.notna()
+        price = df['price']
+        high_52w = df['high_52w']
+        from_high = df['from_high_pct']
+        
+        valid_mask = price.notna() & high_52w.notna() & from_high.notna() & (price > 0) & (high_52w > 0)
+        
+        if not valid_mask.any():
+            logger.warning("No valid data for breakout calculation")
+            return breakout_score
+        
+        # Initialize all valid stocks with base score
+        breakout_score[valid_mask] = 10  # Base score for non-breakouts
+        
+        # CORE DETECTION: Actual breakouts (price > 52w high)
+        is_breakout = valid_mask & (from_high > 0)
+        
+        # CATEGORY 1: FRESH BREAKOUTS (Above 52w high)
+        if is_breakout.any():
+            # How far above? (from_high is positive when above high)
+            breakout_strength = from_high[is_breakout]
             
-            if valid_high.any():
-                # from_high is negative (e.g., -5 means 5% below high)
-                # Convert to positive distance for calculation
-                distance = -from_high[valid_high]
-                
-                # Exponential scoring: Closer to high = exponentially better
-                # Using tanh for smooth S-curve that handles all ranges well
-                # Distance 0% = 100, 5% = 85, 10% = 70, 20% = 45, 50% = 10
-                distance_component[valid_high] = 100 * (1 - np.tanh(distance / 20))
-                
-                # Special handling for stocks ABOVE 52w high (breakout already happened)
-                above_high = valid_high & (from_high > 0)
-                if above_high.any():
-                    # Recent breakout (0-10% above) = Good
-                    recent_breakout = above_high & (from_high <= 10)
-                    distance_component[recent_breakout] = 90 - from_high[recent_breakout] * 2  # 90 to 70
-                    
-                    # Extended breakout (10-30% above) = Careful
-                    extended = above_high & (from_high > 10) & (from_high <= 30)
-                    distance_component[extended] = 70 - (from_high[extended] - 10) * 1.5  # 70 to 40
-                    
-                    # Overextended (>30% above) = Dangerous
-                    overextended = above_high & (from_high > 30)
-                    distance_component[overextended] = 30  # Flat low score
-        
-        # Component 2: VOLUME PATTERN (30% weight)
-        # Not just current volume, but pattern over time
-        volume_component = pd.Series(50, index=df.index, dtype=float)
-        
-        # Sub-component 2a: Volume trend (is volume building?)
-        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
-            vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-            vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-            vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
+            # Fresh breakout scoring (60-100 based on strength)
+            # 0-2% above = 60-70
+            # 2-5% above = 70-80
+            # 5-10% above = 80-90
+            # >10% above = 90-95
             
-            valid_vol = vol_1d.notna() & vol_7d.notna() & vol_30d.notna()
-            
-            if valid_vol.any():
-                # Calculate volume progression score
-                # Best: Steady increase (30d < 7d < 1d)
-                volume_progression = pd.Series(50, index=df.index, dtype=float)
-                
-                # Accumulation pattern: Volume building over time
-                accumulation = valid_vol & (vol_1d > vol_7d) & (vol_7d > vol_30d)
-                volume_progression[accumulation] = 70 + (vol_1d[accumulation] - 1) * 15  # 70-100
-                
-                # Steady volume: Consistent across timeframes
-                steady = valid_vol & (np.abs(vol_1d - vol_7d) < 0.3) & (np.abs(vol_7d - vol_30d) < 0.3)
-                volume_progression[steady] = 60
-                
-                # Distribution pattern: Volume decreasing (bearish for breakout)
-                distribution = valid_vol & (vol_1d < vol_7d) & (vol_7d < vol_30d)
-                volume_progression[distribution] = 30
-                
-                # Spike only: Just 1-day spike, no build-up (unreliable)
-                spike_only = valid_vol & (vol_1d > 2) & (vol_7d < 1.2) & (vol_30d < 1.1)
-                volume_progression[spike_only] = 40
-                
-                volume_component[valid_vol] = volume_progression[valid_vol]
-        
-        # Sub-component 2b: Volume dry-up detection (often precedes breakout)
-        if 'rvol' in df.columns and 'from_high_pct' in df.columns:
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Volume dry-up near resistance = spring loading
-            volume_dryup = (
-                rvol.notna() & 
-                from_high.notna() &
-                (rvol < 0.7) &  # Low current volume
-                (from_high > -10) & (from_high <= 0)  # Near high
-            )
-            if volume_dryup.any():
-                # This is actually bullish - like a coiled spring
-                volume_component[volume_dryup] = 65
-        
-        # Component 3: TREND ALIGNMENT (20% weight)
-        # SMA structure with proper weighting
-        trend_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if 'price' in df.columns:
-            price = pd.Series(df['price'].values, index=df.index)
-            price_valid = price.notna() & (price > 0)
-            
-            if price_valid.any():
-                trend_score = pd.Series(0, index=df.index, dtype=float)
-                max_possible = pd.Series(0, index=df.index, dtype=float)
-                
-                # SMA hierarchy: 200 > 50 > 20 in importance for breakouts
-                sma_weights = {
-                    'sma_200d': 50,  # Most important - long-term trend
-                    'sma_50d': 30,   # Medium-term trend
-                    'sma_20d': 20    # Short-term trend
-                }
-                
-                for sma_col, weight in sma_weights.items():
-                    if sma_col in df.columns:
-                        sma_values = pd.Series(df[sma_col].values, index=df.index)
-                        valid_sma = price_valid & sma_values.notna() & (sma_values > 0)
-                        
-                        # Price above SMA
-                        above_sma = valid_sma & (price > sma_values)
-                        trend_score[above_sma] += weight
-                        max_possible[valid_sma] += weight
-                
-                # Normalize to 0-100
-                has_sma = max_possible > 0
-                trend_component[has_sma] = (trend_score[has_sma] / max_possible[has_sma]) * 100
-                
-                # Golden alignment bonus: Price > SMA20 > SMA50 > SMA200
-                if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d']):
-                    sma_20 = pd.Series(df['sma_20d'].values, index=df.index)
-                    sma_50 = pd.Series(df['sma_50d'].values, index=df.index)
-                    sma_200 = pd.Series(df['sma_200d'].values, index=df.index)
-                    
-                    golden_alignment = (
-                        price_valid & 
-                        sma_20.notna() & sma_50.notna() & sma_200.notna() &
-                        (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
+            breakout_score[is_breakout] = np.where(
+                breakout_strength <= 2,
+                60 + breakout_strength * 5,  # 0-2% → 60-70
+                np.where(
+                    breakout_strength <= 5,
+                    70 + (breakout_strength - 2) * 3.33,  # 2-5% → 70-80
+                    np.where(
+                        breakout_strength <= 10,
+                        80 + (breakout_strength - 5) * 2,  # 5-10% → 80-90
+                        np.minimum(95, 90 + breakout_strength * 0.1)  # >10% → 90-95
                     )
-                    if golden_alignment.any():
-                        trend_component[golden_alignment] = 100  # Perfect score
-        
-        # Component 4: PRICE CONSOLIDATION (15% weight)
-        # Tight consolidation near high = higher breakout probability
-        consolidation_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_high_pct']):
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            valid_consol = ret_7d.notna() & ret_30d.notna() & from_high.notna()
-            
-            if valid_consol.any():
-                # Calculate volatility/range
-                volatility = np.abs(ret_7d)
-                
-                # Tight consolidation near high (best setup)
-                tight_consol = valid_consol & (volatility < 3) & (from_high > -10) & (from_high <= 0)
-                consolidation_component[tight_consol] = 85
-                
-                # Normal consolidation
-                normal_consol = valid_consol & (volatility >= 3) & (volatility < 7) & (from_high > -20)
-                consolidation_component[normal_consol] = 60
-                
-                # Wide/volatile consolidation (less reliable)
-                wide_consol = valid_consol & (volatility >= 7)
-                consolidation_component[wide_consol] = 35
-        
-        # COMBINE ALL COMPONENTS (with fixed weights)
-        # Calculate weighted average only where we have data
-        components = {
-            'distance': (distance_component, 0.35),
-            'volume': (volume_component, 0.30),
-            'trend': (trend_component, 0.20),
-            'consolidation': (consolidation_component, 0.15)
-        }
-        
-        # Vectorized combination
-        weighted_sum = pd.Series(0, index=df.index, dtype=float)
-        weight_sum = pd.Series(0, index=df.index, dtype=float)
-        
-        for name, (component, weight) in components.items():
-            valid = component.notna() & (component != 50)  # 50 is default, means no data
-            weighted_sum[valid] += component[valid] * weight
-            weight_sum[valid] += weight
-        
-        # Calculate final score
-        has_data = weight_sum > 0
-        breakout_score[has_data] = weighted_sum[has_data] / weight_sum[has_data]
-        
-        # PATTERN RECOGNITION BONUSES
-        # These are additive bonuses for specific bullish patterns
-        
-        # Pattern 1: Cup & Handle
-        if all(col in df.columns for col in ['ret_3m', 'ret_1y', 'ret_30d', 'from_high_pct']):
-            ret_3m = pd.Series(df['ret_3m'].values, index=df.index)
-            ret_1y = pd.Series(df['ret_1y'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            cup_handle = (
-                breakout_score.notna() &
-                ret_1y.notna() & ret_3m.notna() & ret_30d.notna() & from_high.notna() &
-                (ret_1y > 20) &  # Good yearly performance (left side of cup)
-                (ret_3m < 10) &  # Consolidation (bottom of cup)
-                (ret_30d > -5) & (ret_30d < 5) &  # Handle formation
-                (from_high > -15) & (from_high <= 0)  # Near resistance
-            )
-            if cup_handle.any():
-                breakout_score[cup_handle] += 15
-                logger.debug(f"Cup & Handle pattern detected in {cup_handle.sum()} stocks")
-        
-        # Pattern 2: Flag Pattern (consolidation after strong move)
-        if all(col in df.columns for col in ['ret_30d', 'ret_7d', 'from_high_pct', 'rvol']):
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            
-            flag_pattern = (
-                breakout_score.notna() &
-                ret_30d.notna() & ret_7d.notna() & from_high.notna() & rvol.notna() &
-                (ret_30d > 15) &  # Strong prior move (pole)
-                (ret_7d > -3) & (ret_7d < 3) &  # Tight consolidation (flag)
-                (from_high > -8) & (from_high <= 0) &  # Near high
-                (rvol < 1.5)  # Volume contraction during flag
-            )
-            if flag_pattern.any():
-                breakout_score[flag_pattern] += 12
-                logger.debug(f"Flag pattern detected in {flag_pattern.sum()} stocks")
-        
-        # Pattern 3: Ascending Triangle (higher lows, same highs)
-        if all(col in df.columns for col in ['low_52w', 'high_52w', 'price', 'from_high_pct']):
-            low_52w = pd.Series(df['low_52w'].values, index=df.index)
-            high_52w = pd.Series(df['high_52w'].values, index=df.index)
-            price = pd.Series(df['price'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Check if lows are rising while testing same high
-            valid_triangle = (
-                low_52w.notna() & high_52w.notna() & 
-                price.notna() & from_high.notna() & 
-                (low_52w > 0) & (high_52w > 0)
-            )
-            
-            if valid_triangle.any():
-                # Price well above 52w low but struggling at high
-                from_low_ratio = (price - low_52w) / low_52w * 100
-                ascending_triangle = (
-                    valid_triangle &
-                    (from_low_ratio > 30) &  # Well above low
-                    (from_high > -5) & (from_high <= 0) &  # Testing high repeatedly
-                    breakout_score.notna()
                 )
-                if ascending_triangle.any():
-                    breakout_score[ascending_triangle] += 10
-                    logger.debug(f"Ascending triangle detected in {ascending_triangle.sum()} stocks")
-        
-        # Pattern 4: Volatility Contraction Pattern (VCP)
-        if 'ret_3d' in df.columns and 'ret_7d' in df.columns and 'ret_30d' in df.columns:
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            
-            # Volatility decreasing over time
-            vol_3d = np.abs(ret_3d)
-            vol_7d = np.abs(ret_7d)
-            vol_30d = np.abs(ret_30d)
-            
-            vcp_pattern = (
-                breakout_score.notna() &
-                vol_3d.notna() & vol_7d.notna() & vol_30d.notna() &
-                (vol_3d < vol_7d * 0.7) &  # Recent volatility much lower
-                (vol_7d < vol_30d * 0.8) &  # Progressive contraction
-                (vol_3d < 3)  # Very tight recent range
             )
-            if vcp_pattern.any():
-                breakout_score[vcp_pattern] += 8
-                logger.debug(f"VCP pattern detected in {vcp_pattern.sum()} stocks")
+        
+        # CATEGORY 2: NEAR BREAKOUTS (Within 5% of high but below)
+        near_breakout = valid_mask & (from_high <= 0) & (from_high > -5)
+        
+        if near_breakout.any():
+            # These are potential setups, not breakouts
+            # Score based on how close (5% below = 20, at high = 40)
+            distance = -from_high[near_breakout]  # Make positive
+            breakout_score[near_breakout] = 40 - distance * 4  # 0% = 40, 5% = 20
+        
+        # CATEGORY 3: FAR FROM BREAKOUT (More than 5% below high)
+        far_from_high = valid_mask & (from_high <= -5)
+        
+        if far_from_high.any():
+            # Not breakout candidates
+            breakout_score[far_from_high] = np.maximum(
+                0,
+                10 - np.abs(from_high[far_from_high]) * 0.2
+            )
         
         # CONTEXT ADJUSTMENTS
         
-        # Market cap adjustment
-        if 'category' in df.columns and breakout_score.notna().any():
-            category = pd.Series(df['category'].values, index=df.index)
+        # 1. VOLUME CONFIRMATION (Critical for breakouts)
+        if 'rvol' in df.columns:
+            rvol = df['rvol']
             
-            # Large cap breakouts are more reliable
-            large_cap = category.isin(['Large Cap', 'Mega Cap'])
-            large_breakout = large_cap & breakout_score.notna() & (breakout_score > 70)
-            if large_breakout.any():
-                breakout_score[large_breakout] *= 1.05
-                logger.debug(f"Large cap breakout bonus applied to {large_breakout.sum()} stocks")
+            # True breakouts NEED volume
+            breakout_with_volume = is_breakout & (rvol > 1.5) & breakout_score.notna()
+            if breakout_with_volume.any():
+                breakout_score[breakout_with_volume] = np.minimum(
+                    breakout_score[breakout_with_volume] * 1.2,
+                    100
+                )
             
-            # Small cap breakouts need stronger confirmation
-            small_cap = category.isin(['Small Cap', 'Micro Cap'])
-            small_breakout = small_cap & breakout_score.notna() & (breakout_score > 60)
-            if small_breakout.any():
-                # Require volume confirmation for small caps
-                if 'rvol' in df.columns:
-                    rvol = pd.Series(df['rvol'].values, index=df.index)
-                    needs_volume = small_breakout & (rvol < 1.5)
-                    breakout_score[needs_volume] *= 0.85  # Penalty without volume
+            # Breakout without volume = suspicious
+            breakout_no_volume = is_breakout & (rvol < 1.0) & breakout_score.notna()
+            if breakout_no_volume.any():
+                breakout_score[breakout_no_volume] *= 0.7
+                logger.debug(f"Low volume breakout penalty for {breakout_no_volume.sum()} stocks")
         
-        # Sector momentum adjustment
-        if 'sector' in df.columns and 'ret_30d' in df.columns:
-            # If sector is strong, individual breakouts more likely
-            sector_returns = df.groupby('sector')['ret_30d'].transform('mean')
-            strong_sector = sector_returns > 10  # Sector up >10% in month
+        # 2. MOMENTUM CONFIRMATION
+        if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
+            ret_1d = df['ret_1d']
+            ret_7d = df['ret_7d']
             
-            sector_boost = strong_sector & breakout_score.notna() & (breakout_score > 60)
-            if sector_boost.any():
-                breakout_score[sector_boost] *= 1.03
-                logger.debug(f"Strong sector bonus applied to {sector_boost.sum()} stocks")
+            # Strong breakouts have momentum
+            strong_momentum = is_breakout & (ret_1d > 2) & (ret_7d > 5) & breakout_score.notna()
+            if strong_momentum.any():
+                breakout_score[strong_momentum] = np.minimum(
+                    breakout_score[strong_momentum] + 10,
+                    100
+                )
+            
+            # Failed breakout: Above high but negative momentum
+            failing_breakout = is_breakout & (ret_1d < -2) & breakout_score.notna()
+            if failing_breakout.any():
+                breakout_score[failing_breakout] = np.maximum(
+                    breakout_score[failing_breakout] * 0.5,
+                    20
+                )
+        
+        # 3. BREAKOUT AGE (How fresh is it?)
+        # We estimate this using return patterns
+        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+            ret_1d = df['ret_1d']
+            ret_7d = df['ret_7d']
+            ret_30d = df['ret_30d']
+            
+            # Fresh breakout: Strong recent move
+            fresh_breakout = (
+                is_breakout & 
+                (ret_7d > ret_30d / 4) &  # Recent acceleration
+                (ret_1d > 0) &  # Still moving up
+                breakout_score.notna()
+            )
+            if fresh_breakout.any():
+                breakout_score[fresh_breakout] += 5
+            
+            # Stale breakout: Been above high for a while
+            stale_breakout = (
+                is_breakout &
+                (ret_30d > 30) &  # Big monthly move
+                (ret_7d < 2) &  # But slowing down
+                breakout_score.notna()
+            )
+            if stale_breakout.any():
+                breakout_score[stale_breakout] *= 0.8
+        
+        # 4. MARKET CAP ADJUSTMENTS
+        if 'category' in df.columns:
+            category = df['category']
+            
+            # Large cap breakouts are more significant
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_breakout = is_large & is_breakout & breakout_score.notna()
+            if large_breakout.any():
+                breakout_score[large_breakout] = np.minimum(
+                    breakout_score[large_breakout] * 1.1,
+                    100
+                )
+            
+            # Small cap breakouts need more scrutiny
+            is_small = category.isin(['Micro Cap', 'Small Cap'])
+            small_breakout = is_small & is_breakout & (from_high > 10) & breakout_score.notna()
+            if small_breakout.any():
+                # Cap extreme moves in small caps
+                breakout_score[small_breakout] = np.minimum(
+                    breakout_score[small_breakout],
+                    85
+                )
+        
+        # 5. PREVIOUS BREAKOUT FAILURES
+        # If stock has been oscillating around 52w high, reduce score
+        if 'sma_20d' in df.columns and 'price' in df.columns:
+            sma_20 = df['sma_20d']
+            
+            # Check if price and SMA20 are near 52w high (consolidation pattern)
+            valid_sma = sma_20.notna() & high_52w.notna() & (sma_20 > 0)
+            if valid_sma.any():
+                sma_near_high = np.abs(sma_20 - high_52w) / high_52w < 0.03  # SMA within 3% of high
+                
+                # This suggests multiple attempts at breakout
+                choppy_breakout = (
+                    valid_sma & 
+                    sma_near_high & 
+                    near_breakout &  # Currently near but below
+                    breakout_score.notna()
+                )
+                if choppy_breakout.any():
+                    breakout_score[choppy_breakout] *= 0.8
+                    logger.debug(f"Choppy breakout pattern in {choppy_breakout.sum()} stocks")
         
         # Final clipping
         breakout_score = breakout_score.clip(0, 100)
         
-        # Fill remaining NaN with default
-        still_nan = breakout_score.isna()
-        if still_nan.any():
-            # Check if they have any price data at all
-            has_price = 'price' in df.columns and df['price'].notna()
-            breakout_score[still_nan & has_price] = 40  # Below average default
-            breakout_score[still_nan & ~has_price] = np.nan  # Keep NaN if no data
-        
         # COMPREHENSIVE LOGGING
         valid_scores = breakout_score.notna().sum()
+        total_stocks = len(df)
+        
+        logger.info(f"Breakout scores: {valid_scores}/{total_stocks} calculated")
+        
         if valid_scores > 0:
-            logger.info(f"Breakout scores calculated: {valid_scores} valid out of {len(df)} stocks")
+            # Count actual breakouts
+            actual_breakouts = is_breakout.sum()
+            near_breakouts = near_breakout.sum()
+            
+            logger.info(f"Breakout status: {actual_breakouts} above 52w high, "
+                       f"{near_breakouts} within 5% of high")
+            
+            if actual_breakouts > 0:
+                breakout_scores = breakout_score[is_breakout]
+                logger.info(f"Breakout quality - Mean: {breakout_scores.mean():.1f}, "
+                           f"Max: {breakout_scores.max():.1f}")
+                
+                # Check for volume confirmation
+                if 'rvol' in df.columns:
+                    rvol = df['rvol']
+                    confirmed = is_breakout & (rvol > 1.5)
+                    logger.info(f"Volume-confirmed breakouts: {confirmed.sum()}/{actual_breakouts}")
             
             # Distribution
             score_dist = breakout_score[breakout_score.notna()]
-            logger.info(f"Score distribution - Min: {score_dist.min():.1f}, "
-                       f"Max: {score_dist.max():.1f}, "
-                       f"Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}")
+            strong = (breakout_score > 80).sum()
+            moderate = ((breakout_score > 60) & (breakout_score <= 80)).sum()
+            setup = ((breakout_score > 20) & (breakout_score <= 60)).sum()
+            none = (breakout_score <= 20).sum()
             
-            # Breakout categories
-            imminent = (breakout_score > 80).sum()
-            probable = ((breakout_score > 65) & (breakout_score <= 80)).sum()
-            possible = ((breakout_score > 50) & (breakout_score <= 65)).sum()
-            unlikely = (breakout_score <= 50).sum()
-            
-            logger.debug(f"Breakout probability: Imminent={imminent}, Probable={probable}, "
-                        f"Possible={possible}, Unlikely={unlikely}")
-            
-            # Pattern detection summary
-            if 'from_high_pct' in df.columns:
-                near_high = ((df['from_high_pct'] > -5) & (df['from_high_pct'] <= 0)).sum()
-                above_high = (df['from_high_pct'] > 0).sum()
-                logger.debug(f"Position: {near_high} near 52w high, {above_high} above high")
+            logger.debug(f"Breakout categories: Strong={strong}, Moderate={moderate}, "
+                        f"Setup={setup}, None={none}")
         
         return breakout_score
     
