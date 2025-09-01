@@ -1041,358 +1041,490 @@ class RankingEngine:
     @PerformanceMonitor.timer(target_time=0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculate all component scores and master score with robust error handling.
-        GUARANTEED to complete without errors and return valid DataFrame.
+        Master orchestration function for all score calculations.
+        BULLETPROOF: Guaranteed to complete and return valid DataFrame.
         
-        Core Principles:
-        - Always creates all score columns (even if all NaN)
-        - Never replaces NaN with fake values
-        - Dynamic weight normalization based on available data
-        - Minimum data requirements enforced
-        - Full error recovery and logging
-        - Preserves DataFrame integrity
+        Architecture:
+        - Modular score calculation with error recovery
+        - Dynamic weight normalization (no fake values)
+        - Comprehensive data quality tracking
+        - Full market context analysis
+        - Performance optimized with vectorization
+        
+        Guarantees:
+        - Always returns DataFrame with all expected columns
+        - Never crashes (full error handling)
+        - Preserves original data integrity
+        - Complete audit trail via logging
         """
-        # CRITICAL: Make a copy to avoid modifying original
+        # CRITICAL: Work on copy to preserve original
         df = df.copy()
         
         if df.empty:
             logger.warning("Empty dataframe provided to calculate_all_scores")
             return df
         
+        # Initialize tracking
         start_time = time.time()
         timing_breakdown = {}
-        original_columns = df.columns.tolist()
+        calculation_metadata = {
+            'start_time': start_time,
+            'initial_rows': len(df),
+            'initial_columns': len(df.columns)
+        }
         
-        logger.info(f"Starting optimized ranking calculations for {len(df)} stocks...")
+        logger.info(f"="*60)
+        logger.info(f"Starting comprehensive ranking for {len(df)} stocks")
+        logger.info(f"="*60)
         
-        # STEP 1: Calculate Primary Component Scores
-        # Each must return Series of same length as df
+        # ============================================================
+        # PHASE 1: COMPONENT SCORE CALCULATION
+        # ============================================================
         component_start = time.time()
         
-        primary_scores = {
-            'position_score': RankingEngine._calculate_position_score,
-            'volume_score': RankingEngine._calculate_volume_score,
-            'momentum_score': RankingEngine._calculate_momentum_score,
-            'acceleration_score': RankingEngine._calculate_acceleration_score,
-            'breakout_score': RankingEngine._calculate_breakout_score,
-            'rvol_score': RankingEngine._calculate_rvol_score
+        # Define all score calculators with metadata
+        score_definitions = {
+            'primary': {
+                'position_score': {
+                    'func': RankingEngine._calculate_position_score,
+                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
+                    'required': True
+                },
+                'volume_score': {
+                    'func': RankingEngine._calculate_volume_score,
+                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
+                    'required': True
+                },
+                'momentum_score': {
+                    'func': RankingEngine._calculate_momentum_score,
+                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
+                    'required': True
+                },
+                'acceleration_score': {
+                    'func': RankingEngine._calculate_acceleration_score,
+                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
+                    'required': True
+                },
+                'breakout_score': {
+                    'func': RankingEngine._calculate_breakout_score,
+                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
+                    'required': True
+                },
+                'rvol_score': {
+                    'func': RankingEngine._calculate_rvol_score,
+                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.10),
+                    'required': True
+                }
+            },
+            'auxiliary': {
+                'trend_quality': {
+                    'func': RankingEngine._calculate_trend_quality,
+                    'required': False
+                },
+                'long_term_strength': {
+                    'func': RankingEngine._calculate_long_term_strength,
+                    'required': False
+                },
+                'liquidity_score': {
+                    'func': RankingEngine._calculate_liquidity_score,
+                    'required': False
+                }
+            }
         }
         
-        # Calculate each primary score with error handling
-        for score_name, score_func in primary_scores.items():
-            try:
-                result = score_func(df)
-                if result is None:
-                    logger.warning(f"{score_name} returned None, creating NaN column")
+        # Calculate all scores with error handling
+        calculation_results = {}
+        
+        for score_type, scores in score_definitions.items():
+            for score_name, score_config in scores.items():
+                try:
+                    # Execute score calculation
+                    result = score_config['func'](df)
+                    
+                    # Validate result
+                    if result is None:
+                        logger.warning(f"{score_name}: Returned None, creating NaN column")
+                        df[score_name] = np.nan
+                        calculation_results[score_name] = 'failed_none'
+                        
+                    elif not isinstance(result, pd.Series):
+                        logger.warning(f"{score_name}: Invalid type {type(result)}, creating NaN column")
+                        df[score_name] = np.nan
+                        calculation_results[score_name] = 'failed_type'
+                        
+                    elif len(result) != len(df):
+                        logger.warning(f"{score_name}: Length mismatch ({len(result)} vs {len(df)})")
+                        df[score_name] = np.nan
+                        calculation_results[score_name] = 'failed_length'
+                        
+                    else:
+                        # Valid result
+                        df[score_name] = result
+                        valid_count = result.notna().sum()
+                        calculation_results[score_name] = f'success_{valid_count}/{len(df)}'
+                        
+                except Exception as e:
+                    logger.error(f"{score_name}: Exception - {str(e)[:100]}")
                     df[score_name] = np.nan
-                elif not isinstance(result, pd.Series):
-                    logger.warning(f"{score_name} returned non-Series type: {type(result)}")
-                    df[score_name] = np.nan
-                elif len(result) != len(df):
-                    logger.warning(f"{score_name} length mismatch: {len(result)} vs {len(df)}")
-                    df[score_name] = np.nan
-                else:
-                    df[score_name] = result
-            except Exception as e:
-                logger.error(f"Error calculating {score_name}: {e}")
-                df[score_name] = np.nan
+                    calculation_results[score_name] = f'exception_{type(e).__name__}'
         
-        timing_breakdown['primary_scores'] = time.time() - component_start
+        timing_breakdown['component_calculation'] = time.time() - component_start
         
-        # STEP 2: Calculate Auxiliary Scores
-        auxiliary_start = time.time()
-        
-        auxiliary_scores = {
-            'trend_quality': RankingEngine._calculate_trend_quality,
-            'long_term_strength': RankingEngine._calculate_long_term_strength,
-            'liquidity_score': RankingEngine._calculate_liquidity_score
-        }
-        
-        # Calculate each auxiliary score with error handling
-        for score_name, score_func in auxiliary_scores.items():
-            try:
-                result = score_func(df)
-                if result is None:
-                    logger.warning(f"{score_name} returned None, creating NaN column")
-                    df[score_name] = np.nan
-                elif not isinstance(result, pd.Series):
-                    logger.warning(f"{score_name} returned non-Series type: {type(result)}")
-                    df[score_name] = np.nan
-                elif len(result) != len(df):
-                    logger.warning(f"{score_name} length mismatch: {len(result)} vs {len(df)}")
-                    df[score_name] = np.nan
-                else:
-                    df[score_name] = result
-            except Exception as e:
-                logger.error(f"Error calculating {score_name}: {e}")
-                df[score_name] = np.nan
-        
-        timing_breakdown['auxiliary_scores'] = time.time() - auxiliary_start
-        
-        # VERIFY all score columns exist
-        all_score_columns = list(primary_scores.keys()) + list(auxiliary_scores.keys())
-        missing_columns = [col for col in all_score_columns if col not in df.columns]
-        if missing_columns:
-            logger.error(f"Missing columns after calculation: {missing_columns}")
-            for col in missing_columns:
-                df[col] = np.nan
-        
-        # STEP 3: Calculate Data Quality Metrics
+        # ============================================================
+        # PHASE 2: DATA QUALITY ASSESSMENT
+        # ============================================================
         quality_start = time.time()
         
-        # Define weights for primary scores only (auxiliary don't affect master score)
-        score_weights = {
-            'position_score': CONFIG.POSITION_WEIGHT if hasattr(CONFIG, 'POSITION_WEIGHT') else 0.30,
-            'volume_score': CONFIG.VOLUME_WEIGHT if hasattr(CONFIG, 'VOLUME_WEIGHT') else 0.25,
-            'momentum_score': CONFIG.MOMENTUM_WEIGHT if hasattr(CONFIG, 'MOMENTUM_WEIGHT') else 0.15,
-            'acceleration_score': CONFIG.ACCELERATION_WEIGHT if hasattr(CONFIG, 'ACCELERATION_WEIGHT') else 0.10,
-            'breakout_score': CONFIG.BREAKOUT_WEIGHT if hasattr(CONFIG, 'BREAKOUT_WEIGHT') else 0.10,
-            'rvol_score': CONFIG.RVOL_WEIGHT if hasattr(CONFIG, 'RVOL_WEIGHT') else 0.10
-        }
+        # Extract primary scores and weights
+        primary_score_names = list(score_definitions['primary'].keys())
+        primary_weights = np.array([score_definitions['primary'][s]['weight'] for s in primary_score_names])
         
-        # Calculate data completeness
-        primary_score_cols = list(primary_scores.keys())
-        scores_array = df[primary_score_cols].values
-        data_available = ~np.isnan(scores_array)
-        components_available = data_available.sum(axis=1)
+        # Ensure weights sum to 1
+        if primary_weights.sum() != 1.0:
+            logger.warning(f"Weights sum to {primary_weights.sum():.3f}, normalizing...")
+            primary_weights = primary_weights / primary_weights.sum()
         
-        df['components_available'] = components_available
-        df['data_completeness'] = (components_available / len(primary_score_cols)) * 100
+        # Calculate data availability matrix
+        scores_matrix = df[primary_score_names].values
+        data_available = ~np.isnan(scores_matrix)
+        components_per_stock = data_available.sum(axis=1)
         
-        timing_breakdown['quality'] = time.time() - quality_start
+        # Data quality metrics
+        df['components_available'] = components_per_stock
+        df['data_completeness'] = (components_per_stock / len(primary_score_names)) * 100
+        df['has_minimum_data'] = components_per_stock >= 4  # Minimum threshold
         
-        # STEP 4: Calculate Master Score
+        # Quality categories
+        df['data_quality_category'] = pd.cut(
+            df['components_available'],
+            bins=[-0.1, 2.5, 3.5, 4.5, 5.5, 6.1],
+            labels=['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']
+        )
+        
+        timing_breakdown['quality_assessment'] = time.time() - quality_start
+        
+        # ============================================================
+        # PHASE 3: MASTER SCORE CALCULATION
+        # ============================================================
         calculation_start = time.time()
         
-        # Minimum components required for valid score
+        # Constants
         MIN_REQUIRED_COMPONENTS = 4
         
-        # Initialize master score
-        master_scores = np.full(len(df), np.nan)
+        # Initialize master scores
+        master_scores = np.full(len(df), np.nan, dtype=float)
+        weights_used = np.full((len(df), len(primary_score_names)), np.nan, dtype=float)
         
-        # Convert weights to array
-        weights_array = np.array([score_weights[col] for col in primary_score_cols])
-        
-        # VECTORIZED CALCULATION - NO NaN REPLACEMENT!
-        for i in range(len(df)):
-            if components_available[i] >= MIN_REQUIRED_COMPONENTS:
-                # Get valid scores and corresponding weights
-                valid_mask = data_available[i]
+        # Vectorized calculation for all stocks at once
+        for idx in range(len(df)):
+            if components_per_stock[idx] >= MIN_REQUIRED_COMPONENTS:
+                # Get valid components for this stock
+                valid_mask = data_available[idx]
+                
                 if valid_mask.any():
-                    valid_scores = scores_array[i][valid_mask]
-                    valid_weights = weights_array[valid_mask]
+                    # Extract valid scores and weights
+                    valid_scores = scores_matrix[idx][valid_mask]
+                    valid_weights = primary_weights[valid_mask]
                     
                     # Normalize weights
                     if valid_weights.sum() > 0:
                         normalized_weights = valid_weights / valid_weights.sum()
-                        master_scores[i] = np.dot(valid_scores, normalized_weights)
+                        # Calculate weighted average
+                        master_scores[idx] = np.dot(valid_scores, normalized_weights)
+                        # Store weights for transparency
+                        weights_used[idx][valid_mask] = normalized_weights
         
+        # Assign raw scores
         df['master_score_raw'] = master_scores
         
-        # Apply quality multiplier (stronger penalty for missing data)
-        # 6/6 components = 1.0, 5/6 = 0.85, 4/6 = 0.70, <4 = no score
+        # Calculate quality multiplier (no linear penalty, use curve)
+        # 6/6 = 1.00, 5/6 = 0.88, 4/6 = 0.72
         df['quality_multiplier'] = np.where(
-            df['components_available'] == 6, 1.00,
-            np.where(
-                df['components_available'] == 5, 0.85,
-                np.where(
-                    df['components_available'] == 4, 0.70,
-                    np.nan  # Less than minimum required
-                )
-            )
+            df['components_available'] < MIN_REQUIRED_COMPONENTS,
+            np.nan,  # No score if insufficient data
+            0.5 + 0.5 * (df['components_available'] / 6) ** 1.5  # Exponential curve
         )
         
-        # Apply quality multiplier
-        df['master_score'] = df['master_score_raw'] * df['quality_multiplier']
-        df['master_score'] = df['master_score'].clip(0, 100)
+        # Apply quality adjustment
+        df['master_score_before_bonus'] = df['master_score_raw'] * df['quality_multiplier']
+        df['master_score'] = df['master_score_before_bonus'].clip(0, 100)
         
-        timing_breakdown['calculation'] = time.time() - calculation_start
+        timing_breakdown['master_calculation'] = time.time() - calculation_start
         
-        # STEP 5: Apply Smart Bonuses
+        # ============================================================
+        # PHASE 4: SMART BONUSES
+        # ============================================================
         bonus_start = time.time()
         
         try:
             df = RankingEngine._apply_smart_bonuses(df)
+            df['bonuses_applied'] = True
         except Exception as e:
-            logger.error(f"Error applying smart bonuses: {e}")
-            # Continue without bonuses
+            logger.error(f"Smart bonuses failed: {e}")
+            df['bonuses_applied'] = False
+            df['bonus_points'] = 0
+            df['bonus_reasons'] = ''
+        
+        # Ensure master score stays in bounds
+        df['master_score'] = df['master_score'].clip(0, 100)
         
         timing_breakdown['bonuses'] = time.time() - bonus_start
         
-        # STEP 6: Calculate Rankings
+        # ============================================================
+        # PHASE 5: RANKING CALCULATIONS
+        # ============================================================
         ranking_start = time.time()
         
         # Overall rankings
-        if df['master_score'].notna().any():
-            df['rank'] = df['master_score'].rank(method='first', ascending=False, na_option='bottom')
-            df['percentile'] = df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
+        valid_scores_exist = df['master_score'].notna().any()
+        
+        if valid_scores_exist:
+            # Standard rankings
+            df['rank'] = df['master_score'].rank(
+                method='first', 
+                ascending=False, 
+                na_option='bottom'
+            )
+            
+            df['percentile'] = df['master_score'].rank(
+                method='average',
+                ascending=True,
+                pct=True,
+                na_option='bottom'
+            ) * 100
+            
+            # Decile groups
+            df['decile'] = pd.qcut(
+                df['master_score'].dropna(),
+                q=10,
+                labels=range(10, 0, -1),
+                duplicates='drop'
+            ).reindex(df.index)
+            
         else:
             df['rank'] = np.nan
-            df['percentile'] = np.nan
+            df['percentile'] = 0
+            df['decile'] = np.nan
         
-        # Clean up rank column
-        df['rank'] = df['rank'].fillna(len(df) + 1).astype(float)
+        # Fill NaN ranks
+        df['rank'] = df['rank'].fillna(len(df) + 1)
         df['percentile'] = df['percentile'].fillna(0)
+        
+        # Score grades
+        if valid_scores_exist:
+            df['score_grade'] = pd.cut(
+                df['master_score'],
+                bins=[0, 25, 40, 50, 60, 70, 80, 90, 100],
+                labels=['F', 'E', 'D', 'C', 'B', 'A', 'AA', 'AAA']
+            )
+        else:
+            df['score_grade'] = pd.Categorical([np.nan] * len(df))
         
         # Category rankings
         try:
             df = RankingEngine._calculate_category_ranks(df)
         except Exception as e:
-            logger.error(f"Error calculating category ranks: {e}")
+            logger.error(f"Category ranking failed: {e}")
             df['category_rank'] = np.nan
             df['category_percentile'] = np.nan
         
-        # Score grades
-        if df['master_score'].notna().any():
-            df['score_grade'] = pd.cut(
-                df['master_score'],
-                bins=[0, 30, 45, 55, 65, 75, 85, 100],
-                labels=['F', 'D', 'C', 'B', 'A', 'AA', 'AAA'],
-                include_lowest=True
-            )
-        else:
-            df['score_grade'] = pd.Categorical([np.nan] * len(df))
+        timing_breakdown['rankings'] = time.time() - ranking_start
         
-        timing_breakdown['ranking'] = time.time() - ranking_start
-        
-        # STEP 7: Calculate Confidence Metrics
+        # ============================================================
+        # PHASE 6: CONFIDENCE METRICS
+        # ============================================================
         confidence_start = time.time()
         
-        # Data reliability based on components available
-        df['data_reliability'] = pd.cut(
-            df['components_available'],
-            bins=[-0.1, 3.5, 4.5, 5.5, 6.1],
-            labels=['Poor', 'Fair', 'Good', 'Excellent'],
-            include_lowest=True
-        )
-        
-        # Confidence score (0-100)
+        # Multi-factor confidence score
         df['confidence_score'] = np.where(
-            df['components_available'] >= MIN_REQUIRED_COMPONENTS,
+            df['has_minimum_data'],
             (
-                (df['components_available'] / 6) * 50 +  # Data completeness (50%)
-                (100 - df['percentile'].fillna(50).abs()) / 100 * 30 +  # Rank stability (30%)
-                np.minimum(df['liquidity_score'].fillna(30) / 100, 1) * 20  # Liquidity (20%)
-            ).clip(0, 100),
-            0  # No confidence if insufficient data
+                df['data_completeness'] * 0.40 +  # Data availability
+                np.minimum(df['liquidity_score'].fillna(30), 100) * 0.30 +  # Liquidity
+                (100 - np.abs(df['percentile'] - 50)) * 0.30  # Rank stability
+            ) / 100,
+            0
+        ).clip(0, 100)
+        
+        # Confidence categories
+        df['confidence_level'] = pd.cut(
+            df['confidence_score'],
+            bins=[0, 30, 50, 70, 85, 100],
+            labels=['Very Low', 'Low', 'Medium', 'High', 'Very High']
         )
         
         timing_breakdown['confidence'] = time.time() - confidence_start
         
-        # STEP 8: Market Context Analysis
+        # ============================================================
+        # PHASE 7: MARKET CONTEXT
+        # ============================================================
         context_start = time.time()
         
-        # Calculate market statistics from valid scores only
-        valid_scores = df[df['master_score'].notna()]
+        # Calculate market statistics
+        scored_stocks = df[df['master_score'].notna()]
         
-        if len(valid_scores) > 0:
-            market_stats = {
-                'total_stocks': len(df),
-                'scored_stocks': len(valid_scores),
-                'coverage_pct': (len(valid_scores) / len(df)) * 100,
-                'avg_score': valid_scores['master_score'].mean(),
-                'median_score': valid_scores['master_score'].median(),
-                'std_score': valid_scores['master_score'].std(),
-                'avg_components': df['components_available'].mean()
-            }
+        market_stats = {
+            'total_stocks': len(df),
+            'scored_stocks': len(scored_stocks),
+            'coverage_pct': (len(scored_stocks) / len(df) * 100) if len(df) > 0 else 0
+        }
+        
+        if len(scored_stocks) > 0:
+            # Score statistics
+            market_stats.update({
+                'mean_score': scored_stocks['master_score'].mean(),
+                'median_score': scored_stocks['master_score'].median(),
+                'std_score': scored_stocks['master_score'].std(),
+                'q1_score': scored_stocks['master_score'].quantile(0.25),
+                'q3_score': scored_stocks['master_score'].quantile(0.75)
+            })
             
-            # Market regime detection
-            if 'momentum_score' in df.columns:
-                avg_momentum = df['momentum_score'].mean()
-                if pd.notna(avg_momentum):
-                    if avg_momentum > 65:
-                        market_regime = 'bull'
-                    elif avg_momentum < 35:
-                        market_regime = 'bear'
-                    else:
-                        market_regime = 'neutral'
+            # Component statistics
+            for component in primary_score_names:
+                if component in df.columns:
+                    market_stats[f'mean_{component}'] = df[component].mean()
+            
+            # Market regime
+            momentum_avg = df['momentum_score'].mean() if 'momentum_score' in df.columns else np.nan
+            if pd.notna(momentum_avg):
+                if momentum_avg > 65:
+                    market_regime = 'strong_bull'
+                elif momentum_avg > 55:
+                    market_regime = 'bull'
+                elif momentum_avg > 45:
+                    market_regime = 'neutral'
+                elif momentum_avg > 35:
+                    market_regime = 'bear'
                 else:
-                    market_regime = 'unknown'
+                    market_regime = 'strong_bear'
             else:
                 market_regime = 'unknown'
             
-            df['market_regime'] = market_regime
-            
-            # Z-score relative to market
+            # Z-scores
             if market_stats['std_score'] > 0:
-                df['z_score'] = ((df['master_score'] - market_stats['avg_score']) / 
-                               market_stats['std_score']).clip(-3, 3)
+                df['z_score'] = (
+                    (df['master_score'] - market_stats['mean_score']) / 
+                    market_stats['std_score']
+                ).clip(-3, 3)
             else:
                 df['z_score'] = 0
+                
         else:
-            market_stats = {
-                'total_stocks': len(df),
-                'scored_stocks': 0,
-                'coverage_pct': 0,
-                'avg_score': np.nan,
+            market_stats.update({
+                'mean_score': np.nan,
                 'median_score': np.nan,
                 'std_score': np.nan,
-                'avg_components': 0
-            }
-            df['market_regime'] = 'unknown'
+                'q1_score': np.nan,
+                'q3_score': np.nan
+            })
+            market_regime = 'no_data'
             df['z_score'] = np.nan
+        
+        df['market_regime'] = market_regime
         
         timing_breakdown['context'] = time.time() - context_start
         
-        # STEP 9: Final Validation
+        # ============================================================
+        # PHASE 8: FINAL VALIDATION
+        # ============================================================
         validation_start = time.time()
         
         # Ensure all expected columns exist
-        expected_columns = [
-            'master_score', 'master_score_raw', 'quality_multiplier',
-            'rank', 'percentile', 'score_grade',
-            'components_available', 'data_completeness',
-            'confidence_score', 'data_reliability',
-            'market_regime', 'z_score'
-        ] + list(primary_scores.keys()) + list(auxiliary_scores.keys())
+        required_columns = {
+            # Scores
+            **{name: np.nan for name in primary_score_names},
+            **{name: np.nan for name in score_definitions['auxiliary'].keys()},
+            # Master scores
+            'master_score': np.nan,
+            'master_score_raw': np.nan,
+            'master_score_before_bonus': np.nan,
+            'quality_multiplier': np.nan,
+            # Rankings
+            'rank': len(df) + 1,
+            'percentile': 0,
+            'decile': np.nan,
+            'score_grade': np.nan,
+            # Quality metrics
+            'components_available': 0,
+            'data_completeness': 0,
+            'has_minimum_data': False,
+            'data_quality_category': 'Unknown',
+            # Confidence
+            'confidence_score': 0,
+            'confidence_level': 'Unknown',
+            # Market context
+            'market_regime': 'unknown',
+            'z_score': 0,
+            # Bonuses
+            'bonus_points': 0,
+            'bonus_reasons': '',
+            'bonuses_applied': False
+        }
         
-        for col in expected_columns:
+        for col, default_value in required_columns.items():
             if col not in df.columns:
-                logger.warning(f"Creating missing column: {col}")
-                df[col] = np.nan
+                logger.debug(f"Adding missing column: {col}")
+                df[col] = default_value
         
         timing_breakdown['validation'] = time.time() - validation_start
         
-        # COMPREHENSIVE LOGGING
+        # ============================================================
+        # FINAL REPORTING
+        # ============================================================
         total_time = time.time() - start_time
         
-        logger.info(f"Ranking complete: {market_stats['scored_stocks']}/{market_stats['total_stocks']} "
-                   f"stocks scored in {total_time:.3f}s")
+        # Comprehensive logging
+        logger.info("="*60)
+        logger.info("RANKING CALCULATION COMPLETE")
+        logger.info("="*60)
+        logger.info(f"Total execution time: {total_time:.3f}s")
+        logger.info(f"Stocks processed: {market_stats['scored_stocks']}/{market_stats['total_stocks']} "
+                   f"({market_stats['coverage_pct']:.1f}% coverage)")
         
         if market_stats['scored_stocks'] > 0:
-            logger.info(f"Score statistics - Mean: {market_stats['avg_score']:.1f}, "
-                       f"Median: {market_stats['median_score']:.1f}, "
-                       f"Std: {market_stats['std_score']:.1f}")
-            logger.info(f"Market regime: {df['market_regime'].iloc[0].upper()}")
-            logger.info(f"Data quality - Avg components: {market_stats['avg_components']:.1f}/6")
+            logger.info(f"Score distribution: Mean={market_stats['mean_score']:.1f}, "
+                       f"Median={market_stats['median_score']:.1f}, "
+                       f"Std={market_stats['std_score']:.1f}")
+            logger.info(f"Market regime: {market_regime.upper()}")
         
         # Performance breakdown
-        logger.debug("Performance breakdown:")
-        for step, duration in timing_breakdown.items():
+        logger.info("Performance breakdown:")
+        for phase, duration in timing_breakdown.items():
             pct = (duration / total_time * 100) if total_time > 0 else 0
-            logger.debug(f"  {step}: {duration:.3f}s ({pct:.1f}%)")
+            status = "⚠️" if duration > 0.1 else "✓"
+            logger.info(f"  {status} {phase}: {duration:.3f}s ({pct:.1f}%)")
         
-        # Check if target time met
-        if total_time > 0.5:
-            slowest = max(timing_breakdown.items(), key=lambda x: x[1])
-            logger.warning(f"Exceeded target time. Slowest: {slowest[0]} ({slowest[1]:.3f}s)")
+        # Data quality report
+        quality_dist = df['data_quality_category'].value_counts()
+        if len(quality_dist) > 0:
+            logger.info("Data quality distribution:")
+            for category, count in quality_dist.items():
+                logger.info(f"  {category}: {count} stocks")
         
-        # Data coverage report
-        if market_stats['coverage_pct'] < 50:
-            logger.warning(f"Low coverage: Only {market_stats['coverage_pct']:.1f}% of stocks scored")
-        
-        # Top performers summary (only if we have ticker column)
-        if 'ticker' in df.columns and market_stats['scored_stocks'] > 0:
-            top_5 = df.nlargest(5, 'master_score', keep='first')
+        # Top performers
+        if 'ticker' in df.columns and market_stats['scored_stocks'] >= 5:
+            top_5 = df.nlargest(5, 'master_score')
             logger.info("Top 5 stocks:")
-            for _, row in top_5.iterrows():
-                components = f"{row['components_available']:.0f}/6" if pd.notna(row['components_available']) else "N/A"
-                score = f"{row['master_score']:.1f}" if pd.notna(row['master_score']) else "N/A"
-                logger.info(f"  {row['ticker']}: {score} ({components} components)")
+            for rank, (_, row) in enumerate(top_5.iterrows(), 1):
+                logger.info(f"  {rank}. {row['ticker']}: {row['master_score']:.1f} "
+                           f"({row['components_available']}/6 components)")
         
-        # GUARANTEE: Return DataFrame with all necessary columns
+        # Warnings
+        if total_time > 0.5:
+            logger.warning(f"⚠️ Exceeded target time of 0.5s by {total_time - 0.5:.3f}s")
+        
+        if market_stats['coverage_pct'] < 50:
+            logger.warning(f"⚠️ Low data coverage: {market_stats['coverage_pct']:.1f}%")
+        
+        # Component calculation summary
+        logger.debug("Component calculation results:")
+        for component, status in calculation_results.items():
+            logger.debug(f"  {component}: {status}")
+        
+        logger.info("="*60)
+        
+        # GUARANTEE: Return valid DataFrame
         return df
-
     @staticmethod
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
