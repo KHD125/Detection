@@ -9685,17 +9685,37 @@ def main():
         # Market State filters with callbacks
         st.markdown("#### 📈 Market State Filters")
         
-        # Get current market state options from data
-        market_state_options = FilterEngine.get_filter_options(ranked_df_display, 'market_state', filters)
+        # Define the 8 specific market states for custom selection
+        custom_market_states = [
+            "BOUNCE",
+            "DOWNTREND", 
+            "PULLBACK",
+            "ROTATION",
+            "SIDEWAYS",
+            "STRONG_DOWNTREND",
+            "STRONG_UPTREND",
+            "UPTREND"
+        ]
         
         # Add filter presets and custom range option
         preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡️ DEFENSIVE", "🌍 ALL"]
-        market_state_with_presets = preset_options + ["📊 Custom Selection"] + market_state_options
+        
+        # Check if custom selection is active
+        current_states = st.session_state.filter_state.get('market_states', [])
+        custom_selection_active = "📊 Custom Selection" in current_states
+        
+        if custom_selection_active:
+            # Show custom market states when custom selection is active
+            market_state_with_presets = preset_options + ["📊 Custom Selection"] + custom_market_states
+        else:
+            # Get current market state options from data for regular mode
+            market_state_options = FilterEngine.get_filter_options(ranked_df_display, 'market_state', filters)
+            market_state_with_presets = preset_options + ["📊 Custom Selection"] + market_state_options
         
         selected_market_states = st.multiselect(
             "Market State",
             options=market_state_with_presets,
-            default=st.session_state.filter_state.get('market_states', []),
+            default=current_states,
             placeholder="Select market states or use preset strategy",
             help="Filter by market momentum state. Use presets for different trading strategies or select individual states",
             key="market_states_multiselect",
