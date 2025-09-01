@@ -2407,206 +2407,213 @@ class RankingEngine:
     @staticmethod
     def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate momentum acceleration using fully vectorized operations.
-        FIXED: No default values, no loops, clear scoring logic.
+        Calculate momentum acceleration using proper rate of change analysis.
+        FIXED: Correct math, no division issues, clear scoring logic.
         
         Core Concept:
-        - Acceleration = Rate of change of momentum
-        - Compares returns across multiple timeframes
-        - Identifies accelerating vs decelerating momentum
-        - All calculations vectorized for performance
+        - Acceleration = Change in momentum over time
+        - Compare recent vs historical momentum rates
+        - Use log returns for proper compounding
+        - Smooth transitions, no arbitrary bins
         
-        Score Interpretation:
-        - 80-100: Strong acceleration (momentum building rapidly)
+        Method:
+        - Calculate momentum over different periods
+        - Compare short vs long momentum slopes
+        - Score based on momentum improvement/deterioration
+        
+        Score Range:
+        - 80-100: Strong positive acceleration (momentum building rapidly)
         - 60-80: Moderate acceleration (steady improvement)
         - 40-60: Neutral (constant momentum)
-        - 20-40: Deceleration (momentum slowing)
+        - 20-40: Deceleration (momentum fading)
         - 0-20: Strong deceleration (momentum collapsing)
-        - NaN: Insufficient data (no fake scores!)
         """
-        # CRITICAL: Initialize with NaN, not 50!
+        # Initialize with NaN
         acceleration_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Check data availability
-        return_cols = ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m']
-        available_cols = [col for col in return_cols if col in df.columns]
+        # Check minimum required columns
+        required_cols = ['ret_1d', 'ret_7d', 'ret_30d']
+        available_cols = [col for col in required_cols if col in df.columns]
         
-        # Need at least 2 return periods for acceleration
         if len(available_cols) < 2:
-            logger.warning(f"Insufficient return data for acceleration ({len(available_cols)} cols)")
-            return acceleration_score  # Return NaN, NOT 50!
+            logger.warning(f"Insufficient data for acceleration: only {len(available_cols)} return columns")
+            return acceleration_score
         
-        # VECTORIZED CALCULATION - No loops!
+        # METHOD 1: Momentum Slope Comparison
+        # Calculate momentum at different time points and compare slopes
         
-        # Calculate daily-equivalent rates for all stocks at once
-        daily_rates = pd.DataFrame(index=df.index)
+        momentum_scores = pd.DataFrame(index=df.index)
         
-        if 'ret_1d' in df.columns:
-            daily_rates['rate_1d'] = df['ret_1d']
-        
-        if 'ret_3d' in df.columns:
-            daily_rates['rate_3d'] = df['ret_3d'] / 3
-        
+        # Current momentum (most recent)
         if 'ret_7d' in df.columns:
-            daily_rates['rate_7d'] = df['ret_7d'] / 7
+            # Weekly momentum as baseline
+            momentum_scores['current'] = df['ret_7d']
         
+        # Historical momentum (for comparison)
         if 'ret_30d' in df.columns:
-            daily_rates['rate_30d'] = df['ret_30d'] / 30
+            # Monthly momentum
+            momentum_scores['historical'] = df['ret_30d']
         
-        if 'ret_3m' in df.columns:
-            daily_rates['rate_90d'] = df['ret_3m'] / 90
+        # Very short-term momentum
+        if 'ret_1d' in df.columns:
+            momentum_scores['immediate'] = df['ret_1d']
         
-        if 'ret_6m' in df.columns:
-            daily_rates['rate_180d'] = df['ret_6m'] / 180
+        # Calculate acceleration as momentum improvement
+        valid_data = pd.Series(False, index=df.index)
         
-        # Calculate acceleration ratios (all vectorized)
-        accel_components = pd.DataFrame(index=df.index)
-        
-        # Short-term acceleration (1d vs 7d)
-        if 'rate_1d' in daily_rates.columns and 'rate_7d' in daily_rates.columns:
-            # Avoid division by zero with small epsilon
-            denominator = daily_rates['rate_7d'].replace(0, 0.001)
-            accel_components['short'] = daily_rates['rate_1d'] / denominator
-        
-        # Medium-term acceleration (7d vs 30d)
-        if 'rate_7d' in daily_rates.columns and 'rate_30d' in daily_rates.columns:
-            denominator = daily_rates['rate_30d'].replace(0, 0.001)
-            accel_components['medium'] = daily_rates['rate_7d'] / denominator
-        
-        # Long-term acceleration (30d vs 90d)
-        if 'rate_30d' in daily_rates.columns and 'rate_90d' in daily_rates.columns:
-            denominator = daily_rates['rate_90d'].replace(0, 0.001)
-            accel_components['long'] = daily_rates['rate_30d'] / denominator
-        
-        # Very short acceleration (1d vs 3d) for sensitivity
-        if 'rate_1d' in daily_rates.columns and 'rate_3d' in daily_rates.columns:
-            denominator = daily_rates['rate_3d'].replace(0, 0.001)
-            accel_components['very_short'] = daily_rates['rate_1d'] / denominator
-        
-        # Calculate weighted acceleration (VECTORIZED)
-        if not accel_components.empty:
-            # Define weights based on importance
-            weights = {
-                'very_short': 0.15,
-                'short': 0.35,
-                'medium': 0.30,
-                'long': 0.20
-            }
-            
-            # Calculate weighted average for each stock
-            weighted_accel = pd.Series(0, index=df.index, dtype=float)
-            total_weight = pd.Series(0, index=df.index, dtype=float)
-            
-            for component, weight in weights.items():
-                if component in accel_components.columns:
-                    valid = accel_components[component].notna()
-                    weighted_accel[valid] += accel_components[component][valid] * weight
-                    total_weight[valid] += weight
-            
-            # Normalize by actual weights
-            has_data = total_weight > 0
-            if has_data.any():
-                weighted_accel[has_data] = weighted_accel[has_data] / total_weight[has_data]
-                
-                # CLEAR SCORING LOGIC (no complex exponentials)
-                # Ratio interpretation:
-                # > 2.0 = Extreme acceleration
-                # 1.5-2.0 = Strong acceleration
-                # 1.2-1.5 = Moderate acceleration
-                # 0.8-1.2 = Neutral/steady
-                # 0.5-0.8 = Deceleration
-                # < 0.5 = Strong deceleration
-                
-                acceleration_score[has_data] = pd.cut(
-                    weighted_accel[has_data],
-                    bins=[-np.inf, 0.3, 0.5, 0.8, 1.0, 1.2, 1.5, 2.0, np.inf],
-                    labels=[10, 20, 35, 50, 65, 75, 85, 95]
-                ).astype(float)
-        
-        # CONSISTENCY BONUS (Vectorized)
-        # Reward consistent acceleration across timeframes
-        if len(accel_components.columns) >= 2:
-            # Calculate standard deviation of acceleration ratios
-            accel_std = accel_components.std(axis=1)
-            accel_mean = accel_components.mean(axis=1)
-            
-            # Low std relative to mean = consistent
-            valid = accel_std.notna() & accel_mean.notna() & (accel_mean > 0)
-            if valid.any():
-                cv = accel_std[valid] / accel_mean[valid]
-                
-                # Add consistency bonus (max 10 points)
-                consistency_bonus = pd.Series(0, index=df.index)
-                consistency_bonus[valid] = np.where(
-                    cv < 0.2, 10,  # Very consistent
-                    np.where(cv < 0.4, 5, 0)  # Somewhat consistent
-                )
-                
-                acceleration_score[valid] += consistency_bonus[valid]
-        
-        # MOMENTUM DIRECTION ADJUSTMENT (Vectorized)
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-            ret_1d = df['ret_1d']
+        # Primary calculation: 7d vs 30d momentum
+        if 'ret_7d' in df.columns and 'ret_30d' in df.columns:
             ret_7d = df['ret_7d']
             ret_30d = df['ret_30d']
             
-            # All positive and accelerating = boost
-            all_positive = (ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0)
-            accelerating = (ret_1d > ret_7d/7) & (ret_7d/7 > ret_30d/30)
+            valid = ret_7d.notna() & ret_30d.notna()
+            valid_data |= valid
             
-            boost_mask = all_positive & accelerating & acceleration_score.notna()
-            if boost_mask.any():
-                acceleration_score[boost_mask] = np.minimum(
-                    acceleration_score[boost_mask] * 1.1, 
-                    100
-                )
-            
-            # All negative and worsening = penalty
-            all_negative = (ret_1d < 0) & (ret_7d < 0) & (ret_30d < 0)
-            worsening = (ret_1d < ret_7d/7) & (ret_7d/7 < ret_30d/30)
-            
-            penalty_mask = all_negative & worsening & acceleration_score.notna()
-            if penalty_mask.any():
-                acceleration_score[penalty_mask] *= 0.8
+            if valid.any():
+                # Calculate average daily momentum for each period
+                # Use compound rate for accuracy: (1 + r)^(1/n) - 1
+                
+                # Safe calculation avoiding negative final values
+                safe_7d = np.where(ret_7d > -99, ret_7d, -99)
+                safe_30d = np.where(ret_30d > -99, ret_30d, -99)
+                
+                # Daily equivalent rates
+                daily_7d = np.sign(safe_7d) * (np.abs(1 + safe_7d/100) ** (1/7) - 1) * 100
+                daily_30d = np.sign(safe_30d) * (np.abs(1 + safe_30d/100) ** (1/30) - 1) * 100
+                
+                # Acceleration factor: recent momentum vs historical
+                # Positive = accelerating, Negative = decelerating
+                momentum_change = daily_7d - daily_30d
+                
+                # Convert to 0-100 score using sigmoid-like function
+                # Center at 0 (no acceleration) = 50 score
+                # Use tanh for smooth transitions
+                acceleration_score[valid] = 50 + 30 * np.tanh(momentum_change[valid] / 5)
         
-        # MARKET CAP ADJUSTMENT (Vectorized)
-        if 'category' in df.columns and acceleration_score.notna().any():
-            # Small caps: More volatile, normalize scores
-            is_small = df['category'].isin(['Micro Cap', 'Small Cap'])
-            small_mask = is_small & acceleration_score.notna()
+        # Enhanced calculation with 1-day data
+        if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
+            ret_1d = df['ret_1d']
+            ret_7d = df['ret_7d']
             
-            if small_mask.any():
-                # Reduce extreme scores for small caps
-                acceleration_score[small_mask] = 50 + (acceleration_score[small_mask] - 50) * 0.7
+            valid_short = ret_1d.notna() & ret_7d.notna()
             
-            # Large caps: Acceleration more significant
-            is_large = df['category'].isin(['Large Cap', 'Mega Cap'])
-            large_mask = is_large & acceleration_score.notna() & (acceleration_score > 70)
-            
-            if large_mask.any():
-                acceleration_score[large_mask] = np.minimum(
-                    acceleration_score[large_mask] * 1.05,
-                    100
-                )
+            if valid_short.any():
+                # Very short-term acceleration
+                daily_7d_rate = np.sign(ret_7d) * (np.abs(1 + ret_7d/100) ** (1/7) - 1) * 100
+                
+                # Compare today vs weekly average
+                short_acceleration = ret_1d - daily_7d_rate
+                
+                # Blend with main score if available
+                if acceleration_score.notna().any():
+                    valid_blend = valid_short & acceleration_score.notna()
+                    # 70% weight on primary, 30% on short-term
+                    acceleration_score[valid_blend] = (
+                        acceleration_score[valid_blend] * 0.7 +
+                        (50 + 30 * np.tanh(short_acceleration[valid_blend] / 3)) * 0.3
+                    )
+                else:
+                    # Use short-term as primary if no other data
+                    acceleration_score[valid_short] = 50 + 30 * np.tanh(short_acceleration[valid_short] / 3)
+                    valid_data |= valid_short
         
-        # VOLUME CONFIRMATION (Vectorized)
+        # METHOD 2: Momentum Consistency Bonus
+        # Reward consistent acceleration across timeframes
+        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+            ret_1d = df['ret_1d']
+            ret_7d = df['ret_7d']  
+            ret_30d = df['ret_30d']
+            
+            valid_all = ret_1d.notna() & ret_7d.notna() & ret_30d.notna() & acceleration_score.notna()
+            
+            if valid_all.any():
+                # Check for consistent improvement pattern
+                # Each period better than the longer one (normalized)
+                improving = (
+                    (ret_1d > ret_7d / 7) & 
+                    (ret_7d / 7 > ret_30d / 30) &
+                    (ret_1d > 0)
+                )
+                
+                # Add bonus for consistent acceleration
+                consistent_accel = valid_all & improving
+                if consistent_accel.any():
+                    acceleration_score[consistent_accel] = np.minimum(
+                        acceleration_score[consistent_accel] + 10,
+                        95
+                    )
+                
+                # Penalty for consistent deceleration
+                declining = (
+                    (ret_1d < ret_7d / 7) & 
+                    (ret_7d / 7 < ret_30d / 30) &
+                    (ret_1d < 0)
+                )
+                
+                consistent_decel = valid_all & declining
+                if consistent_decel.any():
+                    acceleration_score[consistent_decel] = np.maximum(
+                        acceleration_score[consistent_decel] - 10,
+                        5
+                    )
+        
+        # CONTEXT ADJUSTMENTS
+        
+        # Volume confirmation
         if 'rvol' in df.columns and acceleration_score.notna().any():
             rvol = df['rvol']
             
             # Strong acceleration needs volume
-            strong_accel = acceleration_score > 70
-            low_volume = rvol < 0.8
+            strong_accel = (acceleration_score > 70) & rvol.notna()
             
-            suspect_mask = strong_accel & low_volume & acceleration_score.notna()
-            if suspect_mask.any():
-                acceleration_score[suspect_mask] *= 0.85
-                logger.debug(f"Applied low volume penalty to {suspect_mask.sum()} accelerating stocks")
+            # With volume = confirmed
+            with_volume = strong_accel & (rvol > 1.5)
+            if with_volume.any():
+                acceleration_score[with_volume] = np.minimum(
+                    acceleration_score[with_volume] * 1.05,
+                    100
+                )
+            
+            # Without volume = suspicious
+            no_volume = strong_accel & (rvol < 0.8)
+            if no_volume.any():
+                acceleration_score[no_volume] *= 0.90
+        
+        # Market cap adjustment
+        if 'category' in df.columns and acceleration_score.notna().any():
+            category = df['category']
+            
+            # Small caps: More volatile, normalize extremes
+            is_small = category.isin(['Micro Cap', 'Small Cap'])
+            small_mask = is_small & acceleration_score.notna()
+            
+            if small_mask.any():
+                # Pull extremes toward center
+                acceleration_score[small_mask] = 50 + (acceleration_score[small_mask] - 50) * 0.8
+            
+            # Large caps: Acceleration more significant
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_accel = is_large & (acceleration_score > 65) & acceleration_score.notna()
+            
+            if large_accel.any():
+                acceleration_score[large_accel] = np.minimum(
+                    acceleration_score[large_accel] * 1.05,
+                    100
+                )
+        
+        # Handle edge cases
+        # Extreme positive returns might break calculations
+        if 'ret_30d' in df.columns:
+            extreme_returns = (df['ret_30d'] > 200) & acceleration_score.notna()
+            if extreme_returns.any():
+                # Cap acceleration score for extreme movers
+                acceleration_score[extreme_returns] = np.minimum(
+                    acceleration_score[extreme_returns],
+                    85
+                )
         
         # Final clipping
         acceleration_score = acceleration_score.clip(0, 100)
-        
-        # DO NOT FILL NaN!
-        # Stocks without sufficient data remain NaN
         
         # COMPREHENSIVE LOGGING
         valid_scores = acceleration_score.notna().sum()
@@ -2624,13 +2631,18 @@ class RankingEngine:
             strong_accel = (acceleration_score > 80).sum()
             moderate_accel = ((acceleration_score > 60) & (acceleration_score <= 80)).sum()
             neutral = ((acceleration_score >= 40) & (acceleration_score <= 60)).sum()
-            decel = ((acceleration_score >= 20) & (acceleration_score < 40)).sum()
+            moderate_decel = ((acceleration_score >= 20) & (acceleration_score < 40)).sum()
             strong_decel = (acceleration_score < 20).sum()
             
-            logger.debug(f"Breakdown: Strong Accel={strong_accel}, Moderate={moderate_accel}, "
-                        f"Neutral={neutral}, Decel={decel}, Strong Decel={strong_decel}")
-        else:
-            logger.warning("No valid acceleration scores calculated")
+            logger.debug(f"Acceleration breakdown: Strong Accel={strong_accel}, "
+                        f"Moderate Accel={moderate_accel}, Neutral={neutral}, "
+                        f"Moderate Decel={moderate_decel}, Strong Decel={strong_decel}")
+            
+            # Check for market-wide acceleration
+            if score_dist.mean() > 65:
+                logger.info("Market-wide positive acceleration detected")
+            elif score_dist.mean() < 35:
+                logger.warning("Market-wide deceleration detected")
         
         return acceleration_score
         
