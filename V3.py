@@ -1529,34 +1529,33 @@ class RankingEngine:
     @staticmethod
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate position score based on 52-week range placement.
-        FIXED: No NaN filling, clear logic, justified calculations.
+        Calculate position score based on actual market dynamics.
+        FIXED: No arbitrary sweet spots, clear breakout/reversal logic.
         
         Core Philosophy:
-        - Position shows where stock sits in its yearly journey
-        - No arbitrary sweet spots - let data speak
-        - Risk-reward based on actual range, not assumptions
-        - Never replace missing data with fake values
+        - Extremes matter, middle doesn't
+        - Near 52w high = Breakout potential (momentum play)
+        - Near 52w low = Reversal potential (value play)
+        - Middle range = Dead zone (no edge)
         
-        Components:
-        - 50% Range position (linear, no arbitrary curves)
-        - 30% Risk-reward ratio (actual upside vs downside)
-        - 20% Momentum context (is position improving/declining)
+        Scoring Strategy:
+        - This implementation favors MOMENTUM (high position = high score)
+        - For value strategy, simply invert the final score
         
         Score Range:
-        - 80-100: Near 52w high or above (breakout zone)
-        - 60-80: Upper third of range (strength zone)
-        - 40-60: Middle third (neutral zone)
-        - 20-40: Lower third (weakness zone)
-        - 0-20: Near 52w low (danger/opportunity zone)
+        - 85-100: Breaking out or above 52w high
+        - 70-85: Near 52w high (strength zone)
+        - 30-70: Middle range (neutral/dead zone)
+        - 15-30: Near 52w low (weakness)
+        - 0-15: At/below 52w low (extreme weakness)
         """
-        # CRITICAL: Initialize with NaN, never fill with defaults!
+        # Initialize with NaN
         position_score = pd.Series(np.nan, index=df.index, dtype=float)
         
         # Check required data
         if 'from_low_pct' not in df.columns or 'from_high_pct' not in df.columns:
             logger.warning("Missing position data (from_low_pct/from_high_pct)")
-            return position_score  # Return NaN, NOT 40!
+            return position_score
         
         from_low = df['from_low_pct']
         from_high = df['from_high_pct']
@@ -1568,222 +1567,200 @@ class RankingEngine:
             logger.warning("No valid position data available")
             return position_score
         
-        # COMPONENT 1: RANGE POSITION (50% weight)
-        # Simple, clear, no arbitrary sweet spots
-        range_position = pd.Series(np.nan, index=df.index, dtype=float)
+        # CORE CALCULATION: Simple position in range
+        # This is the true position (0-100% of 52w range)
+        position_in_range = pd.Series(np.nan, index=df.index)
         
         # For stocks below 52w high (normal case)
         below_high = valid_mask & (from_high <= 0)
         if below_high.any():
-            # Simple linear scoring based on position in range
-            # from_low directly represents position (0-100%)
-            range_position[below_high] = from_low[below_high].clip(0, 100)
+            # Direct position calculation
+            position_in_range[below_high] = from_low[below_high].clip(0, 100)
         
         # For stocks above 52w high (breakout)
         above_high = valid_mask & (from_high > 0)
         if above_high.any():
-            # Above high is good but with diminishing returns
-            # 0-5% above = 80-90
-            # 5-10% above = 90-95
-            # >10% above = 95-100 (capped)
-            range_position[above_high] = np.where(
-                from_high[above_high] <= 5,
-                80 + from_high[above_high] * 2,  # 0-5% → 80-90
-                np.where(
-                    from_high[above_high] <= 10,
-                    90 + (from_high[above_high] - 5),  # 5-10% → 90-95
-                    np.minimum(100, 95 + (from_high[above_high] - 10) * 0.1)  # >10% → 95-100
-                )
-            )
+            # Above high = 100+ (can go to 110 for 10% above high)
+            position_in_range[above_high] = 100 + from_high[above_high].clip(0, 20)
         
-        # COMPONENT 2: RISK-REWARD RATIO (30% weight)
-        rr_component = pd.Series(np.nan, index=df.index, dtype=float)
+        # SCORING PHILOSOPHY: Favor extremes, penalize middle
+        # Research shows stocks at extremes have edge, middle range doesn't
         
-        # Calculate actual risk and reward
-        below_high_mask = valid_mask & (from_high <= 0)
-        if below_high_mask.any():
-            # Upside = distance to high (potential gain)
-            upside = -from_high[below_high_mask]  # Make positive
-            
-            # Downside = distance to low (potential loss)
-            downside = from_low[below_high_mask]
-            
-            # Calculate ratio (handle edge cases)
-            # No arbitrary 5% minimum - use actual values
-            rr_ratio = pd.Series(np.nan, index=df.index)
-            
-            # When near bottom (downside < 10%), focus on upside potential
-            near_bottom = below_high_mask & (downside < 10)
-            if near_bottom.any():
-                # Large upside with small downside = excellent
-                rr_ratio[near_bottom] = upside[near_bottom] / 10  # Normalized
-            
-            # Normal cases
-            normal_case = below_high_mask & (downside >= 10)
-            if normal_case.any():
-                rr_ratio[normal_case] = upside[normal_case] / downside[normal_case]
-            
-            # Convert ratio to score
-            # RR > 3 = 90-100
-            # RR 2-3 = 75-90
-            # RR 1-2 = 50-75
-            # RR 0.5-1 = 30-50
-            # RR < 0.5 = 0-30
-            valid_rr = rr_ratio.notna()
-            if valid_rr.any():
-                rr_component[valid_rr] = np.where(
-                    rr_ratio[valid_rr] > 3,
-                    90 + np.minimum(10, (rr_ratio[valid_rr] - 3) * 2),
-                    np.where(
-                        rr_ratio[valid_rr] > 2,
-                        75 + (rr_ratio[valid_rr] - 2) * 15,
-                        np.where(
-                            rr_ratio[valid_rr] > 1,
-                            50 + (rr_ratio[valid_rr] - 1) * 25,
-                            np.where(
-                                rr_ratio[valid_rr] > 0.5,
-                                30 + (rr_ratio[valid_rr] - 0.5) * 40,
-                                rr_ratio[valid_rr] * 60  # 0-0.5 → 0-30
-                            )
-                        )
-                    )
-                )
-        
-        # For stocks above high (already broken out)
-        above_high_mask = valid_mask & (from_high > 0)
-        if above_high_mask.any():
-            # Risk increases as we go higher above high
-            # But still has value if momentum continues
-            rr_component[above_high_mask] = np.where(
-                from_high[above_high_mask] <= 10,
-                60 - from_high[above_high_mask] * 2,  # 0-10% above → 60-40
-                np.maximum(20, 40 - (from_high[above_high_mask] - 10) * 0.5)  # >10% → 40-20
-            )
-        
-        # COMPONENT 3: MOMENTUM CONTEXT (20% weight)
-        # Is position improving or deteriorating?
-        momentum_context = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if 'ret_30d' in df.columns and 'ret_7d' in df.columns:
-            ret_30d = df['ret_30d']
-            ret_7d = df['ret_7d']
-            
-            valid_momentum = valid_mask & ret_30d.notna() & ret_7d.notna()
-            
-            if valid_momentum.any():
-                # Position improving (moving up in range)
-                improving = valid_momentum & (ret_30d > 5) & (ret_7d > 0)
-                momentum_context[improving] = 70
+        if valid_mask.any():
+            # Non-linear scoring that emphasizes extremes
+            for idx in df[valid_mask].index:
+                pos = position_in_range[idx]
                 
-                # Position steady
-                steady = valid_momentum & (ret_30d.abs() <= 5)
-                momentum_context[steady] = 50
-                
-                # Position deteriorating
-                deteriorating = valid_momentum & (ret_30d < -5) & (ret_7d < 0)
-                momentum_context[deteriorating] = 30
-                
-                # Special: Recovery from lows
-                recovery = valid_momentum & (from_low < 30) & (ret_7d > 5)
-                momentum_context[recovery] = 80
-                
-                # Special: Topping pattern
-                topping = valid_momentum & (from_high > -10) & (ret_7d < -5)
-                momentum_context[topping] = 20
-        
-        # COMBINE COMPONENTS (Vectorized)
-        components = [
-            (range_position, 0.50),
-            (rr_component, 0.30),
-            (momentum_context, 0.20)
-        ]
-        
-        # Calculate weighted average
-        for idx in df.index:
-            valid_components = []
-            valid_weights = []
-            
-            for component, weight in components:
-                if pd.notna(component[idx]):
-                    valid_components.append(component[idx])
-                    valid_weights.append(weight)
-            
-            if valid_components:
-                total_weight = sum(valid_weights)
-                if total_weight > 0:
-                    normalized_weights = [w/total_weight for w in valid_weights]
-                    position_score[idx] = sum(c * w for c, w in zip(valid_components, normalized_weights))
-        
-        # CONTEXT ADJUSTMENTS (Vectorized)
-        
-        # Market regime adjustment
-        if position_score.notna().any():
-            # Calculate market average position
-            market_avg_position = from_low[valid_mask].median()
-            
-            if pd.notna(market_avg_position):
-                if market_avg_position < 30:
-                    # Bear market: Being high in range is more impressive
-                    high_in_bear = valid_mask & (from_low > 70) & position_score.notna()
-                    if high_in_bear.any():
-                        position_score[high_in_bear] = np.minimum(
-                            position_score[high_in_bear] * 1.1,
-                            100
-                        )
-                    logger.info(f"Bear market context (avg position: {market_avg_position:.1f}%)")
+                if pd.isna(pos):
+                    continue
                     
-                elif market_avg_position > 70:
-                    # Bull market: Being low is more concerning
-                    low_in_bull = valid_mask & (from_low < 30) & position_score.notna()
-                    if low_in_bull.any():
-                        position_score[low_in_bull] *= 0.9
-                    logger.info(f"Bull market context (avg position: {market_avg_position:.1f}%)")
+                # BREAKOUT ZONE (>90%): High scores
+                if pos >= 90:
+                    if pos > 100:  # Above 52w high
+                        # Diminishing returns above high
+                        position_score[idx] = 90 + np.minimum(10, (pos - 100) * 0.5)
+                    else:  # 90-100%
+                        position_score[idx] = 80 + (pos - 90) * 1.0
+                
+                # STRENGTH ZONE (70-90%): Good scores
+                elif pos >= 70:
+                    position_score[idx] = 60 + (pos - 70) * 1.0
+                
+                # DEAD ZONE (30-70%): Reduced scores
+                # This is where your "sweet spot" was, but it's actually dead money
+                elif pos >= 30:
+                    position_score[idx] = 30 + (pos - 30) * 0.75  # Compressed scoring
+                
+                # VALUE ZONE (10-30%): Lower scores (but valuable for mean reversion)
+                elif pos >= 10:
+                    position_score[idx] = 15 + (pos - 10) * 0.75
+                
+                # EXTREME LOW (<10%): Minimum scores
+                else:
+                    position_score[idx] = pos * 1.5
         
-        # Volume confirmation for breakouts
-        if 'rvol' in df.columns and position_score.notna().any():
-            rvol = df['rvol']
+        # CONTEXT ADJUSTMENTS
+        
+        # 1. MOMENTUM CONFIRMATION
+        # High position needs momentum to confirm
+        if 'ret_30d' in df.columns and position_score.notna().any():
+            ret_30d = df['ret_30d']
             
-            # Near highs with volume = confirmed strength
-            near_high = (from_high > -10) & (from_high <= 5)
-            high_volume = rvol > 1.5
-            
-            confirmed = near_high & high_volume & position_score.notna()
-            if confirmed.any():
-                position_score[confirmed] = np.minimum(
-                    position_score[confirmed] * 1.05,
+            # Breakout with momentum = confirmed
+            breakout_confirmed = (
+                (position_in_range > 85) & 
+                (ret_30d > 10) & 
+                position_score.notna()
+            )
+            if breakout_confirmed.any():
+                position_score[breakout_confirmed] = np.minimum(
+                    position_score[breakout_confirmed] * 1.1,
                     100
                 )
             
-            # Near highs without volume = weak
-            low_volume = rvol < 0.8
-            weak = near_high & low_volume & position_score.notna()
-            if weak.any():
-                position_score[weak] *= 0.95
+            # High position but negative momentum = false breakout
+            false_breakout = (
+                (position_in_range > 85) & 
+                (ret_30d < -5) & 
+                position_score.notna()
+            )
+            if false_breakout.any():
+                position_score[false_breakout] *= 0.8
+            
+            # Low position with positive momentum = potential reversal
+            reversal_starting = (
+                (position_in_range < 20) & 
+                (ret_30d > 5) & 
+                position_score.notna()
+            )
+            if reversal_starting.any():
+                position_score[reversal_starting] += 10
         
-        # Market cap adjustments
+        # 2. VOLUME CONFIRMATION
+        # Breakouts need volume
+        if 'rvol' in df.columns and position_score.notna().any():
+            rvol = df['rvol']
+            
+            # High position with volume = strong
+            high_with_volume = (
+                (position_in_range > 80) & 
+                (rvol > 1.5) & 
+                position_score.notna()
+            )
+            if high_with_volume.any():
+                position_score[high_with_volume] = np.minimum(
+                    position_score[high_with_volume] + 5,
+                    100
+                )
+            
+            # High position without volume = weak
+            high_no_volume = (
+                (position_in_range > 80) & 
+                (rvol < 0.8) & 
+                position_score.notna()
+            )
+            if high_no_volume.any():
+                position_score[high_no_volume] -= 10
+        
+        # 3. TIME AT EXTREME
+        # How long has it been near high/low?
+        if 'sma_20d' in df.columns and 'price' in df.columns:
+            price = df['price']
+            sma_20 = df['sma_20d']
+            
+            valid_time = price.notna() & sma_20.notna() & position_score.notna()
+            
+            if valid_time.any():
+                # If near high and price > SMA20 = sustained strength
+                sustained_high = (
+                    valid_time & 
+                    (position_in_range > 80) & 
+                    (price > sma_20)
+                )
+                if sustained_high.any():
+                    position_score[sustained_high] += 3
+                
+                # If near low and price < SMA20 = sustained weakness
+                sustained_low = (
+                    valid_time & 
+                    (position_in_range < 20) & 
+                    (price < sma_20)
+                )
+                if sustained_low.any():
+                    position_score[sustained_low] -= 3
+        
+        # 4. MARKET CAP CONTEXT
         if 'category' in df.columns and position_score.notna().any():
             category = df['category']
             
             # Large caps at extremes are more significant
             is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_extreme = is_large & ((from_low > 80) | (from_low < 20)) & position_score.notna()
+            large_extreme = (
+                is_large & 
+                ((position_in_range > 90) | (position_in_range < 10)) & 
+                position_score.notna()
+            )
             if large_extreme.any():
-                position_score[large_extreme] = np.minimum(
-                    position_score[large_extreme] * 1.05,
-                    100
-                )
+                position_score[large_extreme] = (
+                    50 + (position_score[large_extreme] - 50) * 1.2
+                ).clip(0, 100)
             
             # Small caps above high need caution
             is_small = category.isin(['Micro Cap', 'Small Cap'])
-            small_extended = is_small & (from_high > 10) & position_score.notna()
+            small_extended = (
+                is_small & 
+                (position_in_range > 110) & 
+                position_score.notna()
+            )
             if small_extended.any():
-                position_score[small_extended] *= 0.9
+                position_score[small_extended] = np.minimum(
+                    position_score[small_extended],
+                    85
+                )
+        
+        # 5. MARKET REGIME
+        # In bull markets, high position better. In bear, low position better.
+        if position_score.notna().any() and len(df[valid_mask]) > 100:
+            # Calculate market regime from average position
+            avg_position = position_in_range[valid_mask].median()
+            
+            if pd.notna(avg_position):
+                if avg_position > 65:
+                    # Bull market: Boost high positions
+                    bull_high = (position_in_range > 70) & position_score.notna()
+                    if bull_high.any():
+                        position_score[bull_high] += 5
+                        
+                elif avg_position < 35:
+                    # Bear market: Value in low positions
+                    bear_low = (position_in_range < 30) & position_score.notna()
+                    if bear_low.any():
+                        position_score[bear_low] += 5
         
         # Final clipping
         position_score = position_score.clip(0, 100)
         
-        # CRITICAL: DO NOT FILL NaN!
-        # Missing data stays missing
+        # NEVER FILL NaN!
         
         # COMPREHENSIVE LOGGING
         valid_scores = position_score.notna().sum()
@@ -1798,16 +1775,17 @@ class RankingEngine:
                        f"Std: {score_dist.std():.1f}")
             
             # Position distribution
-            near_low = (from_low < 20).sum()
-            lower_third = ((from_low >= 20) & (from_low < 40)).sum()
-            middle_third = ((from_low >= 40) & (from_low < 60)).sum()
-            upper_third = ((from_low >= 60) & (from_low < 80)).sum()
-            near_high = ((from_low >= 80) & (from_high <= 0)).sum()
-            above_high = (from_high > 0).sum()
-            
-            logger.debug(f"Position distribution: Near low={near_low}, Lower={lower_third}, "
-                        f"Middle={middle_third}, Upper={upper_third}, "
-                        f"Near high={near_high}, Above high={above_high}")
+            if valid_mask.any():
+                pos_dist = position_in_range[valid_mask]
+                at_highs = (pos_dist > 90).sum()
+                at_lows = (pos_dist < 10).sum()
+                in_middle = ((pos_dist >= 30) & (pos_dist <= 70)).sum()
+                
+                logger.info(f"Position distribution: {at_highs} near highs, "
+                           f"{at_lows} near lows, {in_middle} in dead zone")
+                
+                if in_middle > len(pos_dist) * 0.5:
+                    logger.warning(f"Warning: {in_middle} stocks in dead zone (30-70%)")
         
         return position_score
     
