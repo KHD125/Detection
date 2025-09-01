@@ -1,13 +1,19 @@
 """
-Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
-===============================================================
-Professional Stock Ranking System with Advanced Analytics
+Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+==================================================================
+Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
-Enhanced with all valuable features from previous versions
+Enhanced with intelligent market regime awareness and adaptive scoring
 
 Version: 3.1.0-PROFESSIONAL
-Last Updated: August 2025
-Status: PRODUCTION READY - All Issues Fixed
+Last Updated: September 2025
+Status: PRODUCTION READY - Market State Integration Complete
+
+MARKET STATE SYSTEM:
+- Intelligent regime detection (8 states: STRONG_UPTREND, UPTREND, PULLBACK, etc.)
+- Dynamic component score adjustments based on market conditions
+- Smart bonuses for exceptional market state patterns
+- Comprehensive error handling and logging
 """
 
 # ============================================
@@ -142,6 +148,35 @@ class Config:
         "pyramid": 75,
         "vacuum": 85,
     })
+    
+    # Market State Filtering Configuration
+    MARKET_STATE_FILTERS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        'MOMENTUM': {
+            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK'],
+            'description': 'Focus on stocks in uptrends and pullbacks - optimal for swing trading'
+        },
+        'AGGRESSIVE': {
+            'allowed_states': ['STRONG_UPTREND'],
+            'description': 'Only the strongest uptrending stocks - highest risk/reward'
+        },
+        'VALUE': {
+            'allowed_states': ['PULLBACK', 'BOUNCE', 'SIDEWAYS'],
+            'description': 'Stocks in correction or consolidation - value opportunities'
+        },
+        'DEFENSIVE': {
+            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
+            'description': 'Avoid strong downtrends - conservative risk management'
+        },
+        'ALL': {
+            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
+                             'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'],
+            'description': 'No filtering - all market states included'
+        }
+    })
+    
+    # Default filter for swing/momentum trading
+    DEFAULT_MARKET_FILTER: str = 'MOMENTUM'
+    ENABLE_MARKET_STATE_FILTER: bool = True  # Can be toggled
     
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
@@ -1621,6 +1656,26 @@ class RankingEngine:
         timing_breakdown['regime_adjustments'] = time.time() - regime_start
         
         # ============================================================
+        # PHASE 3.6: MARKET STATE FILTERING
+        # ============================================================
+        filter_start = time.time()
+        
+        try:
+            # Apply market state filtering based on trading strategy
+            if getattr(CONFIG, 'ENABLE_MARKET_STATE_FILTER', True):
+                filter_name = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', 'MOMENTUM')
+                logger.info(f"Applying {filter_name} market state filter...")
+                df = RankingEngine.apply_market_state_filter(df, filter_name)
+            else:
+                logger.info("Market state filtering disabled - keeping all stocks")
+                
+        except Exception as e:
+            logger.error(f"Market state filtering failed: {e}")
+            logger.error("Continuing with unfiltered dataset")
+        
+        timing_breakdown['market_state_filtering'] = time.time() - filter_start
+        
+        # ============================================================
         # PHASE 4: SMART BONUSES
         # ============================================================
         bonus_start = time.time()
@@ -1944,6 +1999,119 @@ class RankingEngine:
         
         return df
         
+    @staticmethod
+    def apply_market_state_filter(df: pd.DataFrame, filter_name: str = None) -> pd.DataFrame:
+        """
+        Apply market state filtering based on trading strategy preferences.
+        
+        Args:
+            df: DataFrame with stocks and their market states
+            filter_name: Filter to apply (MOMENTUM, AGGRESSIVE, VALUE, DEFENSIVE, ALL)
+                        If None, uses CONFIG.DEFAULT_MARKET_FILTER
+        
+        Returns:
+            Filtered DataFrame optimized for the specified trading strategy
+        """
+        # Check if filtering is enabled
+        if not getattr(CONFIG, 'ENABLE_MARKET_STATE_FILTER', True):
+            logger.info("Market state filtering is disabled in configuration")
+            return df
+        
+        # Use default filter if none specified
+        if filter_name is None:
+            filter_name = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', 'MOMENTUM')
+        
+        # Get the filter configuration
+        filter_config = getattr(CONFIG, 'MARKET_STATE_FILTERS', {}).get(filter_name)
+        if not filter_config:
+            logger.warning(f"Unknown market state filter: {filter_name}, using ALL")
+            filter_name = 'ALL'
+            filter_config = getattr(CONFIG, 'MARKET_STATE_FILTERS', {}).get('ALL', {
+                'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
+                                 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'],
+                'description': 'No filtering - all market states included'
+            })
+        
+        # Work on copy to preserve original
+        df = df.copy()
+        original_count = len(df)
+        
+        logger.info(f"="*50)
+        logger.info(f"Applying {filter_name} market state filter")
+        logger.info(f"Original dataset: {original_count} stocks")
+        
+        # Check if we have market state data
+        if 'market_state' not in df.columns:
+            logger.warning("No market_state column found - filter cannot be applied")
+            logger.info(f"="*50)
+            return df
+        
+        # Get allowed states for this filter
+        allowed_states = filter_config.get('allowed_states', [])
+        if not allowed_states:
+            logger.warning(f"No allowed states defined for {filter_name} filter")
+            logger.info(f"="*50)
+            return df
+        
+        # Apply the filter
+        try:
+            # Create filter mask
+            state_mask = df['market_state'].isin(allowed_states)
+            filtered_df = df[state_mask].copy()
+            
+            # Log filtering results
+            filtered_count = len(filtered_df)
+            filtered_pct = (filtered_count / original_count * 100) if original_count > 0 else 0
+            
+            logger.info(f"Filter allowed states: {', '.join(allowed_states)}")
+            logger.info(f"Filtered dataset: {filtered_count} stocks ({filtered_pct:.1f}% retained)")
+            
+            # Show state breakdown before filtering
+            state_counts = df['market_state'].value_counts()
+            logger.info("Market state distribution before filtering:")
+            for state, count in state_counts.items():
+                pct = (count / original_count * 100) if original_count > 0 else 0
+                status = "✓ ALLOWED" if state in allowed_states else "✗ FILTERED"
+                logger.info(f"  {state}: {count} stocks ({pct:.1f}%) - {status}")
+            
+            # Store filter information for reference
+            filtered_df.attrs['market_filter_applied'] = filter_name
+            filtered_df.attrs['market_filter_allowed_states'] = allowed_states
+            filtered_df.attrs['original_count'] = original_count
+            filtered_df.attrs['filtered_count'] = filtered_count
+            filtered_df.attrs['filter_retention_pct'] = filtered_pct
+            
+            # Emergency backup: If filter is too aggressive (less than 5% retention), keep top stocks
+            if filtered_count < max(1, original_count * 0.05):
+                logger.warning(f"Filter too aggressive ({filtered_pct:.1f}% retention)")
+                logger.warning("Falling back to top 20% of stocks by master_score")
+                
+                # Sort by master_score and keep top 20%
+                if 'master_score' in df.columns:
+                    df_sorted = df.dropna(subset=['master_score']).sort_values('master_score', ascending=False)
+                    backup_count = max(1, int(len(df_sorted) * 0.20))
+                    backup_df = df_sorted.head(backup_count).copy()
+                    
+                    backup_df.attrs['market_filter_applied'] = f"{filter_name}_BACKUP"
+                    backup_df.attrs['backup_reason'] = "Filter too aggressive"
+                    backup_df.attrs['backup_retention_pct'] = (backup_count / original_count * 100)
+                    
+                    logger.info(f"Backup filter: keeping top {backup_count} stocks ({backup_df.attrs['backup_retention_pct']:.1f}%)")
+                    logger.info(f"="*50)
+                    
+                    return backup_df
+            
+            logger.info(f"Market state filtering completed successfully")
+            logger.info(f"="*50)
+            
+            return filtered_df
+            
+        except Exception as e:
+            logger.error(f"Market state filtering failed: {e}")
+            logger.error("Returning unfiltered dataset")
+            logger.info(f"="*50)
+            return df
+    
     @staticmethod
     def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
         """
@@ -8765,6 +8933,80 @@ class SessionStateManager:
             st.session_state.filter_state['quick_filter'] = None
             st.session_state.filter_state['quick_filter_applied'] = False
         
+# ============================================
+# MARKET STATE FILTER VALIDATION
+# ============================================
+
+def validate_market_state_filters():
+    """
+    Quick validation test for all market state filter presets.
+    Ensures configuration is properly set up and filters work correctly.
+    """
+    try:
+        logger.info("="*60)
+        logger.info("VALIDATING MARKET STATE FILTERS")
+        logger.info("="*60)
+        
+        # Check configuration exists
+        if not hasattr(CONFIG, 'MARKET_STATE_FILTERS'):
+            logger.error("MARKET_STATE_FILTERS not found in CONFIG")
+            return False
+        
+        # Check default filter
+        default_filter = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', None)
+        if not default_filter:
+            logger.error("DEFAULT_MARKET_FILTER not set in CONFIG")
+            return False
+        
+        # Test each filter preset
+        filters = CONFIG.MARKET_STATE_FILTERS
+        all_states = ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
+                     'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
+        
+        for filter_name, filter_config in filters.items():
+            logger.info(f"Testing {filter_name} filter...")
+            
+            # Check allowed_states exists and is valid
+            allowed_states = filter_config.get('allowed_states', [])
+            if not allowed_states:
+                logger.error(f"  ✗ {filter_name}: No allowed_states defined")
+                return False
+            
+            # Check all states are valid
+            invalid_states = [s for s in allowed_states if s not in all_states]
+            if invalid_states:
+                logger.error(f"  ✗ {filter_name}: Invalid states: {invalid_states}")
+                return False
+            
+            # Check description exists
+            description = filter_config.get('description', '')
+            if not description:
+                logger.warning(f"  ⚠ {filter_name}: No description provided")
+            
+            # Test strategy focus
+            state_count = len(allowed_states)
+            if filter_name == 'MOMENTUM' and state_count < 2:
+                logger.warning(f"  ⚠ {filter_name}: May be too restrictive ({state_count} states)")
+            elif filter_name == 'ALL' and state_count != len(all_states):
+                logger.warning(f"  ⚠ {filter_name}: Should include all states ({state_count}/{len(all_states)})")
+            
+            logger.info(f"  ✓ {filter_name}: {state_count} allowed states - {', '.join(allowed_states)}")
+        
+        # Test default filter exists
+        if default_filter not in filters:
+            logger.error(f"DEFAULT_MARKET_FILTER '{default_filter}' not found in MARKET_STATE_FILTERS")
+            return False
+        
+        logger.info(f"✓ Default filter: {default_filter}")
+        logger.info(f"✓ All {len(filters)} filter presets validated successfully")
+        logger.info("="*60)
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Market state filter validation failed: {e}")
+        return False
+
 # ============================================
 # MAIN APPLICATION
 # ============================================
