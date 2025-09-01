@@ -243,7 +243,8 @@ class Config:
         'vmi': 'Volume Momentum Index: Weighted volume trend score (higher = stronger volume momentum)',
         'position_tension': 'Range position stress: Distance from 52W low + distance from 52W high',
         'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
-        'overall_wave_strength': 'Composite wave score: Combined momentum, acceleration, RVOL & breakout',
+        'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
+        'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
         'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
         'master_score': 'Overall ranking score (0-100) combining all factors',
         'acceleration_score': 'Rate of momentum change (0-100)',
@@ -975,55 +976,350 @@ class AdvancedMetrics:
         if 'ret_3m' in df.columns:
             df['momentum_harmony'] += (df['ret_3m'].fillna(0) > 0).astype(int)
         
-        # Wave State
-        df['wave_state'] = df.apply(AdvancedMetrics._get_wave_state, axis=1)
+        # Market State Analysis
+        df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
     
-        # Overall Wave Strength
+        # Overall Market Strength (renamed from wave strength)
         score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
         if all(col in df.columns for col in score_cols):
-            df['overall_wave_strength'] = (
+            df['overall_market_strength'] = (
                 df['momentum_score'].fillna(50) * 0.3 +
                 df['acceleration_score'].fillna(50) * 0.3 +
                 df['rvol_score'].fillna(50) * 0.2 +
                 df['breakout_score'].fillna(50) * 0.2
             )
         else:
-            df['overall_wave_strength'] = pd.Series(np.nan, index=df.index)
+            df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
         
         return df
     
     @staticmethod
-    def _get_wave_state(row: pd.Series) -> str:
+    def _get_market_state_from_row(row: pd.Series) -> str:
         """
-        Determines the `wave_state` for a single stock based on a set of thresholds.
+        Helper function to get market state from a pandas row.
+        Converts row data to returns dict and gets market state.
         """
-        signals = 0
+        returns_dict = {
+            '1d': row.get('ret_1d', 0),
+            '3d': row.get('ret_3d', 0),
+            '7d': row.get('ret_7d', 0),
+            '30d': row.get('ret_30d', 0),
+            '3m': row.get('ret_3m', 0),
+            '6m': row.get('ret_6m', 0)
+        }
         
-        if row.get('momentum_score', 0) > 70:
-            signals += 1
-        if row.get('volume_score', 0) > 70:
-            signals += 1
-        if row.get('acceleration_score', 0) > 70:
-            signals += 1
+        market_state = AdvancedMetrics.get_market_state(returns_dict)
+        return market_state['state']
+
+    @staticmethod
+    def get_market_state(returns_dict: Dict[str, float]) -> Dict[str, Any]:
+        """
+        Classify current market momentum state based on multi-timeframe analysis.
+        FIXED: Honest momentum regime detection, not fake Elliott Waves.
         
-        # ENHANCED: Scale signal based on RVOL magnitude
-        rvol_val = row.get('rvol', 0)
-        if rvol_val > 5:
-            signals += 2  # Double signal for extreme volume
-        elif rvol_val > 2:
-            signals += 1
+        Core Philosophy:
+        - Multi-timeframe momentum alignment
+        - Identify tradeable regimes
+        - Clear, actionable states
+        - No pretense of Elliott Wave complexity
         
-        # UPDATED: Adjust thresholds since max signals is now 5 (not 4)
-        if signals >= 5:
-            return "🌊🌊🌊🔥 TSUNAMI"  # NEW: Ultra-extreme state
-        elif signals >= 4:
-            return "🌊🌊🌊 CRESTING"
-        elif signals >= 3:
-            return "🌊🌊 BUILDING"
-        elif signals >= 1:
-            return "🌊 FORMING"
+        States:
+        - STRONG_UPTREND: All timeframes aligned up
+        - UPTREND: Generally up with minor pullbacks
+        - PULLBACK: Correction in uptrend
+        - ROTATION: Trend change in progress
+        - SIDEWAYS: No clear direction
+        - DOWNTREND: Generally down
+        - STRONG_DOWNTREND: All timeframes aligned down
+        - BOUNCE: Relief rally in downtrend
+        
+        Returns:
+            Dictionary with state, strength, and trading implications
+        """
+        state = {
+            'state': 'UNKNOWN',
+            'strength': 0,
+            'confidence': 0,
+            'trend_alignment': 0,
+            'momentum_score': 0,
+            'volatility': 'NORMAL',
+            'action_bias': 'NEUTRAL',
+            'description': ''
+        }
+        
+        # Extract returns with defaults
+        ret_1d = returns_dict.get('1d', 0)
+        ret_3d = returns_dict.get('3d', 0)
+        ret_7d = returns_dict.get('7d', 0)
+        ret_30d = returns_dict.get('30d', 0)
+        ret_90d = returns_dict.get('3m', 0)
+        ret_180d = returns_dict.get('6m', 0)
+        
+        # Calculate momentum at different scales
+        # Daily-equivalent rates for comparison
+        very_short = ret_1d  # 1-day momentum
+        short = ret_7d / 7 if ret_7d != 0 else 0  # Daily rate over week
+        medium = ret_30d / 30 if ret_30d != 0 else 0  # Daily rate over month
+        long = ret_90d / 90 if ret_90d != 0 else 0  # Daily rate over quarter
+        
+        # Count positive periods (direction consistency)
+        periods = [ret_1d, ret_3d, ret_7d, ret_30d, ret_90d, ret_180d]
+        positive_count = sum(1 for r in periods if r > 0)
+        negative_count = sum(1 for r in periods if r < 0)
+        
+        # Trend alignment score (-100 to 100)
+        trend_alignment = ((positive_count - negative_count) / len(periods)) * 100
+        state['trend_alignment'] = trend_alignment
+        
+        # Overall momentum score
+        # Weighted average with recent periods more important
+        momentum_score = (
+            very_short * 0.3 +
+            short * 7 * 0.25 +  # Convert back to period return
+            medium * 30 * 0.25 +
+            long * 90 * 0.20
+        ) / 100 * 50 + 50  # Normalize to 0-100
+        
+        state['momentum_score'] = np.clip(momentum_score, 0, 100)
+        
+        # Volatility assessment
+        returns_std = np.std([very_short, short * 7, medium * 30])
+        if returns_std > 15:
+            state['volatility'] = 'HIGH'
+        elif returns_std > 7:
+            state['volatility'] = 'ELEVATED'
+        elif returns_std < 3:
+            state['volatility'] = 'LOW'
         else:
-            return "💥 BREAKING"
+            state['volatility'] = 'NORMAL'
+        
+        # STATE CLASSIFICATION LOGIC
+        
+        # 1. STRONG UPTREND
+        if (positive_count >= 5 and ret_30d > 15 and ret_7d > 3 and ret_1d > 0):
+            state['state'] = 'STRONG_UPTREND'
+            state['strength'] = min(100, 70 + ret_30d)
+            state['confidence'] = 85
+            state['action_bias'] = 'STRONG_BUY'
+            state['description'] = 'All timeframes aligned bullish. Momentum accelerating.'
+        
+        # 2. UPTREND
+        elif (positive_count >= 4 and ret_30d > 5):
+            state['state'] = 'UPTREND'
+            state['strength'] = min(100, 50 + ret_30d)
+            state['confidence'] = 70
+            state['action_bias'] = 'BUY'
+            state['description'] = 'Established uptrend. Minor corrections are buying opportunities.'
+        
+        # 3. PULLBACK IN UPTREND
+        elif (ret_30d > 10 and ret_90d > 15 and ret_7d < 0):
+            state['state'] = 'PULLBACK'
+            state['strength'] = 50 - abs(ret_7d)
+            state['confidence'] = 60
+            state['action_bias'] = 'BUY_DIP'
+            state['description'] = 'Healthy pullback in uptrend. Watch for support.'
+        
+        # 4. STRONG DOWNTREND
+        elif (negative_count >= 5 and ret_30d < -15 and ret_7d < -3 and ret_1d < 0):
+            state['state'] = 'STRONG_DOWNTREND'
+            state['strength'] = min(100, 70 + abs(ret_30d))
+            state['confidence'] = 85
+            state['action_bias'] = 'STRONG_SELL'
+            state['description'] = 'All timeframes aligned bearish. Avoid catching falling knife.'
+        
+        # 5. DOWNTREND
+        elif (negative_count >= 4 and ret_30d < -5):
+            state['state'] = 'DOWNTREND'
+            state['strength'] = min(100, 50 + abs(ret_30d))
+            state['confidence'] = 70
+            state['action_bias'] = 'SELL'
+            state['description'] = 'Established downtrend. Rallies are selling opportunities.'
+        
+        # 6. BOUNCE IN DOWNTREND
+        elif (ret_30d < -10 and ret_90d < -15 and ret_7d > 0):
+            state['state'] = 'BOUNCE'
+            state['strength'] = 50 - abs(ret_30d - ret_7d)
+            state['confidence'] = 50
+            state['action_bias'] = 'CAUTIOUS'
+            state['description'] = 'Relief rally in downtrend. Could be dead cat bounce.'
+        
+        # 7. ROTATION/TRANSITION
+        elif (abs(ret_30d - ret_90d/3) > 10 or 
+              (positive_count == 3 and negative_count == 3)):
+            state['state'] = 'ROTATION'
+            state['strength'] = 50
+            state['confidence'] = 40
+            state['action_bias'] = 'WAIT'
+            state['description'] = 'Trend transition in progress. Wait for clarity.'
+        
+        # 8. SIDEWAYS/RANGE-BOUND
+        else:
+            state['state'] = 'SIDEWAYS'
+            state['strength'] = 30
+            state['confidence'] = 50
+            state['action_bias'] = 'NEUTRAL'
+            state['description'] = 'No clear trend. Range-trading environment.'
+        
+        # ADDITIONAL CONTEXT FLAGS
+        
+        # Momentum divergence detection
+        if ret_30d > 10 and ret_7d < -5:
+            state['warning'] = 'NEGATIVE_DIVERGENCE'
+        elif ret_30d < -10 and ret_7d > 5:
+            state['warning'] = 'POSITIVE_DIVERGENCE'
+        
+        # Extreme conditions
+        if ret_30d > 50:
+            state['extreme'] = 'OVERBOUGHT_MONTHLY'
+        elif ret_30d < -30:
+            state['extreme'] = 'OVERSOLD_MONTHLY'
+        
+        if ret_7d > 20:
+            state['extreme_short'] = 'OVERBOUGHT_WEEKLY'
+        elif ret_7d < -15:
+            state['extreme_short'] = 'OVERSOLD_WEEKLY'
+        
+        # Acceleration/Deceleration
+        if short > medium and medium > long:
+            state['momentum_phase'] = 'ACCELERATING'
+        elif short < medium and medium < long:
+            state['momentum_phase'] = 'DECELERATING'
+        else:
+            state['momentum_phase'] = 'STEADY'
+        
+        # TRADING RECOMMENDATIONS
+        
+        recommendations = []
+        
+        if state['state'] == 'STRONG_UPTREND':
+            recommendations.append('Hold longs, add on dips')
+            recommendations.append('Use trailing stops')
+        elif state['state'] == 'PULLBACK':
+            recommendations.append('Look for support levels')
+            recommendations.append('Prepare to buy')
+        elif state['state'] == 'STRONG_DOWNTREND':
+            recommendations.append('Avoid longs')
+            recommendations.append('Consider shorts or stay out')
+        elif state['state'] == 'BOUNCE':
+            recommendations.append('Take quick profits')
+            recommendations.append('Don\'t chase')
+        elif state['state'] == 'SIDEWAYS':
+            recommendations.append('Range trade')
+            recommendations.append('Buy support, sell resistance')
+        elif state['state'] == 'ROTATION':
+            recommendations.append('Reduce position size')
+            recommendations.append('Wait for trend confirmation')
+        
+        state['recommendations'] = recommendations
+        
+        # CONFIDENCE ADJUSTMENTS
+        
+        # Higher confidence if volatility is normal
+        if state['volatility'] == 'LOW':
+            state['confidence'] *= 1.1
+        elif state['volatility'] == 'HIGH':
+            state['confidence'] *= 0.8
+        
+        # Ensure confidence is 0-100
+        state['confidence'] = np.clip(state['confidence'], 0, 100)
+        
+        # FINAL SCORING
+        
+        # Overall state score (0-100)
+        # Combines state strength with confidence
+        state['overall_score'] = (state['strength'] * 0.7 + state['confidence'] * 0.3)
+        
+        return state
+
+    @staticmethod
+    def get_market_regime_summary(df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Analyze overall market regime from multiple stocks.
+        
+        Args:
+            df: DataFrame with return columns
+        
+        Returns:
+            Market regime summary
+        """
+        if df.empty or 'ret_30d' not in df.columns:
+            return {'regime': 'UNKNOWN', 'confidence': 0}
+        
+        # Get valid stocks
+        valid_mask = df['ret_30d'].notna()
+        if not valid_mask.any():
+            return {'regime': 'UNKNOWN', 'confidence': 0}
+        
+        valid_df = df[valid_mask]
+        
+        # Calculate market statistics
+        median_return_30d = valid_df['ret_30d'].median()
+        mean_return_30d = valid_df['ret_30d'].mean()
+        
+        # Percentage of stocks in different states
+        strong_up = (valid_df['ret_30d'] > 20).sum() / len(valid_df) * 100
+        up = (valid_df['ret_30d'] > 5).sum() / len(valid_df) * 100
+        down = (valid_df['ret_30d'] < -5).sum() / len(valid_df) * 100
+        strong_down = (valid_df['ret_30d'] < -20).sum() / len(valid_df) * 100
+        
+        # Determine regime
+        regime = {
+            'regime': 'UNKNOWN',
+            'strength': 0,
+            'breadth': up - down,
+            'median_return': median_return_30d,
+            'mean_return': mean_return_30d,
+            'confidence': 0,
+            'description': ''
+        }
+        
+        # Classification logic
+        if up > 70 and median_return_30d > 10:
+            regime['regime'] = 'BULL_MARKET'
+            regime['strength'] = min(100, up)
+            regime['confidence'] = 85
+            regime['description'] = f'{up:.0f}% of stocks in uptrend. Strong bull market.'
+        
+        elif up > 55 and median_return_30d > 5:
+            regime['regime'] = 'MILD_BULL'
+            regime['strength'] = 60 + (up - 55)
+            regime['confidence'] = 70
+            regime['description'] = f'{up:.0f}% of stocks up. Moderate bullish bias.'
+        
+        elif down > 70 and median_return_30d < -10:
+            regime['regime'] = 'BEAR_MARKET'
+            regime['strength'] = min(100, down)
+            regime['confidence'] = 85
+            regime['description'] = f'{down:.0f}% of stocks in downtrend. Bear market conditions.'
+        
+        elif down > 55 and median_return_30d < -5:
+            regime['regime'] = 'MILD_BEAR'
+            regime['strength'] = 60 + (down - 55)
+            regime['confidence'] = 70
+            regime['description'] = f'{down:.0f}% of stocks down. Moderate bearish bias.'
+        
+        elif abs(median_return_30d) < 5 and abs(up - down) < 20:
+            regime['regime'] = 'SIDEWAYS'
+            regime['strength'] = 50
+            regime['confidence'] = 60
+            regime['description'] = 'Market range-bound. No clear direction.'
+        
+        else:
+            regime['regime'] = 'MIXED'
+            regime['strength'] = 50
+            regime['confidence'] = 40
+            regime['description'] = 'Mixed signals. Market in transition.'
+        
+        # Add distribution details
+        regime['distribution'] = {
+            'strong_up_pct': strong_up,
+            'up_pct': up,
+            'down_pct': down,
+            'strong_down_pct': strong_down,
+            'sideways_pct': 100 - up - down
+        }
+        
+        return regime
         
 # ============================================
 # RANKING ENGINE
@@ -1250,6 +1546,79 @@ class RankingEngine:
         df['master_score'] = df['master_score_before_bonus'].clip(0, 100)
         
         timing_breakdown['master_calculation'] = time.time() - calculation_start
+        
+        # ============================================================
+        # PHASE 3.5: MARKET REGIME ADJUSTMENTS
+        # ============================================================
+        regime_start = time.time()
+        
+        # Detect overall market regime and apply adjustments
+        try:
+            # Get market regime summary
+            market_regime = AdvancedMetrics.get_market_regime_summary(df)
+            logger.info(f"Market regime detected: {market_regime['regime']} "
+                       f"(confidence: {market_regime['confidence']:.0f}%)")
+            logger.info(f"Market regime description: {market_regime['description']}")
+            
+            # Apply regime-based score adjustments
+            valid_scores = df['master_score'].notna()
+            adjustments_applied = 0
+            
+            if valid_scores.any():
+                # BULL MARKET: Boost momentum and breakout scores by 5%
+                if market_regime['regime'] in ['BULL_MARKET', 'MILD_BULL']:
+                    bull_boost_mask = valid_scores & (
+                        (df['momentum_score'].fillna(0) > 50) | 
+                        (df['breakout_score'].fillna(0) > 50)
+                    )
+                    if bull_boost_mask.any():
+                        # Boost component scores as specified, not master score
+                        if 'momentum_score' in df.columns:
+                            df.loc[bull_boost_mask, 'momentum_score'] *= 1.05
+                        if 'breakout_score' in df.columns:
+                            df.loc[bull_boost_mask, 'breakout_score'] *= 1.05
+                        # Clip to ensure scores stay within bounds
+                        if 'momentum_score' in df.columns:
+                            df['momentum_score'] = df['momentum_score'].clip(0, 100)
+                        if 'breakout_score' in df.columns:
+                            df['breakout_score'] = df['breakout_score'].clip(0, 100)
+                        adjustments_applied += bull_boost_mask.sum()
+                        logger.info(f"Applied bull market component score boost to {bull_boost_mask.sum()} stocks")
+                
+                # BEAR MARKET: Boost position scores for stocks near 52w lows by 10%
+                elif market_regime['regime'] in ['BEAR_MARKET', 'MILD_BEAR']:
+                    if 'from_low_pct' in df.columns and 'position_score' in df.columns:
+                        bear_boost_mask = valid_scores & (df['from_low_pct'].fillna(100) < 20)
+                        if bear_boost_mask.any():
+                            # Boost position score as specified, not master score
+                            df.loc[bear_boost_mask, 'position_score'] *= 1.10
+                            df['position_score'] = df['position_score'].clip(0, 100)
+                            adjustments_applied += bear_boost_mask.sum()
+                            logger.info(f"Applied bear market position score boost to {bear_boost_mask.sum()} stocks")
+                
+                # SIDEWAYS: No adjustments (as specified)
+                elif market_regime['regime'] == 'SIDEWAYS':
+                    logger.info("Sideways market detected - no regime adjustments applied")
+            
+            # Store regime info for later use
+            df.attrs['market_regime'] = market_regime
+            
+            if adjustments_applied > 0:
+                logger.info(f"Market regime adjustments applied to {adjustments_applied} stocks")
+                # Recalculate master score since component scores changed
+                logger.info("Recalculating master scores after regime adjustments...")
+                df = RankingEngine._recalculate_master_score_after_adjustments(df)
+            else:
+                logger.info("No market regime adjustments applied")
+                
+        except Exception as e:
+            logger.error(f"Market regime detection failed: {e}")
+            df.attrs['market_regime'] = {'regime': 'UNKNOWN', 'confidence': 0}
+        
+        # Ensure master score stays in bounds after regime adjustments
+        df['master_score'] = df['master_score'].clip(0, 100)
+        
+        timing_breakdown['regime_adjustments'] = time.time() - regime_start
         
         # ============================================================
         # PHASE 4: SMART BONUSES
@@ -1524,6 +1893,55 @@ class RankingEngine:
         logger.info("="*60)
         
         # GUARANTEE: Return valid DataFrame
+        return df
+        
+    @staticmethod
+    def _recalculate_master_score_after_adjustments(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Recalculate master score after regime adjustments to component scores.
+        This ensures the master score reflects the adjusted component scores.
+        """
+        # Get available score columns and their weights
+        score_cols = {
+            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
+            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
+            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
+            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
+            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
+            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.10)
+        }
+        
+        # Initialize new master scores
+        new_master_scores = pd.Series(np.nan, index=df.index)
+        
+        for idx in df.index:
+            row = df.loc[idx]
+            
+            # Get available scores
+            available_scores = []
+            available_weights = []
+            
+            for col, weight in score_cols.items():
+                if col in df.columns and pd.notna(row[col]):
+                    available_scores.append(row[col])
+                    available_weights.append(weight)
+            
+            # Calculate weighted score if we have minimum components
+            if len(available_scores) >= 3:  # Minimum required components
+                # Normalize weights to sum to 1
+                available_weights = np.array(available_weights)
+                available_weights = available_weights / available_weights.sum()
+                
+                # Calculate weighted score
+                weighted_score = np.dot(available_scores, available_weights)
+                new_master_scores[idx] = weighted_score
+        
+        # Update master score with new calculation
+        # Apply the same quality multiplier that was used before
+        df['master_score_raw'] = new_master_scores
+        df['master_score_before_bonus'] = df['master_score_raw'] * df['quality_multiplier']
+        df['master_score'] = df['master_score_before_bonus'].clip(0, 100)
+        
         return df
         
     @staticmethod
@@ -4079,6 +4497,35 @@ class RankingEngine:
                 df.loc[recovery_pattern, 'bonus_reasons'] += 'Recovery(+2) '
                 logger.debug(f"Recovery bonus applied to {recovery_pattern.sum()} stocks")
         
+        # BONUS 6: MARKET STATE MOMENTUM (max 3 points)
+        # Individual stock in STRONG_UPTREND with high momentum
+        market_state_bonus = pd.Series(0, index=df.index, dtype=float)
+        if 'market_state' in df.columns and 'momentum_score' in df.columns:
+            strong_uptrend_momentum = (
+                valid_scores &
+                (df['market_state'] == 'STRONG_UPTREND') &
+                (df['momentum_score'] > 70)
+            )
+            
+            if strong_uptrend_momentum.any():
+                market_state_bonus[strong_uptrend_momentum] = 3
+                df.loc[strong_uptrend_momentum, 'bonus_reasons'] += 'StrongMomentum(+3) '
+                logger.debug(f"Strong uptrend momentum bonus applied to {strong_uptrend_momentum.sum()} stocks")
+        
+        # BONUS 7: MARKET STATE VALUE OPPORTUNITY (max 2 points)
+        # Stock in PULLBACK state with low position score (value opportunity)
+        if 'market_state' in df.columns and 'position_score' in df.columns:
+            pullback_value = (
+                valid_scores &
+                (df['market_state'] == 'PULLBACK') &
+                (df['position_score'] < 30)
+            )
+            
+            if pullback_value.any():
+                market_state_bonus[pullback_value] = 2
+                df.loc[pullback_value, 'bonus_reasons'] += 'PullbackValue(+2) '
+                logger.debug(f"Pullback value opportunity bonus applied to {pullback_value.sum()} stocks")
+        
         # PENALTY PATTERNS (negative bonuses)
         penalty = pd.Series(0, index=df.index, dtype=float)
         
@@ -4116,6 +4563,7 @@ class RankingEngine:
             breakout_bonus +
             volume_bonus +
             recovery_bonus +
+            market_state_bonus +
             penalty
         )
         
@@ -7019,15 +7467,15 @@ class FilterEngine:
         if 'wave_states' in filters:
             selected_states = filters['wave_states']
             if selected_states and "🎯 Custom Range" not in selected_states:
-                masks.append(create_mask_from_isin('wave_state', selected_states))
+                masks.append(create_mask_from_isin('market_state', selected_states))
         
         # Custom wave strength range filter (only if "🎯 Custom Range" is selected)
         if 'wave_states' in filters and "🎯 Custom Range" in filters['wave_states']:
             wave_strength_range = filters.get('wave_strength_range')
-            if wave_strength_range and wave_strength_range != (0, 100) and 'overall_wave_strength' in df.columns:
+            if wave_strength_range and wave_strength_range != (0, 100) and 'overall_market_strength' in df.columns:
                 min_ws, max_ws = wave_strength_range
-                masks.append((df['overall_wave_strength'] >= min_ws) & 
-                            (df['overall_wave_strength'] <= max_ws))
+                masks.append((df['overall_market_strength'] >= min_ws) & 
+                            (df['overall_market_strength'] <= max_ws))
         
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
@@ -7067,7 +7515,7 @@ class FilterEngine:
             'pe_tier': 'pe_tiers',
             'price_tier': 'price_tiers',
             'eps_change_tier': 'eps_change_tiers',
-            'wave_state': 'wave_states'
+            'market_state': 'wave_states'
         }
         
         if column in filter_key_map:
@@ -7242,7 +7690,7 @@ class ExportEngine:
             'day_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'rvol', 
                            'momentum_score', 'acceleration_score', 'ret_1d', 'ret_7d', 
-                           'volume_score', 'vmi', 'wave_state', 'patterns', 'category', 'industry'],
+                           'volume_score', 'vmi', 'market_state', 'patterns', 'category', 'industry'],
                 'focus': 'Intraday momentum and volume'
             },
             'swing_trader': {
@@ -7348,7 +7796,7 @@ class ExportEngine:
                 if len(wave_signals) > 0:
                     wave_cols = ['ticker', 'company_name', 'master_score', 
                                 'momentum_score', 'acceleration_score', 'rvol',
-                                'wave_state', 'patterns', 'category', 'industry']
+                                'market_state', 'patterns', 'category', 'industry']
                     available_wave_cols = [col for col in wave_cols if col in wave_signals.columns]
                     
                     wave_signals[available_wave_cols].to_excel(
@@ -7390,8 +7838,8 @@ class ExportEngine:
             'from_low_pct', 'from_high_pct',
             'ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y',
             'rvol', 'vmi', 'money_flow_mm', 'position_tension',
-            'momentum_harmony', 'wave_state', 'patterns', 
-            'category', 'sector', 'industry', 'eps_tier', 'pe_tier', 'overall_wave_strength'
+            'momentum_harmony', 'market_state', 'patterns', 
+            'category', 'sector', 'industry', 'eps_tier', 'pe_tier', 'overall_market_strength'
         ]
         
         available_cols = [col for col in export_cols if col in df.columns]
@@ -8969,11 +9417,11 @@ def main():
         
         # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
         custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
-        if custom_wave_range_selected and 'overall_wave_strength' in ranked_df_display.columns:
-            st.write("📊 **Custom Wave Strength Range Filter**")
+        if custom_wave_range_selected and 'overall_market_strength' in ranked_df_display.columns:
+            st.write("📊 **Custom Market Strength Range Filter**")
             
-            min_strength = float(ranked_df_display['overall_wave_strength'].min())
-            max_strength = float(ranked_df_display['overall_wave_strength'].max())
+            min_strength = float(ranked_df_display['overall_market_strength'].min())
+            max_strength = float(ranked_df_display['overall_market_strength'].max())
             
             slider_min_val = 0
             slider_max_val = 100
@@ -10573,9 +11021,9 @@ def main():
         wave_filtered_df = filtered_df.copy()
         
         with radar_col4:
-            if not wave_filtered_df.empty and 'overall_wave_strength' in wave_filtered_df.columns:
+            if not wave_filtered_df.empty and 'overall_market_strength' in wave_filtered_df.columns:
                 try:
-                    wave_strength_score = wave_filtered_df['overall_wave_strength'].mean()
+                    wave_strength_score = wave_filtered_df['overall_market_strength'].mean()
                     
                     if wave_strength_score > 70:
                         wave_emoji = "🌊🔥"
@@ -12071,11 +12519,11 @@ def main():
                                 adv_data['Value'].append(f"₹{stock['money_flow_mm']:.1f}M")
                                 adv_data['Description'].append('Price × Volume × RVOL')
                             
-                            # Overall Wave Strength
-                            if 'overall_wave_strength' in stock.index and pd.notna(stock['overall_wave_strength']):
-                                adv_data['Metric'].append('Wave Strength')
-                                adv_data['Value'].append(f"{stock['overall_wave_strength']:.1f}%")
-                                adv_data['Description'].append('Composite wave score')
+                            # Overall Market Strength
+                            if 'overall_market_strength' in stock.index and pd.notna(stock['overall_market_strength']):
+                                adv_data['Metric'].append('Market Strength')
+                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}%")
+                                adv_data['Description'].append('Composite market score')
                             
                             # Pattern Confidence
                             if 'pattern_confidence' in stock.index and pd.notna(stock['pattern_confidence']):
