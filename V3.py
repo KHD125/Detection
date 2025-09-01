@@ -3551,267 +3551,194 @@ class RankingEngine:
     def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
         """
         Calculate long-term strength based on multi-year performance.
-        FIXED: No penalties for missing data, returns NaN when insufficient history.
+        GUARANTEED to return a Series of same length as input DataFrame.
         
         Core Philosophy:
-        - Long-term means 1+ years (not months)
-        - Only score what we can measure
-        - Missing data = NaN (not low score)
+        - ALWAYS returns pd.Series with same index as df
+        - Fully vectorized (no loops)
+        - Only scores what can be measured (NaN for insufficient data)
+        - Long-term = 1y, 3y, 5y ONLY
         - No penalties, just honest assessment
-        - Weights auto-adjust based on available data
         
-        Minimum Requirements:
-        - At least 2 of: 1y, 3y, 5y returns
-        - OR just 5y return alone (most comprehensive)
-        - OR just 3y return alone (acceptable)
-        
-        Score Components (when available):
-        - 1-year: Short-term long (20% base weight)
-        - 3-year: Medium-term long (35% base weight)  
-        - 5-year: True long-term (45% base weight)
-        
-        Score Interpretation:
-        - 85-100: Exceptional long-term performer
-        - 70-85: Strong consistent growth
-        - 50-70: Average long-term performance
-        - 30-50: Below average returns
-        - 0-30: Poor long-term performance
-        - NaN: Insufficient history to judge
+        Score Components:
+        - 1-year: 20% weight (when available)
+        - 3-year: 35% weight (when available)
+        - 5-year: 45% weight (when available)
+        - Weights auto-normalize based on available data
         """
+        # CRITICAL: Initialize with correct index and length
         long_term_strength = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Define long-term periods with base weights
-        lt_periods = {
-            'ret_1y': {'weight': 0.20, 'years': 1.0, 'standalone': False},
-            'ret_3y': {'weight': 0.35, 'years': 3.0, 'standalone': True},   # Can stand alone
-            'ret_5y': {'weight': 0.45, 'years': 5.0, 'standalone': True}    # Can stand alone
+        # Early return if empty DataFrame
+        if df.empty:
+            logger.warning("Empty DataFrame provided to calculate_long_term_strength")
+            return long_term_strength
+        
+        # Define periods and weights
+        periods = {
+            'ret_1y': 0.20,
+            'ret_3y': 0.35,
+            'ret_5y': 0.45
         }
         
-        # Check data availability
+        # Check which columns exist
         available_periods = {}
-        for period, config in lt_periods.items():
+        for period, weight in periods.items():
             if period in df.columns:
-                data = pd.Series(df[period].values, index=df.index)
-                # Store if column exists (even if all NaN)
-                available_periods[period] = {
-                    'data': data,
-                    'weight': config['weight'],
-                    'years': config['years'],
-                    'standalone': config['standalone']
-                }
+                available_periods[period] = weight
         
-        # Determine if we have minimum required data
-        # Need either: 2+ periods, OR standalone period (3y/5y)
-        period_count = len(available_periods)
-        has_standalone = any(config['standalone'] for config in available_periods.values())
+        # If no long-term data columns exist at all
+        if not available_periods:
+            logger.warning("No long-term return columns (ret_1y, ret_3y, ret_5y) found in DataFrame")
+            # Return Series of NaN (not error, just no data)
+            return long_term_strength
         
-        if period_count == 0:
-            logger.warning("No long-term return columns available (1y, 3y, 5y)")
-            return long_term_strength  # Return all NaN
+        # VECTORIZED CALCULATION
+        # Collect scores for each period
+        period_scores = pd.DataFrame(index=df.index)
+        period_weights = pd.DataFrame(index=df.index)
         
-        if period_count == 1 and not has_standalone:
-            logger.info("Only 1y return available - insufficient for long-term strength")
-            return long_term_strength  # Return all NaN
-        
-        # For each stock, calculate score if it has sufficient data
-        for idx in df.index:
-            stock_data = {}
-            total_weight = 0
+        for period, base_weight in available_periods.items():
+            # Get return data
+            returns = pd.Series(df[period].values, index=df.index)
+            valid = returns.notna()
             
-            # Collect available data for this specific stock
-            for period, config in available_periods.items():
-                value = config['data'][idx]
-                if pd.notna(value):
-                    stock_data[period] = {
-                        'value': value,
-                        'weight': config['weight'],
-                        'years': config['years']
-                    }
-                    total_weight += config['weight']
+            if not valid.any():
+                continue
             
-            # Check if this stock has minimum required data
-            stock_period_count = len(stock_data)
-            stock_has_standalone = any(
-                period in stock_data 
-                for period, config in available_periods.items() 
-                if config['standalone']
-            )
+            # Calculate annualized return based on period
+            years = float(period.replace('ret_', '').replace('y', ''))
             
-            # Skip if insufficient data for this specific stock
-            if stock_period_count == 0:
-                continue  # Leave as NaN
+            # Initialize score for this period
+            score = pd.Series(np.nan, index=df.index)
             
-            if stock_period_count == 1 and not stock_has_standalone:
-                continue  # Only 1y data, not enough - leave as NaN
-            
-            # Calculate components for this stock
-            
-            # Component 1: PERFORMANCE (60% of final score)
-            performance_scores = {}
-            performance_weights = {}
-            
-            for period, data in stock_data.items():
-                ret_value = data['value']
-                years = data['years']
-                weight = data['weight']
+            # Calculate CAGR for valid returns
+            # Handle negative returns properly
+            positive_final = valid & (returns > -100)
+            if positive_final.any():
+                # CAGR = ((1 + return/100)^(1/years) - 1) * 100
+                cagr = ((1 + returns[positive_final]/100) ** (1/years) - 1) * 100
                 
-                # Calculate annualized return
-                if ret_value > -100:  # Not total loss
-                    # CAGR formula
-                    annualized = ((1 + ret_value/100) ** (1/years) - 1) * 100
-                else:
-                    # Total or near-total loss
-                    annualized = -100 / years
-                
-                # Convert to score based on Indian market context
-                # Annualized returns: <0% → 20-50, 0-15% → 50-70, 15-25% → 70-85, >25% → 85-100
-                if annualized < 0:
-                    # Negative returns: -50% → 20, 0% → 50
-                    score = 50 + (annualized / 50) * 30
-                    score = max(20, score)
-                elif annualized <= 15:
-                    # 0-15%: Linear from 50 to 70
-                    score = 50 + (annualized / 15) * 20
-                elif annualized <= 25:
-                    # 15-25%: Linear from 70 to 85
-                    score = 70 + ((annualized - 15) / 10) * 15
-                else:
-                    # >25%: Diminishing returns from 85 to 100
-                    score = 85 + min(15, (annualized - 25) * 0.5)
-                
-                performance_scores[period] = score
-                performance_weights[period] = weight
-            
-            # Normalize weights for available data
-            weight_sum = sum(performance_weights.values())
-            if weight_sum > 0:
-                normalized_weights = {
-                    period: w/weight_sum 
-                    for period, w in performance_weights.items()
-                }
-                
-                # Calculate weighted performance
-                performance_component = sum(
-                    performance_scores[period] * normalized_weights[period]
-                    for period in performance_scores
+                # Convert CAGR to score (0-100)
+                # Indian market context:
+                # <0% → 20-50
+                # 0-15% → 50-70  
+                # 15-25% → 70-85
+                # >25% → 85-100
+                score[positive_final] = np.where(
+                    cagr < 0,
+                    np.maximum(20, 50 + cagr * 1.5),  # Negative: scale from 20 to 50
+                    np.where(
+                        cagr <= 15,
+                        50 + (cagr / 15) * 20,  # 0-15%: scale from 50 to 70
+                        np.where(
+                            cagr <= 25,
+                            70 + ((cagr - 15) / 10) * 15,  # 15-25%: scale from 70 to 85
+                            np.minimum(100, 85 + (cagr - 25) * 0.5)  # >25%: scale from 85 to 100
+                        )
+                    )
                 )
-            else:
-                continue  # Shouldn't happen, but safety check
             
-            # Component 2: CONSISTENCY (25% of final score)
-            consistency_component = 50  # Default neutral
+            # Handle total loss cases
+            total_loss = valid & (returns <= -100)
+            if total_loss.any():
+                score[total_loss] = 0
             
-            if stock_period_count >= 2:
-                # Calculate consistency across available periods
-                returns_list = []
-                for period, data in stock_data.items():
-                    annualized = data['value'] / data['years']
-                    returns_list.append(annualized)
-                
-                if len(returns_list) >= 2:
-                    # Coefficient of variation
-                    mean_return = np.mean(returns_list)
-                    std_return = np.std(returns_list)
-                    
-                    if abs(mean_return) > 1:  # Avoid division by near-zero
-                        cv = abs(std_return / mean_return)
-                        
-                        # Lower CV = more consistent = higher score
-                        if cv < 0.3:
-                            consistency_component = 80
-                        elif cv < 0.5:
-                            consistency_component = 70
-                        elif cv < 0.8:
-                            consistency_component = 60
-                        elif cv < 1.2:
-                            consistency_component = 50
-                        else:
-                            consistency_component = 40
-                    
-                    # Check for improvement pattern if we have all 3 periods
-                    if all(p in stock_data for p in ['ret_1y', 'ret_3y', 'ret_5y']):
-                        ann_1y = stock_data['ret_1y']['value']
-                        ann_3y = stock_data['ret_3y']['value'] / 3
-                        ann_5y = stock_data['ret_5y']['value'] / 5
-                        
-                        # Accelerating growth
-                        if ann_1y > ann_3y > ann_5y:
-                            consistency_component = min(consistency_component + 20, 100)
-                        # Decelerating growth
-                        elif ann_1y < ann_3y < ann_5y:
-                            consistency_component = max(consistency_component - 20, 20)
-            
-            # Component 3: SUSTAINABILITY (15% of final score)
-            sustainability_component = 50  # Default neutral
-            
-            # Assess if returns are sustainable
-            if 'ret_5y' in stock_data:
-                ret_5y = stock_data['ret_5y']['value']
-                
-                # 5-year CAGR
-                if ret_5y > -100:
-                    cagr_5y = ((1 + ret_5y/100) ** 0.2 - 1) * 100
-                    
-                    # Check if recent performance supports long-term CAGR
-                    if 'ret_1y' in stock_data:
-                        ret_1y = stock_data['ret_1y']['value']
-                        
-                        # Compare recent to long-term
-                        if cagr_5y > 0:
-                            momentum_ratio = ret_1y / cagr_5y
-                            
-                            if momentum_ratio > 1.5:
-                                # Accelerating beyond long-term rate
-                                sustainability_component = 75
-                            elif momentum_ratio > 0.8:
-                                # Maintaining pace
-                                sustainability_component = 60
-                            elif momentum_ratio > 0:
-                                # Slowing but positive
-                                sustainability_component = 45
-                            else:
-                                # Turned negative
-                                sustainability_component = 30
-                    
-                    # Exceptional long-term CAGR
-                    if cagr_5y > 30:
-                        sustainability_component = min(sustainability_component + 10, 90)
-                    elif cagr_5y > 20:
-                        sustainability_component = min(sustainability_component + 5, 85)
-            
-            # COMBINE COMPONENTS
-            # Only use components we can calculate
-            final_components = {
-                'performance': (performance_component, 0.60),
-                'consistency': (consistency_component, 0.25),
-                'sustainability': (sustainability_component, 0.15)
-            }
-            
-            # Calculate weighted final score
-            final_score = 0
-            final_weight = 0
-            
-            for name, (score, weight) in final_components.items():
-                if pd.notna(score):
-                    final_score += score * weight
-                    final_weight += weight
-            
-            if final_weight > 0:
-                long_term_strength[idx] = (final_score / final_weight)
-            
-            # DATA QUALITY INDICATOR (not penalty, just metadata)
-            # Track what data was used (for transparency)
-            if 'data_quality_flags' not in df.columns:
-                df['lt_data_available'] = ''
-            
-            data_used = '/'.join(sorted(stock_data.keys()))
-            df.at[idx, 'lt_data_available'] = data_used
+            # Store score and weight for this period
+            period_scores[period] = score
+            period_weights[period] = pd.Series(
+                np.where(score.notna(), base_weight, 0),
+                index=df.index
+            )
         
-        # Clip final scores to valid range
+        # Calculate weighted average where we have data
+        if not period_scores.empty:
+            # Sum weighted scores
+            weighted_sum = pd.Series(0, index=df.index, dtype=float)
+            weight_sum = pd.Series(0, index=df.index, dtype=float)
+            
+            for period in period_scores.columns:
+                valid = period_scores[period].notna()
+                weighted_sum[valid] += period_scores[period][valid] * period_weights[period][valid]
+                weight_sum[valid] += period_weights[period][valid]
+            
+            # Calculate final score where weights > 0
+            has_score = weight_sum > 0
+            long_term_strength[has_score] = weighted_sum[has_score] / weight_sum[has_score]
+        
+        # ADD CONSISTENCY BONUS (if multiple periods available)
+        if len(period_scores.columns) >= 2:
+            # Check for consistency across periods
+            scores_array = period_scores.values
+            valid_rows = ~np.isnan(scores_array).all(axis=1)
+            
+            if valid_rows.any():
+                # Count how many periods have data for each stock
+                periods_with_data = (~np.isnan(scores_array)).sum(axis=1)
+                
+                # Calculate standard deviation across periods
+                score_std = np.nanstd(scores_array, axis=1)
+                score_mean = np.nanmean(scores_array, axis=1)
+                
+                # Low std relative to mean = consistent
+                # Add small bonus for consistency
+                consistent = valid_rows & (periods_with_data >= 2) & (score_std < 10) & (score_mean > 50)
+                if consistent.any():
+                    long_term_strength[consistent] = np.minimum(
+                        long_term_strength[consistent] * 1.05, 
+                        100
+                    )
+                
+                # High std = inconsistent (volatile performance)
+                inconsistent = valid_rows & (periods_with_data >= 2) & (score_std > 20)
+                if inconsistent.any():
+                    long_term_strength[inconsistent] *= 0.95
+        
+        # SPECIAL CASES
+        # Check for improvement pattern if all 3 periods available
+        if all(period in period_scores.columns for period in ['ret_1y', 'ret_3y', 'ret_5y']):
+            ret_1y = pd.Series(df['ret_1y'].values, index=df.index)
+            ret_3y = pd.Series(df['ret_3y'].values, index=df.index)
+            ret_5y = pd.Series(df['ret_5y'].values, index=df.index)
+            
+            all_valid = ret_1y.notna() & ret_3y.notna() & ret_5y.notna()
+            
+            if all_valid.any():
+                # Annualized returns
+                ann_1y = ret_1y[all_valid]
+                ann_3y = ret_3y[all_valid] / 3
+                ann_5y = ret_5y[all_valid] / 5
+                
+                # Accelerating growth pattern
+                accelerating = all_valid & (ann_1y > ann_3y * 1.1) & (ann_3y > ann_5y * 1.1)
+                if accelerating.any():
+                    long_term_strength[accelerating] = np.minimum(
+                        long_term_strength[accelerating] + 5, 
+                        100
+                    )
+                
+                # Decelerating pattern
+                decelerating = all_valid & (ann_1y < ann_3y * 0.9) & (ann_3y < ann_5y * 0.9)
+                if decelerating.any():
+                    long_term_strength[decelerating] = np.maximum(
+                        long_term_strength[decelerating] - 5,
+                        0
+                    )
+        
+        # MINIMUM DATA REQUIREMENT
+        # Require at least 1 period with data for a score
+        # This is already handled by the weight_sum > 0 check above
+        
+        # Final clipping to ensure valid range
         long_term_strength = long_term_strength.clip(0, 100)
         
-        # NO FILLING OF NaN!
+        # DO NOT FILL NaN!
         # Stocks without sufficient data remain NaN
+        # This is intentional and correct
+        
+        # VERIFICATION - Critical for debugging
+        assert len(long_term_strength) == len(df), f"Length mismatch: {len(long_term_strength)} vs {len(df)}"
+        assert long_term_strength.index.equals(df.index), "Index mismatch!"
         
         # LOGGING
         total_stocks = len(df)
@@ -3825,29 +3752,27 @@ class RankingEngine:
                        f"Median: {score_dist.median():.1f}, "
                        f"Std: {score_dist.std():.1f}")
             
-            # Log data availability breakdown
+            # Check data availability
             for period in ['ret_1y', 'ret_3y', 'ret_5y']:
                 if period in df.columns:
                     available = df[period].notna().sum()
-                    logger.debug(f"{period}: {available}/{total_stocks} stocks have data")
+                    pct = (available / total_stocks) * 100
+                    logger.debug(f"{period}: {available}/{total_stocks} ({pct:.1f}%) stocks have data")
             
-            # Exceptional performers
-            exceptional = (long_term_strength > 85).sum()
-            poor = (long_term_strength < 30).sum()
-            if exceptional > 0 or poor > 0:
-                logger.debug(f"Exceptional performers: {exceptional}, Poor performers: {poor}")
+            # Distribution categories
+            excellent = (long_term_strength > 80).sum()
+            good = ((long_term_strength > 65) & (long_term_strength <= 80)).sum()
+            average = ((long_term_strength > 50) & (long_term_strength <= 65)).sum()
+            poor = (long_term_strength <= 50).sum()
+            
+            if excellent > 0 or poor > 0:
+                logger.debug(f"Performance breakdown: Excellent={excellent}, Good={good}, "
+                            f"Average={average}, Poor={poor}")
         else:
-            logger.warning("No stocks had sufficient long-term data for scoring")
+            logger.warning("No stocks had sufficient data for long-term strength scoring")
         
-        # Category analysis if available
-        if 'category' in df.columns and scored_stocks > 10:
-            category_scores = df[long_term_strength.notna()].groupby('category')['long_term_strength'].agg(['mean', 'count'])
-            if len(category_scores) > 0:
-                best_cat = category_scores['mean'].idxmax()
-                logger.debug(f"Best long-term category: {best_cat} "
-                            f"({category_scores.loc[best_cat, 'mean']:.1f} avg, "
-                            f"{category_scores.loc[best_cat, 'count']} stocks)")
-        
+        # GUARANTEED RETURN
+        # Always return Series of same length as input
         return long_term_strength
     
     @staticmethod
