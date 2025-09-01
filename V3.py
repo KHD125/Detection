@@ -9685,45 +9685,63 @@ def main():
         # Market State filters with callbacks
         st.markdown("#### 📈 Market State Filters")
         
-        # Define the 8 specific market states for custom selection
-        custom_market_states = [
-            "BOUNCE",
-            "DOWNTREND", 
-            "PULLBACK",
-            "ROTATION",
-            "SIDEWAYS",
-            "STRONG_DOWNTREND",
-            "STRONG_UPTREND",
-            "UPTREND"
-        ]
-        
-        # Add filter presets and custom range option
+        # Add filter presets and custom selection option (no individual states in main multiselect)
         preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡️ DEFENSIVE", "🌍 ALL"]
-        
-        # Check if custom selection is active
-        current_states = st.session_state.filter_state.get('market_states', [])
-        custom_selection_active = "📊 Custom Selection" in current_states
-        
-        if custom_selection_active:
-            # Show custom market states when custom selection is active
-            market_state_with_presets = preset_options + ["📊 Custom Selection"] + custom_market_states
-        else:
-            # Get current market state options from data for regular mode
-            market_state_options = FilterEngine.get_filter_options(ranked_df_display, 'market_state', filters)
-            market_state_with_presets = preset_options + ["📊 Custom Selection"] + market_state_options
+        market_state_with_presets = preset_options + ["📊 Custom Selection"]
         
         selected_market_states = st.multiselect(
             "Market State",
             options=market_state_with_presets,
-            default=current_states,
+            default=st.session_state.filter_state.get('market_states', []),
             placeholder="Select market states or use preset strategy",
-            help="Filter by market momentum state. Use presets for different trading strategies or select individual states",
+            help="Filter by market momentum state. Use presets for different trading strategies or select Custom Selection for individual states",
             key="market_states_multiselect",
             on_change=sync_market_states  # SYNC ON CHANGE
         )
         
-        if selected_market_states:
-            filters['market_states'] = selected_market_states
+        # Show custom market states dropdown when Custom Selection is active
+        custom_selection_active = "📊 Custom Selection" in selected_market_states
+        custom_states_selection = []
+        
+        if custom_selection_active:
+            # Define the 8 specific market states for custom selection
+            custom_market_states = [
+                "BOUNCE",
+                "DOWNTREND", 
+                "PULLBACK",
+                "ROTATION",
+                "SIDEWAYS",
+                "STRONG_DOWNTREND",
+                "STRONG_UPTREND",
+                "UPTREND"
+            ]
+            
+            # Add sync function for custom states
+            def sync_custom_market_states():
+                if 'custom_market_states_multiselect' in st.session_state:
+                    st.session_state.filter_state['custom_market_states'] = st.session_state.custom_market_states_multiselect
+            
+            custom_states_selection = st.multiselect(
+                "Select Individual Market States",
+                options=custom_market_states,
+                default=st.session_state.filter_state.get('custom_market_states', []),
+                placeholder="Choose specific market states to filter",
+                help="Select one or more market states to include in your filter",
+                key="custom_market_states_multiselect",
+                on_change=sync_custom_market_states
+            )
+            
+            # Combine selections for filtering
+            if custom_states_selection:
+                # Use custom states selection when available
+                filters['market_states'] = ["📊 Custom Selection"] + custom_states_selection
+            else:
+                # Just custom selection flag without individual states
+                filters['market_states'] = selected_market_states
+        else:
+            # Regular preset selection
+            if selected_market_states:
+                filters['market_states'] = selected_market_states
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
