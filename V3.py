@@ -1792,170 +1792,150 @@ class RankingEngine:
     @staticmethod
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate volume score using turnover and logarithmic scaling.
-        FIXED: No NaN filling, uses turnover not just volume, proper log scaling.
+        Calculate volume score focusing on what actually matters.
+        SIMPLIFIED: Volume confirms, doesn't predict. Focus on liquidity and relative volume.
         
         Core Philosophy:
-        - Volume alone is meaningless - need turnover (volume × price)
-        - Volume data is exponential - requires log scaling
-        - Consistency matters more than spikes
-        - Never replace missing data with fake values
+        - Volume is a CONFIRMING indicator, not predictive
+        - Relative volume matters more than absolute
+        - Liquidity (turnover) matters for tradability
+        - Extreme volume often signals problems
         
         Components:
-        - 40% Turnover intensity (volume × price)
-        - 30% Volume persistence (consistency across timeframes)
-        - 20% Relative volume (vs historical average)
-        - 10% Volume trend (building vs declining)
+        - 50% Relative volume (vs historical average)
+        - 30% Liquidity (can you actually trade it?)
+        - 20% Price-volume harmony (does volume confirm price action?)
         
         Score Range:
-        - 80-100: Exceptional liquidity/interest
-        - 60-80: High volume/strong interest
-        - 40-60: Normal/average volume
-        - 20-40: Below average/low interest
-        - 0-20: Dead/no interest
+        - 70-100: High relative volume with price confirmation
+        - 50-70: Above average activity
+        - 30-50: Normal activity
+        - 10-30: Below average (concerning)
+        - 0-10: Dead (no liquidity)
         """
-        # CRITICAL: Initialize with NaN, never fill with defaults!
+        # Initialize with NaN
         volume_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Check minimum required data
-        volume_cols = ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d', 'volume_180d']
-        available_vol_cols = [col for col in volume_cols if col in df.columns]
+        # Check minimum data
+        has_rvol = 'rvol' in df.columns
+        has_volume = 'volume_1d' in df.columns
+        has_price = 'price' in df.columns
         
-        ratio_cols = ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']
-        available_ratio_cols = [col for col in ratio_cols if col in df.columns]
-        
-        if not available_vol_cols and not available_ratio_cols:
+        if not has_rvol and not has_volume:
             logger.warning("No volume data available")
-            return volume_score  # Return NaN, NOT defaults!
+            return volume_score
         
-        # COMPONENT 1: TURNOVER INTENSITY (40% weight)
-        turnover_component = pd.Series(np.nan, index=df.index, dtype=float)
+        # COMPONENT 1: RELATIVE VOLUME (50% weight)
+        # This is the most important - is volume unusual today?
+        relative_component = pd.Series(np.nan, index=df.index, dtype=float)
         
-        if 'volume_1d' in df.columns and 'price' in df.columns:
-            volume_1d = df['volume_1d']
-            price = df['price']
+        if has_rvol:
+            rvol = df['rvol']
+            valid_rvol = rvol.notna() & (rvol >= 0)
             
-            valid_turnover = volume_1d.notna() & price.notna() & (volume_1d >= 0) & (price > 0)
-            
-            if valid_turnover.any():
-                # Calculate daily turnover (in millions for scaling)
-                turnover = (volume_1d[valid_turnover] * price[valid_turnover]) / 1_000_000
+            if valid_rvol.any():
+                # Simple but effective scoring
+                # < 0.5x = dead (20)
+                # 0.5-1x = below normal (20-50)
+                # 1-2x = normal to elevated (50-70)
+                # 2-5x = high interest (70-85)
+                # > 5x = extreme (85-90, capped due to potential manipulation)
                 
-                # LOGARITHMIC SCALING (proper for exponential data)
-                # Add 1 to handle zero turnover
-                log_turnover = np.log10(turnover + 1)
-                
-                # Calibrated for Indian markets (turnover in millions INR)
-                # <0.01M → 0-20, 0.01-0.1M → 20-40, 0.1-1M → 40-60, 
-                # 1-10M → 60-80, >10M → 80-100
-                turnover_component[valid_turnover] = np.where(
-                    log_turnover < -2, log_turnover + 2,  # Very low
+                relative_component[valid_rvol] = np.where(
+                    rvol[valid_rvol] < 0.5,
+                    rvol[valid_rvol] * 40,  # 0-20
                     np.where(
-                        log_turnover < -1, 20 + (log_turnover + 2) * 20,  # Low
+                        rvol[valid_rvol] < 1,
+                        20 + (rvol[valid_rvol] - 0.5) * 60,  # 20-50
                         np.where(
-                            log_turnover < 0, 40 + (log_turnover + 1) * 20,  # Below avg
+                            rvol[valid_rvol] < 2,
+                            50 + (rvol[valid_rvol] - 1) * 20,  # 50-70
                             np.where(
-                                log_turnover < 1, 60 + log_turnover * 20,  # Normal
-                                np.where(
-                                    log_turnover < 2, 80 + (log_turnover - 1) * 15,  # High
-                                    np.minimum(95, 95 + (log_turnover - 2) * 2)  # Very high
-                                )
+                                rvol[valid_rvol] < 5,
+                                70 + np.log(rvol[valid_rvol]) * 10,  # 70-85 (log scale)
+                                np.minimum(90, 85 + np.log(rvol[valid_rvol] / 5) * 5)  # 85-90 cap
                             )
                         )
                     )
                 )
         
-        # COMPONENT 2: VOLUME PERSISTENCE (30% weight)
-        persistence_component = pd.Series(np.nan, index=df.index, dtype=float)
+        # COMPONENT 2: LIQUIDITY (30% weight)
+        # Can you actually trade this stock?
+        liquidity_component = pd.Series(np.nan, index=df.index, dtype=float)
         
-        if len(available_ratio_cols) >= 2:
-            # Collect ratios for consistency check
-            ratio_data = pd.DataFrame(index=df.index)
-            for col in available_ratio_cols:
-                ratio_data[col] = df[col]
+        if has_volume and has_price:
+            volume = df['volume_1d']
+            price = df['price']
             
-            # Calculate coefficient of variation
-            valid_ratios = ratio_data.notna().all(axis=1)
+            valid_liquidity = volume.notna() & price.notna() & (volume >= 0) & (price > 0)
             
-            if valid_ratios.any():
-                ratio_mean = ratio_data[valid_ratios].mean(axis=1)
-                ratio_std = ratio_data[valid_ratios].std(axis=1)
+            if valid_liquidity.any():
+                # Calculate turnover in lakhs (100,000s)
+                turnover_lakhs = (volume[valid_liquidity] * price[valid_liquidity]) / 100000
                 
-                # Avoid division by zero
-                safe_mean = ratio_mean.copy()
-                safe_mean[safe_mean == 0] = 0.001
+                # Scoring based on Indian market standards
+                # < 10 lakhs = illiquid (0-30)
+                # 10-100 lakhs = low liquidity (30-50)
+                # 100-1000 lakhs = decent (50-70)
+                # 1000-10000 lakhs = good (70-85)
+                # > 10000 lakhs = excellent (85-100)
                 
-                cv = ratio_std / safe_mean
+                log_turnover = np.log10(turnover_lakhs + 1)  # Add 1 to handle zero
                 
-                # Lower CV = more consistent = higher score
-                persistence_component[valid_ratios] = np.where(
-                    cv < 0.2, 80,  # Very consistent
+                liquidity_component[valid_liquidity] = np.where(
+                    log_turnover < 1,  # < 10 lakhs
+                    log_turnover * 30,
                     np.where(
-                        cv < 0.5, 60 + (0.5 - cv) * 40,  # Consistent
+                        log_turnover < 2,  # 10-100 lakhs
+                        30 + (log_turnover - 1) * 20,
                         np.where(
-                            cv < 1.0, 40 + (1.0 - cv) * 20,  # Some variation
-                            np.maximum(20, 40 - cv * 10)  # High variation
+                            log_turnover < 3,  # 100-1000 lakhs
+                            50 + (log_turnover - 2) * 20,
+                            np.where(
+                                log_turnover < 4,  # 1000-10000 lakhs
+                                70 + (log_turnover - 3) * 15,
+                                np.minimum(100, 85 + (log_turnover - 4) * 10)
+                            )
                         )
                     )
                 )
         
-        # COMPONENT 3: RELATIVE VOLUME (20% weight)
-        relative_component = pd.Series(np.nan, index=df.index, dtype=float)
+        # COMPONENT 3: PRICE-VOLUME HARMONY (20% weight)
+        # Does volume confirm price action?
+        harmony_component = pd.Series(50, index=df.index, dtype=float)  # Default neutral
         
-        if 'vol_ratio_1d_90d' in df.columns:
-            vol_ratio = df['vol_ratio_1d_90d']
-            valid_ratio = vol_ratio.notna() & (vol_ratio >= 0)
+        if has_rvol and 'ret_1d' in df.columns:
+            rvol = df['rvol']
+            ret_1d = df['ret_1d']
             
-            if valid_ratio.any():
-                # LOGARITHMIC SCALING for ratios too
-                # Ratio of 1 = normal (50 score)
-                # Use log2 for better spread
-                log_ratio = np.log2(vol_ratio[valid_ratio] + 0.1)
+            valid_harmony = rvol.notna() & ret_1d.notna()
+            
+            if valid_harmony.any():
+                # Best: High volume + strong price move (either direction)
+                strong_move_confirmed = valid_harmony & (rvol > 1.5) & (np.abs(ret_1d) > 3)
+                harmony_component[strong_move_confirmed] = 80
                 
-                # Convert to score
-                # 0.5x → 30, 1x → 50, 2x → 70, 4x → 85, 8x → 95
-                relative_component[valid_ratio] = np.where(
-                    vol_ratio[valid_ratio] < 0.5,
-                    30 * (vol_ratio[valid_ratio] / 0.5),  # Linear for low values
-                    np.where(
-                        vol_ratio[valid_ratio] < 1,
-                        30 + 20 * (vol_ratio[valid_ratio] - 0.5) / 0.5,  # 30-50
-                        np.where(
-                            vol_ratio[valid_ratio] < 2,
-                            50 + 20 * (vol_ratio[valid_ratio] - 1),  # 50-70
-                            np.minimum(95, 50 + 20 * log_ratio)  # Log scale above 2x
-                        )
-                    )
-                )
-        
-        # COMPONENT 4: VOLUME TREND (10% weight)
-        trend_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if 'vol_ratio_1d_90d' in df.columns and 'vol_ratio_30d_90d' in df.columns:
-            vol_1d_90d = df['vol_ratio_1d_90d']
-            vol_30d_90d = df['vol_ratio_30d_90d']
-            
-            valid_trend = vol_1d_90d.notna() & vol_30d_90d.notna()
-            
-            if valid_trend.any():
-                # Building volume: 1d > 30d average
-                building = valid_trend & (vol_1d_90d > vol_30d_90d * 1.2)
-                steady = valid_trend & (vol_1d_90d >= vol_30d_90d * 0.8) & (vol_1d_90d <= vol_30d_90d * 1.2)
-                declining = valid_trend & (vol_1d_90d < vol_30d_90d * 0.8)
+                # Good: Above average volume + price move
+                normal_confirmed = valid_harmony & (rvol > 1) & (np.abs(ret_1d) > 1)
+                harmony_component[normal_confirmed] = 65
                 
-                trend_component[building] = 70
-                trend_component[steady] = 50
-                trend_component[declining] = 30
+                # Bad: High volume + no price move (distribution/accumulation)
+                high_vol_no_move = valid_harmony & (rvol > 2) & (np.abs(ret_1d) < 0.5)
+                harmony_component[high_vol_no_move] = 30
+                
+                # Suspicious: Big price move + no volume
+                move_no_volume = valid_harmony & (np.abs(ret_1d) > 5) & (rvol < 0.7)
+                harmony_component[move_no_volume] = 20
+                
+                # Neutral: Everything else stays at 50
         
-        # COMBINE COMPONENTS (Vectorized)
+        # COMBINE COMPONENTS
         components = [
-            (turnover_component, 0.40),
-            (persistence_component, 0.30),
-            (relative_component, 0.20),
-            (trend_component, 0.10)
+            (relative_component, 0.50),
+            (liquidity_component, 0.30),
+            (harmony_component, 0.20)
         ]
         
-        # Calculate weighted average where data exists
         for idx in df.index:
             valid_components = []
             valid_weights = []
@@ -1971,67 +1951,49 @@ class RankingEngine:
                     normalized_weights = [w/total_weight for w in valid_weights]
                     volume_score[idx] = sum(c * w for c, w in zip(valid_components, normalized_weights))
         
-        # CONTEXT ADJUSTMENTS (Vectorized)
+        # CONTEXT ADJUSTMENTS (Simplified)
         
-        # Market cap adjustments
+        # Market cap context
         if 'category' in df.columns and volume_score.notna().any():
             category = df['category']
             
-            # Small caps naturally have more volatile volume
-            is_small = category.isin(['Micro Cap', 'Small Cap'])
-            small_valid = is_small & volume_score.notna()
+            # Penny stocks: High volume more common, reduce score
+            is_penny = category.isin(['Micro Cap', 'Small Cap'])
+            if has_rvol:
+                rvol = df['rvol']
+                penny_high = is_penny & (rvol > 3) & volume_score.notna()
+                if penny_high.any():
+                    volume_score[penny_high] *= 0.85
             
-            if small_valid.any():
-                # Normalize toward center (reduce extremes)
-                volume_score[small_valid] = 50 + (volume_score[small_valid] - 50) * 0.8
-            
-            # Large caps with high volume = very significant
+            # Large caps: High volume more significant
             is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_high = is_large & volume_score.notna() & (volume_score > 70)
-            
-            if large_high.any():
-                volume_score[large_high] = np.minimum(
-                    volume_score[large_high] * 1.1,
-                    100
-                )
-        
-        # Price-volume harmony check
-        if 'ret_1d' in df.columns and 'rvol' in df.columns and volume_score.notna().any():
-            ret_1d = df['ret_1d']
-            rvol = df['rvol']
-            
-            valid_harmony = ret_1d.notna() & rvol.notna() & volume_score.notna()
-            
-            if valid_harmony.any():
-                # High volume with no price move = distribution (bad)
-                distribution = valid_harmony & (rvol > 2) & (ret_1d.abs() < 0.5)
-                if distribution.any():
-                    volume_score[distribution] *= 0.8
-                    logger.debug(f"Distribution pattern penalty for {distribution.sum()} stocks")
-                
-                # High volume with strong move = accumulation (good)
-                accumulation = valid_harmony & (rvol > 2) & (ret_1d.abs() > 5)
-                if accumulation.any():
-                    volume_score[accumulation] = np.minimum(
-                        volume_score[accumulation] * 1.1,
+            if has_rvol:
+                large_high = is_large & (rvol > 2) & volume_score.notna()
+                if large_high.any():
+                    volume_score[large_high] = np.minimum(
+                        volume_score[large_high] * 1.1,
                         100
                     )
         
         # Extreme volume investigation
-        if 'rvol' in df.columns:
+        if has_rvol:
             rvol = df['rvol']
             
-            # Very extreme volume might be manipulation
-            extreme = rvol.notna() & (rvol > 20) & volume_score.notna()
+            # Very extreme volume (>10x) is usually bad news
+            extreme = (rvol > 10) & volume_score.notna()
             if extreme.any():
-                volume_score[extreme] = np.minimum(volume_score[extreme], 85)
-                logger.warning(f"Capped {extreme.sum()} stocks with extreme volume (>20x)")
+                # Check if it's with bad price action
+                if 'ret_1d' in df.columns:
+                    ret_1d = df['ret_1d']
+                    extreme_negative = extreme & (ret_1d < -5)
+                    if extreme_negative.any():
+                        volume_score[extreme_negative] = np.minimum(volume_score[extreme_negative], 60)
+                        logger.warning(f"Extreme volume with negative price action in {extreme_negative.sum()} stocks")
         
         # Final clipping
         volume_score = volume_score.clip(0, 100)
         
-        # CRITICAL: DO NOT FILL NaN!
-        # Missing data stays missing
+        # NEVER FILL NaN!
         
         # COMPREHENSIVE LOGGING
         valid_scores = volume_score.notna().sum()
@@ -2045,21 +2007,16 @@ class RankingEngine:
                        f"Median: {score_dist.median():.1f}, "
                        f"Std: {score_dist.std():.1f}")
             
-            # Categories
-            exceptional = (volume_score > 80).sum()
-            high = ((volume_score > 60) & (volume_score <= 80)).sum()
-            normal = ((volume_score >= 40) & (volume_score <= 60)).sum()
-            low = ((volume_score >= 20) & (volume_score < 40)).sum()
-            dead = (volume_score < 20).sum()
-            
-            logger.debug(f"Breakdown: Exceptional={exceptional}, High={high}, "
-                        f"Normal={normal}, Low={low}, Dead={dead}")
-            
-            # Check if turnover was available
-            if turnover_component.notna().any():
-                logger.info(f"Turnover data available for {turnover_component.notna().sum()} stocks")
-            else:
-                logger.warning("No turnover calculation possible (missing price or volume)")
+            # Volume categories
+            if has_rvol:
+                rvol = df['rvol']
+                dead = (rvol < 0.5).sum()
+                normal = ((rvol >= 0.5) & (rvol < 2)).sum()
+                elevated = ((rvol >= 2) & (rvol < 5)).sum()
+                extreme = (rvol >= 5).sum()
+                
+                logger.debug(f"Volume distribution: Dead={dead}, Normal={normal}, "
+                            f"Elevated={elevated}, Extreme={extreme}")
         
         return volume_score
         
