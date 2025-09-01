@@ -2791,94 +2791,290 @@ class RankingEngine:
     @staticmethod
     def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate RVOL score with exponential scaling and context awareness.
-        FIXED: Proper NaN handling, logarithmic scaling, and context detection.
+        Calculate RVOL score using smooth logarithmic scaling with intelligent context.
+        FIXED: Pure logarithmic approach, no category overrides, smart manipulation detection.
+        
+        RVOL Methodology:
+        - Smooth logarithmic scaling (no discrete jumps)
+        - Adaptive manipulation detection based on context
+        - Price-volume harmony analysis
+        - Institutional vs retail volume patterns
+        - Market cap-adjusted thresholds
+        
+        Core Philosophy:
+        - RVOL is exponential by nature, needs log scaling
+        - Context determines if high volume is good or bad
+        - Sustained elevation > one-day spikes
+        - Price action validates volume significance
+        
+        Score Interpretation:
+        - 85-100: Institutional accumulation or major news
+        - 70-85: Strong sustained interest
+        - 50-70: Elevated healthy activity
+        - 40-50: Normal range
+        - 20-40: Below average (lack of interest)
+        - 0-20: Dead volume (danger zone)
         """
-        rvol_score = pd.Series(50, index=df.index, dtype=float)
+        rvol_score = pd.Series(np.nan, index=df.index, dtype=float)
         
         if 'rvol' not in df.columns:
             logger.warning("RVOL data not available")
+            return pd.Series(50, index=df.index, dtype=float)
+        
+        # Get RVOL data - preserve NaN
+        rvol = pd.Series(df['rvol'].values, index=df.index)
+        valid_rvol = rvol.notna() & (rvol >= 0)  # Allow 0 for halted stocks
+        
+        if not valid_rvol.any():
+            logger.warning("No valid RVOL data found")
             return rvol_score
         
-        # DON'T fillna! Preserve NaN for missing data
-        rvol = pd.Series(df['rvol'].values, index=df.index)
-        valid_rvol = rvol.notna() & (rvol > 0)  # Only valid positive RVOL
+        # BASE SCORE: Smooth logarithmic scaling
+        # This is the foundation - no overrides!
+        base_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # FIXED: Logarithmic scaling for exponential data
-        # This gives proper weight to exponential increases
-        # log(1) = 0, log(2) = 0.69, log(5) = 1.61, log(10) = 2.30
+        # Handle zero/minimal volume separately
+        zero_vol = valid_rvol & (rvol < 0.01)
+        if zero_vol.any():
+            base_score[zero_vol] = 0  # Dead stocks
         
-        # Base score calculation using logarithmic scale
-        rvol_score[valid_rvol] = np.where(
-            rvol[valid_rvol] >= 1,
-            50 + (np.log(rvol[valid_rvol]) / np.log(10)) * 25,  # Above normal: 50-100 range
-            50 - (1 - rvol[valid_rvol]) * 50  # Below normal: 0-50 range
-        )
+        # Below normal volume (0.01 to 1.0)
+        below_normal = valid_rvol & (rvol >= 0.01) & (rvol < 1.0)
+        if below_normal.any():
+            # Linear scaling: 0.01 → 5, 0.5 → 35, 0.99 → 49.5
+            base_score[below_normal] = 50 * rvol[below_normal]
         
-        # Apply thresholds for extreme cases (non-linear bonuses)
-        extreme_low = valid_rvol & (rvol < 0.3)  # Dead volume
-        very_low = valid_rvol & (rvol >= 0.3) & (rvol < 0.7)  # Low volume
-        normal_range = valid_rvol & (rvol >= 0.7) & (rvol <= 1.5)  # Normal
-        elevated = valid_rvol & (rvol > 1.5) & (rvol <= 2.5)  # Elevated
-        high = valid_rvol & (rvol > 2.5) & (rvol <= 5)  # High
-        explosive = valid_rvol & (rvol > 5) & (rvol <= 10)  # Explosive
-        volcanic = valid_rvol & (rvol > 10) & (rvol <= 20)  # Volcanic
-        nuclear = valid_rvol & (rvol > 20)  # Nuclear (likely manipulation)
+        # Normal to elevated (1.0 to 10.0)
+        normal_elevated = valid_rvol & (rvol >= 1.0) & (rvol <= 10.0)
+        if normal_elevated.any():
+            # Logarithmic scaling: 1x → 50, 2x → 65, 5x → 80, 10x → 90
+            # Using log base 2 for better spread
+            base_score[normal_elevated] = 50 + 40 * (np.log2(rvol[normal_elevated]) / np.log2(10))
         
-        # Override with specific scores for clarity
-        rvol_score[extreme_low] = 10  # Dead stock
-        rvol_score[very_low] = 30  # Low interest
-        rvol_score[normal_range] = 50  # Baseline
-        rvol_score[elevated] = 70  # Good interest
-        rvol_score[high] = 85  # Strong interest
-        rvol_score[explosive] = 95  # Extreme interest
-        rvol_score[volcanic] = 90  # Suspicious (too high)
-        rvol_score[nuclear] = 75  # Likely manipulation (penalty)
+        # Extreme volume (> 10x)
+        extreme = valid_rvol & (rvol > 10.0)
+        if extreme.any():
+            # Diminishing returns with cap
+            # 10x → 90, 20x → 93, 50x → 95, 100x → 96
+            base_score[extreme] = 90 + 10 * (1 - np.exp(-np.log10(rvol[extreme] / 10)))
+            base_score[extreme] = base_score[extreme].clip(90, 97)  # Cap at 97
         
-        # CONTEXT ADJUSTMENT: Consider market cap category
-        if 'category' in df.columns:
-            category = pd.Series(df['category'].values, index=df.index)
-            
-            # Penny/Micro caps: High RVOL is normal, reduce score
-            is_penny = category.isin(['Micro Cap', 'Small Cap'])
-            penny_high_rvol = is_penny & (rvol > 3)
-            rvol_score[penny_high_rvol] *= 0.9  # 10% penalty
-            
-            # Large/Mega caps: High RVOL is significant, boost score
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_high_rvol = is_large & (rvol > 2)
-            rvol_score[large_high_rvol] *= 1.1  # 10% bonus
+        # CONTEXT LAYER 1: Price-Volume Harmony
+        # Volume means different things depending on price action
+        harmony_multiplier = pd.Series(1.0, index=df.index, dtype=float)
         
-        # SUSTAINED vs SPIKE ADJUSTMENT
-        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d']):
-            vol_1d_90d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-            vol_7d_90d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-            
-            # Sustained elevation (both 1d and 7d are elevated)
-            sustained = valid_rvol & (vol_1d_90d > 2) & (vol_7d_90d > 1.5)
-            rvol_score[sustained] *= 1.05  # 5% bonus
-            
-            # One-day spike only (1d high but 7d normal)
-            spike_only = valid_rvol & (vol_1d_90d > 3) & (vol_7d_90d < 1.2)
-            rvol_score[spike_only] *= 0.85  # 15% penalty for unsustained spike
-        
-        # PRICE ACTION CONTEXT
         if 'ret_1d' in df.columns:
             ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
             
-            # High volume with no price movement = distribution
-            high_vol_no_move = valid_rvol & (rvol > 3) & (ret_1d.abs() < 0.5)
-            rvol_score[high_vol_no_move] *= 0.8  # 20% penalty
+            # Define harmony patterns
+            valid_harmony = valid_rvol & ret_1d.notna() & base_score.notna()
             
-            # High volume with strong price movement = confirmation
-            high_vol_strong_move = valid_rvol & (rvol > 2) & (ret_1d.abs() > 3)
-            rvol_score[high_vol_strong_move] *= 1.1  # 10% bonus
+            if valid_harmony.any():
+                # Calculate volume-price harmony score
+                # Good: High volume + significant price move
+                # Bad: High volume + no price move (distribution)
+                # Bad: Price move + no volume (manipulation)
+                
+                # Normalized metrics
+                norm_rvol = np.log1p(rvol[valid_harmony])  # log(1 + rvol) for stability
+                norm_price = np.abs(ret_1d[valid_harmony])
+                
+                # Harmony categories
+                # 1. Accumulation: High volume, modest positive move (smart money)
+                accumulation = valid_harmony & (rvol > 1.5) & (ret_1d > 0.5) & (ret_1d < 5)
+                harmony_multiplier[accumulation] = 1.15
+                
+                # 2. Breakout: Very high volume, strong positive move
+                breakout = valid_harmony & (rvol > 3) & (ret_1d > 5)
+                harmony_multiplier[breakout] = 1.20
+                
+                # 3. Distribution: High volume, small or negative move
+                distribution = valid_harmony & (rvol > 2) & (ret_1d > -2) & (ret_1d < 1)
+                harmony_multiplier[distribution] = 0.70
+                
+                # 4. Climax: Extreme volume, extreme move (exhaustion)
+                climax = valid_harmony & (rvol > 5) & (np.abs(ret_1d) > 10)
+                harmony_multiplier[climax] = 0.80
+                
+                # 5. Stealth: Low volume, significant move (suspicious)
+                stealth = valid_harmony & (rvol < 0.7) & (np.abs(ret_1d) > 5)
+                harmony_multiplier[stealth] = 0.85
         
-        # Penalize missing data (unlike fillna which gives average)
-        rvol_score[~valid_rvol] = 40  # Below average for missing data
+        # CONTEXT LAYER 2: Sustained vs Spike
+        # Sustained volume > one-day spikes
+        sustainability_multiplier = pd.Series(1.0, index=df.index, dtype=float)
         
-        return rvol_score.clip(0, 100)
-
+        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
+            vol_1d_90d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
+            vol_7d_90d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
+            vol_30d_90d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
+            
+            valid_sustain = vol_1d_90d.notna() & vol_7d_90d.notna() & vol_30d_90d.notna() & valid_rvol
+            
+            if valid_sustain.any():
+                # Calculate sustainability score
+                # Progressive elevation is better than spike
+                
+                # Perfect: Building volume (30d < 7d < 1d)
+                building = valid_sustain & (vol_30d_90d > 1.1) & (vol_7d_90d > vol_30d_90d) & (vol_1d_90d > vol_7d_90d)
+                sustainability_multiplier[building] = 1.10
+                
+                # Good: Sustained elevation
+                sustained = valid_sustain & ~building & (vol_7d_90d > 1.3) & (vol_30d_90d > 1.2)
+                sustainability_multiplier[sustained] = 1.05
+                
+                # Bad: One-day spike only
+                spike_only = valid_sustain & (vol_1d_90d > 3) & (vol_7d_90d < 1.3) & (vol_30d_90d < 1.2)
+                sustainability_multiplier[spike_only] = 0.75
+                
+                # Worst: Declining volume despite today's spike
+                declining = valid_sustain & (vol_1d_90d > 2) & (vol_7d_90d < vol_30d_90d)
+                sustainability_multiplier[declining] = 0.85
+        
+        # CONTEXT LAYER 3: Market Cap Adjustment
+        # Different caps have different normal RVOL ranges
+        cap_multiplier = pd.Series(1.0, index=df.index, dtype=float)
+        
+        if 'category' in df.columns:
+            category = pd.Series(df['category'].values, index=df.index)
+            
+            # Define cap-specific adjustments
+            # Small/Micro caps: High RVOL is normal
+            is_small = category.isin(['Micro Cap', 'Small Cap'])
+            small_valid = is_small & valid_rvol & base_score.notna()
+            
+            if small_valid.any():
+                # Progressive penalty for extreme volumes in small caps
+                # 3x is normal, 10x is suspicious, 20x+ is manipulation
+                small_moderate = small_valid & (rvol > 2) & (rvol <= 5)
+                cap_multiplier[small_moderate] = 0.95
+                
+                small_high = small_valid & (rvol > 5) & (rvol <= 10)
+                cap_multiplier[small_high] = 0.85
+                
+                small_extreme = small_valid & (rvol > 10) & (rvol <= 20)
+                cap_multiplier[small_extreme] = 0.70
+                
+                small_manipulation = small_valid & (rvol > 20)
+                cap_multiplier[small_manipulation] = 0.50
+            
+            # Large/Mega caps: High RVOL is significant
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_valid = is_large & valid_rvol & base_score.notna()
+            
+            if large_valid.any():
+                # Bonus for elevated volume in large caps (harder to move)
+                large_elevated = large_valid & (rvol > 1.5) & (rvol <= 3)
+                cap_multiplier[large_elevated] = 1.10
+                
+                large_high = large_valid & (rvol > 3) & (rvol <= 10)
+                cap_multiplier[large_high] = 1.15
+                
+                large_extreme = large_valid & (rvol > 10)
+                cap_multiplier[large_extreme] = 1.20  # Major event
+        
+        # CONTEXT LAYER 4: Pattern Detection
+        # Identify specific volume patterns
+        pattern_adjustment = pd.Series(0, index=df.index, dtype=float)
+        
+        if all(col in df.columns for col in ['ret_30d', 'from_high_pct', 'price']):
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
+            price = pd.Series(df['price'].values, index=df.index)
+            
+            valid_pattern = valid_rvol & ret_30d.notna() & from_high.notna() & price.notna()
+            
+            if valid_pattern.any():
+                # Accumulation at lows: High volume, price near 52w low
+                accumulation_low = valid_pattern & (rvol > 2) & (from_high < -40) & (ret_30d > -5)
+                pattern_adjustment[accumulation_low] = 10  # Bonus points
+                
+                # Breakout attempt: High volume near resistance
+                breakout_attempt = valid_pattern & (rvol > 2.5) & (from_high > -5) & (from_high <= 0)
+                pattern_adjustment[breakout_attempt] = 8
+                
+                # Blow-off top: Extreme volume at highs
+                blowoff = valid_pattern & (rvol > 5) & (from_high > 0) & (ret_30d > 50)
+                pattern_adjustment[blowoff] = -15  # Penalty
+                
+                # Capitulation: Extreme volume at lows with negative returns
+                capitulation = valid_pattern & (rvol > 4) & (from_high < -50) & (ret_30d < -20)
+                pattern_adjustment[capitulation] = 5  # Slight bonus (potential bottom)
+        
+        # COMBINE ALL FACTORS
+        if base_score.notna().any():
+            # Apply all multipliers
+            rvol_score = base_score.copy()
+            
+            # Apply multipliers sequentially
+            rvol_score *= harmony_multiplier
+            rvol_score *= sustainability_multiplier
+            rvol_score *= cap_multiplier
+            
+            # Add pattern adjustments
+            rvol_score += pattern_adjustment
+            
+            # Ensure bounds
+            rvol_score = rvol_score.clip(0, 100)
+        
+        # MANIPULATION DETECTION (Final Override)
+        # Only for extreme cases that passed through other filters
+        if valid_rvol.any():
+            # Define clear manipulation signals
+            definite_pump = pd.Series(False, index=df.index)
+            
+            # Penny stock + extreme volume + huge price move = pump
+            if 'category' in df.columns and 'ret_1d' in df.columns:
+                category = pd.Series(df['category'].values, index=df.index)
+                ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+                
+                definite_pump = (
+                    category.isin(['Micro Cap', 'Small Cap']) &
+                    (rvol > 30) &
+                    (ret_1d > 20)
+                )
+                
+                if definite_pump.any():
+                    rvol_score[definite_pump] = np.minimum(rvol_score[definite_pump], 25)
+                    logger.warning(f"Detected likely pump & dump in {definite_pump.sum()} stocks")
+        
+        # Fill remaining NaN
+        still_nan = rvol_score.isna()
+        if still_nan.any():
+            # Check if they have RVOL data
+            has_rvol = rvol.notna()
+            rvol_score[still_nan & has_rvol] = 40  # Below average
+            rvol_score[still_nan & ~has_rvol] = np.nan  # Keep NaN if no data
+        
+        # COMPREHENSIVE LOGGING
+        valid_scores = rvol_score.notna().sum()
+        if valid_scores > 0:
+            logger.info(f"RVOL scores calculated: {valid_scores} valid out of {len(df)} stocks")
+            
+            # Distribution statistics
+            score_dist = rvol_score[rvol_score.notna()]
+            logger.info(f"Score distribution - Min: {score_dist.min():.1f}, "
+                       f"Max: {score_dist.max():.1f}, "
+                       f"Mean: {score_dist.mean():.1f}, "
+                       f"Median: {score_dist.median():.1f}")
+            
+            # RVOL distribution
+            if valid_rvol.any():
+                rvol_dist = rvol[valid_rvol]
+                dead = (rvol_dist < 0.5).sum()
+                low = ((rvol_dist >= 0.5) & (rvol_dist < 1.0)).sum()
+                normal = ((rvol_dist >= 1.0) & (rvol_dist < 2.0)).sum()
+                elevated = ((rvol_dist >= 2.0) & (rvol_dist < 5.0)).sum()
+                extreme = (rvol_dist >= 5.0).sum()
+                
+                logger.debug(f"RVOL categories: Dead={dead}, Low={low}, Normal={normal}, "
+                            f"Elevated={elevated}, Extreme={extreme}")
+                
+                # Check for market-wide volume surge
+                if rvol_dist.median() > 1.5:
+                    logger.info(f"Market-wide elevated volume detected (median RVOL: {rvol_dist.median():.2f})")
+        
+        return rvol_score
     @staticmethod
     def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
         """
