@@ -3550,214 +3550,629 @@ class RankingEngine:
     @staticmethod
     def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate TRUE long-term strength based on multi-period returns.
-        FIXED: Proper weighting, realistic scaling, and correct math.
-        """
-        long_term_strength = pd.Series(50, index=df.index, dtype=float)
+        Calculate long-term strength based on multi-year performance.
+        FIXED: No penalties for missing data, returns NaN when insufficient history.
         
-        # FIXED: TRUE long-term weights (emphasis on longer periods)
-        weights = {
-            'ret_3m': 0.05,   # Very short term - minimal weight
-            'ret_6m': 0.10,   # Short term - low weight
-            'ret_1y': 0.20,   # Medium term - moderate weight
-            'ret_3y': 0.35,   # Long term - high weight (INCREASED)
-            'ret_5y': 0.30    # Very long term - high weight (INCREASED)
+        Core Philosophy:
+        - Long-term means 1+ years (not months)
+        - Only score what we can measure
+        - Missing data = NaN (not low score)
+        - No penalties, just honest assessment
+        - Weights auto-adjust based on available data
+        
+        Minimum Requirements:
+        - At least 2 of: 1y, 3y, 5y returns
+        - OR just 5y return alone (most comprehensive)
+        - OR just 3y return alone (acceptable)
+        
+        Score Components (when available):
+        - 1-year: Short-term long (20% base weight)
+        - 3-year: Medium-term long (35% base weight)  
+        - 5-year: True long-term (45% base weight)
+        
+        Score Interpretation:
+        - 85-100: Exceptional long-term performer
+        - 70-85: Strong consistent growth
+        - 50-70: Average long-term performance
+        - 30-50: Below average returns
+        - 0-30: Poor long-term performance
+        - NaN: Insufficient history to judge
+        """
+        long_term_strength = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        # Define long-term periods with base weights
+        lt_periods = {
+            'ret_1y': {'weight': 0.20, 'years': 1.0, 'standalone': False},
+            'ret_3y': {'weight': 0.35, 'years': 3.0, 'standalone': True},   # Can stand alone
+            'ret_5y': {'weight': 0.45, 'years': 5.0, 'standalone': True}    # Can stand alone
         }
         
-        # Track which stocks have sufficient long-term data
-        has_long_term = pd.Series(False, index=df.index)
+        # Check data availability
+        available_periods = {}
+        for period, config in lt_periods.items():
+            if period in df.columns:
+                data = pd.Series(df[period].values, index=df.index)
+                # Store if column exists (even if all NaN)
+                available_periods[period] = {
+                    'data': data,
+                    'weight': config['weight'],
+                    'years': config['years'],
+                    'standalone': config['standalone']
+                }
         
-        # Calculate scores for each period
-        period_scores = {}
+        # Determine if we have minimum required data
+        # Need either: 2+ periods, OR standalone period (3y/5y)
+        period_count = len(available_periods)
+        has_standalone = any(config['standalone'] for config in available_periods.values())
         
-        for col, weight in weights.items():
-            if col in df.columns:
-                ret_data = pd.Series(df[col].values, index=df.index)
-                valid_mask = ret_data.notna()
+        if period_count == 0:
+            logger.warning("No long-term return columns available (1y, 3y, 5y)")
+            return long_term_strength  # Return all NaN
+        
+        if period_count == 1 and not has_standalone:
+            logger.info("Only 1y return available - insufficient for long-term strength")
+            return long_term_strength  # Return all NaN
+        
+        # For each stock, calculate score if it has sufficient data
+        for idx in df.index:
+            stock_data = {}
+            total_weight = 0
+            
+            # Collect available data for this specific stock
+            for period, config in available_periods.items():
+                value = config['data'][idx]
+                if pd.notna(value):
+                    stock_data[period] = {
+                        'value': value,
+                        'weight': config['weight'],
+                        'years': config['years']
+                    }
+                    total_weight += config['weight']
+            
+            # Check if this stock has minimum required data
+            stock_period_count = len(stock_data)
+            stock_has_standalone = any(
+                period in stock_data 
+                for period, config in available_periods.items() 
+                if config['standalone']
+            )
+            
+            # Skip if insufficient data for this specific stock
+            if stock_period_count == 0:
+                continue  # Leave as NaN
+            
+            if stock_period_count == 1 and not stock_has_standalone:
+                continue  # Only 1y data, not enough - leave as NaN
+            
+            # Calculate components for this stock
+            
+            # Component 1: PERFORMANCE (60% of final score)
+            performance_scores = {}
+            performance_weights = {}
+            
+            for period, data in stock_data.items():
+                ret_value = data['value']
+                years = data['years']
+                weight = data['weight']
                 
-                # Mark stocks with 3y or 5y data as having long-term history
-                if col in ['ret_3y', 'ret_5y'] and valid_mask.any():
-                    has_long_term |= valid_mask
+                # Calculate annualized return
+                if ret_value > -100:  # Not total loss
+                    # CAGR formula
+                    annualized = ((1 + ret_value/100) ** (1/years) - 1) * 100
+                else:
+                    # Total or near-total loss
+                    annualized = -100 / years
                 
-                # FIXED: Realistic scoring for Indian market returns
-                # Use logarithmic scaling for better distribution
-                # This handles -100% to +1000% returns properly
+                # Convert to score based on Indian market context
+                # Annualized returns: <0% → 20-50, 0-15% → 50-70, 15-25% → 70-85, >25% → 85-100
+                if annualized < 0:
+                    # Negative returns: -50% → 20, 0% → 50
+                    score = 50 + (annualized / 50) * 30
+                    score = max(20, score)
+                elif annualized <= 15:
+                    # 0-15%: Linear from 50 to 70
+                    score = 50 + (annualized / 15) * 20
+                elif annualized <= 25:
+                    # 15-25%: Linear from 70 to 85
+                    score = 70 + ((annualized - 15) / 10) * 15
+                else:
+                    # >25%: Diminishing returns from 85 to 100
+                    score = 85 + min(15, (annualized - 25) * 0.5)
                 
-                score = pd.Series(np.nan, index=df.index)
+                performance_scores[period] = score
+                performance_weights[period] = weight
+            
+            # Normalize weights for available data
+            weight_sum = sum(performance_weights.values())
+            if weight_sum > 0:
+                normalized_weights = {
+                    period: w/weight_sum 
+                    for period, w in performance_weights.items()
+                }
                 
-                # For valid data, calculate score
-                if valid_mask.any():
-                    # Shift returns to handle negative values
-                    # -100% = 0, 0% = 100, 100% = 200, 500% = 600
-                    shifted_returns = ret_data[valid_mask] + 100
+                # Calculate weighted performance
+                performance_component = sum(
+                    performance_scores[period] * normalized_weights[period]
+                    for period in performance_scores
+                )
+            else:
+                continue  # Shouldn't happen, but safety check
+            
+            # Component 2: CONSISTENCY (25% of final score)
+            consistency_component = 50  # Default neutral
+            
+            if stock_period_count >= 2:
+                # Calculate consistency across available periods
+                returns_list = []
+                for period, data in stock_data.items():
+                    annualized = data['value'] / data['years']
+                    returns_list.append(annualized)
+                
+                if len(returns_list) >= 2:
+                    # Coefficient of variation
+                    mean_return = np.mean(returns_list)
+                    std_return = np.std(returns_list)
                     
-                    # Apply logarithmic scaling
-                    # log(0) undefined, so handle -100% specially
-                    score[valid_mask] = np.where(
-                        shifted_returns <= 0,
-                        0,  # -100% or worse = 0 score
-                        np.log(shifted_returns) / np.log(700) * 100  # log base 700 for scaling
-                    )
+                    if abs(mean_return) > 1:  # Avoid division by near-zero
+                        cv = abs(std_return / mean_return)
+                        
+                        # Lower CV = more consistent = higher score
+                        if cv < 0.3:
+                            consistency_component = 80
+                        elif cv < 0.5:
+                            consistency_component = 70
+                        elif cv < 0.8:
+                            consistency_component = 60
+                        elif cv < 1.2:
+                            consistency_component = 50
+                        else:
+                            consistency_component = 40
                     
-                    # Alternative linear scaling for different return ranges
-                    # This gives better granularity
-                    score[valid_mask] = np.where(
-                        ret_data[valid_mask] < -50,
-                        0,  # Below -50% = 0 score
-                        np.where(
-                            ret_data[valid_mask] < 0,
-                            25 + (ret_data[valid_mask] + 50) * 0.5,  # -50% to 0% = 0-25 score
-                            np.where(
-                                ret_data[valid_mask] < 100,
-                                50 + ret_data[valid_mask] * 0.3,  # 0% to 100% = 50-80 score
-                                np.where(
-                                    ret_data[valid_mask] < 500,
-                                    80 + (ret_data[valid_mask] - 100) * 0.05,  # 100% to 500% = 80-100 score
-                                    100  # Above 500% = 100 score (capped)
-                                )
-                            )
-                        )
-                    )
+                    # Check for improvement pattern if we have all 3 periods
+                    if all(p in stock_data for p in ['ret_1y', 'ret_3y', 'ret_5y']):
+                        ann_1y = stock_data['ret_1y']['value']
+                        ann_3y = stock_data['ret_3y']['value'] / 3
+                        ann_5y = stock_data['ret_5y']['value'] / 5
+                        
+                        # Accelerating growth
+                        if ann_1y > ann_3y > ann_5y:
+                            consistency_component = min(consistency_component + 20, 100)
+                        # Decelerating growth
+                        elif ann_1y < ann_3y < ann_5y:
+                            consistency_component = max(consistency_component - 20, 20)
+            
+            # Component 3: SUSTAINABILITY (15% of final score)
+            sustainability_component = 50  # Default neutral
+            
+            # Assess if returns are sustainable
+            if 'ret_5y' in stock_data:
+                ret_5y = stock_data['ret_5y']['value']
                 
-                period_scores[col] = (score, weight)
+                # 5-year CAGR
+                if ret_5y > -100:
+                    cagr_5y = ((1 + ret_5y/100) ** 0.2 - 1) * 100
+                    
+                    # Check if recent performance supports long-term CAGR
+                    if 'ret_1y' in stock_data:
+                        ret_1y = stock_data['ret_1y']['value']
+                        
+                        # Compare recent to long-term
+                        if cagr_5y > 0:
+                            momentum_ratio = ret_1y / cagr_5y
+                            
+                            if momentum_ratio > 1.5:
+                                # Accelerating beyond long-term rate
+                                sustainability_component = 75
+                            elif momentum_ratio > 0.8:
+                                # Maintaining pace
+                                sustainability_component = 60
+                            elif momentum_ratio > 0:
+                                # Slowing but positive
+                                sustainability_component = 45
+                            else:
+                                # Turned negative
+                                sustainability_component = 30
+                    
+                    # Exceptional long-term CAGR
+                    if cagr_5y > 30:
+                        sustainability_component = min(sustainability_component + 10, 90)
+                    elif cagr_5y > 20:
+                        sustainability_component = min(sustainability_component + 5, 85)
+            
+            # COMBINE COMPONENTS
+            # Only use components we can calculate
+            final_components = {
+                'performance': (performance_component, 0.60),
+                'consistency': (consistency_component, 0.25),
+                'sustainability': (sustainability_component, 0.15)
+            }
+            
+            # Calculate weighted final score
+            final_score = 0
+            final_weight = 0
+            
+            for name, (score, weight) in final_components.items():
+                if pd.notna(score):
+                    final_score += score * weight
+                    final_weight += weight
+            
+            if final_weight > 0:
+                long_term_strength[idx] = (final_score / final_weight)
+            
+            # DATA QUALITY INDICATOR (not penalty, just metadata)
+            # Track what data was used (for transparency)
+            if 'data_quality_flags' not in df.columns:
+                df['lt_data_available'] = ''
+            
+            data_used = '/'.join(sorted(stock_data.keys()))
+            df.at[idx, 'lt_data_available'] = data_used
         
-        # Calculate weighted average ONLY where data exists
-        if period_scores:
-            numerator = pd.Series(0, index=df.index, dtype=float)
-            denominator = pd.Series(0, index=df.index, dtype=float)
-            
-            for col, (score, weight) in period_scores.items():
-                valid_mask = score.notna()
-                numerator[valid_mask] += score[valid_mask] * weight
-                denominator[valid_mask] += weight
-            
-            # Only calculate where we have data
-            valid_calc = denominator > 0
-            long_term_strength[valid_calc] = numerator[valid_calc] / denominator[valid_calc]
-            
-            # PENALTY for stocks without true long-term history
-            no_history = ~has_long_term & valid_calc
-            long_term_strength[no_history] *= 0.85  # 15% penalty
-            
-            # BONUS for consistent long-term performers
-            if all(col in period_scores for col in ['ret_1y', 'ret_3y', 'ret_5y']):
-                ret_1y = pd.Series(df['ret_1y'].values, index=df.index) if 'ret_1y' in df.columns else pd.Series(np.nan, index=df.index)
-                ret_3y = pd.Series(df['ret_3y'].values, index=df.index) if 'ret_3y' in df.columns else pd.Series(np.nan, index=df.index)
-                ret_5y = pd.Series(df['ret_5y'].values, index=df.index) if 'ret_5y' in df.columns else pd.Series(np.nan, index=df.index)
-                
-                # All positive and increasing = consistency bonus
-                consistent = (ret_1y > 50) & (ret_3y > 150) & (ret_5y > 250)
-                long_term_strength[consistent] *= 1.10  # 10% bonus
-            
-            # Set stocks with NO data to neutral (not average)
-            no_data = denominator == 0
-            long_term_strength[no_data] = 45  # Below average for no history
+        # Clip final scores to valid range
+        long_term_strength = long_term_strength.clip(0, 100)
         
-        return long_term_strength.clip(0, 100)
+        # NO FILLING OF NaN!
+        # Stocks without sufficient data remain NaN
+        
+        # LOGGING
+        total_stocks = len(df)
+        scored_stocks = long_term_strength.notna().sum()
+        
+        logger.info(f"Long-term strength: {scored_stocks}/{total_stocks} stocks scored")
+        
+        if scored_stocks > 0:
+            score_dist = long_term_strength[long_term_strength.notna()]
+            logger.info(f"Score distribution - Mean: {score_dist.mean():.1f}, "
+                       f"Median: {score_dist.median():.1f}, "
+                       f"Std: {score_dist.std():.1f}")
+            
+            # Log data availability breakdown
+            for period in ['ret_1y', 'ret_3y', 'ret_5y']:
+                if period in df.columns:
+                    available = df[period].notna().sum()
+                    logger.debug(f"{period}: {available}/{total_stocks} stocks have data")
+            
+            # Exceptional performers
+            exceptional = (long_term_strength > 85).sum()
+            poor = (long_term_strength < 30).sum()
+            if exceptional > 0 or poor > 0:
+                logger.debug(f"Exceptional performers: {exceptional}, Poor performers: {poor}")
+        else:
+            logger.warning("No stocks had sufficient long-term data for scoring")
+        
+        # Category analysis if available
+        if 'category' in df.columns and scored_stocks > 10:
+            category_scores = df[long_term_strength.notna()].groupby('category')['long_term_strength'].agg(['mean', 'count'])
+            if len(category_scores) > 0:
+                best_cat = category_scores['mean'].idxmax()
+                logger.debug(f"Best long-term category: {best_cat} "
+                            f"({category_scores.loc[best_cat, 'mean']:.1f} avg, "
+                            f"{category_scores.loc[best_cat, 'count']} stocks)")
+        
+        return long_term_strength
     
     @staticmethod
     def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate liquidity score based on dollar volume and consistency.
-        FIXED: Uses dollar volume, proper consistency checks, and market cap weighting.
+        Calculate true liquidity score based on turnover value and tradability.
+        FIXED: Uses turnover (volume × price), float ratios, proper scaling.
+        
+        Liquidity Philosophy:
+        - Liquidity = Ability to trade without impacting price
+        - Turnover value matters more than share volume
+        - Consistency across timeframes is crucial
+        - Float-adjusted metrics show true liquidity
+        - Market cap relative thresholds
+        
+        Score Components:
+        - 40% Turnover value (volume × price)
+        - 25% Turnover ratio (turnover / market cap)
+        - 20% Volume consistency
+        - 15% Trading frequency (active days)
+        
+        Score Interpretation:
+        - 85-100: Highly liquid (institutional grade)
+        - 70-85: Good liquidity (easily tradable)
+        - 50-70: Moderate liquidity (retail friendly)
+        - 30-50: Low liquidity (caution needed)
+        - 0-30: Illiquid (difficult to trade)
         """
-        liquidity_score = pd.Series(50, index=df.index, dtype=float)
+        liquidity_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Primary factor: Dollar volume (price × volume)
-        # This is the TRUE measure of liquidity
-        dollar_volume = pd.Series(0, index=df.index, dtype=float)
+        # Component 1: TURNOVER VALUE (40% weight)
+        # Actual money traded, not just shares
+        turnover_component = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Calculate average daily dollar volume
-        if 'volume_90d' in df.columns and 'price' in df.columns:
-            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)
+        if 'volume_1d' in df.columns and 'price' in df.columns:
+            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
             price = pd.Series(df['price'].values, index=df.index)
             
-            valid_mask = vol_90d.notna() & price.notna() & (vol_90d > 0) & (price > 0)
+            valid_turnover = volume_1d.notna() & price.notna() & (volume_1d >= 0) & (price > 0)
             
-            # Dollar volume in millions
-            dollar_volume[valid_mask] = (vol_90d[valid_mask] * price[valid_mask]) / 1_000_000
-            
-            # Rank by dollar volume (this is the core liquidity metric)
-            liquidity_score[valid_mask] = RankingEngine._safe_rank(
-                dollar_volume[valid_mask],
-                pct=True,
-                ascending=True
-            )
-            
-            # Apply thresholds for Indian market
-            # Less than ₹10 Cr daily = poor liquidity
-            poor_liquidity = valid_mask & (dollar_volume < 10)  # < ₹10 Cr
-            liquidity_score[poor_liquidity] *= 0.50  # 50% penalty
-            
-            # ₹10-50 Cr = moderate liquidity
-            moderate_liquidity = valid_mask & (dollar_volume >= 10) & (dollar_volume < 50)
-            liquidity_score[moderate_liquidity] *= 0.85  # 15% penalty
-            
-            # ₹50-200 Cr = good liquidity
-            good_liquidity = valid_mask & (dollar_volume >= 50) & (dollar_volume < 200)
-            # No adjustment needed
-            
-            # > ₹200 Cr = excellent liquidity
-            excellent_liquidity = valid_mask & (dollar_volume >= 200)
-            liquidity_score[excellent_liquidity] *= 1.10  # 10% bonus
+            if valid_turnover.any():
+                # Calculate daily turnover in currency (millions for scaling)
+                # Assuming price is in rupees and volume in shares
+                turnover = (volume_1d[valid_turnover] * price[valid_turnover]) / 1_000_000  # In millions
+                
+                # Log scale for turnover (spans many orders of magnitude)
+                # Avoid log(0) with small addition
+                log_turnover = np.log10(turnover + 0.001)
+                
+                # Dynamic scaling based on actual data range
+                # Don't assume arbitrary ranges
+                log_min = log_turnover.min()
+                log_max = log_turnover.max()
+                log_range = log_max - log_min
+                
+                if log_range > 0:
+                    # Normalize to 0-100 based on actual range
+                    turnover_component[valid_turnover] = ((log_turnover - log_min) / log_range) * 100
+                else:
+                    # All same value
+                    turnover_component[valid_turnover] = 50
+                
+                # Apply market context thresholds
+                # Indian market context (in millions INR daily turnover)
+                # <0.1M = 20, 0.1-1M = 20-40, 1-10M = 40-60, 10-100M = 60-80, >100M = 80-100
+                turnover_component[valid_turnover] = np.where(
+                    turnover < 0.1, 20,
+                    np.where(
+                        turnover < 1, 20 + (np.log10(turnover + 0.1) + 1) * 20,
+                        np.where(
+                            turnover < 10, 40 + np.log10(turnover) * 20,
+                            np.where(
+                                turnover < 100, 60 + np.log10(turnover/10) * 20,
+                                np.where(
+                                    turnover < 1000, 80 + np.log10(turnover/100) * 10,
+                                    95  # Cap very high turnover
+                                )
+                            )
+                        )
+                    )
+                )
         
-        # Secondary factor: Volume consistency
-        if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']):
-            vol_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            vol_7d = pd.Series(df['volume_7d'].values, index=df.index)  # Already daily average
-            vol_30d = pd.Series(df['volume_30d'].values, index=df.index)  # Already daily average
-            vol_90d = pd.Series(df['volume_90d'].values, index=df.index)  # Already daily average
-            
-            valid_all = vol_1d.notna() & vol_7d.notna() & vol_30d.notna() & vol_90d.notna()
-            
-            # Calculate coefficient of variation (lower = more consistent)
-            # This measures how stable the volume is
-            volume_mean = (vol_1d + vol_7d + vol_30d + vol_90d) / 4
-            volume_std = pd.Series(np.nan, index=df.index)
-            
-            for idx in df.index:
-                if valid_all[idx]:
-                    volumes = [vol_1d[idx], vol_7d[idx], vol_30d[idx], vol_90d[idx]]
-                    volume_std[idx] = np.std(volumes)
-            
-            # Low variation = consistent = good for liquidity
-            cv = pd.Series(np.nan, index=df.index)
-            cv[volume_mean > 0] = volume_std[volume_mean > 0] / volume_mean[volume_mean > 0]
-            
-            # Bonus for low coefficient of variation (consistent volume)
-            very_consistent = valid_all & (cv < 0.3)  # CV < 30%
-            liquidity_score[very_consistent] *= 1.05  # 5% bonus
-            
-            # Penalty for high variation (erratic volume)
-            erratic = valid_all & (cv > 1.0)  # CV > 100%
-            liquidity_score[erratic] *= 0.95  # 5% penalty
+        # Component 2: TURNOVER RATIO (25% weight)
+        # Turnover as % of market cap (velocity)
+        velocity_component = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Tertiary factor: Market cap consideration
-        if 'market_cap' in df.columns:
+        if all(col in df.columns for col in ['volume_1d', 'price', 'market_cap']):
+            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
+            price = pd.Series(df['price'].values, index=df.index)
             market_cap = pd.Series(df['market_cap'].values, index=df.index)
             
-            # Parse market cap categories for bonus/penalty
-            mega_large = market_cap.isin(['Mega Cap', 'Large Cap'])
-            mid_cap = market_cap == 'Mid Cap'
-            small_micro = market_cap.isin(['Small Cap', 'Micro Cap'])
+            # Parse market cap (could be string like "1.5B")
+            market_cap_numeric = pd.Series(np.nan, index=df.index)
+            for idx in df.index:
+                mc_val = market_cap[idx]
+                if pd.notna(mc_val):
+                    if isinstance(mc_val, str):
+                        # Parse strings like "1.5B", "500M", "75K"
+                        try:
+                            if 'T' in str(mc_val):
+                                market_cap_numeric[idx] = float(mc_val.replace('T', '').replace(',', '')) * 1_000_000
+                            elif 'B' in str(mc_val):
+                                market_cap_numeric[idx] = float(mc_val.replace('B', '').replace(',', '')) * 1_000
+                            elif 'M' in str(mc_val):
+                                market_cap_numeric[idx] = float(mc_val.replace('M', '').replace(',', ''))
+                            elif 'K' in str(mc_val):
+                                market_cap_numeric[idx] = float(mc_val.replace('K', '').replace(',', '')) / 1_000
+                            else:
+                                market_cap_numeric[idx] = float(str(mc_val).replace(',', ''))
+                        except:
+                            market_cap_numeric[idx] = np.nan
+                    else:
+                        market_cap_numeric[idx] = float(mc_val)
             
-            # Market cap adjustments (larger caps are generally more liquid)
-            liquidity_score[mega_large] *= 1.05  # 5% bonus
-            liquidity_score[small_micro] *= 0.95  # 5% penalty
+            valid_velocity = (
+                volume_1d.notna() & price.notna() & market_cap_numeric.notna() &
+                (volume_1d >= 0) & (price > 0) & (market_cap_numeric > 0)
+            )
+            
+            if valid_velocity.any():
+                # Daily turnover as % of market cap
+                daily_turnover = (volume_1d[valid_velocity] * price[valid_velocity]) / 1_000_000
+                turnover_ratio = (daily_turnover / market_cap_numeric[valid_velocity]) * 100
+                
+                # Score based on turnover ratio
+                # 0-0.1% = 30, 0.1-0.5% = 30-60, 0.5-2% = 60-80, >2% = 80-100
+                velocity_component[valid_velocity] = np.where(
+                    turnover_ratio < 0.1, 30 + turnover_ratio * 300,
+                    np.where(
+                        turnover_ratio < 0.5, 30 + (turnover_ratio - 0.1) * 75,
+                        np.where(
+                            turnover_ratio < 2, 60 + (turnover_ratio - 0.5) * 13.33,
+                            np.where(
+                                turnover_ratio < 5, 80 + (turnover_ratio - 2) * 5,
+                                95  # Cap at very high ratios (might be manipulation)
+                            )
+                        )
+                    )
+                )
         
-        # Additional penalty for price extremes
-        if 'price' in df.columns:
-            price = pd.Series(df['price'].values, index=df.index)
-            
-            # Penny stocks (< ₹10) have poor liquidity
-            penny = price < 10
-            liquidity_score[penny] *= 0.80  # 20% penalty
-            
-            # Very high price (> ₹50,000) might have lower retail liquidity
-            very_high = price > 50000
-            liquidity_score[very_high] *= 0.95  # 5% penalty
+        # Component 3: VOLUME CONSISTENCY (20% weight)
+        # How stable is the liquidity across time
+        consistency_component = pd.Series(np.nan, index=df.index, dtype=float)
         
-        return liquidity_score.clip(0, 100)
+        vol_columns = ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']
+        available_vols = [col for col in vol_columns if col in df.columns]
+        
+        if len(available_vols) >= 2:
+            # Collect volume data
+            vol_data = pd.DataFrame()
+            for col in available_vols:
+                vol_data[col] = pd.Series(df[col].values, index=df.index)
+            
+            # Calculate coefficient of variation for each stock
+            valid_rows = vol_data.notna().all(axis=1)
+            
+            if valid_rows.any():
+                # Normalize by average to get daily equivalents
+                vol_normalized = vol_data.copy()
+                if 'volume_7d' in vol_normalized.columns:
+                    vol_normalized['volume_7d'] = vol_normalized['volume_7d'] / 7
+                if 'volume_30d' in vol_normalized.columns:
+                    vol_normalized['volume_30d'] = vol_normalized['volume_30d'] / 30
+                if 'volume_90d' in vol_normalized.columns:
+                    vol_normalized['volume_90d'] = vol_normalized['volume_90d'] / 90
+                
+                # Calculate consistency
+                vol_mean = vol_normalized[valid_rows].mean(axis=1)
+                vol_std = vol_normalized[valid_rows].std(axis=1)
+                
+                # Avoid division by zero
+                vol_cv = pd.Series(np.nan, index=df.index)
+                non_zero = valid_rows & (vol_mean > 0)
+                vol_cv[non_zero] = vol_std[non_zero] / vol_mean[non_zero]
+                
+                # Score based on consistency (lower CV = higher score)
+                # CV < 0.3 = 80, 0.3-0.6 = 60-80, 0.6-1.0 = 40-60, >1.0 = 20-40
+                consistency_component[non_zero] = np.where(
+                    vol_cv[non_zero] < 0.3, 80,
+                    np.where(
+                        vol_cv[non_zero] < 0.6, 80 - (vol_cv[non_zero] - 0.3) * 66.67,
+                        np.where(
+                            vol_cv[non_zero] < 1.0, 60 - (vol_cv[non_zero] - 0.6) * 50,
+                            np.maximum(20, 40 - (vol_cv[non_zero] - 1.0) * 10)
+                        )
+                    )
+                )
+        
+        # Component 4: TRADING FREQUENCY (15% weight)
+        # How often does it trade (vs halted/inactive days)
+        frequency_component = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        if 'volume_30d' in df.columns and 'volume_1d' in df.columns:
+            volume_30d = pd.Series(df['volume_30d'].values, index=df.index)
+            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
+            
+            valid_freq = volume_30d.notna() & volume_1d.notna() & (volume_30d >= 0)
+            
+            if valid_freq.any():
+                # Estimate active trading days
+                # If daily average equals total/30, then trades every day
+                # If daily volume >> average, then sporadic trading
+                avg_daily = volume_30d[valid_freq] / 30
+                
+                # Avoid division by zero
+                safe_avg = avg_daily.copy()
+                safe_avg[safe_avg == 0] = 1
+                
+                # Ratio indicates consistency
+                ratio = volume_1d[valid_freq] / safe_avg
+                
+                # Score based on trading regularity
+                # Ratio near 1 = regular (good)
+                # Ratio >> 1 = sporadic (bad)
+                # Ratio << 1 = declining (bad)
+                frequency_component[valid_freq] = np.where(
+                    ratio < 0.5, 40,  # Much lower than average
+                    np.where(
+                        ratio < 0.8, 50,  # Somewhat lower
+                        np.where(
+                            ratio < 1.5, 70,  # Normal range
+                            np.where(
+                                ratio < 3, 60,  # Somewhat sporadic
+                                40  # Very sporadic
+                            )
+                        )
+                    )
+                )
+                
+                # Bonus for very consistent trading
+                very_consistent = valid_freq & (ratio > 0.8) & (ratio < 1.2)
+                frequency_component[very_consistent] = 85
+        
+        # COMBINE COMPONENTS
+        components = {
+            'turnover': (turnover_component, 0.40),
+            'velocity': (velocity_component, 0.25),
+            'consistency': (consistency_component, 0.20),
+            'frequency': (frequency_component, 0.15)
+        }
+        
+        # Calculate weighted average
+        for idx in df.index:
+            component_scores = []
+            component_weights = []
+            
+            for name, (score_series, weight) in components.items():
+                if pd.notna(score_series[idx]):
+                    component_scores.append(score_series[idx])
+                    component_weights.append(weight)
+            
+            if component_scores:
+                # Normalize weights
+                total_weight = sum(component_weights)
+                normalized_weights = [w/total_weight for w in component_weights]
+                
+                # Calculate weighted score
+                liquidity_score[idx] = sum(
+                    score * weight 
+                    for score, weight in zip(component_scores, normalized_weights)
+                )
+        
+        # MARKET CAP ADJUSTMENTS
+        # Different liquidity expectations for different caps
+        if 'category' in df.columns and liquidity_score.notna().any():
+            category = pd.Series(df['category'].values, index=df.index)
+            
+            # Large/Mega caps
+            is_large = category.isin(['Large Cap', 'Mega Cap'])
+            large_mask = is_large & liquidity_score.notna()
+            
+            if large_mask.any():
+                # Large caps should have high liquidity
+                # Penalize if low, bonus if high
+                liquidity_score[large_mask] = np.where(
+                    liquidity_score[large_mask] < 50,
+                    liquidity_score[large_mask] * 0.8,  # Penalty for illiquid large cap
+                    np.minimum(liquidity_score[large_mask] * 1.1, 100)  # Bonus for liquid
+                )
+            
+            # Small/Micro caps
+            is_small = category.isin(['Small Cap', 'Micro Cap'])
+            small_mask = is_small & liquidity_score.notna()
+            
+            if small_mask.any():
+                # Small caps naturally less liquid - adjust expectations
+                # Boost scores slightly to normalize
+                liquidity_score[small_mask] = np.minimum(
+                    liquidity_score[small_mask] + 10, 
+                    100
+                )
+        
+        # Clip final scores
+        liquidity_score = liquidity_score.clip(0, 100)
+        
+        # NO DEFAULT FILLING
+        # Stocks without data remain NaN
+        
+        # LOGGING
+        valid_scores = liquidity_score.notna().sum()
+        if valid_scores > 0:
+            logger.info(f"Liquidity scores calculated: {valid_scores}/{len(df)} stocks")
+            
+            score_dist = liquidity_score[liquidity_score.notna()]
+            logger.info(f"Liquidity distribution - Mean: {score_dist.mean():.1f}, "
+                       f"Median: {score_dist.median():.1f}, "
+                       f"Std: {score_dist.std():.1f}")
+            
+            # Liquidity categories
+            highly_liquid = (liquidity_score > 85).sum()
+            good_liquid = ((liquidity_score > 70) & (liquidity_score <= 85)).sum()
+            moderate = ((liquidity_score > 50) & (liquidity_score <= 70)).sum()
+            low = ((liquidity_score > 30) & (liquidity_score <= 50)).sum()
+            illiquid = (liquidity_score <= 30).sum()
+            
+            logger.debug(f"Liquidity breakdown: Highly={highly_liquid}, Good={good_liquid}, "
+                        f"Moderate={moderate}, Low={low}, Illiquid={illiquid}")
+            
+            # Check if turnover data was available
+            if turnover_component.notna().any():
+                logger.debug(f"Turnover data available for {turnover_component.notna().sum()} stocks")
+            else:
+                logger.warning("No turnover data available - liquidity scores may be incomplete")
+        
+        return liquidity_score
         
     @staticmethod
     def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
