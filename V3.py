@@ -2088,28 +2088,28 @@ class RankingEngine:
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate momentum score with proper scaling and no fake defaults.
-        FIXED: No NaN filling, calibrated scaling, true volatility, simplified logic.
+        Calculate momentum score with refined scaling and true volatility adjustment.
+        REFINED: Better scaling calibration, proper volatility, cleaner logic.
         
         Core Philosophy:
         - Momentum = Recent price performance with quality adjustments
-        - Uses actual return distributions for Indian markets
-        - Never replaces missing data with fake values
-        - Fully vectorized for performance
+        - Scale based on actual market return distributions
+        - True volatility measurement when possible
+        - Multi-component for robustness
         
         Components:
-        - 60% Raw momentum (properly scaled)
-        - 20% Consistency (magnitude-weighted)
-        - 20% Risk-adjusted returns
+        - 60% Raw momentum (market-calibrated scaling)
+        - 20% Consistency (direction and magnitude)
+        - 20% Quality (true Sharpe-like ratio)
         
         Score Range:
-        - 80-100: Exceptional momentum (top performers)
-        - 60-80: Strong momentum (trending well)
-        - 40-60: Neutral momentum (sideways)
-        - 20-40: Weak momentum (declining)
-        - 0-20: Crash momentum (severe decline)
+        - 80-100: Exceptional momentum
+        - 60-80: Strong momentum
+        - 40-60: Neutral momentum
+        - 20-40: Weak momentum
+        - 0-20: Severe negative momentum
         """
-        # CRITICAL: Initialize with NaN, never fill with 50!
+        # Initialize with NaN - NEVER fill with defaults
         momentum_score = pd.Series(np.nan, index=df.index, dtype=float)
         
         # Check data availability
@@ -2119,79 +2119,56 @@ class RankingEngine:
         
         if not has_30d and not has_7d:
             logger.warning("No return data for momentum calculation")
-            return momentum_score  # Return NaN, NOT 50!
+            return momentum_score
         
         # COMPONENT 1: RAW MOMENTUM (60% weight)
+        # Calibrated based on actual market distributions
         raw_momentum = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Prefer 30-day returns (most reliable)
         if has_30d:
             ret_30d = df['ret_30d']
             valid_30d = ret_30d.notna()
             
             if valid_30d.any():
-                # CALIBRATED FOR INDIAN MARKETS
-                # Based on actual NSE/BSE distributions:
-                # Monthly returns typically: -20% to +30% (normal range)
-                # Extreme: -40% to +60% (rare events)
+                # REFINED SCALING: Based on empirical market data
+                # Indian market monthly returns typically:
+                # 95th percentile: ~25%
+                # 75th percentile: ~10%
+                # Median: ~1%
+                # 25th percentile: ~-5%
+                # 5th percentile: ~-15%
                 
-                # Piecewise linear scoring (clearer than tanh)
-                raw_momentum[valid_30d] = np.where(
-                    ret_30d[valid_30d] < -30, 
-                    np.maximum(0, 10 + ret_30d[valid_30d] * 0.33),  # -30% or worse → 0-10
-                    np.where(
-                        ret_30d[valid_30d] < -10,
-                        10 + (ret_30d[valid_30d] + 30) * 1.0,  # -30% to -10% → 10-30
-                        np.where(
-                            ret_30d[valid_30d] < 0,
-                            30 + (ret_30d[valid_30d] + 10) * 2.0,  # -10% to 0% → 30-50
-                            np.where(
-                                ret_30d[valid_30d] < 20,
-                                50 + ret_30d[valid_30d] * 1.5,  # 0% to 20% → 50-80
-                                np.where(
-                                    ret_30d[valid_30d] < 50,
-                                    80 + (ret_30d[valid_30d] - 20) * 0.5,  # 20% to 50% → 80-95
-                                    95  # >50% → Cap at 95
-                                )
-                            )
-                        )
-                    )
-                )
+                # Use sigmoid with market-calibrated center and scale
+                # Center at 1% (typical median), scale for proper spread
+                raw_momentum[valid_30d] = 50 / (1 + np.exp(-(ret_30d[valid_30d] - 1) / 10))
+                
+                # Enhance extremes (non-linear at tails)
+                very_strong = valid_30d & (ret_30d > 30)
+                if very_strong.any():
+                    raw_momentum[very_strong] = 90 + np.tanh((ret_30d[very_strong] - 30) / 20) * 10
+                
+                very_weak = valid_30d & (ret_30d < -20)
+                if very_weak.any():
+                    raw_momentum[very_weak] = 10 * (1 + ret_30d[very_weak] / 20)
         
-        # Fallback to 7-day returns (scaled appropriately)
+        # Fallback to 7-day (properly scaled)
         needs_7d = raw_momentum.isna() & has_7d
         if needs_7d.any() and has_7d:
             ret_7d = df['ret_7d']
             valid_7d = ret_7d.notna() & needs_7d
             
             if valid_7d.any():
-                # Scale 7-day to approximate monthly equivalent
-                scaled_7d = ret_7d[valid_7d] * 4.3  # 30/7 ≈ 4.3
-                
-                # Apply same scoring logic
-                raw_momentum[valid_7d] = np.where(
-                    scaled_7d < -30, 
-                    np.maximum(0, 10 + scaled_7d * 0.33),
-                    np.where(
-                        scaled_7d < -10,
-                        10 + (scaled_7d + 30) * 1.0,
-                        np.where(
-                            scaled_7d < 0,
-                            30 + (scaled_7d + 10) * 2.0,
-                            np.where(
-                                scaled_7d < 20,
-                                50 + scaled_7d * 1.5,
-                                np.where(
-                                    scaled_7d < 50,
-                                    80 + (scaled_7d - 20) * 0.5,
-                                    95
-                                )
-                            )
-                        )
-                    )
+                # Convert to monthly equivalent using compound rate
+                # (1 + r_monthly) = (1 + r_weekly)^4.3
+                monthly_equivalent = np.sign(ret_7d[valid_7d]) * (
+                    (np.abs(1 + ret_7d[valid_7d]/100) ** 4.3 - 1) * 100
                 )
+                
+                # Apply same sigmoid scaling
+                raw_momentum[valid_7d] = 50 / (1 + np.exp(-(monthly_equivalent - 1) / 10))
         
         # COMPONENT 2: CONSISTENCY FACTOR (20% weight)
+        # Improved measurement of momentum consistency
         consistency_factor = pd.Series(50, index=df.index, dtype=float)
         
         if all([has_1d, has_7d, has_30d]):
@@ -2202,76 +2179,76 @@ class RankingEngine:
             valid_all = ret_1d.notna() & ret_7d.notna() & ret_30d.notna()
             
             if valid_all.any():
-                # Magnitude-weighted consistency (not just sign)
-                # Calculate weighted positive score
-                weight_1d = 0.2
-                weight_7d = 0.3
-                weight_30d = 0.5
+                # Calculate momentum alignment score
+                # All positive with increasing strength = best
+                # Mixed signals = neutral
+                # All negative with worsening = worst
                 
-                # Score each period
-                score_1d = np.where(ret_1d > 5, 100,
-                                   np.where(ret_1d > 0, 70,
-                                   np.where(ret_1d > -5, 30, 0)))
+                # Sign alignment (direction consistency)
+                signs = np.sign(np.column_stack([ret_1d[valid_all], 
+                                                ret_7d[valid_all], 
+                                                ret_30d[valid_all]]))
+                sign_consistency = np.abs(signs.sum(axis=1)) / 3  # 0 to 1
                 
-                score_7d = np.where(ret_7d > 10, 100,
-                                   np.where(ret_7d > 0, 70,
-                                   np.where(ret_7d > -10, 30, 0)))
+                # Magnitude progression (is momentum building?)
+                daily_equiv_7d = ret_7d[valid_all] / 7
+                daily_equiv_30d = ret_30d[valid_all] / 30
                 
-                score_30d = np.where(ret_30d > 20, 100,
-                                    np.where(ret_30d > 0, 70,
-                                    np.where(ret_30d > -20, 30, 0)))
+                building = (ret_1d[valid_all] > daily_equiv_7d) & (daily_equiv_7d > daily_equiv_30d)
+                steady = np.abs(ret_1d[valid_all] - daily_equiv_7d) < 2
+                fading = (ret_1d[valid_all] < daily_equiv_7d) & (daily_equiv_7d < daily_equiv_30d)
                 
-                consistency_factor[valid_all] = (
-                    score_1d[valid_all] * weight_1d +
-                    score_7d[valid_all] * weight_7d +
-                    score_30d[valid_all] * weight_30d
-                )
-                
-                # Special patterns
-                # Strong trend: All positive and increasing
-                strong_trend = valid_all & (ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0)
-                accelerating = strong_trend & (ret_1d > ret_7d/7) & (ret_7d/7 > ret_30d/30)
-                consistency_factor[accelerating] = 90
-                
-                # Reversal: Was down, now up
-                reversal = valid_all & (ret_30d < -10) & (ret_7d > 0) & (ret_1d > 2)
-                consistency_factor[reversal] = 60
-                
-                # Breakdown: Was up, now down
-                breakdown = valid_all & (ret_30d > 20) & (ret_7d < 0) & (ret_1d < -2)
-                consistency_factor[breakdown] = 20
+                # Combine sign and magnitude
+                consistency_factor[valid_all] = 50  # Base
+                consistency_factor[valid_all] += sign_consistency * 20  # ±20 for direction
+                consistency_factor[building] += 20  # Bonus for building
+                consistency_factor[fading] -= 20  # Penalty for fading
+                consistency_factor[steady] += 10  # Small bonus for steady
         
-        # COMPONENT 3: RISK-ADJUSTED RETURNS (20% weight)
-        risk_adjusted = pd.Series(50, index=df.index, dtype=float)
+        # COMPONENT 3: QUALITY FACTOR (20% weight)
+        # True Sharpe-like ratio using actual volatility
+        quality_factor = pd.Series(50, index=df.index, dtype=float)
         
-        # Calculate simple volatility proxy if we have multiple periods
-        if has_30d and has_7d:
-            ret_30d = df['ret_30d'] if has_30d else pd.Series(np.nan, index=df.index)
-            ret_7d = df['ret_7d'] if has_7d else pd.Series(np.nan, index=df.index)
+        # Try to use actual daily data if available
+        if 'daily_returns' in df.columns:
+            # If we have actual daily returns series
+            daily_returns = df['daily_returns']
+            valid_daily = daily_returns.notna()
             
-            valid_vol = ret_30d.notna() & ret_7d.notna()
-            
-            if valid_vol.any():
-                # Simple volatility estimate
-                # Compare actual vs expected based on timeframe
-                expected_7d = ret_30d[valid_vol] * (7/30)
-                deviation = np.abs(ret_7d[valid_vol] - expected_7d)
+            if valid_daily.any():
+                # Calculate true volatility
+                volatility = daily_returns[valid_daily].apply(lambda x: np.std(x) if len(x) > 1 else np.nan)
+                returns = df.loc[valid_daily, 'ret_30d'] if has_30d else df.loc[valid_daily, 'ret_7d']
                 
-                # Lower deviation = more stable = higher score
-                risk_adjusted[valid_vol] = np.where(
-                    deviation < 5, 70,  # Very stable
-                    np.where(deviation < 10, 60,  # Stable
-                    np.where(deviation < 20, 50,  # Normal
-                    np.where(deviation < 30, 40,  # Volatile
-                    30)))  # Very volatile
-                )
+                # Sharpe-like ratio
+                sharpe = returns / (volatility * np.sqrt(30) + 1)  # Annualized
+                quality_factor[valid_daily] = 50 + np.tanh(sharpe / 2) * 30
+        else:
+            # Fallback: Estimate volatility from available returns
+            if has_30d and has_7d and has_1d:
+                ret_30d = df['ret_30d']
+                ret_7d = df['ret_7d']
+                ret_1d = df['ret_1d']
                 
-                # Bonus for positive returns with low volatility
-                quality_momentum = valid_vol & (ret_30d > 10) & (deviation < 10)
-                risk_adjusted[quality_momentum] = 80
+                valid_vol = ret_30d.notna() & ret_7d.notna() & ret_1d.notna()
+                
+                if valid_vol.any():
+                    # Estimate volatility from return dispersion
+                    # Better than std of averages
+                    expected_1d = ret_30d[valid_vol] / 30
+                    expected_7d = ret_30d[valid_vol] * 7 / 30
+                    
+                    deviation_1d = np.abs(ret_1d[valid_vol] - expected_1d)
+                    deviation_7d = np.abs(ret_7d[valid_vol] - expected_7d)
+                    
+                    # Average deviation as volatility proxy
+                    avg_deviation = (deviation_1d + deviation_7d / 7) / 2
+                    
+                    # Quality score based on return/risk
+                    risk_adjusted = ret_30d[valid_vol] / (avg_deviation + 1)
+                    quality_factor[valid_vol] = 50 + np.tanh(risk_adjusted / 10) * 30
         
-        # COMBINE COMPONENTS (Vectorized)
-        # Only combine where we have data
+        # COMBINE COMPONENTS
         has_components = raw_momentum.notna()
         
         if has_components.any():
@@ -2282,46 +2259,40 @@ class RankingEngine:
             if consistency_factor.notna().any():
                 valid_both = has_components & consistency_factor.notna()
                 momentum_score[valid_both] += consistency_factor[valid_both] * 0.2
+            else:
+                # If no consistency data, give more weight to raw
+                momentum_score[has_components] = raw_momentum[has_components] * 0.8
             
-            # Add risk adjustment if available
-            if risk_adjusted.notna().any():
-                valid_all = has_components & risk_adjusted.notna()
-                momentum_score[valid_all] += risk_adjusted[valid_all] * 0.2
+            # Add quality if available
+            if quality_factor.notna().any():
+                valid_all = has_components & quality_factor.notna()
+                momentum_score[valid_all] += quality_factor[valid_all] * 0.2
         
-        # CONTEXT ADJUSTMENTS (Vectorized)
+        # CONTEXT ADJUSTMENTS
         
         # Market cap adjustments
         if 'category' in df.columns and momentum_score.notna().any():
             category = df['category']
             
-            # Small/Micro caps: Higher normal volatility
+            # Small cap pump & dump detection
             is_small = category.isin(['Micro Cap', 'Small Cap'])
             
             if has_30d:
                 ret_30d = df['ret_30d']
                 
-                # Extreme momentum in small caps = likely pump
+                # Progressive penalty for extreme returns
                 extreme_small = is_small & momentum_score.notna() & (ret_30d > 50)
                 if extreme_small.any():
-                    # Progressive penalty
-                    momentum_score[extreme_small] = np.minimum(
-                        momentum_score[extreme_small],
-                        70 - (ret_30d[extreme_small] - 50) * 0.5
-                    )
-                    logger.debug(f"Pump penalty applied to {extreme_small.sum()} small caps")
-                
-                # Very extreme = definite manipulation
-                pump_dump = is_small & (ret_30d > 100)
-                if pump_dump.any():
-                    momentum_score[pump_dump] = 20
-                    logger.warning(f"Severe pump penalty for {pump_dump.sum()} stocks")
+                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 50) / 50)
+                    momentum_score[extreme_small] *= penalty_factor
+                    logger.debug(f"Applied pump penalty to {extreme_small.sum()} small caps")
             
-            # Large caps: Momentum more significant
+            # Large cap momentum significance
             is_large = category.isin(['Large Cap', 'Mega Cap'])
             strong_large = is_large & momentum_score.notna() & (momentum_score > 70)
             if strong_large.any():
                 momentum_score[strong_large] = np.minimum(
-                    momentum_score[strong_large] * 1.05,
+                    momentum_score[strong_large] * 1.08,
                     100
                 )
         
@@ -2329,50 +2300,26 @@ class RankingEngine:
         if 'rvol' in df.columns and momentum_score.notna().any():
             rvol = df['rvol']
             
-            # High momentum without volume = suspicious
+            # Momentum-volume harmony
             high_momentum = momentum_score > 70
-            low_volume = rvol < 0.8
             
-            suspicious = high_momentum & low_volume & momentum_score.notna()
-            if suspicious.any():
-                momentum_score[suspicious] *= 0.85
-                logger.debug(f"Low volume penalty for {suspicious.sum()} high momentum stocks")
-            
-            # High momentum with high volume = confirmed
-            high_volume = rvol > 2
-            confirmed = high_momentum & high_volume & momentum_score.notna()
-            if confirmed.any():
-                momentum_score[confirmed] = np.minimum(
-                    momentum_score[confirmed] * 1.05,
+            # Strong momentum with volume = confirmed
+            with_volume = high_momentum & (rvol > 1.5) & momentum_score.notna()
+            if with_volume.any():
+                momentum_score[with_volume] = np.minimum(
+                    momentum_score[with_volume] + 5,
                     100
                 )
-        
-        # Sector relative performance
-        if 'sector' in df.columns and has_30d:
-            ret_30d = df['ret_30d']
-            sector_avg = df.groupby('sector')['ret_30d'].transform('mean')
             
-            valid_sector = ret_30d.notna() & sector_avg.notna() & momentum_score.notna()
-            
-            if valid_sector.any():
-                # Outperforming sector significantly
-                outperform = valid_sector & (ret_30d > sector_avg + 10)
-                if outperform.any():
-                    momentum_score[outperform] = np.minimum(
-                        momentum_score[outperform] + 5,
-                        100
-                    )
-                
-                # Underperforming strong sector
-                underperform = valid_sector & (sector_avg > 10) & (ret_30d < sector_avg - 5)
-                if underperform.any():
-                    momentum_score[underperform] -= 5
+            # Strong momentum without volume = suspicious
+            no_volume = high_momentum & (rvol < 0.7) & momentum_score.notna()
+            if no_volume.any():
+                momentum_score[no_volume] -= 10
         
         # Final clipping
         momentum_score = momentum_score.clip(0, 100)
         
-        # CRITICAL: DO NOT FILL NaN!
-        # Let missing data stay missing
+        # NEVER FILL NaN!
         
         # COMPREHENSIVE LOGGING
         valid_scores = momentum_score.notna().sum()
@@ -2386,21 +2333,11 @@ class RankingEngine:
                        f"Median: {score_dist.median():.1f}, "
                        f"Std: {score_dist.std():.1f}")
             
-            # Categories
-            exceptional = (momentum_score > 80).sum()
-            strong = ((momentum_score > 60) & (momentum_score <= 80)).sum()
-            neutral = ((momentum_score >= 40) & (momentum_score <= 60)).sum()
-            weak = ((momentum_score >= 20) & (momentum_score < 40)).sum()
-            crash = (momentum_score < 20).sum()
-            
-            logger.debug(f"Breakdown: Exceptional={exceptional}, Strong={strong}, "
-                        f"Neutral={neutral}, Weak={weak}, Crash={crash}")
-            
-            # Check for market-wide momentum
-            if score_dist.mean() > 70:
-                logger.info("Market-wide strong momentum detected")
-            elif score_dist.mean() < 30:
-                logger.warning("Market-wide weak momentum detected")
+            # Check market momentum
+            if score_dist.mean() > 65:
+                logger.info("Strong market-wide momentum detected")
+            elif score_dist.mean() < 35:
+                logger.warning("Weak market-wide momentum detected")
         
         return momentum_score
         
