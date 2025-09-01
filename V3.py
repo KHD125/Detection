@@ -1662,168 +1662,369 @@ class RankingEngine:
     @staticmethod
     def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
         """
-        Calculate momentum score based on returns using ABSOLUTE SCORING.
-        FIXED: No more percentile ranking that artificially spreads similar values.
+        Calculate momentum score using adaptive non-linear scaling with market context.
+        FIXED: Sigmoid scaling, volatility adjustment, proper pump detection, market-aware.
         
-        Momentum Score Logic:
-        - Primary: 30-day returns (absolute scoring)
-        - Fallback: 7-day returns if 30d unavailable
-        - Base formula: 50 + (return% * multiplier)
-        - Consistency bonus: +5 if both 7d & 30d positive
-        - Acceleration bonus: +10 if 7d pace > 30d pace * 1.2
-        - Decay penalty: -10% if momentum is slowing progressively
+        Momentum Methodology:
+        - Sigmoid transformation for realistic diminishing returns
+        - Volatility-adjusted returns (Sharpe-like approach)
+        - Multi-timeframe consistency validation
+        - Market regime adaptation
+        - Pump & dump detection with severity scaling
         
-        Score mapping:
-        - 0% return = 50 score (neutral)
-        - +10% return = 60 score
-        - +30% return = 80 score
-        - -10% return = 40 score
-        - -30% return = 20 score
+        Core Components:
+        - 50% Raw momentum (sigmoid-scaled)
+        - 20% Consistency factor (multi-timeframe alignment)
+        - 15% Quality factor (volatility-adjusted)
+        - 15% Sustainability factor (acceleration/deceleration)
+        
+        Score Interpretation:
+        - 85-100: Explosive momentum (rare, powerful, possibly unsustainable)
+        - 70-85: Strong momentum (healthy trend)
+        - 50-70: Positive momentum (normal uptrend)
+        - 40-50: Neutral/sideways (no clear trend)
+        - 20-40: Negative momentum (downtrend)
+        - 0-20: Crash momentum (severe decline)
         """
         momentum_score = pd.Series(np.nan, index=df.index, dtype=float)
         
-        # Check if we have any return data
+        # Check data availability
         has_30d = 'ret_30d' in df.columns and df['ret_30d'].notna().any()
         has_7d = 'ret_7d' in df.columns and df['ret_7d'].notna().any()
+        has_1d = 'ret_1d' in df.columns and df['ret_1d'].notna().any()
         
         if not has_30d and not has_7d:
             logger.warning("No return data available for momentum calculation")
             return momentum_score
         
-        # FIXED: Use ABSOLUTE SCORING instead of percentile ranking
+        # Component 1: RAW MOMENTUM (50% weight)
+        # Using sigmoid for non-linear scaling with diminishing returns
+        raw_momentum = pd.Series(np.nan, index=df.index, dtype=float)
+        
         if has_30d:
             ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
             valid_30d = ret_30d.notna()
             
-            # ABSOLUTE FORMULA: Linear scaling based on actual returns
-            # 30-day returns typically range from -50% to +100%
-            # We'll use a multiplier of 1.0 for moderate sensitivity
-            # This gives: 0% = 50, 10% = 60, 30% = 80, -10% = 40
-            momentum_score[valid_30d] = (50 + ret_30d[valid_30d] * 1.0).clip(0, 100)
-            
-            logger.info(f"Calculated momentum scores for {valid_30d.sum()} stocks using 30-day returns")
-            
-            # Log statistics for debugging
             if valid_30d.any():
-                avg_return = ret_30d[valid_30d].mean()
-                avg_score = momentum_score[valid_30d].mean()
-                logger.debug(f"Average 30d return: {avg_return:.1f}%, Average momentum score: {avg_score:.1f}")
+                # SIGMOID TRANSFORMATION
+                # This creates natural diminishing returns:
+                # -50% → 10, -20% → 25, 0% → 50, 20% → 75, 50% → 90, 100% → 95
+                
+                # Normalize returns to reasonable scale (-100 to +100 typical range)
+                # Use tanh for smooth S-curve
+                x = ret_30d[valid_30d] / 30  # Scale factor for sensitivity
+                
+                # Sigmoid formula: 50 + 50 * tanh(x)
+                # This gives smooth transition with diminishing returns at extremes
+                raw_momentum[valid_30d] = 50 + 50 * np.tanh(x)
+                
+                # Alternative: Logistic function for different curve shape
+                # raw_momentum[valid_30d] = 100 / (1 + np.exp(-ret_30d[valid_30d]/20))
+                
+                logger.debug(f"Calculated raw momentum for {valid_30d.sum()} stocks using 30-day returns")
         
-        # Fallback to 7-day returns for stocks without 30-day data
-        if has_7d:
+        # Fallback to 7-day returns with appropriate scaling
+        needs_7d = raw_momentum.isna() & has_7d
+        if needs_7d.any() and has_7d:
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            needs_7d = momentum_score.isna() & ret_7d.notna()
+            valid_7d = ret_7d.notna() & needs_7d
             
-            if needs_7d.any():
-                # 7-day returns need higher multiplier since they're smaller
-                # Use 3x multiplier so 3.33% weekly = 60 score (equivalent to 10% monthly)
-                momentum_score[needs_7d] = (50 + ret_7d[needs_7d] * 3.0).clip(0, 100)
-                logger.info(f"Used 7-day returns for {needs_7d.sum()} stocks as fallback")
+            if valid_7d.any():
+                # 7-day returns need different scaling (multiply by ~4 to approximate monthly)
+                x = ret_7d[valid_7d] * 4 / 30
+                raw_momentum[valid_7d] = 50 + 50 * np.tanh(x)
+                logger.info(f"Used 7-day returns for {valid_7d.sum()} stocks as fallback")
         
-        # CONSISTENCY BONUS: Reward stocks with positive momentum across timeframes
-        if has_7d and has_30d and momentum_score.notna().any():
+        # Component 2: CONSISTENCY FACTOR (20% weight)
+        # Rewards consistent momentum across timeframes
+        consistency_factor = pd.Series(50, index=df.index, dtype=float)
+        
+        if all([has_1d, has_7d, has_30d]):
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
             ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
             
-            # Only apply bonus where we have valid momentum score and both returns
-            valid_for_bonus = momentum_score.notna() & ret_7d.notna() & ret_30d.notna()
+            valid_all = ret_1d.notna() & ret_7d.notna() & ret_30d.notna()
             
-            if valid_for_bonus.any():
-                # Both positive = consistent uptrend
-                consistent_positive = valid_for_bonus & (ret_7d > 0) & (ret_30d > 0)
-                if consistent_positive.any():
-                    momentum_score.loc[consistent_positive] += 5
-                    logger.debug(f"Applied consistency bonus (+5) to {consistent_positive.sum()} stocks")
+            if valid_all.any():
+                # Count positive timeframes
+                positive_count = (
+                    (ret_1d > 0).astype(int) +
+                    (ret_7d > 0).astype(int) +
+                    (ret_30d > 0).astype(int)
+                )
                 
-                # ACCELERATION BONUS: 7-day pace faster than 30-day pace
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    daily_7d = ret_7d / 7
-                    daily_30d = ret_30d / 30
+                # Check if momentum is accelerating (each timeframe better than longer)
+                daily_pace_7d = ret_7d / 7
+                daily_pace_30d = ret_30d / 30
                 
-                # Strong acceleration (7d pace > 30d pace * 1.2)
-                strong_accel = valid_for_bonus & consistent_positive & (daily_7d > daily_30d * 1.2)
-                if strong_accel.any():
-                    momentum_score.loc[strong_accel] += 5  # Additional 5 (total +10 with consistency)
-                    logger.debug(f"Applied acceleration bonus (+5 additional) to {strong_accel.sum()} stocks")
+                # Perfect consistency: All positive and accelerating
+                perfect_consistency = valid_all & (positive_count == 3) & (ret_1d > daily_pace_7d) & (daily_pace_7d > daily_pace_30d)
+                consistency_factor[perfect_consistency] = 85
                 
-                # Moderate acceleration (7d pace > 30d pace * 1.1)
-                moderate_accel = valid_for_bonus & consistent_positive & ~strong_accel & (daily_7d > daily_30d * 1.1)
-                if moderate_accel.any():
-                    momentum_score.loc[moderate_accel] += 2  # Smaller bonus
-                    logger.debug(f"Applied moderate acceleration bonus (+2) to {moderate_accel.sum()} stocks")
+                # Good consistency: All positive
+                good_consistency = valid_all & (positive_count == 3) & ~perfect_consistency
+                consistency_factor[good_consistency] = 70
+                
+                # Mixed: Some positive
+                mixed = valid_all & (positive_count == 2)
+                consistency_factor[mixed] = 55
+                
+                # Poor: Mostly negative
+                poor = valid_all & (positive_count == 1)
+                consistency_factor[poor] = 40
+                
+                # Terrible: All negative
+                terrible = valid_all & (positive_count == 0)
+                consistency_factor[terrible] = 25
+                
+                # Special case: Reversal detection
+                reversal_up = valid_all & (ret_30d < -10) & (ret_7d > 0) & (ret_1d > 2)
+                consistency_factor[reversal_up] = 60  # Potential bottom
+                
+                reversal_down = valid_all & (ret_30d > 20) & (ret_7d < 0) & (ret_1d < -2)
+                consistency_factor[reversal_down] = 35  # Potential top
         
-        # DECAY PENALTY: Penalize slowing momentum
-        if all(col in df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d']) and momentum_score.notna().any():
-            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
+        # Component 3: QUALITY FACTOR (15% weight)
+        # Volatility-adjusted returns (pseudo-Sharpe ratio)
+        quality_factor = pd.Series(50, index=df.index, dtype=float)
+        
+        if has_30d and 'ret_7d' in df.columns and 'ret_3d' in df.columns:
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
             ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
             
-            # Only apply where we have all data and a valid score
-            valid_for_decay = (
-                momentum_score.notna() & 
-                ret_1d.notna() & 
-                ret_3d.notna() & 
-                ret_7d.notna()
-            )
+            valid_quality = ret_30d.notna() & ret_7d.notna() & ret_3d.notna()
             
-            if valid_for_decay.any():
-                # Calculate daily paces
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    daily_pace_1d = ret_1d  # Already daily
-                    daily_pace_3d = ret_3d / 3
-                    daily_pace_7d = ret_7d / 7
+            if valid_quality.any():
+                # Estimate volatility from return differences
+                # Simple proxy: standard deviation of different period returns
+                returns_matrix = pd.DataFrame({
+                    '1d': ret_3d / 3,  # Daily equivalent
+                    '7d': ret_7d / 7,
+                    '30d': ret_30d / 30
+                })
                 
-                # Detect progressive slowdown
-                slowing = valid_for_decay & (
-                    (daily_pace_1d < daily_pace_3d * 0.8) &  # Today 20% slower than 3-day avg
-                    (daily_pace_3d < daily_pace_7d * 0.9)     # 3-day avg 10% slower than 7-day avg
-                )
+                volatility = returns_matrix.std(axis=1)
                 
-                if slowing.any():
-                    momentum_score.loc[slowing] *= 0.90  # 10% penalty
-                    logger.debug(f"Applied decay penalty (-10%) to {slowing.sum()} stocks")
+                # Quality = return / volatility (simplified Sharpe)
+                # Avoid division by zero
+                safe_vol = volatility.copy()
+                safe_vol[safe_vol < 0.5] = 0.5  # Minimum volatility threshold
                 
-                # Severe slowdown (momentum reversal)
-                reversing = valid_for_decay & (
-                    (ret_1d < 0) &  # Negative today
-                    (ret_7d > 5)    # But was strongly positive over week
-                )
+                quality_ratio = ret_30d / safe_vol
                 
-                if reversing.any():
-                    momentum_score.loc[reversing] *= 0.85  # 15% penalty
-                    logger.debug(f"Applied reversal penalty (-15%) to {reversing.sum()} stocks")
+                # Convert to score (0-100)
+                # Ratio -2 → 20, 0 → 50, 2 → 80, 4 → 90
+                quality_factor[valid_quality] = 50 + np.tanh(quality_ratio[valid_quality] / 2) * 40
         
-        # CONTEXT ADJUSTMENTS based on market conditions
+        # Component 4: SUSTAINABILITY FACTOR (15% weight)
+        # Detects acceleration/deceleration patterns
+        sustainability_factor = pd.Series(50, index=df.index, dtype=float)
+        
+        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            
+            valid_sustain = ret_1d.notna() & ret_7d.notna() & ret_30d.notna()
+            
+            if valid_sustain.any():
+                # Calculate momentum change rate
+                short_term_pace = ret_1d  # Today's return
+                medium_term_pace = ret_7d / 7  # Average daily over week
+                long_term_pace = ret_30d / 30  # Average daily over month
+                
+                # Acceleration: Each timeframe faster than the next
+                strong_accel = valid_sustain & (short_term_pace > medium_term_pace * 1.5) & (medium_term_pace > long_term_pace * 1.2)
+                sustainability_factor[strong_accel] = 75
+                
+                mild_accel = valid_sustain & ~strong_accel & (short_term_pace > medium_term_pace) & (medium_term_pace > long_term_pace)
+                sustainability_factor[mild_accel] = 65
+                
+                # Steady: Consistent pace
+                steady = valid_sustain & (np.abs(short_term_pace - medium_term_pace) < 1) & (np.abs(medium_term_pace - long_term_pace) < 0.5)
+                sustainability_factor[steady] = 55
+                
+                # Deceleration: Slowing down
+                mild_decel = valid_sustain & (short_term_pace < medium_term_pace) & (medium_term_pace < long_term_pace)
+                sustainability_factor[mild_decel] = 40
+                
+                strong_decel = valid_sustain & (short_term_pace < medium_term_pace * 0.7) & (medium_term_pace < long_term_pace * 0.8)
+                sustainability_factor[strong_decel] = 25
+        
+        # COMBINE COMPONENTS
+        components = {
+            'raw': (raw_momentum, 0.50),
+            'consistency': (consistency_factor, 0.20),
+            'quality': (quality_factor, 0.15),
+            'sustainability': (sustainability_factor, 0.15)
+        }
+        
+        # Weighted combination
+        weighted_sum = pd.Series(0, index=df.index, dtype=float)
+        weight_sum = pd.Series(0, index=df.index, dtype=float)
+        
+        for name, (component, weight) in components.items():
+            valid = component.notna()
+            weighted_sum[valid] += component[valid] * weight
+            weight_sum[valid] += weight
+        
+        # Calculate base momentum score
+        has_components = weight_sum > 0
+        momentum_score[has_components] = weighted_sum[has_components] / weight_sum[has_components]
+        
+        # CONTEXT ADJUSTMENTS
+        
+        # Market cap adjustments - different caps have different normal momentum ranges
         if 'category' in df.columns and momentum_score.notna().any():
             category = pd.Series(df['category'].values, index=df.index)
             
-            # Small/Micro caps with extreme momentum might be pumps
+            # Small/Micro caps: More volatile, higher normal momentum
             is_penny = category.isin(['Micro Cap', 'Small Cap'])
+            
             if has_30d:
                 ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+                
+                # Extreme momentum in penny stocks = likely pump & dump
                 extreme_penny = is_penny & momentum_score.notna() & (ret_30d > 50)
                 if extreme_penny.any():
-                    momentum_score.loc[extreme_penny] *= 0.90  # Reduce by 10%
-                    logger.debug(f"Applied penny stock extreme momentum penalty to {extreme_penny.sum()} stocks")
+                    # Progressive penalty based on how extreme
+                    penalty_factor = np.minimum(0.5, 1 - (ret_30d[extreme_penny] - 50) / 100)
+                    momentum_score[extreme_penny] *= penalty_factor
+                    logger.warning(f"Applied pump & dump penalty to {extreme_penny.sum()} penny stocks")
+                
+                # Very extreme = definite manipulation
+                pump_dump = is_penny & (ret_30d > 100)
+                if pump_dump.any():
+                    momentum_score[pump_dump] = 30  # Cap at low score
+                    logger.warning(f"Capped {pump_dump.sum()} stocks with >100% monthly returns")
             
-            # Large caps with strong momentum are more significant
+            # Large/Mega caps: Momentum more significant
             is_large = category.isin(['Large Cap', 'Mega Cap'])
             strong_large = is_large & momentum_score.notna() & (momentum_score > 70)
             if strong_large.any():
-                momentum_score.loc[strong_large] *= 1.05  # Boost by 5%
+                momentum_score[strong_large] *= 1.05  # 5% bonus
                 logger.debug(f"Applied large cap momentum bonus to {strong_large.sum()} stocks")
         
-        # Final clipping to ensure valid range
+        # Volume confirmation - momentum without volume is suspicious
+        if 'rvol' in df.columns and momentum_score.notna().any():
+            rvol = pd.Series(df['rvol'].values, index=df.index)
+            
+            # High momentum without volume = suspicious
+            no_volume_momentum = (
+                momentum_score.notna() & 
+                (momentum_score > 70) & 
+                rvol.notna() & 
+                (rvol < 0.8)
+            )
+            if no_volume_momentum.any():
+                momentum_score[no_volume_momentum] *= 0.85  # 15% penalty
+                logger.debug(f"Applied no-volume penalty to {no_volume_momentum.sum()} stocks")
+            
+            # High momentum with high volume = confirmed
+            volume_confirmed = (
+                momentum_score.notna() & 
+                (momentum_score > 70) & 
+                rvol.notna() & 
+                (rvol > 2)
+            )
+            if volume_confirmed.any():
+                momentum_score[volume_confirmed] = np.minimum(momentum_score[volume_confirmed] * 1.05, 100)
+                logger.debug(f"Applied volume confirmation bonus to {volume_confirmed.sum()} stocks")
+        
+        # Sector/Market regime adjustment
+        if 'sector' in df.columns and has_30d:
+            # Calculate sector average momentum
+            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
+            sector_avg = df.groupby('sector')['ret_30d'].transform('mean')
+            
+            # Relative momentum vs sector
+            relative_momentum = ret_30d - sector_avg
+            
+            # Outperforming sector significantly
+            outperformer = (
+                momentum_score.notna() & 
+                relative_momentum.notna() & 
+                (relative_momentum > 10)
+            )
+            if outperformer.any():
+                momentum_score[outperformer] = np.minimum(momentum_score[outperformer] * 1.03, 100)
+                logger.debug(f"Applied sector outperformance bonus to {outperformer.sum()} stocks")
+            
+            # Underperforming strong sector
+            underperformer = (
+                momentum_score.notna() & 
+                sector_avg.notna() & 
+                (sector_avg > 10) &  # Strong sector
+                (relative_momentum < -5)  # But stock lagging
+            )
+            if underperformer.any():
+                momentum_score[underperformer] *= 0.95
+                logger.debug(f"Applied sector underperformance penalty to {underperformer.sum()} stocks")
+        
+        # News/Event spike detection (single day moves)
+        if has_1d and has_7d:
+            ret_1d = pd.Series(df['ret_1d'].values, index=df.index)
+            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
+            
+            # Detect single-day spikes (likely news-driven)
+            spike = (
+                ret_1d.notna() & 
+                ret_7d.notna() & 
+                (ret_1d > 10) &  # Big move today
+                (ret_7d < 15)    # But not much over week
+            )
+            if spike.any():
+                # Don't overweight single-day moves
+                momentum_score[spike] = np.minimum(momentum_score[spike], 70)
+                logger.debug(f"Capped {spike.sum()} stocks with single-day spikes")
+        
+        # Final clipping
         momentum_score = momentum_score.clip(0, 100)
         
-        # Summary statistics
+        # Fill remaining NaN appropriately
+        still_nan = momentum_score.isna()
+        if still_nan.any():
+            # Check if they have any return data
+            has_any_return = False
+            if has_30d:
+                has_any_return |= df['ret_30d'].notna()
+            if has_7d:
+                has_any_return |= df['ret_7d'].notna()
+            
+            # Stocks with some data get neutral score
+            momentum_score[still_nan & has_any_return] = 50
+        
+        # COMPREHENSIVE LOGGING
         valid_scores = momentum_score.notna().sum()
         if valid_scores > 0:
             logger.info(f"Momentum scores calculated: {valid_scores} valid out of {len(df)} stocks")
-            logger.info(f"Score distribution - Min: {momentum_score.min():.1f}, "
-                       f"Max: {momentum_score.max():.1f}, "
-                       f"Mean: {momentum_score.mean():.1f}, "
-                       f"Median: {momentum_score.median():.1f}")
+            
+            # Distribution statistics
+            score_dist = momentum_score[momentum_score.notna()]
+            logger.info(f"Score distribution - Min: {score_dist.min():.1f}, "
+                       f"Max: {score_dist.max():.1f}, "
+                       f"Mean: {score_dist.mean():.1f}, "
+                       f"Median: {score_dist.median():.1f}, "
+                       f"Std: {score_dist.std():.1f}")
+            
+            # Category breakdown
+            explosive = (momentum_score > 85).sum()
+            strong = ((momentum_score > 70) & (momentum_score <= 85)).sum()
+            positive = ((momentum_score > 50) & (momentum_score <= 70)).sum()
+            neutral = ((momentum_score >= 40) & (momentum_score <= 50)).sum()
+            negative = ((momentum_score >= 20) & (momentum_score < 40)).sum()
+            crash = (momentum_score < 20).sum()
+            
+            logger.debug(f"Momentum breakdown: Explosive={explosive}, Strong={strong}, "
+                        f"Positive={positive}, Neutral={neutral}, Negative={negative}, Crash={crash}")
+            
+            # Check for market-wide momentum
+            if score_dist.mean() > 70:
+                logger.info("Market-wide strong momentum detected")
+            elif score_dist.mean() < 30:
+                logger.warning("Market-wide negative momentum detected")
         
         return momentum_score
         
