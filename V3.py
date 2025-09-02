@@ -195,159 +195,6 @@ class Config:
         'export_generation': 1.0,
         'search': 0.05
     })
-
-# ============================================
-# PERFORMANCE FILTER CONFIGURATION
-# ============================================
-
-@dataclass
-class PerformanceFilterConfig:
-    """Configuration for Performance Filters with presets and custom ranges."""
-    
-    # Preset filter definitions with emojis and thresholds
-    FILTER_PRESETS = {
-        'ret_1d': {
-            'name': '1 Day Return',
-            'presets': [
-                {'label': '💥 Explosive', 'min': 15, 'max': None, 'description': '>15% 1D'},
-                {'label': '🚀 Strong Rise', 'min': 10, 'max': 15, 'description': '10-15% 1D'},
-                {'label': '📈 Positive', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
-                {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
-                {'label': '📉 Negative', 'min': -10, 'max': -2, 'description': '-10% to -2% 1D'},
-                {'label': '💣 Crash', 'min': None, 'max': -10, 'description': '<-10% 1D'}
-            ],
-            'slider_range': (-50, 50),
-            'slider_step': 0.5,
-            'default_min': -100,
-            'default_max': 100
-        },
-        'ret_3d': {
-            'name': '3 Day Return',
-            'presets': [
-                {'label': '🌟 3-Day Surge', 'min': 20, 'max': None, 'description': '>20% 3D'},
-                {'label': '⚡ Strong Momentum', 'min': 10, 'max': 20, 'description': '10-20% 3D'},
-                {'label': '📊 Steady Rise', 'min': 5, 'max': 10, 'description': '5-10% 3D'},
-                {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
-                {'label': '⚠️ Weakening', 'min': -10, 'max': -3, 'description': '-10% to -3% 3D'},
-                {'label': '🔻 Sharp Decline', 'min': None, 'max': -10, 'description': '<-10% 3D'}
-            ],
-            'slider_range': (-75, 75),
-            'slider_step': 1,
-            'default_min': -100,
-            'default_max': 100
-        },
-        'ret_7d': {
-            'name': 'Weekly Return',
-            'presets': [
-                {'label': '📈 Weekly Winners', 'min': 25, 'max': None, 'description': '>25% 7D'},
-                {'label': '💪 Strong Week', 'min': 15, 'max': 25, 'description': '15-25% 7D'},
-                {'label': '✅ Good Week', 'min': 7, 'max': 15, 'description': '7-15% 7D'},
-                {'label': '😐 Flat Week', 'min': -5, 'max': 5, 'description': '-5% to 5% 7D'},
-                {'label': '😟 Bad Week', 'min': -15, 'max': -5, 'description': '-15% to -5% 7D'},
-                {'label': '💔 Terrible Week', 'min': None, 'max': -15, 'description': '<-15% 7D'}
-            ],
-            'slider_range': (-100, 100),
-            'slider_step': 1,
-            'default_min': -100,
-            'default_max': 100
-        },
-        'ret_30d': {
-            'name': 'Monthly Return',
-            'presets': [
-                {'label': '🏆 Monthly Champions', 'min': 40, 'max': None, 'description': '>40% 30D'},
-                {'label': '🎯 Top Performers', 'min': 25, 'max': 40, 'description': '25-40% 30D'},
-                {'label': '📈 Outperformers', 'min': 15, 'max': 25, 'description': '15-25% 30D'},
-                {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
-                {'label': '📉 Underperformers', 'min': -25, 'max': -10, 'description': '-25% to -10% 30D'},
-                {'label': '☠️ Monthly Losers', 'min': None, 'max': -25, 'description': '<-25% 30D'}
-            ],
-            'slider_range': (-100, 200),
-            'slider_step': 2,
-            'default_min': -100,
-            'default_max': 500
-        },
-        'ret_3m': {
-            'name': '3 Month Return',
-            'presets': [
-                {'label': '🎯 Quarterly Stars', 'min': 60, 'max': None, 'description': '>60% 3M'},
-                {'label': '⭐ Strong Quarter', 'min': 40, 'max': 60, 'description': '40-60% 3M'},
-                {'label': '👍 Good Quarter', 'min': 20, 'max': 40, 'description': '20-40% 3M'},
-                {'label': '➖ Flat Quarter', 'min': -15, 'max': 15, 'description': '-15% to 15% 3M'},
-                {'label': '👎 Weak Quarter', 'min': -40, 'max': -15, 'description': '-40% to -15% 3M'},
-                {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -40, 'description': '<-40% 3M'}
-            ],
-            'slider_range': (-100, 300),
-            'slider_step': 5,
-            'default_min': -100,
-            'default_max': 1000
-        },
-        'ret_6m': {
-            'name': '6 Month Return',
-            'presets': [
-                {'label': '💎 Half-Year Heroes', 'min': 80, 'max': None, 'description': '>80% 6M'},
-                {'label': '🌟 Semi-Annual Stars', 'min': 60, 'max': 80, 'description': '60-80% 6M'},
-                {'label': '📈 Strong Half', 'min': 30, 'max': 60, 'description': '30-60% 6M'},
-                {'label': '〰️ Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
-                {'label': '📉 Weak Half', 'min': -50, 'max': -20, 'description': '-50% to -20% 6M'},
-                {'label': '💀 Half-Year Collapse', 'min': None, 'max': -50, 'description': '<-50% 6M'}
-            ],
-            'slider_range': (-100, 500),
-            'slider_step': 10,
-            'default_min': -100,
-            'default_max': 1000
-        },
-        'ret_1y': {
-            'name': '1 Year Return',
-            'presets': [
-                {'label': '🌙 Annual Winners', 'min': 100, 'max': None, 'description': '>100% 1Y'},
-                {'label': '🏅 Year Stars', 'min': 80, 'max': 100, 'description': '80-100% 1Y'},
-                {'label': '💪 Strong Year', 'min': 50, 'max': 80, 'description': '50-80% 1Y'},
-                {'label': '📊 Market Year', 'min': -30, 'max': 30, 'description': '-30% to 30% 1Y'},
-                {'label': '😔 Disappointing Year', 'min': -60, 'max': -30, 'description': '-60% to -30% 1Y'},
-                {'label': '🔴 Annual Disasters', 'min': None, 'max': -60, 'description': '<-60% 1Y'}
-            ],
-            'slider_range': (-100, 1000),
-            'slider_step': 10,
-            'default_min': -100,
-            'default_max': 2000
-        },
-        'ret_3y': {
-            'name': '3 Year Return',
-            'presets': [
-                {'label': '👑 Multi-Year Champions', 'min': 200, 'max': None, 'description': '>200% 3Y'},
-                {'label': '🚀 3Y Rockets', 'min': 150, 'max': 200, 'description': '150-200% 3Y'},
-                {'label': '⭐ 3Y Stars', 'min': 100, 'max': 150, 'description': '100-150% 3Y'},
-                {'label': '📈 3Y Growth', 'min': 0, 'max': 50, 'description': '0-50% 3Y'},
-                {'label': '📉 3Y Decline', 'min': -50, 'max': 0, 'description': '-50% to 0% 3Y'},
-                {'label': '💣 3Y Destruction', 'min': None, 'max': -50, 'description': '<-50% 3Y'}
-            ],
-            'slider_range': (-100, 2000),
-            'slider_step': 25,
-            'default_min': -100,
-            'default_max': 5000
-        },
-        'ret_5y': {
-            'name': '5 Year Return',
-            'presets': [
-                {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
-                {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
-                {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
-                {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
-                {'label': '⚠️ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
-                {'label': '☠️ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
-            ],
-            'slider_range': (-100, 5000),
-            'slider_step': 50,
-            'default_min': -100,
-            'default_max': 10000
-        }
-    }
-    
-    # Active filters storage
-    ACTIVE_FILTERS = {}
-    
-    # Enable/disable performance filtering
-    ENABLE_PERFORMANCE_FILTER = True
     
     # Market categories (Indian market specific)
     MARKET_CATEGORIES: List[str] = field(default_factory=lambda: [
@@ -7328,7 +7175,17 @@ class FilterEngine:
             'momentum_score_selection': "All Scores",
             'acceleration_score_selection': "All Scores",
             'breakout_score_selection': "All Scores",
-            'rvol_score_selection': "All Scores"
+            'rvol_score_selection': "All Scores",
+            # Performance filter selections
+            'ret_1d_selection': "All Returns",
+            'ret_3d_selection': "All Returns", 
+            'ret_7d_selection': "All Returns",
+            'ret_30d_selection': "All Returns",
+            'ret_3m_selection': "All Returns",
+            'ret_6m_selection': "All Returns",
+            'ret_1y_selection': "All Returns",
+            'ret_3y_selection': "All Returns",
+            'ret_5y_selection': "All Returns"
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -7354,6 +7211,10 @@ class FilterEngine:
             # Score dropdown widgets
             'position_score_dropdown', 'volume_score_dropdown', 'momentum_score_dropdown',
             'acceleration_score_dropdown', 'breakout_score_dropdown', 'rvol_score_dropdown',
+            
+            # Performance dropdown widgets
+            'ret_1d_dropdown', 'ret_3d_dropdown', 'ret_7d_dropdown', 'ret_30d_dropdown',
+            'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select',
@@ -7643,47 +7504,15 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.6. NEW Performance Filter System (Enhanced)
-        # Handle min/max filters from presets and custom range filters
-        return_columns = ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']
-        performance_filters_applied = []
-        
-        for col in return_columns:
-            if col in df.columns:
-                # Check for min filter (from presets like "💥 Explosive" min: 15)
-                if f'{col}_min' in filters:
-                    min_val = filters[f'{col}_min']
-                    masks.append(df[col] >= min_val)
-                    performance_filters_applied.append(f'{col}_min: >={min_val}%')
-                
-                # Check for max filter (from presets like "💣 Crash" max: -10)
-                if f'{col}_max' in filters:
-                    max_val = filters[f'{col}_max']
-                    masks.append(df[col] <= max_val)
-                    performance_filters_applied.append(f'{col}_max: <={max_val}%')
-                
-                # Check for range filter (from custom sliders)
-                if f'{col}_range' in filters:
-                    range_val = filters[f'{col}_range']
-                    # Only apply if it's not the default slider range
-                    config = PerformanceFilterConfig.FILTER_PRESETS.get(col, {})
-                    default_slider_range = config.get('slider_range', (-100, 100))
-                    if range_val != default_slider_range:
-                        masks.append(df[col].between(range_val[0], range_val[1], inclusive='both'))
-                        performance_filters_applied.append(f'{col}_range: {range_val[0]}% to {range_val[1]}%')
-        
-        if performance_filters_applied:
-            logger.info(f"Performance filters applied: {performance_filters_applied}")
-        
-        # 5.7. Legacy Performance Intelligence filters (keep for backward compatibility)
+        # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
             selected_tiers = filters['performance_tiers']
             # Only apply preset tier filtering if "Custom Range" is not selected
             custom_range_in_tiers = any("Custom Range" in tier for tier in selected_tiers) if selected_tiers else False
             if selected_tiers and not custom_range_in_tiers:
                 masks.append(create_mask_from_isin('performance_tier', selected_tiers))
-
-        # Legacy custom performance range filter (keep for backward compatibility)
+        
+        # Custom performance range filter (only apply if actual range filters are modified from defaults)
         custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
         
         if custom_range_selected:
@@ -7767,7 +7596,7 @@ class FilterEngine:
                 # No custom ranges are active, so don't filter by performance
                 pass  # This effectively shows all stocks for performance filtering
             else:
-                logger.info(f"Legacy active performance filters: {active_custom_ranges}")
+                logger.info(f"Active custom ranges: {active_custom_ranges}")
             
             # Legacy support for old performance_custom_range
             if 'performance_custom_range' in filters:
@@ -8750,6 +8579,26 @@ class SessionStateManager:
                 filters['breakout_score_range'] = state['breakout_score_range']
             if state.get('rvol_score_range') != (0, 100):
                 filters['rvol_score_range'] = state['rvol_score_range']
+            
+            # Individual Performance Return Period Filters
+            # Define default ranges to compare against
+            default_ranges = {
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0)
+            }
+            
+            # Add individual return period filters if they differ from defaults
+            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
+                range_key = f'{ret_col}_range'
+                if state.get(range_key) and state[range_key] != default_ranges.get(range_key):
+                    filters[range_key] = state[range_key]
                 
         else:
             # Fallback to legacy individual keys
@@ -8870,6 +8719,26 @@ class SessionStateManager:
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
+                # Performance filter selections
+                'ret_1d_selection': "All Returns",
+                'ret_3d_selection': "All Returns", 
+                'ret_7d_selection': "All Returns",
+                'ret_30d_selection': "All Returns",
+                'ret_3m_selection': "All Returns",
+                'ret_6m_selection': "All Returns",
+                'ret_1y_selection': "All Returns",
+                'ret_3y_selection': "All Returns",
+                'ret_5y_selection': "All Returns",
+                # Performance filter ranges
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -9667,6 +9536,34 @@ def main():
             if 'position_range_slider' in st.session_state:
                 st.session_state.filter_state['position_range'] = st.session_state.position_range_slider
         
+        def sync_performance_tier():
+            if 'performance_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect_intelligence
+        
+        def sync_performance_custom_range():
+            # Sync individual range sliders for all timeframes
+            if 'ret_1d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_1d_range'] = st.session_state.ret_1d_range_slider
+            if 'ret_3d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3d_range'] = st.session_state.ret_3d_range_slider
+            if 'ret_7d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_7d_range'] = st.session_state.ret_7d_range_slider
+            if 'ret_30d_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_30d_range'] = st.session_state.ret_30d_range_slider
+            if 'ret_3m_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3m_range'] = st.session_state.ret_3m_range_slider
+            if 'ret_6m_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_6m_range'] = st.session_state.ret_6m_range_slider
+            if 'ret_1y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_1y_range'] = st.session_state.ret_1y_range_slider
+            if 'ret_3y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_3y_range'] = st.session_state.ret_3y_range_slider
+            if 'ret_5y_range_slider' in st.session_state:
+                st.session_state.filter_state['ret_5y_range'] = st.session_state.ret_5y_range_slider
+            # Legacy support
+            if 'performance_custom_range_slider' in st.session_state:
+                st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
+        
         def sync_volume_tier():
             if 'volume_tier_multiselect_intelligence' in st.session_state:
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
@@ -9674,6 +9571,21 @@ def main():
         def sync_rvol_range():
             if 'rvol_range_slider' in st.session_state:
                 st.session_state.filter_state['rvol_range'] = st.session_state.rvol_range_slider
+        
+        # Performance Filter Sync Functions
+        def sync_performance_dropdowns():
+            # Sync all performance dropdown selections
+            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
+                dropdown_key = f'{ret_col}_dropdown'
+                if dropdown_key in st.session_state:
+                    st.session_state.filter_state[f'{ret_col}_selection'] = st.session_state[dropdown_key]
+        
+        def sync_performance_sliders():
+            # Sync all performance range sliders
+            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
+                slider_key = f'{ret_col}_range_slider'
+                if slider_key in st.session_state:
+                    st.session_state.filter_state[f'{ret_col}_range'] = st.session_state[slider_key]
         
         def sync_patterns():
             if 'patterns_multiselect' in st.session_state:
@@ -10218,103 +10130,203 @@ def main():
                     elif rvol_score_selection == "🔴 Weak (< 40)":
                         filters['rvol_score_range'] = (0, 39)
         
-        # 📈 Performance Filter - Professional Section
+        # 📈 Performance Filter - Professional Expandable Section
         with st.expander("📈 Performance Filter", expanded=False):
             
-            # Add sync functions for performance filters
-            def sync_performance_preset(timeframe):
-                """Sync function for performance preset selections"""
-                def sync_func():
-                    if f'performance_preset_{timeframe}' in st.session_state:
-                        st.session_state.filter_state[f'performance_preset_{timeframe}'] = st.session_state[f'performance_preset_{timeframe}']
-                return sync_func
-            
-            def sync_performance_slider(timeframe):
-                """Sync function for performance custom range sliders"""
-                def sync_func():
-                    if f'performance_slider_{timeframe}' in st.session_state:
-                        st.session_state.filter_state[f'performance_range_{timeframe}'] = st.session_state[f'performance_slider_{timeframe}']
-                return sync_func
-            
-            # Check available return columns
+            # Check for available return columns
             available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
             
             if available_return_cols:
-                st.write("**🎯 Select Return Timeframes to Filter**")
+                # Individual Return Period Filters
+                st.markdown("**📊 Individual Return Period Filters**")
                 
-                # Create two columns for better layout
-                left_col, right_col = st.columns(2)
+                # Define performance configuration with your exact specifications
+                performance_config = {
+                    'ret_1d': {
+                        'name': '1 Day Return',
+                        'presets': [
+                            {'label': '💥 Explosive', 'min': 15, 'max': None, 'description': '>15% 1D'},
+                            {'label': '🚀 Strong Rise', 'min': 10, 'max': 15, 'description': '10-15% 1D'},
+                            {'label': '📈 Positive', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
+                            {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
+                            {'label': '📉 Negative', 'min': -10, 'max': -2, 'description': '-10% to -2% 1D'},
+                            {'label': '💣 Crash', 'min': None, 'max': -10, 'description': '<-10% 1D'}
+                        ],
+                        'slider_range': (-50, 50),
+                        'slider_step': 0.5,
+                        'default_min': -100,
+                        'default_max': 100
+                    },
+                    'ret_3d': {
+                        'name': '3 Day Return',
+                        'presets': [
+                            {'label': '🌟 3-Day Surge', 'min': 20, 'max': None, 'description': '>20% 3D'},
+                            {'label': '⚡ Strong Momentum', 'min': 10, 'max': 20, 'description': '10-20% 3D'},
+                            {'label': '📊 Steady Rise', 'min': 5, 'max': 10, 'description': '5-10% 3D'},
+                            {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
+                            {'label': '⚠️ Weakening', 'min': -10, 'max': -3, 'description': '-10% to -3% 3D'},
+                            {'label': '🔻 Sharp Decline', 'min': None, 'max': -10, 'description': '<-10% 3D'}
+                        ],
+                        'slider_range': (-75, 75),
+                        'slider_step': 1,
+                        'default_min': -100,
+                        'default_max': 100
+                    },
+                    'ret_7d': {
+                        'name': 'Weekly Return',
+                        'presets': [
+                            {'label': '📈 Weekly Winners', 'min': 25, 'max': None, 'description': '>25% 7D'},
+                            {'label': '💪 Strong Week', 'min': 15, 'max': 25, 'description': '15-25% 7D'},
+                            {'label': '✅ Good Week', 'min': 7, 'max': 15, 'description': '7-15% 7D'},
+                            {'label': '😐 Flat Week', 'min': -5, 'max': 5, 'description': '-5% to 5% 7D'},
+                            {'label': '😟 Bad Week', 'min': -15, 'max': -5, 'description': '-15% to -5% 7D'},
+                            {'label': '💔 Terrible Week', 'min': None, 'max': -15, 'description': '<-15% 7D'}
+                        ],
+                        'slider_range': (-100, 100),
+                        'slider_step': 1,
+                        'default_min': -100,
+                        'default_max': 100
+                    },
+                    'ret_30d': {
+                        'name': 'Monthly Return',
+                        'presets': [
+                            {'label': '🏆 Monthly Champions', 'min': 40, 'max': None, 'description': '>40% 30D'},
+                            {'label': '🎯 Top Performers', 'min': 25, 'max': 40, 'description': '25-40% 30D'},
+                            {'label': '📈 Outperformers', 'min': 15, 'max': 25, 'description': '15-25% 30D'},
+                            {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
+                            {'label': '📉 Underperformers', 'min': -25, 'max': -10, 'description': '-25% to -10% 30D'},
+                            {'label': '☠️ Monthly Losers', 'min': None, 'max': -25, 'description': '<-25% 30D'}
+                        ],
+                        'slider_range': (-100, 200),
+                        'slider_step': 2,
+                        'default_min': -100,
+                        'default_max': 500
+                    },
+                    'ret_3m': {
+                        'name': '3 Month Return',
+                        'presets': [
+                            {'label': '🎯 Quarterly Stars', 'min': 60, 'max': None, 'description': '>60% 3M'},
+                            {'label': '⭐ Strong Quarter', 'min': 40, 'max': 60, 'description': '40-60% 3M'},
+                            {'label': '👍 Good Quarter', 'min': 20, 'max': 40, 'description': '20-40% 3M'},
+                            {'label': '➖ Flat Quarter', 'min': -15, 'max': 15, 'description': '-15% to 15% 3M'},
+                            {'label': '👎 Weak Quarter', 'min': -40, 'max': -15, 'description': '-40% to -15% 3M'},
+                            {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -40, 'description': '<-40% 3M'}
+                        ],
+                        'slider_range': (-100, 300),
+                        'slider_step': 5,
+                        'default_min': -100,
+                        'default_max': 1000
+                    },
+                    'ret_6m': {
+                        'name': '6 Month Return',
+                        'presets': [
+                            {'label': '💎 Half-Year Heroes', 'min': 80, 'max': None, 'description': '>80% 6M'},
+                            {'label': '🌟 Semi-Annual Stars', 'min': 60, 'max': 80, 'description': '60-80% 6M'},
+                            {'label': '📈 Strong Half', 'min': 30, 'max': 60, 'description': '30-60% 6M'},
+                            {'label': '〰️ Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
+                            {'label': '📉 Weak Half', 'min': -50, 'max': -20, 'description': '-50% to -20% 6M'},
+                            {'label': '💀 Half-Year Collapse', 'min': None, 'max': -50, 'description': '<-50% 6M'}
+                        ],
+                        'slider_range': (-100, 500),
+                        'slider_step': 10,
+                        'default_min': -100,
+                        'default_max': 1000
+                    },
+                    'ret_1y': {
+                        'name': '1 Year Return',
+                        'presets': [
+                            {'label': '🌙 Annual Winners', 'min': 100, 'max': None, 'description': '>100% 1Y'},
+                            {'label': '🏅 Year Stars', 'min': 80, 'max': 100, 'description': '80-100% 1Y'},
+                            {'label': '💪 Strong Year', 'min': 50, 'max': 80, 'description': '50-80% 1Y'},
+                            {'label': '📊 Market Year', 'min': -30, 'max': 30, 'description': '-30% to 30% 1Y'},
+                            {'label': '😔 Disappointing Year', 'min': -60, 'max': -30, 'description': '-60% to -30% 1Y'},
+                            {'label': '🔴 Annual Disasters', 'min': None, 'max': -60, 'description': '<-60% 1Y'}
+                        ],
+                        'slider_range': (-100, 1000),
+                        'slider_step': 10,
+                        'default_min': -100,
+                        'default_max': 2000
+                    },
+                    'ret_3y': {
+                        'name': '3 Year Return',
+                        'presets': [
+                            {'label': '👑 Multi-Year Champions', 'min': 200, 'max': None, 'description': '>200% 3Y'},
+                            {'label': '🚀 3Y Rockets', 'min': 150, 'max': 200, 'description': '150-200% 3Y'},
+                            {'label': '⭐ 3Y Stars', 'min': 100, 'max': 150, 'description': '100-150% 3Y'},
+                            {'label': '📈 3Y Growth', 'min': 0, 'max': 50, 'description': '0-50% 3Y'},
+                            {'label': '📉 3Y Decline', 'min': -50, 'max': 0, 'description': '-50% to 0% 3Y'},
+                            {'label': '💣 3Y Destruction', 'min': None, 'max': -50, 'description': '<-50% 3Y'}
+                        ],
+                        'slider_range': (-100, 2000),
+                        'slider_step': 25,
+                        'default_min': -100,
+                        'default_max': 5000
+                    },
+                    'ret_5y': {
+                        'name': '5 Year Return',
+                        'presets': [
+                            {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
+                            {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
+                            {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
+                            {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
+                            {'label': '⚠️ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
+                            {'label': '☠️ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
+                        ],
+                        'slider_range': (-100, 5000),
+                        'slider_step': 50,
+                        'default_min': -100,
+                        'default_max': 10000
+                    }
+                }
                 
-                for i, timeframe in enumerate(available_return_cols):
-                    # Get configuration for this timeframe
-                    config = PerformanceFilterConfig.FILTER_PRESETS.get(timeframe, {})
-                    if not config:
-                        continue
-                        
-                    # Alternate between left and right columns
-                    current_col = left_col if i % 2 == 0 else right_col
-                    
-                    with current_col:
-                        st.write(f"**{config['name']}**")
+                # Create single column layout for sequential order
+                # Process each available return column in proper time sequence
+                for ret_col in available_return_cols:
+                    if ret_col in performance_config:
+                        config = performance_config[ret_col]
                         
                         # Create preset options
-                        preset_options = ["All"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
                         
                         # Get current selection
-                        current_preset = st.session_state.filter_state.get(f'performance_preset_{timeframe}', "All")
-                        if current_preset not in preset_options:
-                            current_preset = "All"
+                        current_selection = st.session_state.filter_state.get(f'{ret_col}_selection', "All Returns")
+                        if current_selection not in preset_options:
+                            current_selection = "All Returns"
                         
-                        # Preset selector
-                        selected_preset = st.selectbox(
-                            f"{config['name']} Filter",
+                        # Performance period dropdown
+                        selection = st.selectbox(
+                            config['name'],
                             options=preset_options,
-                            index=preset_options.index(current_preset),
-                            help=f"Select performance level for {config['name'].lower()} or use Custom Range",
-                            key=f"performance_preset_{timeframe}",
-                            on_change=sync_performance_preset(timeframe)
+                            index=preset_options.index(current_selection),
+                            help=f"Filter stocks by {config['name'].lower()}",
+                            key=f"{ret_col}_dropdown",
+                            on_change=sync_performance_dropdowns
                         )
                         
-                        # Handle selection
-                        if selected_preset == "🎯 Custom Range":
-                            # Show custom range slider
-                            slider_range = config['slider_range']
-                            current_range = st.session_state.filter_state.get(f'performance_range_{timeframe}', slider_range)
-                            
-                            custom_range = st.slider(
-                                f"Custom {config['name']} Range (%)",
-                                min_value=float(slider_range[0]),
-                                max_value=float(slider_range[1]),
-                                value=current_range,
-                                step=float(config['slider_step']),
-                                help=f"Set custom range for {config['name'].lower()}",
-                                key=f"performance_slider_{timeframe}",
-                                on_change=sync_performance_slider(timeframe)
-                            )
-                            
-                            # Apply custom range filter
-                            if custom_range != slider_range:
-                                filters[f'{timeframe}_range'] = custom_range
-                                
-                        elif selected_preset != "All":
-                            # Find the corresponding preset configuration
-                            for preset in config['presets']:
-                                if preset['label'] == selected_preset:
-                                    # Apply preset filter
-                                    min_val = preset['min']
-                                    max_val = preset['max']
-                                    
-                                    if min_val is not None and max_val is not None:
-                                        filters[f'{timeframe}_range'] = (min_val, max_val)
-                                    elif min_val is not None:
-                                        filters[f'{timeframe}_min'] = min_val
-                                    elif max_val is not None:
-                                        filters[f'{timeframe}_max'] = max_val
-                                    break
+                        # Update session state with current selection
+                        st.session_state.filter_state[f'{ret_col}_selection'] = selection
                         
-                        # Add spacing between timeframes
-                        st.write("")
-                
+                        # Handle custom range selection
+                        if selection == "🎯 Custom Range":
+                            range_value = st.slider(
+                                f"{config['name']} Range (%)",
+                                min_value=float(config['slider_range'][0]),
+                                max_value=float(config['slider_range'][1]),
+                                value=st.session_state.filter_state.get(f'{ret_col}_range', (config['default_min'], config['default_max'])),
+                                step=float(config['slider_step']),
+                                help=f"Custom range for {config['name'].lower()}",
+                                key=f"{ret_col}_range_slider",
+                                on_change=sync_performance_sliders
+                            )
+                            filters[f'{ret_col}_range'] = range_value
+                        elif selection != "All Returns":
+                            # Handle preset selection
+                            for preset in config['presets']:
+                                if preset['label'] == selection:
+                                    min_val = preset['min'] if preset['min'] is not None else config['default_min']
+                                    max_val = preset['max'] if preset['max'] is not None else config['default_max']
+                                    filters[f'{ret_col}_range'] = (min_val, max_val)
+                                    break
             else:
                 st.info("📊 No return data available for performance filtering")
         
