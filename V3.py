@@ -448,6 +448,383 @@ class PerformanceFilterConfig:
 PERFORMANCE_CONFIG = PerformanceFilterConfig()
 
 # ============================================
+# PERFORMANCE FILTER IMPLEMENTATION
+# ============================================
+
+class PerformanceFilter:
+    """Performance filtering implementation with preset and custom range support"""
+    
+    @staticmethod
+    def get_preset_filter(timeframe: str, preset_label: str) -> Dict[str, float]:
+        """Get filter thresholds for a preset"""
+        if timeframe not in PERFORMANCE_CONFIG.FILTER_PRESETS:
+            logger.warning(f"Unknown timeframe: {timeframe}")
+            return {}
+        
+        timeframe_config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
+        for preset in timeframe_config['presets']:
+            if preset['label'] == preset_label:
+                result = {}
+                if preset['min'] is not None:
+                    result['min'] = preset['min']
+                if preset['max'] is not None:
+                    result['max'] = preset['max']
+                else:
+                    result['max'] = float('inf')
+                logger.debug(f"Preset {preset_label} for {timeframe}: {result}")
+                return result
+        
+        logger.warning(f"Preset not found: {preset_label} for {timeframe}")
+        return {}
+    
+    @staticmethod
+    def set_performance_filter(timeframe: str, preset_label: str = None, min_val: float = None, max_val: float = None):
+        """Set performance filter for a timeframe"""
+        if preset_label:
+            # Use preset
+            filter_config = PerformanceFilter.get_preset_filter(timeframe, preset_label)
+            if filter_config:
+                PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_config
+                logger.info(f"Set preset {timeframe} filter: {preset_label} ({filter_config})")
+        else:
+            # Use custom values
+            filter_config = {}
+            if min_val is not None:
+                filter_config['min'] = min_val
+            if max_val is not None:
+                filter_config['max'] = max_val
+            
+            if filter_config:
+                PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_config
+                logger.info(f"Set custom {timeframe} filter: {filter_config}")
+    
+    @staticmethod
+    def clear_performance_filter(timeframe: str):
+        """Clear performance filter for a timeframe"""
+        if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+            logger.info(f"Cleared {timeframe} performance filter")
+    
+    @staticmethod
+    def clear_all_performance_filters():
+        """Clear all performance filters"""
+        PERFORMANCE_CONFIG.ACTIVE_FILTERS.clear()
+        logger.info("Cleared all performance filters")
+    
+    @staticmethod
+    def get_active_filter_summary() -> str:
+        """Get summary of active performance filters"""
+        if not PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            return "No active filters"
+        
+        summaries = []
+        for timeframe, filter_config in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
+            timeframe_name = PERFORMANCE_CONFIG.FILTER_PRESETS.get(timeframe, {}).get('name', timeframe)
+            min_val = filter_config.get('min')
+            max_val = filter_config.get('max')
+            
+            if min_val is not None and max_val is not None and max_val != float('inf'):
+                summary = f"{timeframe_name}: {min_val}% to {max_val}%"
+            elif min_val is not None:
+                summary = f"{timeframe_name}: ≥{min_val}%"
+            elif max_val is not None and max_val != float('inf'):
+                summary = f"{timeframe_name}: ≤{max_val}%"
+            else:
+                summary = f"{timeframe_name}: All"
+            
+            summaries.append(summary)
+        
+        return " | ".join(summaries)
+    
+    @staticmethod
+    def apply_filter(df: pd.DataFrame, timeframe: str, filter_config: Dict[str, float]) -> pd.DataFrame:
+        """Apply performance filter to dataframe"""
+        if df.empty or timeframe not in df.columns:
+            logger.warning(f"Cannot apply performance filter: {timeframe} not in dataframe or dataframe empty")
+            return df
+        
+        mask = pd.Series(True, index=df.index)
+        original_count = len(df)
+        
+        if 'min' in filter_config:
+            mask &= (df[timeframe] >= filter_config['min'])
+        
+        if 'max' in filter_config and filter_config['max'] != float('inf'):
+            mask &= (df[timeframe] <= filter_config['max'])
+        
+        filtered_df = df[mask]
+        filtered_count = len(filtered_df)
+        
+        logger.info(f"Performance filter {timeframe}: {original_count} → {filtered_count} stocks ({((original_count - filtered_count) / original_count * 100):.1f}% filtered)")
+        
+        return filtered_df
+    
+    @staticmethod
+    def apply_all_active_filters(df: pd.DataFrame) -> pd.DataFrame:
+        """Apply all active performance filters to dataframe"""
+        if df.empty or not PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            return df
+        
+        filtered_df = df.copy()
+        
+        for timeframe, filter_config in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
+            filtered_df = PerformanceFilter.apply_filter(filtered_df, timeframe, filter_config)
+        
+        return filtered_df
+
+# Performance filter sync functions for UI callbacks
+def create_sync_performance_filter(timeframe: str):
+    """Create a sync function for a specific timeframe"""
+    def sync_performance_filter():
+        try:
+            preset_key = f"{timeframe}_preset"
+            range_key = f"{timeframe}_range"
+            
+            if preset_key in st.session_state:
+                selected_preset = st.session_state[preset_key]
+                logger.info(f"Performance filter sync: {timeframe} = {selected_preset}")
+                
+                if selected_preset == "All Returns":
+                    # Clear filter
+                    PerformanceFilter.clear_performance_filter(timeframe)
+                elif selected_preset == "🎯 Custom Range":
+                    # Use custom range if available
+                    if range_key in st.session_state:
+                        custom_range = st.session_state[range_key]
+                        min_val, max_val = custom_range
+                        PerformanceFilter.set_performance_filter(timeframe, min_val=min_val, max_val=max_val)
+                        logger.info(f"Set custom {timeframe} filter: {custom_range}")
+                else:
+                    # Use preset
+                    PerformanceFilter.set_performance_filter(timeframe, preset_label=selected_preset)
+                
+                logger.info(f"Active performance filters: {PERFORMANCE_CONFIG.ACTIVE_FILTERS}")
+                
+        except Exception as e:
+            logger.error(f"Error in sync_performance_filter for {timeframe}: {e}")
+    
+    return sync_performance_filter
+
+# Create sync functions for all timeframes
+sync_performance_filter_functions = {}
+for timeframe in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
+    sync_performance_filter_functions[timeframe] = create_sync_performance_filter(timeframe)
+
+def sync_performance_filter(timeframe: str):
+    """Get sync function for a timeframe"""
+    return sync_performance_filter_functions.get(timeframe, lambda: None)
+
+# ============================================
+# FILTER ENGINE IMPLEMENTATION
+# ============================================
+
+class FilterEngine:
+    """Advanced filtering system with support for all filter types including Performance Filters"""
+    
+    @staticmethod
+    def initialize_filters():
+        """Initialize filter state"""
+        if 'filter_state' not in st.session_state:
+            st.session_state.filter_state = {}
+    
+    @staticmethod
+    def get_filter_options(df: pd.DataFrame, column: str, current_filters: Dict) -> List[str]:
+        """Get available filter options for a column"""
+        if df.empty or column not in df.columns:
+            return []
+        
+        # Apply current filters except for the column we're getting options for
+        temp_filters = {k: v for k, v in current_filters.items() if k != column}
+        temp_df = FilterEngine._apply_basic_filters(df, temp_filters)
+        
+        unique_values = temp_df[column].dropna().unique()
+        return sorted(unique_values)
+    
+    @staticmethod
+    def apply_filters(df: pd.DataFrame, filters: Dict) -> pd.DataFrame:
+        """Apply all filters to dataframe"""
+        if df.empty:
+            return df
+        
+        logger.debug(f"Applying filters: {list(filters.keys())}")
+        
+        # Start with original dataframe
+        filtered_df = df.copy()
+        
+        # Apply basic filters first
+        filtered_df = FilterEngine._apply_basic_filters(filtered_df, filters)
+        
+        # Apply performance filters
+        if 'performance_filters' in filters:
+            filtered_df = FilterEngine._apply_performance_filters(filtered_df, filters['performance_filters'])
+        
+        logger.info(f"Filtering: {len(df)} → {len(filtered_df)} stocks ({((len(df) - len(filtered_df)) / len(df) * 100):.1f}% filtered)")
+        
+        return filtered_df
+    
+    @staticmethod
+    def _apply_basic_filters(df: pd.DataFrame, filters: Dict) -> pd.DataFrame:
+        """Apply basic non-performance filters"""
+        filtered_df = df.copy()
+        
+        # Category filters
+        if 'categories' in filters and filters['categories']:
+            filtered_df = filtered_df[filtered_df['category'].isin(filters['categories'])]
+        
+        # Sector filters  
+        if 'sectors' in filters and filters['sectors']:
+            filtered_df = filtered_df[filtered_df['sector'].isin(filters['sectors'])]
+        
+        # Industry filters
+        if 'industries' in filters and filters['industries']:
+            filtered_df = filtered_df[filtered_df['industry'].isin(filters['industries'])]
+        
+        # Score filters
+        if 'min_score' in filters:
+            filtered_df = filtered_df[filtered_df['master_score'] >= filters['min_score']]
+        
+        # Score range filters
+        score_ranges = [
+            ('position_score_range', 'position_score'),
+            ('volume_score_range', 'volume_score'),
+            ('momentum_score_range', 'momentum_score'),
+            ('acceleration_score_range', 'acceleration_score'),
+            ('breakout_score_range', 'breakout_score'),
+            ('rvol_score_range', 'rvol_score')
+        ]
+        
+        for filter_key, column in score_ranges:
+            if filter_key in filters and column in filtered_df.columns:
+                min_val, max_val = filters[filter_key]
+                filtered_df = filtered_df[
+                    (filtered_df[column] >= min_val) & 
+                    (filtered_df[column] <= max_val)
+                ]
+        
+        # Pattern filters
+        if 'patterns' in filters and filters['patterns']:
+            pattern_mask = pd.Series(False, index=filtered_df.index)
+            for pattern in filters['patterns']:
+                pattern_mask |= filtered_df['patterns'].str.contains(pattern, na=False, regex=False)
+            filtered_df = filtered_df[pattern_mask]
+        
+        # Market state filters
+        if 'market_states' in filters and filters['market_states']:
+            if '📊 Custom Selection' in filters['market_states']:
+                # Handle custom market states
+                custom_states = [state for state in filters['market_states'] if state != '📊 Custom Selection']
+                if custom_states:
+                    state_mask = pd.Series(False, index=filtered_df.index)
+                    for state in custom_states:
+                        state_mask |= filtered_df['market_state'].str.contains(state, na=False, regex=False)
+                    filtered_df = filtered_df[state_mask]
+            else:
+                # Regular market state filtering
+                state_mask = pd.Series(False, index=filtered_df.index)
+                for state in filters['market_states']:
+                    state_mask |= filtered_df['market_state'].str.contains(state, na=False, regex=False)
+                filtered_df = filtered_df[state_mask]
+        
+        # Trend filters
+        if 'trend_range' in filters:
+            min_trend, max_trend = filters['trend_range']
+            if 'trend_score' in filtered_df.columns:
+                filtered_df = filtered_df[
+                    (filtered_df['trend_score'] >= min_trend) & 
+                    (filtered_df['trend_score'] <= max_trend)
+                ]
+        
+        # Volume/RVOL filters
+        if 'rvol_range' in filters and 'rvol' in filtered_df.columns:
+            min_rvol, max_rvol = filters['rvol_range']
+            filtered_df = filtered_df[
+                (filtered_df['rvol'] >= min_rvol) & 
+                (filtered_df['rvol'] <= max_rvol)
+            ]
+        
+        # Fundamental filters
+        if 'min_pe' in filters and 'pe_ratio' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['pe_ratio'] >= filters['min_pe']]
+        
+        if 'max_pe' in filters and 'pe_ratio' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['pe_ratio'] <= filters['max_pe']]
+        
+        if 'require_fundamental_data' in filters and filters['require_fundamental_data']:
+            if 'pe_ratio' in filtered_df.columns and 'eps_change' in filtered_df.columns:
+                filtered_df = filtered_df[
+                    filtered_df['pe_ratio'].notna() & 
+                    filtered_df['eps_change'].notna()
+                ]
+        
+        return filtered_df
+    
+    @staticmethod
+    def _apply_performance_filters(df: pd.DataFrame, performance_filters: Dict) -> pd.DataFrame:
+        """Apply performance filters to dataframe"""
+        if not performance_filters:
+            return df
+        
+        filtered_df = df.copy()
+        
+        for timeframe, filter_config in performance_filters.items():
+            filtered_df = PerformanceFilter.apply_filter(filtered_df, timeframe, filter_config)
+        
+        return filtered_df
+    
+    @staticmethod
+    def get_active_count() -> int:
+        """Get count of active filters"""
+        active_count = 0
+        
+        # Check session state for active filters
+        filter_checks = [
+            ('categories', lambda x: x and len(x) > 0),
+            ('sectors', lambda x: x and len(x) > 0),
+            ('industries', lambda x: x and len(x) > 0),
+            ('min_score', lambda x: x > 0),
+            ('patterns', lambda x: x and len(x) > 0),
+            ('market_states', lambda x: x and len(x) > 0),
+            ('position_score_range', lambda x: x != (0, 100)),
+            ('volume_score_range', lambda x: x != (0, 100)),
+            ('momentum_score_range', lambda x: x != (0, 100)),
+            ('acceleration_score_range', lambda x: x != (0, 100)),
+            ('breakout_score_range', lambda x: x != (0, 100)),
+            ('rvol_score_range', lambda x: x != (0, 100)),
+            ('rvol_range', lambda x: x != (0.1, 20.0)),
+            ('min_pe', lambda x: x is not None and str(x).strip() != ''),
+            ('max_pe', lambda x: x is not None and str(x).strip() != ''),
+            ('require_fundamental_data', lambda x: x),
+        ]
+        
+        filter_state = st.session_state.get('filter_state', {})
+        for key, check_func in filter_checks:
+            value = filter_state.get(key)
+            if value is not None and check_func(value):
+                active_count += 1
+        
+        # Add performance filters count
+        if hasattr(PERFORMANCE_CONFIG, 'ACTIVE_FILTERS'):
+            active_count += len(PERFORMANCE_CONFIG.ACTIVE_FILTERS)
+        
+        # Add quick filter
+        if st.session_state.get('quick_filter_applied', False):
+            active_count += 1
+        
+        return active_count
+    
+    @staticmethod
+    def clear_all_filters():
+        """Clear all filters"""
+        if 'filter_state' in st.session_state:
+            st.session_state.filter_state.clear()
+        
+        # Clear quick filters
+        st.session_state['quick_filter_applied'] = False
+        st.session_state['quick_filter'] = None
+        
+        logger.info("FilterEngine: Cleared all filters")
+
+# ============================================
 # PERFORMANCE MONITORING
 # ============================================
 
@@ -1644,7 +2021,7 @@ class RankingEngine:
             """
             if preset:
                 # Use preset values
-                thresholds = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset)
+                thresholds = PerformanceFilter.get_preset_filter(timeframe, preset)
                 if thresholds:
                     PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = thresholds
                     logger.info(f"Set {timeframe} filter to preset: {preset}")
@@ -1693,7 +2070,7 @@ class RankingEngine:
             # Show active filters summary
             output.append("\n" + "="*60)
             output.append("ACTIVE FILTERS:")
-            output.append(RankingEngine.PerformanceFilter.get_active_filter_summary())
+            output.append(PerformanceFilter.get_active_filter_summary())
             output.append("="*60)
             
             return "\n".join(output)
@@ -2016,11 +2393,7 @@ class RankingEngine:
                 df_backup = df.copy()  # Backup in case filters are too restrictive
                 
                 # Apply performance filters
-                df = RankingEngine.PerformanceFilter.apply_performance_filters(
-                    df, 
-                    PERFORMANCE_CONFIG.ACTIVE_FILTERS,
-                    log_details=True
-                )
+                df = PerformanceFilter.apply_all_active_filters(df)
                 
                 post_filter_count = len(df)
                 
@@ -2028,7 +2401,7 @@ class RankingEngine:
                     logger.error("Performance filters removed all stocks! Reverting.")
                     df = df_backup  # Use backup
                 else:
-                    filter_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
+                    filter_summary = PerformanceFilter.get_active_filter_summary()
                     logger.info(f"Performance filters applied: {filter_summary}")
                     logger.info(f"Stocks retained: {post_filter_count}/{pre_filter_count}")
                 
@@ -7699,7 +8072,7 @@ class FilterEngine:
         
         # CRITICAL: Clear Performance Filters as well
         try:
-            RankingEngine.PerformanceFilter.clear_all_performance_filters()
+            PerformanceFilter.clear_all_performance_filters()
             logger.info("Performance filters cleared along with other filters")
         except Exception as e:
             logger.warning(f"Could not clear performance filters: {e}")
@@ -10342,49 +10715,6 @@ def main():
         with st.expander("📊 Performance Filters", expanded=False):
             st.markdown("**Filter stocks based on return performance across multiple timeframes**")
             
-            # Add sync functions for performance filters (FIXED - no st.rerun() in callback)
-            def sync_performance_filter(timeframe):
-                def sync_func():
-                    preset_key = f"{timeframe}_preset"
-                    range_key = f"{timeframe}_range"
-                    
-                    if preset_key in st.session_state:
-                        preset_value = st.session_state[preset_key]
-                        logger.info(f"Performance filter sync: {timeframe} = {preset_value}")
-                        
-                        if preset_value != "All Returns":
-                            if preset_value == "🎯 Custom Range":
-                                # Use custom range if available
-                                if range_key in st.session_state:
-                                    range_val = st.session_state[range_key]
-                                    min_val, max_val = range_val if isinstance(range_val, tuple) else (range_val, range_val)
-                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = {
-                                        'min': float(min_val),
-                                        'max': float(max_val)
-                                    }
-                                    logger.info(f"Set custom {timeframe} filter: {min_val}% to {max_val}%")
-                                else:
-                                    logger.warning(f"Custom range selected but no range value found for {timeframe}")
-                            else:
-                                # Use preset values
-                                filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
-                                if filter_def:
-                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_def
-                                    logger.info(f"Set preset {timeframe} filter: {preset_value} ({filter_def})")
-                                else:
-                                    logger.warning(f"Could not find preset definition for {timeframe} = {preset_value}")
-                        else:
-                            # Remove filter
-                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
-                                del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
-                                logger.info(f"Removed {timeframe} filter")
-                        
-                        logger.info(f"Active performance filters: {PERFORMANCE_CONFIG.ACTIVE_FILTERS}")
-                        
-                        # Mark state as changed to trigger refresh on next interaction (FIXED - no immediate rerun)
-                        st.session_state['performance_filters_changed'] = True
-                return sync_func
-            
             # Display performance filters for each timeframe - IMPROVED LAYOUT like Score Component
             available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
             
@@ -10403,7 +10733,7 @@ def main():
                             # Try to match current filter to a preset
                             current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
                             for preset in config['presets']:
-                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                preset_filter = PerformanceFilter.get_preset_filter(timeframe, preset['label'])
                                 if (preset_filter.get('min') == current_filter.get('min') and 
                                     preset_filter.get('max') == current_filter.get('max')):
                                     current_preset = preset['label']
@@ -10457,7 +10787,7 @@ def main():
                             # Try to match current filter to a preset
                             current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
                             for preset in config['presets']:
-                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                preset_filter = PerformanceFilter.get_preset_filter(timeframe, preset['label'])
                                 if (preset_filter.get('min') == current_filter.get('min') and 
                                     preset_filter.get('max') == current_filter.get('max')):
                                     current_preset = preset['label']
@@ -10511,7 +10841,7 @@ def main():
                             # Try to match current filter to a preset
                             current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
                             for preset in config['presets']:
-                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                preset_filter = PerformanceFilter.get_preset_filter(timeframe, preset['label'])
                                 if (preset_filter.get('min') == current_filter.get('min') and 
                                     preset_filter.get('max') == current_filter.get('max')):
                                     current_preset = preset['label']
@@ -10554,12 +10884,12 @@ def main():
             # Show active performance filters summary
             if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
                 st.markdown("**Active Performance Filters:**")
-                active_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
+                active_summary = PerformanceFilter.get_active_filter_summary()
                 st.info(f"🎯 {active_summary}")
                 
                 # Clear performance filters button
                 if st.button("🗑️ Clear Performance Filters", type="secondary"):
-                    RankingEngine.PerformanceFilter.clear_all_performance_filters()
+                    PerformanceFilter.clear_all_performance_filters()
                     
                     # Reset all performance filter session state keys
                     timeframes = ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']
