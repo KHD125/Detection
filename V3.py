@@ -6445,17 +6445,18 @@ class LeadershipDensityEngine:
 # ============================================
 
 class MarketIntelligence:
-    """Advanced market analysis and regime detection"""
+    """Professional market regime detection and sector analysis"""
     
     @staticmethod
     def detect_market_regime(df: pd.DataFrame) -> Tuple[str, Dict[str, Any]]:
         """Detect current market regime with supporting data"""
         
         if df.empty:
-            return "😴 NO DATA", {}
+            return "NO DATA", {}
         
         metrics = {}
         
+        # Calculate category-based metrics
         if 'category' in df.columns and 'master_score' in df.columns:
             category_scores = df.groupby('category')['master_score'].mean()
             
@@ -6470,6 +6471,7 @@ class MarketIntelligence:
             metrics['large_mega_avg'] = 50
             metrics['category_spread'] = 0
         
+        # Calculate market breadth
         if 'ret_30d' in df.columns:
             breadth = len(df[df['ret_30d'] > 0]) / len(df) if len(df) > 0 else 0.5
             metrics['breadth'] = breadth
@@ -6477,21 +6479,22 @@ class MarketIntelligence:
             breadth = 0.5
             metrics['breadth'] = breadth
         
+        # Calculate volatility metrics
         if 'rvol' in df.columns:
             avg_rvol = df['rvol'].median()
             metrics['avg_rvol'] = avg_rvol if pd.notna(avg_rvol) else 1.0
         else:
             metrics['avg_rvol'] = 1.0
         
-        # Determine regime
+        # Determine market regime professionally
         if metrics['micro_small_avg'] > metrics['large_mega_avg'] + 10 and breadth > 0.6:
-            regime = "🔥 RISK-ON BULL"
+            regime = "RISK-ON BULL"
         elif metrics['large_mega_avg'] > metrics['micro_small_avg'] + 10 and breadth < 0.4:
-            regime = "🛡️ RISK-OFF DEFENSIVE"
+            regime = "RISK-OFF DEFENSIVE"
         elif metrics['avg_rvol'] > 1.5 and breadth > 0.5:
-            regime = "⚡ VOLATILE OPPORTUNITY"
+            regime = "VOLATILE OPPORTUNITY"
         else:
-            regime = "😴 RANGE-BOUND"
+            regime = "RANGE-BOUND"
         
         metrics['regime'] = regime
         
@@ -6501,127 +6504,170 @@ class MarketIntelligence:
     def calculate_advance_decline_ratio(df: pd.DataFrame) -> Dict[str, Any]:
         """Calculate advance/decline ratio and related metrics"""
         
-        ad_metrics = {}
+        if 'ret_1d' not in df.columns or df.empty:
+            return {'advancing': 0, 'declining': 0, 'unchanged': 0, 'ad_ratio': 1.0, 'ad_line': 0, 'breadth_pct': 0}
         
-        if 'ret_1d' in df.columns:
-            advancing = len(df[df['ret_1d'] > 0])
-            declining = len(df[df['ret_1d'] < 0])
-            unchanged = len(df[df['ret_1d'] == 0])
-            
-            ad_metrics['advancing'] = advancing
-            ad_metrics['declining'] = declining
-            ad_metrics['unchanged'] = unchanged
-            
-            if declining > 0:
-                ad_metrics['ad_ratio'] = advancing / declining
-            else:
-                ad_metrics['ad_ratio'] = float('inf') if advancing > 0 else 1.0
-            
-            ad_metrics['ad_line'] = advancing - declining
-            ad_metrics['breadth_pct'] = (advancing / len(df)) * 100 if len(df) > 0 else 0
-        else:
-            ad_metrics = {'advancing': 0, 'declining': 0, 'unchanged': 0, 'ad_ratio': 1.0, 'ad_line': 0, 'breadth_pct': 0}
+        advancing = len(df[df['ret_1d'] > 0])
+        declining = len(df[df['ret_1d'] < 0])
+        unchanged = len(df[df['ret_1d'] == 0])
+        
+        ad_metrics = {
+            'advancing': advancing,
+            'declining': declining,
+            'unchanged': unchanged,
+            'ad_ratio': advancing / declining if declining > 0 else (float('inf') if advancing > 0 else 1.0),
+            'ad_line': advancing - declining,
+            'breadth_pct': (advancing / len(df)) * 100 if len(df) > 0 else 0
+        }
         
         return ad_metrics
     
     @staticmethod
-    @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
-    def _detect_sector_rotation_cached(df_json: str) -> pd.DataFrame:
-        """Cached internal implementation of sector rotation detection"""
-        # Convert JSON back to DataFrame
-        df = pd.read_json(df_json)
+    def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced sector rotation detection using Leadership Density Index"""
+        
+        if df.empty or 'sector' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Primary approach: Use LDI for accurate analysis
+            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Calculate enhanced flow score
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +
+                ldi_df['avg_score'] * 0.3 +
+                ldi_df['avg_momentum'] * 0.15 +
+                ldi_df['avg_volume'] * 0.15
+            )
+            
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Ensure compatibility with existing UI
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            display_df['sampling_pct'] = 100.0
+            
+            # Professional quality indicators
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: 'Elite' if x >= 20 else 
+                         'Strong' if x >= 10 else 
+                         'Moderate' if x >= 5 else 
+                         'Weak'
+            )
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI sector rotation: {str(e)}")
+            # Fallback to traditional method
+            return MarketIntelligence._calculate_traditional_sectors(df)
+    
+    @staticmethod
+    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced industry rotation detection using Leadership Density Index"""
+        
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Primary approach: Use LDI for accurate analysis
+            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Calculate enhanced flow score
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +
+                ldi_df['avg_score'] * 0.3 +
+                ldi_df['avg_momentum'] * 0.15 +
+                ldi_df['avg_volume'] * 0.15
+            )
+            
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Ensure compatibility with existing UI
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            display_df['sampling_pct'] = 100.0
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI industry rotation: {str(e)}")
+            # Fallback to traditional method
+            return MarketIntelligence._calculate_traditional_industries(df)
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_traditional_sectors(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback traditional sector analysis with optimized sampling"""
         
         if 'sector' not in df.columns or df.empty:
             return pd.DataFrame()
         
-        sector_dfs = []
+        sector_data = []
         
         for sector in df['sector'].unique():
-            if sector != 'Unknown':
-                sector_df = df[df['sector'] == sector].copy()
-                sector_size = len(sector_df)
+            if sector == 'Unknown':
+                continue
                 
-                if sector_size == 0:
-                    continue
-                
-                # Dynamic sampling
-                if 1 <= sector_size <= 5:
-                    sample_count = sector_size
-                elif 6 <= sector_size <= 20:
-                    sample_count = max(1, int(sector_size * 0.80))
-                elif 21 <= sector_size <= 50:
-                    sample_count = max(1, int(sector_size * 0.60))
-                elif 51 <= sector_size <= 100:
-                    sample_count = max(1, int(sector_size * 0.40))
-                else:
-                    sample_count = min(50, int(sector_size * 0.25))
-                
-                if sample_count > 0:
-                    sector_df = sector_df.nlargest(min(sample_count, len(sector_df)), 'master_score')
-                    
-                    if not sector_df.empty:
-                        sector_dfs.append(sector_df)
+            sector_df = df[df['sector'] == sector].copy()
+            total_count = len(sector_df)
+            
+            if total_count == 0:
+                continue
+            
+            # Simplified sampling logic
+            if total_count <= 10:
+                sample_count = total_count
+            elif total_count <= 50:
+                sample_count = max(8, int(total_count * 0.6))
+            else:
+                sample_count = min(30, int(total_count * 0.3))
+            
+            # Take top performers
+            sampled_df = sector_df.nlargest(sample_count, 'master_score')
+            sector_data.append(sampled_df)
         
-        if not sector_dfs:
+        if not sector_data:
             return pd.DataFrame()
         
-        normalized_df = pd.concat(sector_dfs, ignore_index=True)
+        combined_df = pd.concat(sector_data, ignore_index=True)
         
-        # Calculate metrics
-        agg_dict = {
-            'master_score': ['mean', 'median', 'std', 'count'],
+        # Calculate aggregated metrics
+        sector_metrics = combined_df.groupby('sector').agg({
+            'master_score': ['mean', 'median', 'count'],
             'momentum_score': 'mean',
             'volume_score': 'mean',
             'rvol': 'mean',
-            'ret_30d': 'mean'
-        }
+            'ret_30d': 'mean',
+            'money_flow_mm': 'sum' if 'money_flow_mm' in combined_df.columns else lambda x: 0
+        }).round(2)
         
-        if 'money_flow_mm' in normalized_df.columns:
-            agg_dict['money_flow_mm'] = 'sum'
+        # Flatten column names
+        sector_metrics.columns = [
+            'avg_score', 'median_score', 'analyzed_stocks',
+            'avg_momentum', 'avg_volume', 'avg_rvol', 'avg_ret_30d', 'total_money_flow'
+        ]
         
-        sector_metrics = normalized_df.groupby('sector').agg(agg_dict).round(2)
-        
-        # Flatten columns
-        new_cols = []
-        for col in sector_metrics.columns:
-            if isinstance(col, tuple):
-                new_cols.append(f"{col[0]}_{col[1]}" if col[1] != 'mean' else col[0])
-            else:
-                new_cols.append(col)
-        
-        sector_metrics.columns = new_cols
-        
-        # Rename for clarity
-        rename_dict = {
-            'master_score': 'avg_score',
-            'master_score_median': 'median_score',
-            'master_score_std': 'std_score',
-            'master_score_count': 'count',
-            'momentum_score': 'avg_momentum',
-            'volume_score': 'avg_volume',
-            'rvol': 'avg_rvol',
-            'ret_30d': 'avg_ret_30d'
-        }
-        
-        if 'money_flow_mm' in sector_metrics.columns:
-            rename_dict['money_flow_mm'] = 'total_money_flow'
-        
-        sector_metrics.rename(columns=rename_dict, inplace=True)
-        
-        # Add original counts
-        original_counts = df.groupby('sector').size().rename('total_stocks')
-        sector_metrics = sector_metrics.join(original_counts, how='left')
-        sector_metrics['analyzed_stocks'] = sector_metrics['count']
-        
-        # Calculate sampling percentage
-        with np.errstate(divide='ignore', invalid='ignore'):
-            sector_metrics['sampling_pct'] = (sector_metrics['analyzed_stocks'] / sector_metrics['total_stocks'] * 100)
-            sector_metrics['sampling_pct'] = sector_metrics['sampling_pct'].replace([np.inf, -np.inf], 100).fillna(100).round(1)
+        # Add total stock counts and sampling percentage
+        total_counts = df.groupby('sector').size().rename('total_stocks')
+        sector_metrics = sector_metrics.join(total_counts, how='left')
+        sector_metrics['sampling_pct'] = (sector_metrics['analyzed_stocks'] / sector_metrics['total_stocks'] * 100).round(1)
         
         # Calculate flow score
         sector_metrics['flow_score'] = (
             sector_metrics['avg_score'] * 0.3 +
-            sector_metrics.get('median_score', 50) * 0.2 +
+            sector_metrics['median_score'] * 0.2 +
             sector_metrics['avg_momentum'] * 0.25 +
             sector_metrics['avg_volume'] * 0.25
         )
@@ -6631,225 +6677,69 @@ class MarketIntelligence:
         return sector_metrics.sort_values('flow_score', ascending=False)
     
     @staticmethod
-    def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Enhanced sector rotation detection using Leadership Density Index (LDI).
-        
-        This revolutionary approach measures sector strength through leadership density
-        rather than sampling bias, providing more accurate sector performance assessment.
-        """
-        if df.empty or 'sector' not in df.columns:
-            return pd.DataFrame()
-        
-        try:
-            # Calculate LDI-based sector analysis
-            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
-            
-            if ldi_df.empty:
-                return pd.DataFrame()
-            
-            # Add traditional flow score for backward compatibility
-            # Enhanced flow score combines LDI with traditional metrics
-            ldi_df['flow_score'] = (
-                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
-                ldi_df['avg_score'] * 0.3 +          # 30% average score
-                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
-                ldi_df['avg_volume'] * 0.15          # 15% volume
-            )
-            
-            # Add rank based on flow score
-            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
-            
-            # Rename columns for UI compatibility
-            display_df = ldi_df.rename(columns={
-                'leader_count': 'analyzed_stocks',
-                'avg_rvol': 'avg_rvol',
-                'total_money_flow': 'total_money_flow'
-            }).copy()
-            
-            # Add sampling percentage (always 100% for LDI approach)
-            display_df['sampling_pct'] = 100.0
-            
-            # Add quality indicators based on LDI
-            display_df['ldi_quality'] = display_df['ldi_score'].apply(
-                lambda x: '🔥 Elite' if x >= 20 else 
-                         '⭐ Strong' if x >= 10 else 
-                         '📈 Moderate' if x >= 5 else 
-                         '📉 Weak'
-            )
-            
-            return display_df.sort_values('flow_score', ascending=False)
-            
-        except Exception as e:
-            logger.error(f"Error in LDI sector rotation: {str(e)}")
-            # Fallback to original method
-            return MarketIntelligence._detect_sector_rotation_fallback(df)
-    
-    @staticmethod
-    def _detect_sector_rotation_fallback(df: pd.DataFrame) -> pd.DataFrame:
-        """Fallback to original sector rotation method if LDI fails"""
-        # This is the original implementation as backup
-        return MarketIntelligence._detect_sector_rotation_cached(df.to_json())
-    
-    @staticmethod
-    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Enhanced industry rotation detection using Leadership Density Index (LDI).
-        
-        Provides more accurate industry performance assessment through leadership density analysis.
-        """
-        if df.empty or 'industry' not in df.columns:
-            return pd.DataFrame()
-        
-        try:
-            # Calculate LDI-based industry analysis
-            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
-            
-            if ldi_df.empty:
-                return pd.DataFrame()
-            
-            # Enhanced flow score combines LDI with traditional metrics
-            ldi_df['flow_score'] = (
-                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
-                ldi_df['avg_score'] * 0.3 +          # 30% average score  
-                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
-                ldi_df['avg_volume'] * 0.15          # 15% volume
-            )
-            
-            # Add rank based on flow score
-            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
-            
-            # Rename columns for UI compatibility
-            display_df = ldi_df.rename(columns={
-                'leader_count': 'analyzed_stocks'
-            }).copy()
-            
-            # Add sampling percentage (always 100% for LDI approach)
-            display_df['sampling_pct'] = 100.0
-            
-            return display_df.sort_values('flow_score', ascending=False)
-            
-        except Exception as e:
-            logger.error(f"Error in LDI industry rotation: {str(e)}")
-            # Fallback to original method
-            try:
-                return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
-            except Exception as fallback_error:
-                logger.error(f"Fallback industry rotation also failed: {str(fallback_error)}")
-                # Return empty DataFrame as last resort
-                return pd.DataFrame()
-    
-    @staticmethod
-    @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
-    def _detect_industry_rotation_cached(df_json: str) -> pd.DataFrame:
-        """Cached internal implementation of industry rotation detection"""
-        # Convert JSON back to DataFrame
-        df = pd.read_json(df_json)
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_traditional_industries(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback traditional industry analysis with optimized sampling"""
         
         if 'industry' not in df.columns or df.empty:
             return pd.DataFrame()
         
-        industry_dfs = []
+        industry_data = []
         
         for industry in df['industry'].unique():
-            if industry != 'Unknown':
-                industry_df = df[df['industry'] == industry].copy()
-                industry_size = len(industry_df)
+            if industry == 'Unknown':
+                continue
                 
-                if industry_size == 0:
-                    continue
-                
-                # Smart Dynamic Sampling
-                if industry_size == 1:
-                    sample_count = 1
-                elif 2 <= industry_size <= 5:
-                    sample_count = industry_size
-                elif 6 <= industry_size <= 10:
-                    sample_count = max(3, int(industry_size * 0.80))
-                elif 11 <= industry_size <= 25:
-                    sample_count = max(5, int(industry_size * 0.60))
-                elif 26 <= industry_size <= 50:
-                    sample_count = max(10, int(industry_size * 0.40))
-                elif 51 <= industry_size <= 100:
-                    sample_count = max(15, int(industry_size * 0.30))
-                elif 101 <= industry_size <= 250:
-                    sample_count = max(25, int(industry_size * 0.20))
-                elif 251 <= industry_size <= 550:
-                    sample_count = max(40, int(industry_size * 0.15))
-                else:
-                    sample_count = min(75, int(industry_size * 0.10))
-                
-                if sample_count > 0:
-                    industry_df = industry_df.nlargest(min(sample_count, len(industry_df)), 'master_score')
-                    
-                    if not industry_df.empty:
-                        industry_dfs.append(industry_df)
+            industry_df = df[df['industry'] == industry].copy()
+            total_count = len(industry_df)
+            
+            if total_count == 0:
+                continue
+            
+            # Simplified sampling logic for industries
+            if total_count <= 5:
+                sample_count = total_count
+            elif total_count <= 25:
+                sample_count = max(5, int(total_count * 0.7))
+            elif total_count <= 100:
+                sample_count = max(10, int(total_count * 0.4))
+            else:
+                sample_count = min(40, int(total_count * 0.2))
+            
+            # Take top performers
+            sampled_df = industry_df.nlargest(sample_count, 'master_score')
+            industry_data.append(sampled_df)
         
-        if not industry_dfs:
+        if not industry_data:
             return pd.DataFrame()
         
-        normalized_df = pd.concat(industry_dfs, ignore_index=True)
+        combined_df = pd.concat(industry_data, ignore_index=True)
         
-        # Calculate metrics
-        agg_dict = {
-            'master_score': ['mean', 'median', 'std', 'count'],
+        # Calculate aggregated metrics
+        industry_metrics = combined_df.groupby('industry').agg({
+            'master_score': ['mean', 'median', 'count'],
             'momentum_score': 'mean',
             'volume_score': 'mean',
             'rvol': 'mean',
-            'ret_30d': 'mean'
-        }
+            'ret_30d': 'mean',
+            'money_flow_mm': 'sum' if 'money_flow_mm' in combined_df.columns else lambda x: 0
+        }).round(2)
         
-        if 'money_flow_mm' in normalized_df.columns:
-            agg_dict['money_flow_mm'] = 'sum'
+        # Flatten column names
+        industry_metrics.columns = [
+            'avg_score', 'median_score', 'analyzed_stocks',
+            'avg_momentum', 'avg_volume', 'avg_rvol', 'avg_ret_30d', 'total_money_flow'
+        ]
         
-        industry_metrics = normalized_df.groupby('industry').agg(agg_dict).round(2)
-        
-        # Flatten columns
-        new_cols = []
-        for col in industry_metrics.columns:
-            if isinstance(col, tuple):
-                new_cols.append(f"{col[0]}_{col[1]}" if col[1] != 'mean' else col[0])
-            else:
-                new_cols.append(col)
-        
-        industry_metrics.columns = new_cols
-        
-        # Rename for clarity
-        rename_dict = {
-            'master_score': 'avg_score',
-            'master_score_median': 'median_score',
-            'master_score_std': 'std_score',
-            'master_score_count': 'count',
-            'momentum_score': 'avg_momentum',
-            'volume_score': 'avg_volume',
-            'rvol': 'avg_rvol',
-            'ret_30d': 'avg_ret_30d'
-        }
-        
-        if 'money_flow_mm' in industry_metrics.columns:
-            rename_dict['money_flow_mm'] = 'total_money_flow'
-        
-        industry_metrics.rename(columns=rename_dict, inplace=True)
-        
-        # Add original counts
-        original_counts = df.groupby('industry').size().rename('total_stocks')
-        industry_metrics = industry_metrics.join(original_counts, how='left')
-        industry_metrics['analyzed_stocks'] = industry_metrics['count']
-        
-        # Calculate sampling percentage
-        with np.errstate(divide='ignore', invalid='ignore'):
-            industry_metrics['sampling_pct'] = (industry_metrics['analyzed_stocks'] / industry_metrics['total_stocks'] * 100)
-            industry_metrics['sampling_pct'] = industry_metrics['sampling_pct'].replace([np.inf, -np.inf], 100).fillna(100).round(1)
-        
-        # Add sampling quality warning
-        industry_metrics['quality_flag'] = ''
-        industry_metrics.loc[industry_metrics['sampling_pct'] < 10, 'quality_flag'] = '⚠️ Low Sample'
-        industry_metrics.loc[industry_metrics['analyzed_stocks'] < 5, 'quality_flag'] = '⚠️ Few Stocks'
+        # Add total stock counts and sampling percentage
+        total_counts = df.groupby('industry').size().rename('total_stocks')
+        industry_metrics = industry_metrics.join(total_counts, how='left')
+        industry_metrics['sampling_pct'] = (industry_metrics['analyzed_stocks'] / industry_metrics['total_stocks'] * 100).round(1)
         
         # Calculate flow score
         industry_metrics['flow_score'] = (
             industry_metrics['avg_score'] * 0.3 +
-            industry_metrics.get('median_score', 50) * 0.2 +
+            industry_metrics['median_score'] * 0.2 +
             industry_metrics['avg_momentum'] * 0.25 +
             industry_metrics['avg_volume'] * 0.25
         )
