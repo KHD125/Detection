@@ -6488,13 +6488,13 @@ class MarketIntelligence:
         
         # Determine market regime professionally
         if metrics['micro_small_avg'] > metrics['large_mega_avg'] + 10 and breadth > 0.6:
-            regime = "RISK-ON BULL"
+            regime = "🔥 RISK-ON BULL"
         elif metrics['large_mega_avg'] > metrics['micro_small_avg'] + 10 and breadth < 0.4:
-            regime = "RISK-OFF DEFENSIVE"
+            regime = "🛡️ RISK-OFF DEFENSIVE"
         elif metrics['avg_rvol'] > 1.5 and breadth > 0.5:
-            regime = "VOLATILE OPPORTUNITY"
+            regime = "⚡VOLATILE OPPORTUNITY"
         else:
-            regime = "RANGE-BOUND"
+            regime = "😴 RANGE-BOUND"
         
         metrics['regime'] = regime
         
