@@ -7620,6 +7620,15 @@ class FilterEngine:
                 else:
                     logger.warning(f"  - No allowed states found for selection: {selected_states}")
         
+        # Market Strength Filter - Professional Implementation
+        if 'market_strength_range' in filters and 'overall_market_strength' in df.columns:
+            strength_range = filters['market_strength_range']
+            if strength_range != (0, 100):
+                min_strength, max_strength = strength_range
+                strength_mask = (df['overall_market_strength'] >= min_strength) & (df['overall_market_strength'] <= max_strength)
+                masks.append(strength_mask)
+                logger.info(f"Applied Market Strength filter: {strength_range}, {strength_mask.sum()} stocks match")
+        
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
         
@@ -9536,6 +9545,10 @@ def main():
             if 'volume_score_slider' in st.session_state:
                 st.session_state.filter_state['volume_score_range'] = st.session_state.volume_score_slider
         
+        def sync_market_strength():
+            if 'market_strength_slider' in st.session_state:
+                st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
+        
         def sync_momentum_score_dropdown():
             if 'momentum_score_dropdown' in st.session_state:
                 st.session_state.filter_state['momentum_score_selection'] = st.session_state.momentum_score_dropdown
@@ -9712,6 +9725,19 @@ def main():
                 on_change=sync_custom_market_states
             )
             
+            # Market Strength Slider - Professional Implementation
+            st.markdown("**📊 Market Strength Filter**")
+            market_strength_range = st.slider(
+                "Market Strength Range",
+                min_value=0,
+                max_value=100,
+                value=st.session_state.filter_state.get('market_strength_range', (0, 100)),
+                step=5,
+                help="Filter by overall market strength score (0-100). Higher values indicate stronger market conditions with better momentum, acceleration, and volume characteristics.",
+                key="market_strength_slider",
+                on_change=sync_market_strength
+            )
+            
             # Combine selections for filtering
             if custom_states_selection:
                 # Use custom states selection when available
@@ -9723,6 +9749,11 @@ def main():
             # Regular preset selection
             if selected_market_states:
                 filters['market_states'] = selected_market_states
+        
+        # Add Market Strength filter when Custom Selection is active
+        if custom_selection_active:
+            if st.session_state.filter_state.get('market_strength_range', (0, 100)) != (0, 100):
+                filters['market_strength_range'] = st.session_state.filter_state['market_strength_range']
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
