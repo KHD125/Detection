@@ -292,6 +292,162 @@ class Config:
 CONFIG = Config()
 
 # ============================================
+# PERFORMANCE FILTER CONFIGURATION
+# ============================================
+
+@dataclass
+class PerformanceFilterConfig:
+    """Configuration for Performance Filters with presets and custom ranges."""
+    
+    # Preset filter definitions with emojis and thresholds
+    FILTER_PRESETS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        'ret_1d': {
+            'name': '1 Day Return',
+            'presets': [
+                {'label': '💥 Explosive', 'min': 15, 'max': None, 'description': '>15% 1D'},
+                {'label': '🚀 Strong Rise', 'min': 10, 'max': 15, 'description': '10-15% 1D'},
+                {'label': '📈 Positive', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
+                {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
+                {'label': '📉 Negative', 'min': -10, 'max': -2, 'description': '-10% to -2% 1D'},
+                {'label': '💣 Crash', 'min': None, 'max': -10, 'description': '<-10% 1D'}
+            ],
+            'slider_range': (-50, 50),
+            'slider_step': 0.5,
+            'default_min': -100,
+            'default_max': 100
+        },
+        'ret_3d': {
+            'name': '3 Day Return',
+            'presets': [
+                {'label': '🌟 3-Day Surge', 'min': 20, 'max': None, 'description': '>20% 3D'},
+                {'label': '⚡ Strong Momentum', 'min': 10, 'max': 20, 'description': '10-20% 3D'},
+                {'label': '📊 Steady Rise', 'min': 5, 'max': 10, 'description': '5-10% 3D'},
+                {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
+                {'label': '⚠️ Weakening', 'min': -10, 'max': -3, 'description': '-10% to -3% 3D'},
+                {'label': '🔻 Sharp Decline', 'min': None, 'max': -10, 'description': '<-10% 3D'}
+            ],
+            'slider_range': (-75, 75),
+            'slider_step': 1,
+            'default_min': -100,
+            'default_max': 100
+        },
+        'ret_7d': {
+            'name': 'Weekly Return',
+            'presets': [
+                {'label': '📈 Weekly Winners', 'min': 25, 'max': None, 'description': '>25% 7D'},
+                {'label': '💪 Strong Week', 'min': 15, 'max': 25, 'description': '15-25% 7D'},
+                {'label': '✅ Good Week', 'min': 7, 'max': 15, 'description': '7-15% 7D'},
+                {'label': '😐 Flat Week', 'min': -5, 'max': 5, 'description': '-5% to 5% 7D'},
+                {'label': '😟 Bad Week', 'min': -15, 'max': -5, 'description': '-15% to -5% 7D'},
+                {'label': '💔 Terrible Week', 'min': None, 'max': -15, 'description': '<-15% 7D'}
+            ],
+            'slider_range': (-100, 100),
+            'slider_step': 1,
+            'default_min': -100,
+            'default_max': 100
+        },
+        'ret_30d': {
+            'name': 'Monthly Return',
+            'presets': [
+                {'label': '🏆 Monthly Champions', 'min': 40, 'max': None, 'description': '>40% 30D'},
+                {'label': '🎯 Top Performers', 'min': 25, 'max': 40, 'description': '25-40% 30D'},
+                {'label': '📈 Outperformers', 'min': 15, 'max': 25, 'description': '15-25% 30D'},
+                {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
+                {'label': '📉 Underperformers', 'min': -25, 'max': -10, 'description': '-25% to -10% 30D'},
+                {'label': '☠️ Monthly Losers', 'min': None, 'max': -25, 'description': '<-25% 30D'}
+            ],
+            'slider_range': (-100, 200),
+            'slider_step': 2,
+            'default_min': -100,
+            'default_max': 500
+        },
+        'ret_3m': {
+            'name': '3 Month Return',
+            'presets': [
+                {'label': '🎯 Quarterly Stars', 'min': 60, 'max': None, 'description': '>60% 3M'},
+                {'label': '⭐ Strong Quarter', 'min': 40, 'max': 60, 'description': '40-60% 3M'},
+                {'label': '👍 Good Quarter', 'min': 20, 'max': 40, 'description': '20-40% 3M'},
+                {'label': '➖ Flat Quarter', 'min': -15, 'max': 15, 'description': '-15% to 15% 3M'},
+                {'label': '👎 Weak Quarter', 'min': -40, 'max': -15, 'description': '-40% to -15% 3M'},
+                {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -40, 'description': '<-40% 3M'}
+            ],
+            'slider_range': (-100, 300),
+            'slider_step': 5,
+            'default_min': -100,
+            'default_max': 1000
+        },
+        'ret_6m': {
+            'name': '6 Month Return',
+            'presets': [
+                {'label': '💎 Half-Year Heroes', 'min': 80, 'max': None, 'description': '>80% 6M'},
+                {'label': '🌟 Semi-Annual Stars', 'min': 60, 'max': 80, 'description': '60-80% 6M'},
+                {'label': '📈 Strong Half', 'min': 30, 'max': 60, 'description': '30-60% 6M'},
+                {'label': '〰️ Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
+                {'label': '📉 Weak Half', 'min': -50, 'max': -20, 'description': '-50% to -20% 6M'},
+                {'label': '💀 Half-Year Collapse', 'min': None, 'max': -50, 'description': '<-50% 6M'}
+            ],
+            'slider_range': (-100, 500),
+            'slider_step': 10,
+            'default_min': -100,
+            'default_max': 1000
+        },
+        'ret_1y': {
+            'name': '1 Year Return',
+            'presets': [
+                {'label': '🌙 Annual Winners', 'min': 100, 'max': None, 'description': '>100% 1Y'},
+                {'label': '🏅 Year Stars', 'min': 80, 'max': 100, 'description': '80-100% 1Y'},
+                {'label': '💪 Strong Year', 'min': 50, 'max': 80, 'description': '50-80% 1Y'},
+                {'label': '📊 Market Year', 'min': -30, 'max': 30, 'description': '-30% to 30% 1Y'},
+                {'label': '😔 Disappointing Year', 'min': -60, 'max': -30, 'description': '-60% to -30% 1Y'},
+                {'label': '🔴 Annual Disasters', 'min': None, 'max': -60, 'description': '<-60% 1Y'}
+            ],
+            'slider_range': (-100, 1000),
+            'slider_step': 10,
+            'default_min': -100,
+            'default_max': 2000
+        },
+        'ret_3y': {
+            'name': '3 Year Return',
+            'presets': [
+                {'label': '👑 Multi-Year Champions', 'min': 200, 'max': None, 'description': '>200% 3Y'},
+                {'label': '🚀 3Y Rockets', 'min': 150, 'max': 200, 'description': '150-200% 3Y'},
+                {'label': '⭐ 3Y Stars', 'min': 100, 'max': 150, 'description': '100-150% 3Y'},
+                {'label': '📈 3Y Growth', 'min': 0, 'max': 50, 'description': '0-50% 3Y'},
+                {'label': '📉 3Y Decline', 'min': -50, 'max': 0, 'description': '-50% to 0% 3Y'},
+                {'label': '💣 3Y Destruction', 'min': None, 'max': -50, 'description': '<-50% 3Y'}
+            ],
+            'slider_range': (-100, 2000),
+            'slider_step': 25,
+            'default_min': -100,
+            'default_max': 5000
+        },
+        'ret_5y': {
+            'name': '5 Year Return',
+            'presets': [
+                {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
+                {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
+                {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
+                {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
+                {'label': '⚠️ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
+                {'label': '☠️ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
+            ],
+            'slider_range': (-100, 5000),
+            'slider_step': 50,
+            'default_min': -100,
+            'default_max': 10000
+        }
+    })
+    
+    # Active filters storage
+    ACTIVE_FILTERS: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    
+    # Enable/disable performance filtering
+    ENABLE_PERFORMANCE_FILTER: bool = True
+
+# Global performance filter configuration instance
+PERFORMANCE_CONFIG = PerformanceFilterConfig()
+
+# ============================================
 # PERFORMANCE MONITORING
 # ============================================
 
@@ -1368,6 +1524,180 @@ class RankingEngine:
     Maintains all your original genius logic and weights.
     """
 
+    class PerformanceFilter:
+        """Handle performance-based filtering of stocks."""
+        
+        @staticmethod
+        def apply_performance_filters(df: pd.DataFrame, 
+                                     filters: Dict[str, Dict[str, float]],
+                                     log_details: bool = True) -> pd.DataFrame:
+            """
+            Apply performance filters to DataFrame.
+            
+            Args:
+                df: DataFrame with return columns
+                filters: Dict mapping column names to min/max thresholds
+                        e.g., {'ret_1d': {'min': 5, 'max': 15}}
+                log_details: Whether to log filtering details
+            
+            Returns:
+                Filtered DataFrame
+            """
+            if not filters:
+                return df
+                
+            initial_count = len(df)
+            filtered_df = df.copy()
+            
+            for col, thresholds in filters.items():
+                if col not in filtered_df.columns:
+                    logger.warning(f"Column {col} not found, skipping filter")
+                    continue
+                    
+                min_val = thresholds.get('min', -float('inf'))
+                max_val = thresholds.get('max', float('inf'))
+                
+                # Handle infinite values
+                if min_val == -float('inf'):
+                    min_val = filtered_df[col].min() - 1
+                if max_val == float('inf'):
+                    max_val = filtered_df[col].max() + 1
+                
+                # Apply filter
+                mask = (filtered_df[col] >= min_val) & (filtered_df[col] <= max_val)
+                pre_filter = len(filtered_df)
+                filtered_df = filtered_df[mask]
+                post_filter = len(filtered_df)
+                
+                if log_details and pre_filter != post_filter:
+                    logger.info(f"Performance filter {col}: {min_val:.1f} to {max_val:.1f} "
+                               f"({pre_filter} → {post_filter} stocks)")
+            
+            final_count = len(filtered_df)
+            if log_details and initial_count != final_count:
+                removed = initial_count - final_count
+                pct = (removed / initial_count * 100) if initial_count > 0 else 0
+                logger.info(f"Performance filters total: {initial_count} → {final_count} "
+                           f"({removed} removed, {pct:.1f}%)")
+            
+            return filtered_df
+        
+        @staticmethod
+        def get_preset_filter(timeframe: str, preset_label: str) -> Dict[str, float]:
+            """
+            Get filter thresholds for a preset.
+            
+            Args:
+                timeframe: Column name (e.g., 'ret_1d')
+                preset_label: Preset label (e.g., '💥 Explosive')
+            
+            Returns:
+                Dict with 'min' and 'max' thresholds
+            """
+            if timeframe not in PERFORMANCE_CONFIG.FILTER_PRESETS:
+                return {}
+                
+            presets = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]['presets']
+            for preset in presets:
+                if preset['label'] in preset_label:
+                    return {
+                        'min': preset['min'] if preset['min'] is not None else -float('inf'),
+                        'max': preset['max'] if preset['max'] is not None else float('inf')
+                    }
+            return {}
+        
+        @staticmethod
+        def get_active_filter_summary() -> str:
+            """Get summary of active performance filters."""
+            if not PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                return "No performance filters active"
+                
+            summaries = []
+            for col, thresholds in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
+                name = PERFORMANCE_CONFIG.FILTER_PRESETS.get(col, {}).get('name', col)
+                min_val = thresholds.get('min', -float('inf'))
+                max_val = thresholds.get('max', float('inf'))
+                
+                if min_val == -float('inf'):
+                    summary = f"{name}: < {max_val:.1f}%"
+                elif max_val == float('inf'):
+                    summary = f"{name}: > {min_val:.1f}%"
+                else:
+                    summary = f"{name}: {min_val:.1f}% to {max_val:.1f}%"
+                summaries.append(summary)
+                
+            return " | ".join(summaries)
+        
+        @staticmethod
+        def set_performance_filter(timeframe: str, 
+                                  min_val: float = None, 
+                                  max_val: float = None,
+                                  preset: str = None) -> None:
+            """
+            Set a performance filter.
+            
+            Args:
+                timeframe: Column name (e.g., 'ret_1d')
+                min_val: Minimum threshold (None for no minimum)
+                max_val: Maximum threshold (None for no maximum)
+                preset: Preset label to use instead of custom values
+            """
+            if preset:
+                # Use preset values
+                thresholds = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset)
+                if thresholds:
+                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = thresholds
+                    logger.info(f"Set {timeframe} filter to preset: {preset}")
+            else:
+                # Use custom values
+                if min_val is None and max_val is None:
+                    # Remove filter
+                    if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                        del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                        logger.info(f"Removed {timeframe} filter")
+                else:
+                    # Set filter
+                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = {
+                        'min': min_val if min_val is not None else -float('inf'),
+                        'max': max_val if max_val is not None else float('inf')
+                    }
+                    logger.info(f"Set {timeframe} filter: {min_val} to {max_val}")
+
+        @staticmethod
+        def clear_all_performance_filters() -> None:
+            """Clear all active performance filters."""
+            PERFORMANCE_CONFIG.ACTIVE_FILTERS.clear()
+            logger.info("Cleared all performance filters")
+        
+        @staticmethod
+        def display_performance_filters() -> str:
+            """Generate HTML/text display for performance filters UI."""
+            output = []
+            output.append("\n" + "="*60)
+            output.append("📊 PERFORMANCE FILTERS")
+            output.append("="*60)
+            
+            for col, config in PERFORMANCE_CONFIG.FILTER_PRESETS.items():
+                output.append(f"\n{config['name']}:")
+                output.append("-" * 40)
+                
+                # Show presets
+                for preset in config['presets']:
+                    is_active = col in PERFORMANCE_CONFIG.ACTIVE_FILTERS
+                    marker = "✅" if is_active else "  "
+                    output.append(f"{marker} {preset['label']}: {preset['description']}")
+                
+                # Show custom range option
+                output.append(f"   🎚️ Custom Range: {config['slider_range'][0]}% to {config['slider_range'][1]}%")
+            
+            # Show active filters summary
+            output.append("\n" + "="*60)
+            output.append("ACTIVE FILTERS:")
+            output.append(RankingEngine.PerformanceFilter.get_active_filter_summary())
+            output.append("="*60)
+            
+            return "\n".join(output)
+
     @staticmethod
     @PerformanceMonitor.timer(target_time=0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
@@ -1674,6 +2004,39 @@ class RankingEngine:
             logger.error("Continuing with unfiltered dataset")
         
         timing_breakdown['market_state_filtering'] = time.time() - filter_start
+        
+        # ============================================================
+        # PHASE 3.7: PERFORMANCE FILTERING (Optional)
+        # ============================================================
+        if hasattr(PERFORMANCE_CONFIG, 'ENABLE_PERFORMANCE_FILTER') and PERFORMANCE_CONFIG.ENABLE_PERFORMANCE_FILTER:
+            if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                perf_filter_start = time.time()
+                
+                pre_filter_count = len(df)
+                df_backup = df.copy()  # Backup in case filters are too restrictive
+                
+                # Apply performance filters
+                df = RankingEngine.PerformanceFilter.apply_performance_filters(
+                    df, 
+                    PERFORMANCE_CONFIG.ACTIVE_FILTERS,
+                    log_details=True
+                )
+                
+                post_filter_count = len(df)
+                
+                if post_filter_count == 0:
+                    logger.error("Performance filters removed all stocks! Reverting.")
+                    df = df_backup  # Use backup
+                else:
+                    filter_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
+                    logger.info(f"Performance filters applied: {filter_summary}")
+                    logger.info(f"Stocks retained: {post_filter_count}/{pre_filter_count}")
+                
+                timing_breakdown['performance_filter'] = time.time() - perf_filter_start
+            else:
+                logger.info("Performance filtering enabled but no filters active")
+        else:
+            logger.info("Performance filtering disabled")
         
         # ============================================================
         # PHASE 4: SMART BONUSES
@@ -10446,6 +10809,112 @@ def main():
                 
                 if require_fundamental:
                     filters['require_fundamental_data'] = True
+        
+        # 📊 Performance Filters - NEW COMPREHENSIVE SECTION
+        with st.expander("📊 Performance Filters", expanded=False):
+            st.markdown("**Filter stocks based on return performance across multiple timeframes**")
+            
+            # Add sync functions for performance filters
+            def sync_performance_filter(timeframe):
+                def sync_func():
+                    preset_key = f"{timeframe}_preset"
+                    range_key = f"{timeframe}_range"
+                    
+                    if preset_key in st.session_state:
+                        preset_value = st.session_state[preset_key]
+                        if preset_value != "All Returns":
+                            if preset_value == "🎯 Custom Range":
+                                # Use custom range if available
+                                if range_key in st.session_state:
+                                    min_val, max_val = st.session_state[range_key]
+                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = {
+                                        'min': min_val,
+                                        'max': max_val
+                                    }
+                            else:
+                                # Use preset values
+                                filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
+                                if filter_def:
+                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_def
+                        else:
+                            # Remove filter
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                return sync_func
+            
+            # Display performance filters for each timeframe
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+            
+            if available_return_cols:
+                cols = st.columns(3)
+                
+                for i, timeframe in enumerate(available_return_cols):
+                    if timeframe in PERFORMANCE_CONFIG.FILTER_PRESETS:
+                        config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
+                        
+                        with cols[i % 3]:
+                            # Create preset options
+                            preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                            
+                            # Get current selection
+                            current_preset = "All Returns"
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                # Try to match current filter to a preset
+                                current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                for preset in config['presets']:
+                                    preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                    if (preset_filter.get('min') == current_filter.get('min') and 
+                                        preset_filter.get('max') == current_filter.get('max')):
+                                        current_preset = preset['label']
+                                        break
+                                else:
+                                    current_preset = "🎯 Custom Range"
+                            
+                            # Preset selection
+                            selected_preset = st.selectbox(
+                                config['name'],
+                                options=preset_options,
+                                index=preset_options.index(current_preset) if current_preset in preset_options else 0,
+                                key=f"{timeframe}_preset",
+                                on_change=sync_performance_filter(timeframe),
+                                help=f"Filter by {config['name'].lower()} performance"
+                            )
+                            
+                            # Custom range slider (only show if custom range selected)
+                            if selected_preset == "🎯 Custom Range":
+                                min_range, max_range = config['slider_range']
+                                step = config['slider_step']
+                                
+                                # Get current custom range or use defaults
+                                current_range = (min_range, max_range)
+                                if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                    filter_def = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                    current_range = (filter_def.get('min', min_range), filter_def.get('max', max_range))
+                                
+                                custom_range = st.slider(
+                                    f"Custom {config['name']} Range (%)",
+                                    min_value=float(min_range),
+                                    max_value=float(max_range),
+                                    value=current_range,
+                                    step=float(step),
+                                    key=f"{timeframe}_range",
+                                    on_change=sync_performance_filter(timeframe),
+                                    help=f"Set custom range for {config['name'].lower()}"
+                                )
+            
+            # Show active performance filters summary
+            if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                st.markdown("**Active Performance Filters:**")
+                active_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
+                st.info(f"🎯 {active_summary}")
+                
+                # Clear performance filters button
+                if st.button("🗑️ Clear Performance Filters", type="secondary"):
+                    RankingEngine.PerformanceFilter.clear_all_performance_filters()
+                    st.success("✅ Performance filters cleared!")
+                    st.rerun()
+            else:
+                st.info("ℹ️ No performance filters active")
         
         # Count active filters using FilterEngine method
         active_filter_count = FilterEngine.get_active_count()
