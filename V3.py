@@ -10728,22 +10728,21 @@ def main():
                         st.write(f"• {func}: {time_taken:.4f}s")
     
     active_filter_count = st.session_state.get('active_filter_count', 0)
-    if active_filter_count > 0 or quick_filter_applied:
+    if quick_filter:
         filter_status_col1, filter_status_col2 = st.columns([5, 1])
         with filter_status_col1:
-            if quick_filter:
-                quick_filter_names = {
-                    'top_gainers': '📈 Top Gainers',
-                    'volume_surges': '🔥 Volume Surges',
-                    'velocity_breakout': '🚀 High Velocity',
-                    'institutional_tsunami': '🌋 Tsunami'
-                }
-                filter_display = quick_filter_names.get(quick_filter, 'Filtered')
-                
-                if active_filter_count > 1:
-                    st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
-                else:
-                    st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
+            quick_filter_names = {
+                'top_gainers': '📈 Top Gainers',
+                'volume_surges': '🔥 Volume Surges',
+                'velocity_breakout': '🚀 High Velocity',
+                'institutional_tsunami': '🌋 Tsunami'
+            }
+            filter_display = quick_filter_names.get(quick_filter, 'Filtered')
+            
+            if active_filter_count > 1:
+                st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
+            else:
+                st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
         
         with filter_status_col2:
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
