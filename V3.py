@@ -10739,7 +10739,7 @@ def main():
                         st.write(f"• {func}: {time_taken:.4f}s")
     
     # Get fresh active filter count to avoid stale state issues
-    active_filter_count = FilterEngine.get_active_filter_count()
+    active_filter_count = SessionStateManager.get_active_filter_count()
     
     # Only show filter status and clear button if there are actually active filters or quick filter applied
     if active_filter_count > 0 or quick_filter_applied:
