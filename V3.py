@@ -270,6 +270,21 @@ class Config:
             "💥 Explosive Volume (RVOL >5x)": ("rvol", 5.0),
             "🌋 Volcanic Volume (RVOL >10x)": ("rvol", 10.0),
             "😴 Low Activity (RVOL <0.5x)": ("rvol", 0.5, "below")
+        },
+        "vmi_tiers": {
+            "🌙 Hibernating (VMI <0.3)": ("vmi", 0.3, "below"),
+            "😴 Sleepy (VMI 0.3-0.6)": ("vmi", 0.3, 0.6),
+            "🚶 Walking (VMI 0.6-1.0)": ("vmi", 0.6, 1.0),
+            "🏃 Running (VMI 1.0-1.5)": ("vmi", 1.0, 1.5),
+            "🚀 Flying (VMI 1.5-2.5)": ("vmi", 1.5, 2.5),
+            "🌋 Volcanic (VMI >2.5)": ("vmi", 2.5)
+        },
+        "momentum_harmony_tiers": {
+            "💔 Broken (Score 0)": ("momentum_harmony", 0, 0),
+            "🌧️ Conflicted (Score 1)": ("momentum_harmony", 1, 1),
+            "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
+            "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
+            "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         }
     })
     
@@ -287,7 +302,9 @@ class Config:
         'trend_quality': 'SMA alignment quality (0-100)',
         'liquidity_score': 'Trading liquidity measure (0-100)',
         'from_high_pct': 'Distance from 52-week high: 0% = at high, negative values = below high',
-        'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low'
+        'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low',
+        'vmi_tier': 'Volume Momentum Index tier: Weighted volume trend classification',
+        'momentum_harmony_tier': 'Multi-timeframe momentum alignment tier: 0-4 consistency score'
     })
 
 # Global configuration instance
@@ -1035,6 +1052,68 @@ class AdvancedMetrics:
             )
         else:
             df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
+        
+        # VMI and Momentum Harmony Tier Classifications
+        def classify_advanced_tier(value: float, tier_config: tuple) -> str:
+            """Enhanced tier classifier for VMI and Momentum Harmony with range support."""
+            if pd.isna(value):
+                return "Unknown"
+            
+            if len(tier_config) == 2:
+                # Single threshold: ("column", threshold) - above threshold
+                _, threshold = tier_config
+                return "Above" if value > threshold else "Below"
+            elif len(tier_config) == 3:
+                if tier_config[2] == "below":
+                    # Below threshold: ("column", threshold, "below")
+                    _, threshold, _ = tier_config
+                    return "Below" if value < threshold else "Above"
+                else:
+                    # Range: ("column", min_val, max_val)
+                    _, min_val, max_val = tier_config
+                    return "InRange" if min_val <= value <= max_val else "OutOfRange"
+            
+            return "Unknown"
+        
+        # VMI Tier Classification
+        if 'vmi' in df.columns:
+            def classify_vmi_tier(value: float) -> str:
+                if pd.isna(value):
+                    return "Unknown"
+                if value < 0.3:
+                    return "🌙 Hibernating (VMI <0.3)"
+                elif 0.3 <= value < 0.6:
+                    return "😴 Sleepy (VMI 0.3-0.6)"
+                elif 0.6 <= value < 1.0:
+                    return "🚶 Walking (VMI 0.6-1.0)"
+                elif 1.0 <= value < 1.5:
+                    return "🏃 Running (VMI 1.0-1.5)"
+                elif 1.5 <= value < 2.5:
+                    return "🚀 Flying (VMI 1.5-2.5)"
+                else:  # value >= 2.5
+                    return "🌋 Volcanic (VMI >2.5)"
+            
+            df['vmi_tier'] = df['vmi'].apply(classify_vmi_tier)
+        else:
+            df['vmi_tier'] = pd.Series("Unknown", index=df.index)
+        
+        # Momentum Harmony Tier Classification
+        if 'momentum_harmony' in df.columns:
+            def classify_momentum_harmony_tier(value: int) -> str:
+                if pd.isna(value):
+                    return "Unknown"
+                harmony_map = {
+                    0: "💔 Broken (Score 0)",
+                    1: "🌧️ Conflicted (Score 1)", 
+                    2: "⛅ Mixed (Score 2)",
+                    3: "🌤️ Aligned (Score 3)",
+                    4: "☀️ Perfect Harmony (Score 4)"
+                }
+                return harmony_map.get(int(value), "Unknown")
+            
+            df['momentum_harmony_tier'] = df['momentum_harmony'].apply(classify_momentum_harmony_tier)
+        else:
+            df['momentum_harmony_tier'] = pd.Series("Unknown", index=df.index)
         
         return df
     
@@ -7015,6 +7094,9 @@ class FilterEngine:
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
+        if filters.get('vmi_tiers'): count += 1
+        if filters.get('momentum_harmony_tiers'): count += 1
+        if filters.get('custom_vmi_range') != (0.5, 3.0): count += 1
         if filters.get('position_score_range') != (0, 100): count += 1
         if filters.get('volume_score_range') != (0, 100): count += 1
         if filters.get('momentum_score_range') != (0, 100): count += 1
@@ -7065,6 +7147,9 @@ class FilterEngine:
             'position_range': (0, 100),
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
+            'vmi_tiers': [],
+            'custom_vmi_range': (0.5, 3.0),
+            'momentum_harmony_tiers': [],
             'position_score_range': (0, 100),
             'volume_score_range': (0, 100),
             'momentum_score_range': (0, 100),
@@ -7554,6 +7639,24 @@ class FilterEngine:
                 rvol_range_val = filters['rvol_range']
                 masks.append(df['rvol'].between(rvol_range_val[0], rvol_range_val[1], inclusive='both'))
         
+        # 5.8. VMI (Volume Momentum Index) filters
+        if 'vmi_tiers' in filters:
+            selected_tiers = filters['vmi_tiers']
+            if selected_tiers and "🎯 Custom VMI Range" not in selected_tiers:
+                masks.append(create_mask_from_isin('vmi_tier', selected_tiers))
+        
+        # Custom VMI range filter (only if "🎯 Custom VMI Range" is selected)
+        if 'vmi_tiers' in filters and "🎯 Custom VMI Range" in filters['vmi_tiers']:
+            if 'custom_vmi_range' in filters and 'vmi' in df.columns:
+                vmi_range_val = filters['custom_vmi_range']
+                masks.append(df['vmi'].between(vmi_range_val[0], vmi_range_val[1], inclusive='both'))
+        
+        # 5.9. Momentum Harmony filters
+        if 'momentum_harmony_tiers' in filters:
+            selected_tiers = filters['momentum_harmony_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('momentum_harmony_tier', selected_tiers))
+        
         # 6. PE filters
         if filters.get('min_pe') is not None and 'pe' in df.columns:
             masks.append(df['pe'] >= filters['min_pe'])
@@ -7687,7 +7790,9 @@ class FilterEngine:
             'market_state': 'market_states',
             'position_tier': 'position_tiers',
             'volume_tier': 'volume_tiers',
-            'performance_tier': 'performance_tiers'
+            'performance_tier': 'performance_tiers',
+            'vmi_tier': 'vmi_tiers',
+            'momentum_harmony_tier': 'momentum_harmony_tiers'
         }
         
         if column in filter_key_map:
@@ -8508,6 +8613,12 @@ class SessionStateManager:
                 filters['position_tiers'] = state['position_tiers']
             if state.get('volume_tiers'):
                 filters['volume_tiers'] = state['volume_tiers']
+            if state.get('vmi_tiers'):
+                filters['vmi_tiers'] = state['vmi_tiers']
+            if state.get('momentum_harmony_tiers'):
+                filters['momentum_harmony_tiers'] = state['momentum_harmony_tiers']
+            if state.get('custom_vmi_range') != (0.5, 3.0):
+                filters['custom_vmi_range'] = state['custom_vmi_range']
             if state.get('position_score_range') != (0, 100):
                 filters['position_score_range'] = state['position_score_range']
             if state.get('volume_score_range') != (0, 100):
@@ -9509,6 +9620,14 @@ def main():
             if 'volume_tier_multiselect_intelligence' in st.session_state:
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
         
+        def sync_vmi_tier():
+            if 'vmi_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['vmi_tiers'] = st.session_state.vmi_tier_multiselect_intelligence
+        
+        def sync_momentum_harmony_tier():
+            if 'momentum_harmony_tier_multiselect_intelligence' in st.session_state:
+                st.session_state.filter_state['momentum_harmony_tiers'] = st.session_state.momentum_harmony_tier_multiselect_intelligence
+        
         def sync_rvol_range():
             if 'rvol_range_slider' in st.session_state:
                 st.session_state.filter_state['rvol_range'] = st.session_state.rvol_range_slider
@@ -10305,6 +10424,52 @@ def main():
         
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
+            # VMI (Volume Momentum Index) Filter
+            if 'vmi_tier' in ranked_df_display.columns or 'vmi' in ranked_df_display.columns:
+                vmi_tier_options = list(CONFIG.TIERS['vmi_tiers'].keys()) + ["🎯 Custom VMI Range"]
+                vmi_tiers = st.multiselect(
+                    "VMI (Volume Momentum Index) Tiers",
+                    options=vmi_tier_options,
+                    default=st.session_state.filter_state.get('vmi_tiers', []),
+                    key='vmi_tier_multiselect_intelligence',
+                    on_change=sync_vmi_tier,
+                    help="Volume Momentum Index: Weighted volume trend score classification"
+                )
+                
+                if vmi_tiers:
+                    filters['vmi_tiers'] = vmi_tiers
+                
+                # Show custom VMI range slider when "🎯 Custom VMI Range" is selected
+                custom_vmi_range_selected = any("Custom VMI Range" in tier for tier in vmi_tiers) if vmi_tiers else False
+                if custom_vmi_range_selected:
+                    st.write("📊 **Custom VMI Range Filter**")
+                    
+                    vmi_range = st.slider(
+                        "VMI Range",
+                        min_value=0.0,
+                        max_value=5.0,
+                        value=(0.5, 3.0),
+                        step=0.1,
+                        key='custom_vmi_range_intelligence',
+                        help="VMI typically ranges from 0.1 (very low volume) to 3.0+ (very high volume)"
+                    )
+                    filters['custom_vmi_range'] = vmi_range
+            
+            # Momentum Harmony Filter  
+            if 'momentum_harmony_tier' in ranked_df_display.columns or 'momentum_harmony' in ranked_df_display.columns:
+                momentum_harmony_tier_options = list(CONFIG.TIERS['momentum_harmony_tiers'].keys())
+                momentum_harmony_tiers = st.multiselect(
+                    "Momentum Harmony Tiers",
+                    options=momentum_harmony_tier_options,
+                    default=st.session_state.filter_state.get('momentum_harmony_tiers', []),
+                    key='momentum_harmony_tier_multiselect_intelligence',
+                    on_change=sync_momentum_harmony_tier,
+                    help="Multi-timeframe momentum alignment: 0-4 score showing consistency across periods"
+                )
+                
+                if momentum_harmony_tiers:
+                    filters['momentum_harmony_tiers'] = momentum_harmony_tiers
+            
             #  Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
                 # Volume tier multiselect with custom range option
