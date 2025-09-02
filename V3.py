@@ -195,106 +195,12 @@ class Config:
         'export_generation': 1.0,
         'search': 0.05
     })
-    
-    # Market categories (Indian market specific)
-    MARKET_CATEGORIES: List[str] = field(default_factory=lambda: [
-        'Mega Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Micro Cap'
-    ])
-    
-    # Tier definitions with proper boundaries
-    TIERS: Dict[str, Dict[str, Tuple[float, float]]] = field(default_factory=lambda: {
-        "eps": {
-            "Loss": (-float('inf'), 0),
-            "0-5": (0, 5),
-            "5-10": (5, 10),
-            "10-20": (10, 20),
-            "20-50": (20, 50),
-            "50-100": (50, 100),
-            "100+": (100, float('inf'))
-        },
-        "pe": {
-            "Negative/NA": (-float('inf'), 0),
-            "0-10": (0, 10),
-            "10-15": (10, 15),
-            "15-20": (15, 20),
-            "20-30": (20, 30),
-            "30-50": (30, 50),
-            "50+": (50, float('inf'))
-        },
-        "price": {
-            "0-100": (0, 100),
-            "100-250": (100, 250),
-            "250-500": (250, 500),
-            "500-1000": (500, 1000),
-            "1000-2500": (1000, 2500),
-            "2500-5000": (2500, 5000),
-            "5000+": (5000, float('inf'))
-        },
-        "eps_change_pct": {
-            "Heavy Loss (< -50%)": (-float('inf'), -50),
-            "Loss (-50% to -10%)": (-50, -10),
-            "Slight Decline (-10% to 0%)": (-10, 0),
-            "Low Growth (0% to 20%)": (0, 20),
-            "Good Growth (20% to 50%)": (20, 50),
-            "High Growth (50% to 100%)": (50, 100),
-            "Explosive Growth (> 100%)": (100, float('inf'))
-        },
-        "position_tiers": {
-            "💎 Near Lows (0-20%)": (0, 20),
-            "🏗️ Lower Range (20-40%)": (20, 40),
-            "🏞️ Middle Range (40-60%)": (40, 60),
-            "⛰️ Upper Range (60-80%)": (60, 80),
-            "🏔️ Near Highs (80-100%)": (80, 100)
-        },
-        "performance_tiers": {
-            # Short-term momentum (Practical thresholds for Indian markets)
-            "🚀 Strong Gainers (>3% 1D)": ("ret_1d", 3),
-            "⚡ Power Moves (>7% 1D)": ("ret_1d", 7),
-            "💥 Explosive (>15% 1D)": ("ret_1d", 15),
-            "🌟 3-Day Surge (>6% 3D)": ("ret_3d", 6),
-            "📈 Weekly Winners (>12% 7D)": ("ret_7d", 12),
-            
-            # Medium-term growth (Realistic thresholds)
-            "🏆 Monthly Champions (>25% 30D)": ("ret_30d", 25),
-            "🎯 Quarterly Stars (>40% 3M)": ("ret_3m", 40),
-            "💎 Half-Year Heroes (>60% 6M)": ("ret_6m", 60),
-            
-            # Long-term performance (Fixed emoji + practical thresholds)
-            "🌙 Annual Winners (>80% 1Y)": ("ret_1y", 80),
-            "👑 Multi-Year Champions (>150% 3Y)": ("ret_3y", 150),
-            "🏛️ Long-Term Legends (>250% 5Y)": ("ret_5y", 250)
-        },
-        "volume_tiers": {
-            "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
-            "🔥 High Activity (RVOL >2x)": ("rvol", 2.0),
-            "💥 Explosive Volume (RVOL >5x)": ("rvol", 5.0),
-            "🌋 Volcanic Volume (RVOL >10x)": ("rvol", 10.0),
-            "😴 Low Activity (RVOL <0.5x)": ("rvol", 0.5, "below")
-        }
-    })
-    
-    # Metric Tooltips for better UX
-    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
-        'vmi': 'Volume Momentum Index: Weighted volume trend score (higher = stronger volume momentum)',
-        'position_tension': 'Range position stress: Distance from 52W low + distance from 52W high',
-        'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
-        'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
-        'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
-        'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
-        'master_score': 'Overall ranking score (0-100) combining all factors',
-        'acceleration_score': 'Rate of momentum change (0-100)',
-        'breakout_score': 'Probability of price breakout (0-100)',
-        'trend_quality': 'SMA alignment quality (0-100)',
-        'liquidity_score': 'Trading liquidity measure (0-100)'
-    })
-
-# Global configuration instance
-CONFIG = Config()
 
 # ============================================
 # PERFORMANCE FILTER CONFIGURATION
 # ============================================
 
+@dataclass
 class PerformanceFilterConfig:
     """Configuration for Performance Filters with presets and custom ranges."""
     
@@ -442,8 +348,101 @@ class PerformanceFilterConfig:
     
     # Enable/disable performance filtering
     ENABLE_PERFORMANCE_FILTER = True
+    
+    # Market categories (Indian market specific)
+    MARKET_CATEGORIES: List[str] = field(default_factory=lambda: [
+        'Mega Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Micro Cap'
+    ])
+    
+    # Tier definitions with proper boundaries
+    TIERS: Dict[str, Dict[str, Tuple[float, float]]] = field(default_factory=lambda: {
+        "eps": {
+            "Loss": (-float('inf'), 0),
+            "0-5": (0, 5),
+            "5-10": (5, 10),
+            "10-20": (10, 20),
+            "20-50": (20, 50),
+            "50-100": (50, 100),
+            "100+": (100, float('inf'))
+        },
+        "pe": {
+            "Negative/NA": (-float('inf'), 0),
+            "0-10": (0, 10),
+            "10-15": (10, 15),
+            "15-20": (15, 20),
+            "20-30": (20, 30),
+            "30-50": (30, 50),
+            "50+": (50, float('inf'))
+        },
+        "price": {
+            "0-100": (0, 100),
+            "100-250": (100, 250),
+            "250-500": (250, 500),
+            "500-1000": (500, 1000),
+            "1000-2500": (1000, 2500),
+            "2500-5000": (2500, 5000),
+            "5000+": (5000, float('inf'))
+        },
+        "eps_change_pct": {
+            "Heavy Loss (< -50%)": (-float('inf'), -50),
+            "Loss (-50% to -10%)": (-50, -10),
+            "Slight Decline (-10% to 0%)": (-10, 0),
+            "Low Growth (0% to 20%)": (0, 20),
+            "Good Growth (20% to 50%)": (20, 50),
+            "High Growth (50% to 100%)": (50, 100),
+            "Explosive Growth (> 100%)": (100, float('inf'))
+        },
+        "position_tiers": {
+            "💎 Near Lows (0-20%)": (0, 20),
+            "🏗️ Lower Range (20-40%)": (20, 40),
+            "🏞️ Middle Range (40-60%)": (40, 60),
+            "⛰️ Upper Range (60-80%)": (60, 80),
+            "🏔️ Near Highs (80-100%)": (80, 100)
+        },
+        "performance_tiers": {
+            # Short-term momentum (Practical thresholds for Indian markets)
+            "🚀 Strong Gainers (>3% 1D)": ("ret_1d", 3),
+            "⚡ Power Moves (>7% 1D)": ("ret_1d", 7),
+            "💥 Explosive (>15% 1D)": ("ret_1d", 15),
+            "🌟 3-Day Surge (>6% 3D)": ("ret_3d", 6),
+            "📈 Weekly Winners (>12% 7D)": ("ret_7d", 12),
+            
+            # Medium-term growth (Realistic thresholds)
+            "🏆 Monthly Champions (>25% 30D)": ("ret_30d", 25),
+            "🎯 Quarterly Stars (>40% 3M)": ("ret_3m", 40),
+            "💎 Half-Year Heroes (>60% 6M)": ("ret_6m", 60),
+            
+            # Long-term performance (Fixed emoji + practical thresholds)
+            "🌙 Annual Winners (>80% 1Y)": ("ret_1y", 80),
+            "👑 Multi-Year Champions (>150% 3Y)": ("ret_3y", 150),
+            "🏛️ Long-Term Legends (>250% 5Y)": ("ret_5y", 250)
+        },
+        "volume_tiers": {
+            "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
+            "🔥 High Activity (RVOL >2x)": ("rvol", 2.0),
+            "💥 Explosive Volume (RVOL >5x)": ("rvol", 5.0),
+            "🌋 Volcanic Volume (RVOL >10x)": ("rvol", 10.0),
+            "😴 Low Activity (RVOL <0.5x)": ("rvol", 0.5, "below")
+        }
+    })
+    
+    # Metric Tooltips for better UX
+    METRIC_TOOLTIPS: Dict[str, str] = field(default_factory=lambda: {
+        'vmi': 'Volume Momentum Index: Weighted volume trend score (higher = stronger volume momentum)',
+        'position_tension': 'Range position stress: Distance from 52W low + distance from 52W high',
+        'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
+        'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
+        'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
+        'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
+        'master_score': 'Overall ranking score (0-100) combining all factors',
+        'acceleration_score': 'Rate of momentum change (0-100)',
+        'breakout_score': 'Probability of price breakout (0-100)',
+        'trend_quality': 'SMA alignment quality (0-100)',
+        'liquidity_score': 'Trading liquidity measure (0-100)'
+    })
 
-PERF_CONFIG = PerformanceFilterConfig()
+# Global configuration instance
+CONFIG = Config()
 
 # ============================================
 # PERFORMANCE MONITORING
@@ -7644,15 +7643,47 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.6. Performance Intelligence filters
+        # 5.6. NEW Performance Filter System (Enhanced)
+        # Handle min/max filters from presets and custom range filters
+        return_columns = ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']
+        performance_filters_applied = []
+        
+        for col in return_columns:
+            if col in df.columns:
+                # Check for min filter (from presets like "💥 Explosive" min: 15)
+                if f'{col}_min' in filters:
+                    min_val = filters[f'{col}_min']
+                    masks.append(df[col] >= min_val)
+                    performance_filters_applied.append(f'{col}_min: >={min_val}%')
+                
+                # Check for max filter (from presets like "💣 Crash" max: -10)
+                if f'{col}_max' in filters:
+                    max_val = filters[f'{col}_max']
+                    masks.append(df[col] <= max_val)
+                    performance_filters_applied.append(f'{col}_max: <={max_val}%')
+                
+                # Check for range filter (from custom sliders)
+                if f'{col}_range' in filters:
+                    range_val = filters[f'{col}_range']
+                    # Only apply if it's not the default slider range
+                    config = PerformanceFilterConfig.FILTER_PRESETS.get(col, {})
+                    default_slider_range = config.get('slider_range', (-100, 100))
+                    if range_val != default_slider_range:
+                        masks.append(df[col].between(range_val[0], range_val[1], inclusive='both'))
+                        performance_filters_applied.append(f'{col}_range: {range_val[0]}% to {range_val[1]}%')
+        
+        if performance_filters_applied:
+            logger.info(f"Performance filters applied: {performance_filters_applied}")
+        
+        # 5.7. Legacy Performance Intelligence filters (keep for backward compatibility)
         if 'performance_tiers' in filters:
             selected_tiers = filters['performance_tiers']
             # Only apply preset tier filtering if "Custom Range" is not selected
             custom_range_in_tiers = any("Custom Range" in tier for tier in selected_tiers) if selected_tiers else False
             if selected_tiers and not custom_range_in_tiers:
                 masks.append(create_mask_from_isin('performance_tier', selected_tiers))
-        
-        # Custom performance range filter (only apply if actual range filters are modified from defaults)
+
+        # Legacy custom performance range filter (keep for backward compatibility)
         custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
         
         if custom_range_selected:
@@ -7736,7 +7767,7 @@ class FilterEngine:
                 # No custom ranges are active, so don't filter by performance
                 pass  # This effectively shows all stocks for performance filtering
             else:
-                logger.info(f"Active custom ranges: {active_custom_ranges}")
+                logger.info(f"Legacy active performance filters: {active_custom_ranges}")
             
             # Legacy support for old performance_custom_range
             if 'performance_custom_range' in filters:
@@ -9636,34 +9667,6 @@ def main():
             if 'position_range_slider' in st.session_state:
                 st.session_state.filter_state['position_range'] = st.session_state.position_range_slider
         
-        def sync_performance_tier():
-            if 'performance_tier_multiselect_intelligence' in st.session_state:
-                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect_intelligence
-        
-        def sync_performance_custom_range():
-            # Sync individual range sliders for all timeframes
-            if 'ret_1d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_1d_range'] = st.session_state.ret_1d_range_slider
-            if 'ret_3d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3d_range'] = st.session_state.ret_3d_range_slider
-            if 'ret_7d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_7d_range'] = st.session_state.ret_7d_range_slider
-            if 'ret_30d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_30d_range'] = st.session_state.ret_30d_range_slider
-            if 'ret_3m_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3m_range'] = st.session_state.ret_3m_range_slider
-            if 'ret_6m_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_6m_range'] = st.session_state.ret_6m_range_slider
-            if 'ret_1y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_1y_range'] = st.session_state.ret_1y_range_slider
-            if 'ret_3y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3y_range'] = st.session_state.ret_3y_range_slider
-            if 'ret_5y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_5y_range'] = st.session_state.ret_5y_range_slider
-            # Legacy support
-            if 'performance_custom_range_slider' in st.session_state:
-                st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
-        
         def sync_volume_tier():
             if 'volume_tier_multiselect_intelligence' in st.session_state:
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
@@ -10215,297 +10218,109 @@ def main():
                     elif rvol_score_selection == "🔴 Weak (< 40)":
                         filters['rvol_score_range'] = (0, 39)
         
-        # 📊 Performance Filter - Comprehensive Timeframe Analysis
-        with st.expander("📊 Performance Filter", expanded=False):
-            st.markdown("**Filter stocks by return performance across multiple timeframes**")
+        # 📈 Performance Filter - Professional Section
+        with st.expander("📈 Performance Filter", expanded=False):
             
-            # Sync functions for performance filters
-            def sync_performance_filter(timeframe):
+            # Add sync functions for performance filters
+            def sync_performance_preset(timeframe):
+                """Sync function for performance preset selections"""
                 def sync_func():
-                    preset_key = f"{timeframe}_preset"
-                    range_key = f"{timeframe}_range"
-                    if preset_key in st.session_state:
-                        st.session_state.filter_state[preset_key] = st.session_state[preset_key]
-                    if range_key in st.session_state:
-                        st.session_state.filter_state[range_key] = st.session_state[range_key]
+                    if f'performance_preset_{timeframe}' in st.session_state:
+                        st.session_state.filter_state[f'performance_preset_{timeframe}'] = st.session_state[f'performance_preset_{timeframe}']
                 return sync_func
             
-            # Check which timeframes are available in the data
-            available_timeframes = []
-            for timeframe in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
-                if timeframe in ranked_df_display.columns:
-                    available_timeframes.append(timeframe)
+            def sync_performance_slider(timeframe):
+                """Sync function for performance custom range sliders"""
+                def sync_func():
+                    if f'performance_slider_{timeframe}' in st.session_state:
+                        st.session_state.filter_state[f'performance_range_{timeframe}'] = st.session_state[f'performance_slider_{timeframe}']
+                return sync_func
             
-            if available_timeframes:
-                # Create tabs for better organization
-                tab_labels = []
-                tab_timeframes = []
+            # Check available return columns
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+            
+            if available_return_cols:
+                st.write("**🎯 Select Return Timeframes to Filter**")
                 
-                # Group timeframes into logical tabs
-                short_term = ['ret_1d', 'ret_3d', 'ret_7d']
-                medium_term = ['ret_30d', 'ret_3m', 'ret_6m']
-                long_term = ['ret_1y', 'ret_3y', 'ret_5y']
+                # Create two columns for better layout
+                left_col, right_col = st.columns(2)
                 
-                if any(tf in available_timeframes for tf in short_term):
-                    tab_labels.append("📈 Short Term")
-                    tab_timeframes.append([tf for tf in short_term if tf in available_timeframes])
-                
-                if any(tf in available_timeframes for tf in medium_term):
-                    tab_labels.append("📊 Medium Term")
-                    tab_timeframes.append([tf for tf in medium_term if tf in available_timeframes])
-                
-                if any(tf in available_timeframes for tf in long_term):
-                    tab_labels.append("📅 Long Term")
-                    tab_timeframes.append([tf for tf in long_term if tf in available_timeframes])
-                
-                if tab_labels:
-                    tabs = st.tabs(tab_labels)
+                for i, timeframe in enumerate(available_return_cols):
+                    # Get configuration for this timeframe
+                    config = PerformanceFilterConfig.FILTER_PRESETS.get(timeframe, {})
+                    if not config:
+                        continue
+                        
+                    # Alternate between left and right columns
+                    current_col = left_col if i % 2 == 0 else right_col
                     
-                    for tab_idx, (tab, timeframes_group) in enumerate(zip(tabs, tab_timeframes)):
-                        with tab:
-                            # Create columns for better layout
-                            cols = st.columns(min(len(timeframes_group), 3))
+                    with current_col:
+                        st.write(f"**{config['name']}**")
+                        
+                        # Create preset options
+                        preset_options = ["All"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                        
+                        # Get current selection
+                        current_preset = st.session_state.filter_state.get(f'performance_preset_{timeframe}', "All")
+                        if current_preset not in preset_options:
+                            current_preset = "All"
+                        
+                        # Preset selector
+                        selected_preset = st.selectbox(
+                            f"{config['name']} Filter",
+                            options=preset_options,
+                            index=preset_options.index(current_preset),
+                            help=f"Select performance level for {config['name'].lower()} or use Custom Range",
+                            key=f"performance_preset_{timeframe}",
+                            on_change=sync_performance_preset(timeframe)
+                        )
+                        
+                        # Handle selection
+                        if selected_preset == "🎯 Custom Range":
+                            # Show custom range slider
+                            slider_range = config['slider_range']
+                            current_range = st.session_state.filter_state.get(f'performance_range_{timeframe}', slider_range)
                             
-                            for col_idx, timeframe in enumerate(timeframes_group):
-                                with cols[col_idx % len(cols)]:
-                                    if timeframe in PERF_CONFIG.FILTER_PRESETS:
-                                        config = PERF_CONFIG.FILTER_PRESETS[timeframe]
-                                        
-                                        st.write(f"**{config['name']}**")
-                                        
-                                        # Preset options
-                                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
-                                        
-                                        current_preset = st.session_state.filter_state.get(f'{timeframe}_preset', "All Returns")
-                                        if current_preset not in preset_options:
-                                            current_preset = "All Returns"
-                                        
-                                        preset_selection = st.selectbox(
-                                            f"{config['name']} Filter",
-                                            options=preset_options,
-                                            index=preset_options.index(current_preset),
-                                            help=f"Filter stocks by {config['name'].lower()} performance",
-                                            key=f"{timeframe}_preset",
-                                            on_change=sync_performance_filter(timeframe)
-                                        )
-                                        
-                                        # Handle preset selection
-                                        if preset_selection != "All Returns":
-                                            if preset_selection == "🎯 Custom Range":
-                                                # Show custom range slider
-                                                slider_min, slider_max = config['slider_range']
-                                                default_range = st.session_state.filter_state.get(f'{timeframe}_range', 
-                                                                                                 (config['default_min'], config['default_max']))
-                                                
-                                                custom_range = st.slider(
-                                                    f"{config['name']} Custom Range (%)",
-                                                    min_value=slider_min,
-                                                    max_value=slider_max,
-                                                    value=default_range,
-                                                    step=config['slider_step'],
-                                                    help=f"Custom range for {config['name'].lower()}",
-                                                    key=f"{timeframe}_range",
-                                                    on_change=sync_performance_filter(timeframe)
-                                                )
-                                                
-                                                if custom_range != (config['default_min'], config['default_max']):
-                                                    filters[f'{timeframe}_range'] = custom_range
-                                            else:
-                                                # Find the selected preset configuration
-                                                for preset in config['presets']:
-                                                    if preset['label'] == preset_selection:
-                                                        min_val = preset['min'] if preset['min'] is not None else config['default_min']
-                                                        max_val = preset['max'] if preset['max'] is not None else config['default_max']
-                                                        filters[f'{timeframe}_range'] = (min_val, max_val)
-                                                        
-                                                        # Show preset description
-                                                        st.caption(f"📊 {preset['description']}")
-                                                        break
+                            custom_range = st.slider(
+                                f"Custom {config['name']} Range (%)",
+                                min_value=float(slider_range[0]),
+                                max_value=float(slider_range[1]),
+                                value=current_range,
+                                step=float(config['slider_step']),
+                                help=f"Set custom range for {config['name'].lower()}",
+                                key=f"performance_slider_{timeframe}",
+                                on_change=sync_performance_slider(timeframe)
+                            )
+                            
+                            # Apply custom range filter
+                            if custom_range != slider_range:
+                                filters[f'{timeframe}_range'] = custom_range
+                                
+                        elif selected_preset != "All":
+                            # Find the corresponding preset configuration
+                            for preset in config['presets']:
+                                if preset['label'] == selected_preset:
+                                    # Apply preset filter
+                                    min_val = preset['min']
+                                    max_val = preset['max']
+                                    
+                                    if min_val is not None and max_val is not None:
+                                        filters[f'{timeframe}_range'] = (min_val, max_val)
+                                    elif min_val is not None:
+                                        filters[f'{timeframe}_min'] = min_val
+                                    elif max_val is not None:
+                                        filters[f'{timeframe}_max'] = max_val
+                                    break
+                        
+                        # Add spacing between timeframes
+                        st.write("")
+                
             else:
                 st.info("📊 No return data available for performance filtering")
         
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
-            # 📈 Performance Intelligence - MOVED TO DEDICATED PERFORMANCE FILTER SECTION ABOVE
-            # Note: This section has been moved to the dedicated Performance Filter section for better organization
-            
-            # 📊 Volume Intelligence
-            if available_return_cols:
-                st.write("**📈 Performance Intelligence**")
-                # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
-                performance_options = [
-                    # Short-term momentum (Practical thresholds for Indian markets)
-                    "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
-                    "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
-                    "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
-                    "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
-                    "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
-                    
-                    # Medium-term growth (Adjusted for market reality)
-                    "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
-                    "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
-                    "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
-                    
-                    # Long-term performance (Fixed emoji + realistic thresholds)
-                    "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
-                    "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
-                    "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
-                    
-                    # Custom range option
-                    "🎯 Custom Range"
-                ]
-                
-                performance_tiers = st.multiselect(
-                    "📈 Performance Filter",
-                    options=performance_options,
-                    default=st.session_state.filter_state.get('performance_tiers', []),
-                    key='performance_tier_multiselect_intelligence',
-                    on_change=sync_performance_tier,
-                    help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
-                )
-                
-                if performance_tiers:
-                    filters['performance_tiers'] = performance_tiers
-                
-                # Show custom range sliders when "🎯 Custom Range" is selected
-                custom_performance_range_selected = any("Custom Range" in tier for tier in performance_tiers) if performance_tiers else False
-                if custom_performance_range_selected:
-                    st.write("📊 **Custom Performance Range Filters**")
-                    
-                    # Short-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        ret_1d_range = st.slider(
-                            "1D Return Range (%)",
-                            min_value=0.0,
-                            max_value=50.0,
-                            value=st.session_state.filter_state.get('ret_1d_range', (2.0, 25.0)),
-                            step=0.5,
-                            help="Filter by 1-day return range (realistic: 0-50% for Indian markets)",
-                            key="ret_1d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1d_range != (2.0, 25.0):
-                            filters['ret_1d_range'] = ret_1d_range
-                    
-                    with col2:
-                        ret_3d_range = st.slider(
-                            "3D Return Range (%)",
-                            min_value=0.0,
-                            max_value=100.0,
-                            value=st.session_state.filter_state.get('ret_3d_range', (3.0, 50.0)),
-                            step=1.0,
-                            help="Filter by 3-day return range (realistic: 0-100% for Indian markets)",
-                            key="ret_3d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3d_range != (3.0, 50.0):
-                            filters['ret_3d_range'] = ret_3d_range
-                    
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        ret_7d_range = st.slider(
-                            "7D Return Range (%)",
-                            min_value=0.0,
-                            max_value=150.0,
-                            value=st.session_state.filter_state.get('ret_7d_range', (5.0, 75.0)),
-                            step=1.0,
-                            help="Filter by 7-day return range (realistic: 0-150% for Indian markets)",
-                            key="ret_7d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_7d_range != (5.0, 75.0):
-                            filters['ret_7d_range'] = ret_7d_range
-                    
-                    with col4:
-                        ret_30d_range = st.slider(
-                            "30D Return Range (%)",
-                            min_value=0.0,
-                            max_value=300.0,
-                            value=st.session_state.filter_state.get('ret_30d_range', (10.0, 150.0)),
-                            step=5.0,
-                            help="Filter by 30-day return range (realistic: 0-300% for Indian markets)",
-                            key="ret_30d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_30d_range != (10.0, 150.0):
-                            filters['ret_30d_range'] = ret_30d_range
-                    
-                    # Medium-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col5, col6 = st.columns(2)
-                    with col5:
-                        ret_3m_range = st.slider(
-                            "3M Return Range (%)",
-                            min_value=0.0,
-                            max_value=500.0,
-                            value=st.session_state.filter_state.get('ret_3m_range', (15.0, 200.0)),
-                            step=5.0,
-                            help="Filter by 3-month return range (realistic: 0-500% for Indian markets)",
-                            key="ret_3m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3m_range != (15.0, 200.0):
-                            filters['ret_3m_range'] = ret_3m_range
-                    
-                    with col6:
-                        ret_6m_range = st.slider(
-                            "6M Return Range (%)",
-                            min_value=0.0,
-                            max_value=1000.0,
-                            value=st.session_state.filter_state.get('ret_6m_range', (20.0, 500.0)),
-                            step=10.0,
-                            help="Filter by 6-month return range (realistic: 0-1000% for Indian markets)",
-                            key="ret_6m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_6m_range != (20.0, 500.0):
-                            filters['ret_6m_range'] = ret_6m_range
-                    
-                    # Long-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col7, col8 = st.columns(2)
-                    with col7:
-                        ret_1y_range = st.slider(
-                            "1Y Return Range (%)",
-                            min_value=0.0,
-                            max_value=2000.0,
-                            value=st.session_state.filter_state.get('ret_1y_range', (25.0, 1000.0)),
-                            step=25.0,
-                            help="Filter by 1-year return range (realistic: 0-2000% for Indian markets)",
-                            key="ret_1y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1y_range != (25.0, 1000.0):
-                            filters['ret_1y_range'] = ret_1y_range
-                    
-                    with col8:
-                        ret_3y_range = st.slider(
-                            "3Y Return Range (%)",
-                            min_value=0.0,
-                            max_value=5000.0,
-                            value=st.session_state.filter_state.get('ret_3y_range', (50.0, 2000.0)),
-                            step=50.0,
-                            help="Filter by 3-year return range (realistic: 0-5000% for Indian markets)",
-                            key="ret_3y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3y_range != (50.0, 2000.0):
-                            filters['ret_3y_range'] = ret_3y_range
-                    
-                    # 5Y Return Range (full width) - REALISTIC INDIAN MARKET THRESHOLDS
-                    ret_5y_range = st.slider(
-                        "5Y Return Range (%)",
-                        min_value=0.0,
-                        max_value=10000.0,
-                        value=st.session_state.filter_state.get('ret_5y_range', (75.0, 5000.0)),
-                        step=100.0,
-                        help="Filter by 5-year return range (realistic: 0-10000% for Indian markets)",
-                        key="ret_5y_range_slider",
-                        on_change=sync_performance_custom_range
-                    )
-                    if ret_5y_range != (75.0, 5000.0):
-                        filters['ret_5y_range'] = ret_5y_range
-            
-            # 📊 Volume Intelligence
+            #  Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
                 st.write("**📊 Volume Intelligence**")
                 st.write("🌊 Volume Activity Tiers")
