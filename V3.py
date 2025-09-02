@@ -10257,11 +10257,10 @@ def main():
             #  Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
                 st.write("**📊 Volume Intelligence**")
-                st.write("🌊 Volume Activity Tiers")
                 # Volume tier multiselect with custom range option
                 volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
                 volume_tiers = st.multiselect(
-                    "🌊 Volume Activity Tiers",
+                    "Volume Activity Tiers",
                     options=volume_tier_options,
                     default=st.session_state.filter_state.get('volume_tiers', []),
                     key='volume_tier_multiselect_intelligence',
@@ -10293,11 +10292,10 @@ def main():
             # 🎯 Position Intelligence
             if 'position_tier' in ranked_df_display.columns:
                 st.write("**🎯 Position Intelligence**")
-                st.write("🌍 Position Tiers")
                 # Position tier multiselect with custom range option
                 position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Position Range"]
                 position_tiers = st.multiselect(
-                    "🌍 Position Tiers",
+                    "Position Tiers",
                     options=position_tier_options,
                     default=st.session_state.filter_state.get('position_tiers', []),
                     key='position_tier_multiselect_intelligence',
