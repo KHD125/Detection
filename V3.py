@@ -12718,7 +12718,7 @@ def main():
                                     st.info(pattern)
                         
                         # Additional details in organized tabs
-                        detail_tabs = st.tabs(["📊 Classification", "📈 Performance", "💰 Fundamentals", "🔍 Technicals", "🎯 Advanced"])
+                        detail_tabs = st.tabs(["📊 Classification", "📈 Performance", "💰 Fundamentals", "🔍 Technicals", "📊 Volume", "🎯 Advanced"])
                         
                         with detail_tabs[0]:  # Classification
                             class_col1, class_col2 = st.columns(2)
@@ -13002,7 +13002,213 @@ def main():
                                 
                                 getattr(st, trend_color)(f"**Trend Status:** {trend_status}")
                         
-                        with detail_tabs[4]:  # Advanced Metrics
+                        with detail_tabs[4]:  # Volume Analysis
+                            st.markdown("**📊 Volume Analysis**")
+                            
+                            vol_col1, vol_col2 = st.columns(2)
+                            
+                            with vol_col1:
+                                st.markdown("**📈 Current Volume Metrics**")
+                                volume_data = {
+                                    'Metric': [],
+                                    'Value': []
+                                }
+                                
+                                # Current Volume
+                                if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
+                                    vol_val = stock['volume_1d']
+                                    if vol_val >= 1_000_000:
+                                        vol_str = f"{vol_val/1_000_000:.1f}M"
+                                    elif vol_val >= 1_000:
+                                        vol_str = f"{vol_val/1_000:.0f}K" 
+                                    else:
+                                        vol_str = f"{vol_val:.0f}"
+                                    volume_data['Metric'].append('Current Volume')
+                                    volume_data['Value'].append(vol_str)
+                                
+                                # Relative Volume (RVOL)
+                                if 'rvol' in stock.index and pd.notna(stock['rvol']):
+                                    rvol_val = stock['rvol']
+                                    volume_data['Metric'].append('Relative Volume')
+                                    volume_data['Value'].append(f"{rvol_val:.2f}x")
+                                    
+                                    # Volume interpretation
+                                    if rvol_val >= 10:
+                                        vol_status = "🌋 Volcanic Activity"
+                                        vol_color = "error"
+                                    elif rvol_val >= 5:
+                                        vol_status = "💥 Explosive Volume"
+                                        vol_color = "error" 
+                                    elif rvol_val >= 2:
+                                        vol_status = "🔥 High Activity"
+                                        vol_color = "warning"
+                                    elif rvol_val >= 1.5:
+                                        vol_status = "📈 Growing Interest"
+                                        vol_color = "success"
+                                    elif rvol_val >= 0.5:
+                                        vol_status = "➡️ Normal Activity"
+                                        vol_color = "info"
+                                    else:
+                                        vol_status = "😴 Low Activity"
+                                        vol_color = "warning"
+                                    
+                                    getattr(st, vol_color)(f"**Volume Status:** {vol_status}")
+                                
+                                # VMI (Volume Momentum Index)
+                                if 'vmi' in stock.index and pd.notna(stock['vmi']):
+                                    vmi_val = stock['vmi']
+                                    volume_data['Metric'].append('VMI')
+                                    volume_data['Value'].append(f"{vmi_val:.2f}")
+                                
+                                # Volume Tier
+                                if 'volume_tier' in stock.index and pd.notna(stock['volume_tier']):
+                                    volume_data['Metric'].append('Volume Tier')
+                                    volume_data['Value'].append(stock['volume_tier'])
+                                
+                                if volume_data['Metric']:
+                                    vol_df = pd.DataFrame(volume_data)
+                                    st.dataframe(
+                                        vol_df,
+                                        width="stretch",
+                                        use_container_width=True,
+                                        hide_index=True
+                                    )
+                                else:
+                                    st.info("No volume data available")
+                            
+                            with vol_col2:
+                                st.markdown("**📊 Volume Ratios & Trends**")
+                                
+                                ratio_data = {
+                                    'Period': [],
+                                    'Ratio': [],
+                                    'Status': []
+                                }
+                                
+                                # Volume ratios
+                                volume_ratios = [
+                                    ('vol_ratio_1d_90d', '1D vs 90D'),
+                                    ('vol_ratio_7d_90d', '7D vs 90D'),
+                                    ('vol_ratio_30d_90d', '30D vs 90D'),
+                                    ('vol_ratio_1d_180d', '1D vs 180D'),
+                                    ('vol_ratio_7d_180d', '7D vs 180D'),
+                                    ('vol_ratio_30d_180d', '30D vs 180D'),
+                                    ('vol_ratio_90d_180d', '90D vs 180D')
+                                ]
+                                
+                                for col_name, display_name in volume_ratios:
+                                    if col_name in stock.index and pd.notna(stock[col_name]):
+                                        ratio_val = stock[col_name]
+                                        ratio_data['Period'].append(display_name)
+                                        ratio_data['Ratio'].append(f"{ratio_val:.2f}")
+                                        
+                                        # Status interpretation
+                                        if ratio_val >= 2.0:
+                                            status = "🔥 Very High"
+                                        elif ratio_val >= 1.5:
+                                            status = "📈 High"
+                                        elif ratio_val >= 1.2:
+                                            status = "➕ Above Normal"
+                                        elif ratio_val >= 0.8:
+                                            status = "➡️ Normal"
+                                        elif ratio_val >= 0.5:
+                                            status = "➖ Below Normal"
+                                        else:
+                                            status = "📉 Low"
+                                        
+                                        ratio_data['Status'].append(status)
+                                
+                                if ratio_data['Period']:
+                                    ratio_df = pd.DataFrame(ratio_data)
+                                    st.dataframe(
+                                        ratio_df,
+                                        width="stretch",
+                                        use_container_width=True,
+                                        hide_index=True
+                                    )
+                                else:
+                                    st.info("No volume ratio data available")
+                            
+                            # Volume Score Section
+                            if 'volume_score' in stock.index and pd.notna(stock['volume_score']):
+                                st.markdown("---")
+                                st.markdown("**🎯 Volume Score Analysis**")
+                                
+                                vol_score = stock['volume_score']
+                                score_col1, score_col2, score_col3 = st.columns(3)
+                                
+                                with score_col1:
+                                    if vol_score >= 80:
+                                        score_status = "🔥 Excellent"
+                                        score_color = "success"
+                                    elif vol_score >= 60:
+                                        score_status = "✅ Good"
+                                        score_color = "success"
+                                    elif vol_score >= 40:
+                                        score_status = "⚠️ Average"
+                                        score_color = "warning"
+                                    else:
+                                        score_status = "❌ Poor"
+                                        score_color = "error"
+                                    
+                                    st.metric("Volume Score", f"{vol_score:.0f}/100")
+                                    getattr(st, score_color)(f"**Status:** {score_status}")
+                                
+                                with score_col2:
+                                    # VMI Tier Classification
+                                    if 'vmi_tier' in stock.index and pd.notna(stock['vmi_tier']):
+                                        st.markdown("**VMI Classification**")
+                                        st.info(f"📊 {stock['vmi_tier']}")
+                                
+                                with score_col3:
+                                    # Volume Activity Level
+                                    if 'rvol' in stock.index and pd.notna(stock['rvol']):
+                                        rvol_val = stock['rvol']
+                                        st.markdown("**Activity Level**")
+                                        
+                                        if rvol_val >= 2.0:
+                                            activity = "🔥 High Activity"
+                                        elif rvol_val >= 1.0:
+                                            activity = "📈 Normal+"
+                                        elif rvol_val >= 0.5:
+                                            activity = "➡️ Normal"
+                                        else:
+                                            activity = "😴 Low"
+                                        
+                                        st.info(f"📊 {activity}")
+                            
+                            # Liquidity Analysis
+                            if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
+                                st.markdown("---")
+                                st.markdown("**💧 Liquidity Analysis**")
+                                
+                                volume = stock['volume_1d']
+                                price = stock['price']
+                                turnover = volume * price
+                                
+                                liq_col1, liq_col2 = st.columns(2)
+                                
+                                with liq_col1:
+                                    st.metric("Daily Turnover", f"₹{turnover/10_000_000:.1f}Cr" if turnover >= 10_000_000 else f"₹{turnover/100_000:.1f}L")
+                                
+                                with liq_col2:
+                                    # Liquidity classification
+                                    if turnover >= 100_000_000:  # 10Cr+
+                                        liq_status = "🌊 Highly Liquid"
+                                        liq_color = "success"
+                                    elif turnover >= 10_000_000:  # 1Cr+
+                                        liq_status = "💧 Good Liquidity"
+                                        liq_color = "success"
+                                    elif turnover >= 1_000_000:  # 10L+
+                                        liq_status = "💦 Moderate Liquidity"
+                                        liq_color = "warning"
+                                    else:
+                                        liq_status = "🏜️ Low Liquidity"
+                                        liq_color = "error"
+                                    
+                                    getattr(st, liq_color)(f"**Liquidity:** {liq_status}")
+                        
+                        with detail_tabs[5]:  # Advanced Metrics
                             st.markdown("**🎯 Advanced Metrics**")
                             
                             adv_data = {
