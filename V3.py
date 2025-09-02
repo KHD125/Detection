@@ -285,7 +285,9 @@ class Config:
         'acceleration_score': 'Rate of momentum change (0-100)',
         'breakout_score': 'Probability of price breakout (0-100)',
         'trend_quality': 'SMA alignment quality (0-100)',
-        'liquidity_score': 'Trading liquidity measure (0-100)'
+        'liquidity_score': 'Trading liquidity measure (0-100)',
+        'from_high_pct': 'Distance from 52-week high: 0% = at high, negative values = below high',
+        'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low'
     })
 
 # Global configuration instance
@@ -742,10 +744,11 @@ class DataProcessor:
         """
         # Default for position metrics
         if 'from_low_pct' in df.columns:
-            df['from_low_pct'] = df['from_low_pct'].fillna(50)
+            df['from_low_pct'] = df['from_low_pct'].fillna(0)
         
         if 'from_high_pct' in df.columns:
-            df['from_high_pct'] = df['from_high_pct'].fillna(-50)
+            # FIXED: When from_high_pct is NaN, it means stock is at its high (0% from high)
+            df['from_high_pct'] = df['from_high_pct'].fillna(0)
         
         # Default for Relative Volume (RVOL)
         if 'rvol' in df.columns:
@@ -916,8 +919,13 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
         elif all(col in df.columns for col in ['price', 'low_52w', 'high_52w']):
-            # Calculate position percentage from price data
-            df['position_pct'] = ((df['price'] - df['low_52w']) / (df['high_52w'] - df['low_52w']) * 100).clip(0, 100)
+            # Calculate position percentage from price data with division by zero protection
+            range_52w = df['high_52w'] - df['low_52w']
+            df['position_pct'] = np.where(
+                range_52w > 0,
+                ((df['price'] - df['low_52w']) / range_52w * 100).clip(0, 100),
+                50  # Default to middle position when high equals low
+            )
             df['position_tier'] = df['position_pct'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
@@ -985,7 +993,8 @@ class AdvancedMetrics:
         
         # Position Tension
         if all(col in df.columns for col in ['from_low_pct', 'from_high_pct']):
-            df['position_tension'] = df['from_low_pct'].fillna(50) + abs(df['from_high_pct'].fillna(-50))
+            # FIXED: NaN from_low_pct means at low (0%), NaN from_high_pct means at high (0%)
+            df['position_tension'] = df['from_low_pct'].fillna(0) + abs(df['from_high_pct'].fillna(0))
         else:
             df['position_tension'] = pd.Series(np.nan, index=df.index)
         
@@ -1017,11 +1026,12 @@ class AdvancedMetrics:
         # Overall Market Strength (renamed from wave strength)
         score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
         if all(col in df.columns for col in score_cols):
+            # FIXED: Use 0 for missing scores instead of arbitrary 50
             df['overall_market_strength'] = (
-                df['momentum_score'].fillna(50) * 0.3 +
-                df['acceleration_score'].fillna(50) * 0.3 +
-                df['rvol_score'].fillna(50) * 0.2 +
-                df['breakout_score'].fillna(50) * 0.2
+                df['momentum_score'].fillna(0) * 0.3 +
+                df['acceleration_score'].fillna(0) * 0.3 +
+                df['rvol_score'].fillna(0) * 0.2 +
+                df['breakout_score'].fillna(0) * 0.2
             )
         else:
             df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
@@ -1623,7 +1633,8 @@ class RankingEngine:
                 # BEAR MARKET: Boost position scores for stocks near 52w lows by 10%
                 elif market_regime['regime'] in ['BEAR_MARKET', 'MILD_BEAR']:
                     if 'from_low_pct' in df.columns and 'position_score' in df.columns:
-                        bear_boost_mask = valid_scores & (df['from_low_pct'].fillna(100) < 20)
+                        # FIXED: Use 999 to exclude NaN values from boost (they're at the low)
+                        bear_boost_mask = valid_scores & (df['from_low_pct'].fillna(999) < 20)
                         if bear_boost_mask.any():
                             # Boost position score as specified, not master score
                             df.loc[bear_boost_mask, 'position_score'] *= 1.10
@@ -1764,7 +1775,7 @@ class RankingEngine:
             df['has_minimum_data'],
             (
                 df['data_completeness'] * 0.40 +  # Data availability
-                np.minimum(df['liquidity_score'].fillna(30), 100) * 0.30 +  # Liquidity
+                np.minimum(df['liquidity_score'].fillna(0), 100) * 0.30 +  # FIXED: Use 0 for missing liquidity
                 (100 - np.abs(df['percentile'] - 50)) * 0.30  # Rank stability
             ) / 100,
             0
