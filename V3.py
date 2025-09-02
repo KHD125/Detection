@@ -1943,10 +1943,22 @@ class RankingEngine:
                 if max_val == float('inf'):
                     max_val = filtered_df[col].max() + 1
                 
-                # Apply filter
-                mask = (filtered_df[col] >= min_val) & (filtered_df[col] <= max_val)
+                # Apply filter with proper NaN handling
+                # NaN values are INCLUDED (not filtered out) - only filter stocks with actual data
+                if col in filtered_df.columns:
+                    valid_data = filtered_df[col].notna()
+                    
+                    # Apply filter only to non-NaN values
+                    filter_mask = valid_data.copy()
+                    filter_mask[valid_data] = (
+                        (filtered_df.loc[valid_data, col] >= min_val) & 
+                        (filtered_df.loc[valid_data, col] <= max_val)
+                    )
+                    # Stocks with NaN values pass through (filter_mask remains True for NaN rows)
+                    filter_mask[~valid_data] = True
+                
                 pre_filter = len(filtered_df)
-                filtered_df = filtered_df[mask]
+                filtered_df = filtered_df[filter_mask]
                 post_filter = len(filtered_df)
                 
                 if log_details and pre_filter != post_filter:
