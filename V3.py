@@ -7869,7 +7869,25 @@ class FilterEngine:
         
         # 5.6. Performance Filters - Apply to display filtering as well as ranking
         # This ensures Performance Filters work in both the ranking engine AND the display table
-        if hasattr(PERFORMANCE_CONFIG, 'ENABLE_PERFORMANCE_FILTER') and PERFORMANCE_CONFIG.ENABLE_PERFORMANCE_FILTER:
+        if 'performance_filters' in filters and filters['performance_filters']:
+            # Apply each active performance filter from the filters dict
+            for timeframe, filter_def in filters['performance_filters'].items():
+                if timeframe in df.columns:
+                    min_val = filter_def.get('min', -float('inf'))
+                    max_val = filter_def.get('max', float('inf'))
+                    
+                    # Handle infinite values  
+                    if min_val == -float('inf'):
+                        min_val = df[timeframe].min() - 1 if df[timeframe].notna().any() else -1000
+                    if max_val == float('inf'):
+                        max_val = df[timeframe].max() + 1 if df[timeframe].notna().any() else 1000
+                    
+                    # Apply performance filter mask
+                    perf_mask = (df[timeframe] >= min_val) & (df[timeframe] <= max_val)
+                    masks.append(perf_mask)
+                    logger.info(f"Applied display filter {timeframe}: {min_val} to {max_val} ({perf_mask.sum()} stocks pass)")
+        # BACKUP: Also check direct PERFORMANCE_CONFIG for compatibility  
+        elif hasattr(PERFORMANCE_CONFIG, 'ENABLE_PERFORMANCE_FILTER') and PERFORMANCE_CONFIG.ENABLE_PERFORMANCE_FILTER:
             if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
                 # Apply each active performance filter
                 for timeframe, filter_def in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
@@ -10324,7 +10342,7 @@ def main():
         with st.expander("📊 Performance Filters", expanded=False):
             st.markdown("**Filter stocks based on return performance across multiple timeframes**")
             
-            # Add sync functions for performance filters
+            # Add sync functions for performance filters (FIXED - no st.rerun() in callback)
             def sync_performance_filter(timeframe):
                 def sync_func():
                     preset_key = f"{timeframe}_preset"
@@ -10345,6 +10363,8 @@ def main():
                                         'max': float(max_val)
                                     }
                                     logger.info(f"Set custom {timeframe} filter: {min_val}% to {max_val}%")
+                                else:
+                                    logger.warning(f"Custom range selected but no range value found for {timeframe}")
                             else:
                                 # Use preset values
                                 filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
@@ -10360,8 +10380,9 @@ def main():
                                 logger.info(f"Removed {timeframe} filter")
                         
                         logger.info(f"Active performance filters: {PERFORMANCE_CONFIG.ACTIVE_FILTERS}")
-                        # Trigger rerun to update display table
-                        st.rerun()
+                        
+                        # Mark state as changed to trigger refresh on next interaction (FIXED - no immediate rerun)
+                        st.session_state['performance_filters_changed'] = True
                 return sync_func
             
             # Display performance filters for each timeframe - IMPROVED LAYOUT like Score Component
@@ -10781,9 +10802,38 @@ def main():
             FilterEngine.clear_all_filters()
             SessionStateManager.clear_filters()
             
+            # CRITICAL: Also clear Performance Filters
+            PERFORMANCE_CONFIG.ACTIVE_FILTERS.clear()
+            
+            # Clear performance filter session state keys
+            keys_to_clear = []
+            for key in st.session_state.keys():
+                if any(timeframe in key for timeframe in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']):
+                    if key.endswith('_preset') or key.endswith('_range'):
+                        keys_to_clear.append(key)
+            
+            for key in keys_to_clear:
+                if key in st.session_state:
+                    del st.session_state[key]
+            
+            logger.info("Cleared all filters including Performance Filters")
+            
             st.success("✅ All filters cleared!")
             time.sleep(0.3)
             st.rerun()
+    
+    # Add Performance Filters to the filters dict (CRITICAL FIX)
+    # This ensures Performance Filters work in display filtering, not just ranking
+    if hasattr(PERFORMANCE_CONFIG, 'ACTIVE_FILTERS') and PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+        # Check if filters have changed to trigger refresh
+        if st.session_state.get('performance_filters_changed', False):
+            st.session_state['performance_filters_changed'] = False
+            # Force refresh by marking filtered data as stale
+            st.session_state.pop('cached_filtered_df', None)
+        
+        # Add Performance Filters to main filters dict
+        filters['performance_filters'] = PERFORMANCE_CONFIG.ACTIVE_FILTERS.copy()
+        logger.info(f"Added Performance Filters to display: {filters['performance_filters']}")
     
     # Apply filters (outside sidebar)
     if quick_filter_applied:
@@ -10840,6 +10890,22 @@ def main():
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
                 FilterEngine.clear_all_filters()
                 SessionStateManager.clear_filters()
+                
+                # CRITICAL: Also clear Performance Filters
+                PERFORMANCE_CONFIG.ACTIVE_FILTERS.clear()
+                
+                # Clear performance filter session state keys
+                keys_to_clear = []
+                for key in st.session_state.keys():
+                    if any(timeframe in key for timeframe in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']):
+                        if key.endswith('_preset') or key.endswith('_range'):
+                            keys_to_clear.append(key)
+                
+                for key in keys_to_clear:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                
+                logger.info("Cleared all filters including Performance Filters")
                 st.rerun()
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
