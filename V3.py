@@ -7484,6 +7484,13 @@ class FilterEngine:
         if filters.get('breakout_score_range') != (0, 100): count += 1
         if filters.get('rvol_score_range') != (0, 100): count += 1
         
+        # Add Performance Filters to active count
+        try:
+            if hasattr(PERFORMANCE_CONFIG, 'ACTIVE_FILTERS') and PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                count += len(PERFORMANCE_CONFIG.ACTIVE_FILTERS)
+        except Exception:
+            pass  # Ignore if PERFORMANCE_CONFIG not available
+        
         return count
     
     @staticmethod
@@ -7690,6 +7697,13 @@ class FilterEngine:
             del st.session_state[key]
             deleted_count += 1
         
+        # CRITICAL: Clear Performance Filters as well
+        try:
+            RankingEngine.PerformanceFilter.clear_all_performance_filters()
+            logger.info("Performance filters cleared along with other filters")
+        except Exception as e:
+            logger.warning(f"Could not clear performance filters: {e}")
+        
         logger.info(f"All filters and widget states cleared successfully. Deleted {deleted_count} keys total.")
     
     @staticmethod
@@ -7853,115 +7867,12 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.6. Performance Intelligence filters
-        if 'performance_tiers' in filters:
-            selected_tiers = filters['performance_tiers']
-            # Only apply preset tier filtering if "Custom Range" is not selected
-            custom_range_in_tiers = any("Custom Range" in tier for tier in selected_tiers) if selected_tiers else False
-            if selected_tiers and not custom_range_in_tiers:
-                masks.append(create_mask_from_isin('performance_tier', selected_tiers))
+        # 5.6. REMOVED: Old Performance Intelligence filters (replaced by new Performance Filter system)
+        # The new Performance Filter system is integrated directly into the ranking engine (PHASE 3.7)
+        # and uses PERFORMANCE_CONFIG.ACTIVE_FILTERS instead of performance_tiers
         
-        # Custom performance range filter (only apply if actual range filters are modified from defaults)
-        custom_range_selected = 'performance_tiers' in filters and any("Custom Range" in tier for tier in filters['performance_tiers'])
-        
-        if custom_range_selected:
-            # Define default ranges for each timeframe (MUST MATCH UI EXACTLY) - REALISTIC INDIAN MARKET THRESHOLDS
-            default_ranges = {
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0)
-            }
-            
-            # Only apply filters for ranges that have been modified from defaults
-            active_custom_ranges = []
-            
-            # Short-term performance ranges
-            if 'ret_1d_range' in filters and 'ret_1d' in df.columns:
-                range_val = filters['ret_1d_range']
-                if range_val != default_ranges['ret_1d_range']:
-                    masks.append(df['ret_1d'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_1d_range')
-            
-            if 'ret_3d_range' in filters and 'ret_3d' in df.columns:
-                range_val = filters['ret_3d_range']
-                if range_val != default_ranges['ret_3d_range']:
-                    masks.append(df['ret_3d'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_3d_range')
-            
-            if 'ret_7d_range' in filters and 'ret_7d' in df.columns:
-                range_val = filters['ret_7d_range']
-                if range_val != default_ranges['ret_7d_range']:
-                    masks.append(df['ret_7d'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_7d_range')
-            
-            if 'ret_30d_range' in filters and 'ret_30d' in df.columns:
-                range_val = filters['ret_30d_range']
-                if range_val != default_ranges['ret_30d_range']:
-                    masks.append(df['ret_30d'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_30d_range')
-            
-            # Medium-term performance ranges
-            if 'ret_3m_range' in filters and 'ret_3m' in df.columns:
-                range_val = filters['ret_3m_range']
-                if range_val != default_ranges['ret_3m_range']:
-                    masks.append(df['ret_3m'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_3m_range')
-            
-            if 'ret_6m_range' in filters and 'ret_6m' in df.columns:
-                range_val = filters['ret_6m_range']
-                if range_val != default_ranges['ret_6m_range']:
-                    masks.append(df['ret_6m'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_6m_range')
-            
-            # Long-term performance ranges
-            if 'ret_1y_range' in filters and 'ret_1y' in df.columns:
-                range_val = filters['ret_1y_range']
-                if range_val != default_ranges['ret_1y_range']:
-                    masks.append(df['ret_1y'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_1y_range')
-            
-            if 'ret_3y_range' in filters and 'ret_3y' in df.columns:
-                range_val = filters['ret_3y_range']
-                if range_val != default_ranges['ret_3y_range']:
-                    masks.append(df['ret_3y'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_3y_range')
-            
-            if 'ret_5y_range' in filters and 'ret_5y' in df.columns:
-                range_val = filters['ret_5y_range']
-                if range_val != default_ranges['ret_5y_range']:
-                    masks.append(df['ret_5y'].between(range_val[0], range_val[1], inclusive='both'))
-                    active_custom_ranges.append('ret_5y_range')
-            
-            # CRITICAL FIX: If Custom Range is selected but no ranges are modified,
-            # don't apply any performance filtering (show all stocks)
-            # This prevents the "0 stocks" issue when just selecting Custom Range
-            if not active_custom_ranges:
-                # No custom ranges are active, so don't filter by performance
-                pass  # This effectively shows all stocks for performance filtering
-            else:
-                logger.info(f"Active custom ranges: {active_custom_ranges}")
-            
-            # Legacy support for old performance_custom_range
-            if 'performance_custom_range' in filters:
-                perf_range = filters['performance_custom_range']
-                # Apply Custom Range to any available return percentage column
-                perf_masks = []
-                for col in ['ret_1d', 'ret_7d', 'ret_30d']:
-                    if col in df.columns:
-                        perf_masks.append(df[col].between(perf_range[0], perf_range[1], inclusive='both'))
-                if perf_masks:
-                    # Use OR logic - stock qualifies if it meets the range in ANY timeframe
-                    combined_mask = perf_masks[0]
-                    for mask in perf_masks[1:]:
-                        combined_mask = combined_mask | mask
-                    masks.append(combined_mask)
-        
+        # Custom performance range filter - REMOVED (replaced by new system)
+        # The new Performance Filter system handles all performance filtering in the ranking engine
         # 5.7. Volume Intelligence filters
         if 'volume_tiers' in filters:
             selected_tiers = filters['volume_tiers']
@@ -9845,34 +9756,6 @@ def main():
             if 'position_range_slider' in st.session_state:
                 st.session_state.filter_state['position_range'] = st.session_state.position_range_slider
         
-        def sync_performance_tier():
-            if 'performance_tier_multiselect_intelligence' in st.session_state:
-                st.session_state.filter_state['performance_tiers'] = st.session_state.performance_tier_multiselect_intelligence
-        
-        def sync_performance_custom_range():
-            # Sync individual range sliders for all timeframes
-            if 'ret_1d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_1d_range'] = st.session_state.ret_1d_range_slider
-            if 'ret_3d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3d_range'] = st.session_state.ret_3d_range_slider
-            if 'ret_7d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_7d_range'] = st.session_state.ret_7d_range_slider
-            if 'ret_30d_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_30d_range'] = st.session_state.ret_30d_range_slider
-            if 'ret_3m_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3m_range'] = st.session_state.ret_3m_range_slider
-            if 'ret_6m_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_6m_range'] = st.session_state.ret_6m_range_slider
-            if 'ret_1y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_1y_range'] = st.session_state.ret_1y_range_slider
-            if 'ret_3y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_3y_range'] = st.session_state.ret_3y_range_slider
-            if 'ret_5y_range_slider' in st.session_state:
-                st.session_state.filter_state['ret_5y_range'] = st.session_state.ret_5y_range_slider
-            # Legacy support
-            if 'performance_custom_range_slider' in st.session_state:
-                st.session_state.filter_state['performance_custom_range'] = st.session_state.performance_custom_range_slider
-        
         def sync_volume_tier():
             if 'volume_tier_multiselect_intelligence' in st.session_state:
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
@@ -10424,185 +10307,221 @@ def main():
                     elif rvol_score_selection == "🔴 Weak (< 40)":
                         filters['rvol_score_range'] = (0, 39)
         
+        # 📊 Performance Filters - Comprehensive Return-Based Filtering  
+        with st.expander("📊 Performance Filters", expanded=False):
+            st.markdown("**Filter stocks based on return performance across multiple timeframes**")
+            
+            # Add sync functions for performance filters
+            def sync_performance_filter(timeframe):
+                def sync_func():
+                    preset_key = f"{timeframe}_preset"
+                    range_key = f"{timeframe}_range"
+                    
+                    if preset_key in st.session_state:
+                        preset_value = st.session_state[preset_key]
+                        if preset_value != "All Returns":
+                            if preset_value == "🎯 Custom Range":
+                                # Use custom range if available
+                                if range_key in st.session_state:
+                                    range_val = st.session_state[range_key]
+                                    min_val, max_val = range_val if isinstance(range_val, tuple) else (range_val, range_val)
+                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = {
+                                        'min': float(min_val),
+                                        'max': float(max_val)
+                                    }
+                            else:
+                                # Use preset values
+                                filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
+                                if filter_def:
+                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_def
+                        else:
+                            # Remove filter
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                return sync_func
+            
+            # Display performance filters for each timeframe - IMPROVED LAYOUT like Score Component
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+            
+            if available_return_cols:
+                # Short-term returns (1D, 3D, 7D) - One per row like Score Component
+                for timeframe in ['ret_1d', 'ret_3d', 'ret_7d']:
+                    if timeframe in available_return_cols and timeframe in PERFORMANCE_CONFIG.FILTER_PRESETS:
+                        config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
+                        
+                        # Create preset options
+                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                        
+                        # Get current selection
+                        current_preset = "All Returns"
+                        if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                            # Try to match current filter to a preset
+                            current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                            for preset in config['presets']:
+                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                if (preset_filter.get('min') == current_filter.get('min') and 
+                                    preset_filter.get('max') == current_filter.get('max')):
+                                    current_preset = preset['label']
+                                    break
+                            else:
+                                current_preset = "🎯 Custom Range"
+                        
+                        # Preset selection
+                        selected_preset = st.selectbox(
+                            config['name'],
+                            options=preset_options,
+                            index=preset_options.index(current_preset) if current_preset in preset_options else 0,
+                            key=f"{timeframe}_preset",
+                            on_change=sync_performance_filter(timeframe),
+                            help=f"Filter by {config['name'].lower()} performance"
+                        )
+                        
+                        # Custom range slider (only show if custom range selected)
+                        if selected_preset == "🎯 Custom Range":
+                            min_range, max_range = config['slider_range']
+                            step = config['slider_step']
+                            
+                            # Get current custom range or use defaults
+                            current_range = (float(min_range), float(max_range))
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                filter_def = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                current_range = (float(filter_def.get('min', min_range)), float(filter_def.get('max', max_range)))
+                            
+                            custom_range = st.slider(
+                                f"Custom {config['name']} Range (%)",
+                                min_value=float(min_range),
+                                max_value=float(max_range),
+                                value=current_range,
+                                step=float(step),
+                                key=f"{timeframe}_range",
+                                on_change=sync_performance_filter(timeframe),
+                                help=f"Set custom range for {config['name'].lower()}"
+                            )
+                
+                # Medium-term returns (30D, 3M, 6M) - One per row like Score Component  
+                for timeframe in ['ret_30d', 'ret_3m', 'ret_6m']:
+                    if timeframe in available_return_cols and timeframe in PERFORMANCE_CONFIG.FILTER_PRESETS:
+                        config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
+                        
+                        # Create preset options
+                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                        
+                        # Get current selection
+                        current_preset = "All Returns"
+                        if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                            # Try to match current filter to a preset
+                            current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                            for preset in config['presets']:
+                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                if (preset_filter.get('min') == current_filter.get('min') and 
+                                    preset_filter.get('max') == current_filter.get('max')):
+                                    current_preset = preset['label']
+                                    break
+                            else:
+                                current_preset = "🎯 Custom Range"
+                        
+                        # Preset selection
+                        selected_preset = st.selectbox(
+                            config['name'],
+                            options=preset_options,
+                            index=preset_options.index(current_preset) if current_preset in preset_options else 0,
+                            key=f"{timeframe}_preset",
+                            on_change=sync_performance_filter(timeframe),
+                            help=f"Filter by {config['name'].lower()} performance"
+                        )
+                        
+                        # Custom range slider (only show if custom range selected)
+                        if selected_preset == "🎯 Custom Range":
+                            min_range, max_range = config['slider_range']
+                            step = config['slider_step']
+                            
+                            # Get current custom range or use defaults
+                            current_range = (float(min_range), float(max_range))
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                filter_def = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                current_range = (float(filter_def.get('min', min_range)), float(filter_def.get('max', max_range)))
+                            
+                            custom_range = st.slider(
+                                f"Custom {config['name']} Range (%)",
+                                min_value=float(min_range),
+                                max_value=float(max_range),
+                                value=current_range,
+                                step=float(step),
+                                key=f"{timeframe}_range",
+                                on_change=sync_performance_filter(timeframe),
+                                help=f"Set custom range for {config['name'].lower()}"
+                            )
+                
+                # Long-term returns (1Y, 3Y, 5Y) - One per row like Score Component
+                for timeframe in ['ret_1y', 'ret_3y', 'ret_5y']:
+                    if timeframe in available_return_cols and timeframe in PERFORMANCE_CONFIG.FILTER_PRESETS:
+                        config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
+                        
+                        # Create preset options
+                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
+                        
+                        # Get current selection
+                        current_preset = "All Returns"
+                        if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                            # Try to match current filter to a preset
+                            current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                            for preset in config['presets']:
+                                preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
+                                if (preset_filter.get('min') == current_filter.get('min') and 
+                                    preset_filter.get('max') == current_filter.get('max')):
+                                    current_preset = preset['label']
+                                    break
+                            else:
+                                current_preset = "🎯 Custom Range"
+                        
+                        # Preset selection
+                        selected_preset = st.selectbox(
+                            config['name'],
+                            options=preset_options,
+                            index=preset_options.index(current_preset) if current_preset in preset_options else 0,
+                            key=f"{timeframe}_preset",
+                            on_change=sync_performance_filter(timeframe),
+                            help=f"Filter by {config['name'].lower()} performance"
+                        )
+                        
+                        # Custom range slider (only show if custom range selected)
+                        if selected_preset == "🎯 Custom Range":
+                            min_range, max_range = config['slider_range']
+                            step = config['slider_step']
+                            
+                            # Get current custom range or use defaults
+                            current_range = (float(min_range), float(max_range))
+                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                                filter_def = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                current_range = (float(filter_def.get('min', min_range)), float(filter_def.get('max', max_range)))
+                            
+                            custom_range = st.slider(
+                                f"Custom {config['name']} Range (%)",
+                                min_value=float(min_range),
+                                max_value=float(max_range),
+                                value=current_range,
+                                step=float(step),
+                                key=f"{timeframe}_range",
+                                on_change=sync_performance_filter(timeframe),
+                                help=f"Set custom range for {config['name'].lower()}"
+                            )
+            
+            # Show active performance filters summary
+            if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                st.markdown("**Active Performance Filters:**")
+                active_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
+                st.info(f"🎯 {active_summary}")
+                
+                # Clear performance filters button
+                if st.button("🗑️ Clear Performance Filters", type="secondary"):
+                    RankingEngine.PerformanceFilter.clear_all_performance_filters()
+                    st.success("✅ Performance filters cleared!")
+                    st.rerun()
+            else:
+                st.info("ℹ️ No performance filters active")
+        
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
-            # 📈 Performance Intelligence
-            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
-            if available_return_cols:
-                st.write("**📈 Performance Intelligence**")
-                # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
-                performance_options = [
-                    # Short-term momentum (Practical thresholds for Indian markets)
-                    "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
-                    "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
-                    "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
-                    "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
-                    "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
-                    
-                    # Medium-term growth (Adjusted for market reality)
-                    "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
-                    "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
-                    "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
-                    
-                    # Long-term performance (Fixed emoji + realistic thresholds)
-                    "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
-                    "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
-                    "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
-                    
-                    # Custom range option
-                    "🎯 Custom Range"
-                ]
-                
-                performance_tiers = st.multiselect(
-                    "📈 Performance Filter",
-                    options=performance_options,
-                    default=st.session_state.filter_state.get('performance_tiers', []),
-                    key='performance_tier_multiselect_intelligence',
-                    on_change=sync_performance_tier,
-                    help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
-                )
-                
-                if performance_tiers:
-                    filters['performance_tiers'] = performance_tiers
-                
-                # Show custom range sliders when "🎯 Custom Range" is selected
-                custom_performance_range_selected = any("Custom Range" in tier for tier in performance_tiers) if performance_tiers else False
-                if custom_performance_range_selected:
-                    st.write("📊 **Custom Performance Range Filters**")
-                    
-                    # Short-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        ret_1d_range = st.slider(
-                            "1D Return Range (%)",
-                            min_value=0.0,
-                            max_value=50.0,
-                            value=st.session_state.filter_state.get('ret_1d_range', (2.0, 25.0)),
-                            step=0.5,
-                            help="Filter by 1-day return range (realistic: 0-50% for Indian markets)",
-                            key="ret_1d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1d_range != (2.0, 25.0):
-                            filters['ret_1d_range'] = ret_1d_range
-                    
-                    with col2:
-                        ret_3d_range = st.slider(
-                            "3D Return Range (%)",
-                            min_value=0.0,
-                            max_value=100.0,
-                            value=st.session_state.filter_state.get('ret_3d_range', (3.0, 50.0)),
-                            step=1.0,
-                            help="Filter by 3-day return range (realistic: 0-100% for Indian markets)",
-                            key="ret_3d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3d_range != (3.0, 50.0):
-                            filters['ret_3d_range'] = ret_3d_range
-                    
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        ret_7d_range = st.slider(
-                            "7D Return Range (%)",
-                            min_value=0.0,
-                            max_value=150.0,
-                            value=st.session_state.filter_state.get('ret_7d_range', (5.0, 75.0)),
-                            step=1.0,
-                            help="Filter by 7-day return range (realistic: 0-150% for Indian markets)",
-                            key="ret_7d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_7d_range != (5.0, 75.0):
-                            filters['ret_7d_range'] = ret_7d_range
-                    
-                    with col4:
-                        ret_30d_range = st.slider(
-                            "30D Return Range (%)",
-                            min_value=0.0,
-                            max_value=300.0,
-                            value=st.session_state.filter_state.get('ret_30d_range', (10.0, 150.0)),
-                            step=5.0,
-                            help="Filter by 30-day return range (realistic: 0-300% for Indian markets)",
-                            key="ret_30d_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_30d_range != (10.0, 150.0):
-                            filters['ret_30d_range'] = ret_30d_range
-                    
-                    # Medium-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col5, col6 = st.columns(2)
-                    with col5:
-                        ret_3m_range = st.slider(
-                            "3M Return Range (%)",
-                            min_value=0.0,
-                            max_value=500.0,
-                            value=st.session_state.filter_state.get('ret_3m_range', (15.0, 200.0)),
-                            step=5.0,
-                            help="Filter by 3-month return range (realistic: 0-500% for Indian markets)",
-                            key="ret_3m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3m_range != (15.0, 200.0):
-                            filters['ret_3m_range'] = ret_3m_range
-                    
-                    with col6:
-                        ret_6m_range = st.slider(
-                            "6M Return Range (%)",
-                            min_value=0.0,
-                            max_value=1000.0,
-                            value=st.session_state.filter_state.get('ret_6m_range', (20.0, 500.0)),
-                            step=10.0,
-                            help="Filter by 6-month return range (realistic: 0-1000% for Indian markets)",
-                            key="ret_6m_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_6m_range != (20.0, 500.0):
-                            filters['ret_6m_range'] = ret_6m_range
-                    
-                    # Long-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
-                    col7, col8 = st.columns(2)
-                    with col7:
-                        ret_1y_range = st.slider(
-                            "1Y Return Range (%)",
-                            min_value=0.0,
-                            max_value=2000.0,
-                            value=st.session_state.filter_state.get('ret_1y_range', (25.0, 1000.0)),
-                            step=25.0,
-                            help="Filter by 1-year return range (realistic: 0-2000% for Indian markets)",
-                            key="ret_1y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_1y_range != (25.0, 1000.0):
-                            filters['ret_1y_range'] = ret_1y_range
-                    
-                    with col8:
-                        ret_3y_range = st.slider(
-                            "3Y Return Range (%)",
-                            min_value=0.0,
-                            max_value=5000.0,
-                            value=st.session_state.filter_state.get('ret_3y_range', (50.0, 2000.0)),
-                            step=50.0,
-                            help="Filter by 3-year return range (realistic: 0-5000% for Indian markets)",
-                            key="ret_3y_range_slider",
-                            on_change=sync_performance_custom_range
-                        )
-                        if ret_3y_range != (50.0, 2000.0):
-                            filters['ret_3y_range'] = ret_3y_range
-                    
-                    # 5Y Return Range (full width) - REALISTIC INDIAN MARKET THRESHOLDS
-                    ret_5y_range = st.slider(
-                        "5Y Return Range (%)",
-                        min_value=0.0,
-                        max_value=10000.0,
-                        value=st.session_state.filter_state.get('ret_5y_range', (75.0, 5000.0)),
-                        step=100.0,
-                        help="Filter by 5-year return range (realistic: 0-10000% for Indian markets)",
-                        key="ret_5y_range_slider",
-                        on_change=sync_performance_custom_range
-                    )
-                    if ret_5y_range != (75.0, 5000.0):
-                        filters['ret_5y_range'] = ret_5y_range
-            
             # 📊 Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
                 st.write("**📊 Volume Intelligence**")
@@ -10809,112 +10728,6 @@ def main():
                 
                 if require_fundamental:
                     filters['require_fundamental_data'] = True
-        
-        # 📊 Performance Filters - NEW COMPREHENSIVE SECTION
-        with st.expander("📊 Performance Filters", expanded=False):
-            st.markdown("**Filter stocks based on return performance across multiple timeframes**")
-            
-            # Add sync functions for performance filters
-            def sync_performance_filter(timeframe):
-                def sync_func():
-                    preset_key = f"{timeframe}_preset"
-                    range_key = f"{timeframe}_range"
-                    
-                    if preset_key in st.session_state:
-                        preset_value = st.session_state[preset_key]
-                        if preset_value != "All Returns":
-                            if preset_value == "🎯 Custom Range":
-                                # Use custom range if available
-                                if range_key in st.session_state:
-                                    min_val, max_val = st.session_state[range_key]
-                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = {
-                                        'min': min_val,
-                                        'max': max_val
-                                    }
-                            else:
-                                # Use preset values
-                                filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
-                                if filter_def:
-                                    PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_def
-                        else:
-                            # Remove filter
-                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
-                                del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
-                return sync_func
-            
-            # Display performance filters for each timeframe
-            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
-            
-            if available_return_cols:
-                cols = st.columns(3)
-                
-                for i, timeframe in enumerate(available_return_cols):
-                    if timeframe in PERFORMANCE_CONFIG.FILTER_PRESETS:
-                        config = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]
-                        
-                        with cols[i % 3]:
-                            # Create preset options
-                            preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
-                            
-                            # Get current selection
-                            current_preset = "All Returns"
-                            if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
-                                # Try to match current filter to a preset
-                                current_filter = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
-                                for preset in config['presets']:
-                                    preset_filter = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset['label'])
-                                    if (preset_filter.get('min') == current_filter.get('min') and 
-                                        preset_filter.get('max') == current_filter.get('max')):
-                                        current_preset = preset['label']
-                                        break
-                                else:
-                                    current_preset = "🎯 Custom Range"
-                            
-                            # Preset selection
-                            selected_preset = st.selectbox(
-                                config['name'],
-                                options=preset_options,
-                                index=preset_options.index(current_preset) if current_preset in preset_options else 0,
-                                key=f"{timeframe}_preset",
-                                on_change=sync_performance_filter(timeframe),
-                                help=f"Filter by {config['name'].lower()} performance"
-                            )
-                            
-                            # Custom range slider (only show if custom range selected)
-                            if selected_preset == "🎯 Custom Range":
-                                min_range, max_range = config['slider_range']
-                                step = config['slider_step']
-                                
-                                # Get current custom range or use defaults
-                                current_range = (min_range, max_range)
-                                if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
-                                    filter_def = PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
-                                    current_range = (filter_def.get('min', min_range), filter_def.get('max', max_range))
-                                
-                                custom_range = st.slider(
-                                    f"Custom {config['name']} Range (%)",
-                                    min_value=float(min_range),
-                                    max_value=float(max_range),
-                                    value=current_range,
-                                    step=float(step),
-                                    key=f"{timeframe}_range",
-                                    on_change=sync_performance_filter(timeframe),
-                                    help=f"Set custom range for {config['name'].lower()}"
-                                )
-            
-            # Show active performance filters summary
-            if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
-                st.markdown("**Active Performance Filters:**")
-                active_summary = RankingEngine.PerformanceFilter.get_active_filter_summary()
-                st.info(f"🎯 {active_summary}")
-                
-                # Clear performance filters button
-                if st.button("🗑️ Clear Performance Filters", type="secondary"):
-                    RankingEngine.PerformanceFilter.clear_all_performance_filters()
-                    st.success("✅ Performance filters cleared!")
-                    st.rerun()
-            else:
-                st.info("ℹ️ No performance filters active")
         
         # Count active filters using FilterEngine method
         active_filter_count = FilterEngine.get_active_count()
