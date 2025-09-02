@@ -1599,7 +1599,7 @@ class RankingEngine:
                 
             presets = PERFORMANCE_CONFIG.FILTER_PRESETS[timeframe]['presets']
             for preset in presets:
-                if preset['label'] in preset_label:
+                if preset['label'] == preset_label:
                     return {
                         'min': preset['min'] if preset['min'] is not None else -float('inf'),
                         'max': preset['max'] if preset['max'] is not None else float('inf')
@@ -7867,12 +7867,25 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.6. REMOVED: Old Performance Intelligence filters (replaced by new Performance Filter system)
-        # The new Performance Filter system is integrated directly into the ranking engine (PHASE 3.7)
-        # and uses PERFORMANCE_CONFIG.ACTIVE_FILTERS instead of performance_tiers
-        
-        # Custom performance range filter - REMOVED (replaced by new system)
-        # The new Performance Filter system handles all performance filtering in the ranking engine
+        # 5.6. Performance Filters - Apply to display filtering as well as ranking
+        # This ensures Performance Filters work in both the ranking engine AND the display table
+        if hasattr(PERFORMANCE_CONFIG, 'ENABLE_PERFORMANCE_FILTER') and PERFORMANCE_CONFIG.ENABLE_PERFORMANCE_FILTER:
+            if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+                # Apply each active performance filter
+                for timeframe, filter_def in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
+                    if timeframe in df.columns:
+                        min_val = filter_def.get('min', -float('inf'))
+                        max_val = filter_def.get('max', float('inf'))
+                        
+                        # Handle infinite values  
+                        if min_val == -float('inf'):
+                            min_val = df[timeframe].min() - 1 if df[timeframe].notna().any() else -1000
+                        if max_val == float('inf'):
+                            max_val = df[timeframe].max() + 1 if df[timeframe].notna().any() else 1000
+                        
+                        # Apply performance filter mask
+                        perf_mask = (df[timeframe] >= min_val) & (df[timeframe] <= max_val)
+                        masks.append(perf_mask)
         # 5.7. Volume Intelligence filters
         if 'volume_tiers' in filters:
             selected_tiers = filters['volume_tiers']
@@ -10319,6 +10332,8 @@ def main():
                     
                     if preset_key in st.session_state:
                         preset_value = st.session_state[preset_key]
+                        logger.info(f"Performance filter sync: {timeframe} = {preset_value}")
+                        
                         if preset_value != "All Returns":
                             if preset_value == "🎯 Custom Range":
                                 # Use custom range if available
@@ -10329,15 +10344,24 @@ def main():
                                         'min': float(min_val),
                                         'max': float(max_val)
                                     }
+                                    logger.info(f"Set custom {timeframe} filter: {min_val}% to {max_val}%")
                             else:
                                 # Use preset values
                                 filter_def = RankingEngine.PerformanceFilter.get_preset_filter(timeframe, preset_value)
                                 if filter_def:
                                     PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe] = filter_def
+                                    logger.info(f"Set preset {timeframe} filter: {preset_value} ({filter_def})")
+                                else:
+                                    logger.warning(f"Could not find preset definition for {timeframe} = {preset_value}")
                         else:
                             # Remove filter
                             if timeframe in PERFORMANCE_CONFIG.ACTIVE_FILTERS:
                                 del PERFORMANCE_CONFIG.ACTIVE_FILTERS[timeframe]
+                                logger.info(f"Removed {timeframe} filter")
+                        
+                        logger.info(f"Active performance filters: {PERFORMANCE_CONFIG.ACTIVE_FILTERS}")
+                        # Trigger rerun to update display table
+                        st.rerun()
                 return sync_func
             
             # Display performance filters for each timeframe - IMPROVED LAYOUT like Score Component
@@ -10515,6 +10539,17 @@ def main():
                 # Clear performance filters button
                 if st.button("🗑️ Clear Performance Filters", type="secondary"):
                     RankingEngine.PerformanceFilter.clear_all_performance_filters()
+                    
+                    # Reset all performance filter session state keys
+                    timeframes = ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']
+                    for tf in timeframes:
+                        preset_key = f"{tf}_preset"
+                        range_key = f"{tf}_range"
+                        if preset_key in st.session_state:
+                            st.session_state[preset_key] = "All Returns"
+                        if range_key in st.session_state:
+                            del st.session_state[range_key]
+                    
                     st.success("✅ Performance filters cleared!")
                     st.rerun()
             else:
