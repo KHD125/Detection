@@ -10728,8 +10728,7 @@ def main():
                         st.write(f"• {func}: {time_taken:.4f}s")
     
     active_filter_count = st.session_state.get('active_filter_count', 0)
-    current_quick_filter_applied = st.session_state.get('quick_filter_applied', False)
-    if active_filter_count > 0 or st.session_state.get('quick_filter_applied', False):
+    if active_filter_count > 0 or quick_filter_applied:
         filter_status_col1, filter_status_col2 = st.columns([5, 1])
         with filter_status_col1:
             if quick_filter:
