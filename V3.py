@@ -916,8 +916,11 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
         elif all(col in df.columns for col in ['price', 'low_52w', 'high_52w']):
-            # Calculate position percentage from price data
-            df['position_pct'] = ((df['price'] - df['low_52w']) / (df['high_52w'] - df['low_52w']) * 100).clip(0, 100)
+            # Calculate position percentage from price data with division by zero protection
+            denominator = df['high_52w'] - df['low_52w']
+            # Protect against division by zero (when high_52w == low_52w)
+            safe_denominator = np.where(denominator == 0, np.nan, denominator)
+            df['position_pct'] = ((df['price'] - df['low_52w']) / safe_denominator * 100).clip(0, 100)
             df['position_tier'] = df['position_pct'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
@@ -1291,11 +1294,15 @@ class AdvancedMetrics:
         median_return_30d = valid_df['ret_30d'].median()
         mean_return_30d = valid_df['ret_30d'].mean()
         
-        # Percentage of stocks in different states
-        strong_up = (valid_df['ret_30d'] > 20).sum() / len(valid_df) * 100
-        up = (valid_df['ret_30d'] > 5).sum() / len(valid_df) * 100
-        down = (valid_df['ret_30d'] < -5).sum() / len(valid_df) * 100
-        strong_down = (valid_df['ret_30d'] < -20).sum() / len(valid_df) * 100
+        # Percentage of stocks in different states - with zero length protection
+        if len(valid_df) > 0:
+            strong_up = (valid_df['ret_30d'] > 20).sum() / len(valid_df) * 100
+            up = (valid_df['ret_30d'] > 5).sum() / len(valid_df) * 100
+            down = (valid_df['ret_30d'] < -5).sum() / len(valid_df) * 100
+            strong_down = (valid_df['ret_30d'] < -20).sum() / len(valid_df) * 100
+        else:
+            # Handle empty dataframe case
+            strong_up = up = down = strong_down = 0.0
         
         # Determine regime
         regime = {
@@ -3367,8 +3374,10 @@ class RankingEngine:
             )
             
             if valid_triangle.any():
-                # Price well above 52w low but struggling at high
-                from_low_ratio = (price - low_52w) / low_52w * 100
+                # Price well above 52w low but struggling at high - with zero protection
+                # Protect against division by zero when low_52w is zero
+                safe_low_52w = np.where(low_52w == 0, np.nan, low_52w)
+                from_low_ratio = (price - low_52w) / safe_low_52w * 100
                 ascending_triangle = (
                     valid_triangle &
                     (from_low_ratio > 30) &  # Well above low
@@ -3748,8 +3757,9 @@ class RankingEngine:
                 alignment_score[above_200] += 50
                 alignment_max[valid_200] += 50
                 
-                # Distance bonus/penalty (up to ±10 points)
-                distance_200 = ((price - sma_200) / sma_200 * 100).clip(-20, 20)
+                # Distance bonus/penalty (up to ±10 points) - with zero protection
+                safe_sma_200 = np.where(sma_200 == 0, np.nan, sma_200)
+                distance_200 = ((price - sma_200) / safe_sma_200 * 100).clip(-20, 20)
                 alignment_score[valid_200] += distance_200[valid_200] * 0.5
         
         # SMA50 - SECONDARY TREND (30% of alignment score)
@@ -3762,8 +3772,9 @@ class RankingEngine:
                 alignment_score[above_50] += 30
                 alignment_max[valid_50] += 30
                 
-                # Distance bonus/penalty
-                distance_50 = ((price - sma_50) / sma_50 * 100).clip(-15, 15)
+                # Distance bonus/penalty - with zero protection  
+                safe_sma_50 = np.where(sma_50 == 0, np.nan, sma_50)
+                distance_50 = ((price - sma_50) / safe_sma_50 * 100).clip(-15, 15)
                 alignment_score[valid_50] += distance_50[valid_50] * 0.3
         
         # SMA20 - MINOR TREND (20% of alignment score)
@@ -3776,8 +3787,9 @@ class RankingEngine:
                 alignment_score[above_20] += 20
                 alignment_max[valid_20] += 20
                 
-                # Distance bonus/penalty
-                distance_20 = ((price - sma_20) / sma_20 * 100).clip(-10, 10)
+                # Distance bonus/penalty - with zero protection
+                safe_sma_20 = np.where(sma_20 == 0, np.nan, sma_20)
+                distance_20 = ((price - sma_20) / safe_sma_20 * 100).clip(-10, 10)
                 alignment_score[valid_20] += distance_20[valid_20] * 0.2
         
         # Normalize alignment score
@@ -3867,8 +3879,9 @@ class RankingEngine:
                 
                 valid = sma_50.notna() & sma_200.notna() & (sma_200 > 0)
                 if valid.any():
-                    # Calculate % separation
-                    separation = ((sma_50 - sma_200) / sma_200 * 100).clip(-30, 30)
+                    # Calculate % separation - with zero protection
+                    safe_sma_200 = np.where(sma_200 == 0, np.nan, sma_200)
+                    separation = ((sma_50 - sma_200) / safe_sma_200 * 100).clip(-30, 30)
                     
                     # Positive separation (50 > 200) = bullish strength
                     # Negative separation (50 < 200) = bearish strength
@@ -3893,7 +3906,9 @@ class RankingEngine:
             if valid_cross.any():
                 # Golden cross: SMA50 above SMA200 and close together (recent cross)
                 sma_50_above = sma_50 > sma_200
-                proximity = (np.abs(sma_50 - sma_200) / sma_200) < 0.03  # Within 3%
+                # Proximity calculation with zero protection
+                safe_sma_200_prox = np.where(sma_200 == 0, np.nan, sma_200)
+                proximity = (np.abs(sma_50 - sma_200) / safe_sma_200_prox) < 0.03  # Within 3%
                 
                 # Need momentum confirmation for actual cross
                 if 'ret_30d' in df.columns:
@@ -3921,8 +3936,9 @@ class RankingEngine:
             
             valid_squeeze = sma_20.notna() & sma_50.notna() & (sma_50 > 0)
             if valid_squeeze.any():
-                # SMAs converging = potential breakout
-                convergence = (np.abs(sma_20 - sma_50) / sma_50) < 0.02  # Within 2%
+                # SMAs converging = potential breakout - with zero protection
+                safe_sma_50_conv = np.where(sma_50 == 0, np.nan, sma_50)
+                convergence = (np.abs(sma_20 - sma_50) / safe_sma_50_conv) < 0.02  # Within 2%
                 pattern_component[convergence] = 60  # Neutral with potential
         
         # COMBINE COMPONENTS
@@ -7223,7 +7239,7 @@ class FilterEngine:
         
         # Clean up any cached data related to filters
         cache_keys_to_clear = []
-        for key in st.session_state.keys():
+        for key in list(st.session_state.keys()):
             if key.startswith('filter_cache_') or key.startswith('filtered_'):
                 cache_keys_to_clear.append(key)
         
@@ -7309,9 +7325,15 @@ class FilterEngine:
         
         # 1. Category filters
         if 'categories' in filters:
-            masks.append(create_mask_from_isin('category', filters['categories']))
+            mask = create_mask_from_isin('category', filters['categories'])
+            if mask is not None:
+                masks.append(mask)
+
         if 'sectors' in filters:
-            masks.append(create_mask_from_isin('sector', filters['sectors']))
+            mask = create_mask_from_isin('sector', filters['sectors'])
+            if mask is not None:
+                masks.append(mask)
+
         if 'industries' in filters:
             mask = create_mask_from_isin('industry', filters['industries'])
             if mask is not None:
@@ -8758,7 +8780,7 @@ class SessionStateManager:
         # Collect keys to delete (can't modify dict during iteration)
         dynamic_keys_to_delete = []
         
-        for key in st.session_state.keys():
+        for key in list(st.session_state.keys()):
             # Check if this key ends with any widget pattern
             for pattern in all_widget_patterns:
                 if pattern in key and key not in widget_keys_to_delete:
@@ -12255,66 +12277,6 @@ def main():
         else:
             st.info("No data available for analysis.")
     
-    # Volume Filter Function for Search
-    def apply_search_volume_filters(df):
-        """Apply volume filters to the search results dataframe"""
-        
-        # RVOL filter
-        if 'rvol' in df.columns:
-            rvol_min = st.session_state.get('search_filter_rvol_min', 0.0)
-            rvol_max = st.session_state.get('search_filter_rvol_max', 50.0)
-            if rvol_min > 0 or rvol_max < 50:
-                df = df[(df['rvol'] >= rvol_min) & (df['rvol'] <= rvol_max)]
-        
-        # Turnover filter
-        min_turnover = st.session_state.get('search_filter_min_turnover', 0.0)
-        if min_turnover > 0 and 'volume_1d' in df.columns and 'price' in df.columns:
-            df['turnover_cr'] = (df['volume_1d'] * df['price']) / 10_000_000
-            df = df[df['turnover_cr'] >= min_turnover]
-        
-        # Average volume filter
-        min_avg_vol = st.session_state.get('search_filter_min_avg_volume', 0.0)
-        if min_avg_vol > 0 and 'volume_30d' in df.columns:
-            df = df[df['volume_30d'] >= min_avg_vol * 1_000_000]
-        
-        # Volume score filter
-        vol_score_min = st.session_state.get('search_filter_vol_score_min', 0)
-        if vol_score_min > 0 and 'volume_score' in df.columns:
-            df = df[df['volume_score'] >= vol_score_min]
-        
-        # Price-Volume harmony filter
-        pv_harmony = st.session_state.get('search_filter_price_vol_harmony', 'All')
-        if pv_harmony != 'All' and 'ret_1d' in df.columns and 'rvol' in df.columns:
-            if 'Bullish' in pv_harmony:
-                df = df[(df['ret_1d'] > 0) & (df['rvol'] > 1)]
-            elif 'Divergence' in pv_harmony:
-                df = df[(df['ret_1d'] > 0) & (df['rvol'] < 1)]
-            elif 'Bearish' in pv_harmony:
-                df = df[(df['ret_1d'] < 0) & (df['rvol'] > 1)]
-            elif 'Weak' in pv_harmony:
-                df = df[(df['ret_1d'] < 0) & (df['rvol'] < 1)]
-        
-        # Volume trend filter
-        vol_trend = st.session_state.get('search_filter_volume_trend', 'All')
-        if vol_trend != 'All':
-            # Calculate volume ratio if not present
-            if 'vol_ratio_7d_30d' not in df.columns and 'volume_7d' in df.columns and 'volume_30d' in df.columns:
-                df['vol_ratio_7d_30d'] = df['volume_7d'] / df['volume_30d'].replace(0, np.nan)
-            
-            if 'vol_ratio_7d_30d' in df.columns:
-                if 'Increasing' in vol_trend:
-                    df = df[df['vol_ratio_7d_30d'] > 1.2]
-                elif 'Decreasing' in vol_trend:
-                    df = df[df['vol_ratio_7d_30d'] < 0.8]
-                elif 'Stable' in vol_trend:
-                    df = df[(df['vol_ratio_7d_30d'] >= 0.8) & (df['vol_ratio_7d_30d'] <= 1.2)]
-        
-        # Volume breakout filter
-        if st.session_state.get('search_filter_volume_breakout', False) and 'rvol' in df.columns:
-            df = df[df['rvol'] > 3]
-        
-        return df
-    
     # Tab 4: Search
     # Tab 4: Search
     with tabs[4]:
@@ -12335,141 +12297,6 @@ def main():
             st.markdown("<br>", unsafe_allow_html=True)
             search_clicked = st.button("🔎 Search", type="primary", width="stretch", key="search_btn")
         
-        # Volume Filter Section for Search
-        with st.expander("🔊 Volume Filters for Search", expanded=False):
-            st.markdown("### 🔊 Volume Analysis Filters")
-            
-            # Create three columns for organized layout
-            vol_col1, vol_col2, vol_col3 = st.columns(3)
-            
-            with vol_col1:
-                st.markdown("**📊 Relative Volume**")
-                
-                # RVOL Filter - Most important volume metric
-                rvol_min = st.number_input(
-                    "Min RVOL",
-                    min_value=0.0,
-                    max_value=10.0,
-                    value=0.0,
-                    step=0.1,
-                    key="search_filter_rvol_min",
-                    help="Minimum relative volume (1.0 = average, 2.0 = double average)"
-                )
-                
-                rvol_max = st.number_input(
-                    "Max RVOL",
-                    min_value=0.0,
-                    max_value=50.0,
-                    value=50.0,
-                    step=0.5,
-                    key="search_filter_rvol_max",
-                    help="Maximum relative volume"
-                )
-                
-                # Quick RVOL presets
-                st.markdown("**Quick Filters:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("🔥 High (>2x)", key="search_rvol_high", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 2.0
-                        st.rerun()
-                    if st.button("🚀 Extreme (>5x)", key="search_rvol_extreme", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 5.0
-                        st.rerun()
-                with col2:
-                    if st.button("📉 Low (<0.5x)", key="search_rvol_low", use_container_width=True):
-                        st.session_state.search_filter_rvol_max = 0.5
-                        st.rerun()
-                    if st.button("✓ Normal", key="search_rvol_normal", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 0.8
-                        st.session_state.search_filter_rvol_max = 1.5
-                        st.rerun()
-            
-            with vol_col2:
-                st.markdown("**💧 Liquidity & Trading**")
-                
-                # Minimum daily turnover
-                min_turnover = st.number_input(
-                    "Min Daily Turnover (₹ Cr)",
-                    min_value=0.0,
-                    max_value=1000.0,
-                    value=0.0,
-                    step=1.0,
-                    key="search_filter_min_turnover",
-                    help="Minimum daily turnover in Crores"
-                )
-                
-                # Average volume filter
-                min_avg_volume = st.number_input(
-                    "Min Avg Volume (30d) in Millions",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.1,
-                    key="search_filter_min_avg_volume",
-                    help="Minimum 30-day average volume"
-                )
-                
-                # Volume score filter
-                st.markdown("**Volume Score**")
-                vol_score_min = st.number_input(
-                    "Min Volume Score",
-                    min_value=0,
-                    max_value=100,
-                    value=0,
-                    step=5,
-                    key="search_filter_vol_score_min"
-                )
-            
-            with vol_col3:
-                st.markdown("**🎯 Price-Volume Analysis**")
-                
-                # Price-Volume Relationship
-                price_vol_harmony = st.selectbox(
-                    "Price-Volume Confirmation",
-                    [
-                        "All",
-                        "✅ Bullish (Price↑ + Vol↑)",
-                        "⚠️ Divergence (Price↑ + Vol↓)",
-                        "🔴 Bearish (Price↓ + Vol↑)",
-                        "😴 Weak (Price↓ + Vol↓)"
-                    ],
-                    key="search_filter_price_vol_harmony",
-                    help="Filter by price and volume relationship"
-                )
-                
-                # Volume trend
-                volume_trend = st.selectbox(
-                    "Volume Trend (7d vs 30d)",
-                    [
-                        "All",
-                        "📈 Increasing",
-                        "📉 Decreasing",
-                        "➡️ Stable"
-                    ],
-                    key="search_filter_volume_trend"
-                )
-                
-                # Special situations
-                st.markdown("**Special Filters**")
-                volume_breakout = st.checkbox(
-                    "🚨 Volume Breakout Only (RVOL > 3)",
-                    key="search_filter_volume_breakout"
-                )
-            
-            # Clear Volume Filters Button
-            st.markdown("---")
-            if st.button("🧹 Clear All Volume Filters", key="clear_search_volume_filters", use_container_width=True):
-                # Reset all volume filter values
-                st.session_state.search_filter_rvol_min = 0.0
-                st.session_state.search_filter_rvol_max = 50.0
-                st.session_state.search_filter_min_turnover = 0.0
-                st.session_state.search_filter_min_avg_volume = 0.0
-                st.session_state.search_filter_vol_score_min = 0
-                st.session_state.search_filter_price_vol_harmony = "All"
-                st.session_state.search_filter_volume_trend = "All"
-                st.session_state.search_filter_volume_breakout = False
-                st.rerun()
-        
         # Perform search
         if search_query or search_clicked:
             with st.spinner("Searching..."):
@@ -12479,27 +12306,9 @@ def main():
                 # ENSURE PATTERN CONFIDENCE IS CALCULATED FOR SEARCH RESULTS
                 if 'patterns' in search_results.columns and 'pattern_confidence' not in search_results.columns:
                     search_results = PatternDetector._calculate_pattern_confidence(search_results)
-                
-                # Apply Volume Filters to Search Results
-                search_results = apply_search_volume_filters(search_results)
             
             if not search_results.empty:
                 st.success(f"Found {len(search_results)} matching stock(s)")
-                
-                # Show volume filter status if active
-                volume_filters_active = (
-                    st.session_state.get('search_filter_rvol_min', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_rvol_max', 50.0) < 50.0 or
-                    st.session_state.get('search_filter_min_turnover', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_min_avg_volume', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_vol_score_min', 0) > 0 or
-                    st.session_state.get('search_filter_price_vol_harmony', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_trend', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_breakout', False)
-                )
-                
-                if volume_filters_active:
-                    st.info("🔊 Volume filters applied - Results filtered by volume criteria")
                 
                 # Create summary dataframe for search results
                 summary_columns = ['ticker', 'company_name', 'rank', 'master_score', 'price', 
@@ -13106,21 +12915,6 @@ def main():
             
             else:
                 st.warning("No stocks found matching your search criteria.")
-                
-                # Check if volume filters might be too restrictive
-                volume_filters_active = (
-                    st.session_state.get('search_filter_rvol_min', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_rvol_max', 50.0) < 50.0 or
-                    st.session_state.get('search_filter_min_turnover', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_min_avg_volume', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_vol_score_min', 0) > 0 or
-                    st.session_state.get('search_filter_price_vol_harmony', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_trend', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_breakout', False)
-                )
-                
-                if volume_filters_active:
-                    st.info("🔊 **Volume filters are active.** Try relaxing some volume criteria above or click 'Clear All Volume Filters' to see more results.")
                 
                 # Provide search suggestions
                 st.markdown("#### 💡 Search Tips:")
