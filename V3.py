@@ -598,6 +598,9 @@ def create_sync_performance_filter(timeframe: str):
                     # Use preset
                     PerformanceFilter.set_performance_filter(timeframe, preset_label=selected_preset)
                 
+                # Mark performance filters as changed for display refresh
+                st.session_state['performance_filters_changed'] = True
+                
                 logger.info(f"Active performance filters: {PERFORMANCE_CONFIG.ACTIVE_FILTERS}")
                 
         except Exception as e:
@@ -8124,6 +8127,10 @@ class FilterEngine:
             filters['market_states'] = state['market_states']
         if state.get('market_strength_range') != (0, 100):
             filters['market_strength_range'] = state['market_strength_range']
+        
+        # Add Performance Filters from PERFORMANCE_CONFIG
+        if hasattr(PERFORMANCE_CONFIG, 'ACTIVE_FILTERS') and PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            filters['performance_filters'] = PERFORMANCE_CONFIG.ACTIVE_FILTERS.copy()
             
         return filters
     
@@ -9315,6 +9322,10 @@ class SessionStateManager:
             # Checkbox filters
             if st.session_state.get('require_fundamental_data', False):
                 filters['require_fundamental_data'] = True
+        
+        # Add Performance Filters from PERFORMANCE_CONFIG (V9.py integration)
+        if hasattr(PERFORMANCE_CONFIG, 'ACTIVE_FILTERS') and PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            filters['performance_filters'] = PERFORMANCE_CONFIG.ACTIVE_FILTERS.copy()
             
         return filters
 
@@ -10901,10 +10912,33 @@ def main():
                         if range_key in st.session_state:
                             del st.session_state[range_key]
                     
+                    # Mark performance filters as changed for display refresh
+                    st.session_state['performance_filters_changed'] = True
+                    
                     st.success("✅ Performance filters cleared!")
                     st.rerun()
             else:
                 st.info("ℹ️ No performance filters active")
+        
+        # 🔧 CRITICAL: Add Performance Filters to main filters dict (V2.py style integration)
+        if PERFORMANCE_CONFIG.ACTIVE_FILTERS:
+            # Add performance filters to main filters dict for FilterEngine
+            filters['performance_filters'] = PERFORMANCE_CONFIG.ACTIVE_FILTERS.copy()
+            logger.info(f"Added Performance Filters to sidebar filters: {filters['performance_filters']}")
+            
+            # ALSO add individual range filters for V2.py compatibility
+            for timeframe, filter_config in PERFORMANCE_CONFIG.ACTIVE_FILTERS.items():
+                range_key = f"{timeframe}_range"
+                min_val = filter_config.get('min')
+                max_val = filter_config.get('max')
+                if min_val is not None or max_val is not None:
+                    # Convert to tuple format that V2.py style expects
+                    if min_val is None:
+                        min_val = -1000  # Large negative for no lower bound
+                    if max_val is None:
+                        max_val = 10000   # Large positive for no upper bound
+                    filters[range_key] = (min_val, max_val)
+                    logger.info(f"Added {range_key} filter: {filters[range_key]}")
         
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
