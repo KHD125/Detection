@@ -7613,6 +7613,28 @@ class FilterEngine:
                         combined_mask = combined_mask | mask
                     masks.append(combined_mask)
         
+        # 5.6.1. NEW Individual Performance Period Filters (V9 Enhancement)
+        # Handle individual return period filters from the new Performance Filter UI
+        individual_performance_ranges = {
+            'ret_1d_range': 'ret_1d',
+            'ret_3d_range': 'ret_3d', 
+            'ret_7d_range': 'ret_7d',
+            'ret_30d_range': 'ret_30d',
+            'ret_3m_range': 'ret_3m',
+            'ret_6m_range': 'ret_6m',
+            'ret_1y_range': 'ret_1y',
+            'ret_3y_range': 'ret_3y',
+            'ret_5y_range': 'ret_5y'
+        }
+        
+        for range_key, column_name in individual_performance_ranges.items():
+            if range_key in filters and column_name in df.columns:
+                range_val = filters[range_key]
+                if isinstance(range_val, tuple) and len(range_val) == 2:
+                    min_val, max_val = range_val
+                    masks.append(df[column_name].between(min_val, max_val, inclusive='both'))
+                    logger.info(f"Applied {range_key} filter: {range_val} on column {column_name}")
+        
         # 5.7. Volume Intelligence filters
         if 'volume_tiers' in filters:
             selected_tiers = filters['volume_tiers']
@@ -10154,8 +10176,8 @@ def main():
                         ],
                         'slider_range': (-50, 50),
                         'slider_step': 0.5,
-                        'default_min': -100,
-                        'default_max': 100
+                        'default_min': -50,
+                        'default_max': 50
                     },
                     'ret_3d': {
                         'name': '3 Day Return',
@@ -10169,8 +10191,8 @@ def main():
                         ],
                         'slider_range': (-75, 75),
                         'slider_step': 1,
-                        'default_min': -100,
-                        'default_max': 100
+                        'default_min': -75,
+                        'default_max': 75
                     },
                     'ret_7d': {
                         'name': 'Weekly Return',
@@ -10215,7 +10237,7 @@ def main():
                         'slider_range': (-100, 300),
                         'slider_step': 5,
                         'default_min': -100,
-                        'default_max': 1000
+                        'default_max': 300
                     },
                     'ret_6m': {
                         'name': '6 Month Return',
@@ -10230,7 +10252,7 @@ def main():
                         'slider_range': (-100, 500),
                         'slider_step': 10,
                         'default_min': -100,
-                        'default_max': 1000
+                        'default_max': 500
                     },
                     'ret_1y': {
                         'name': '1 Year Return',
@@ -10245,7 +10267,7 @@ def main():
                         'slider_range': (-100, 1000),
                         'slider_step': 10,
                         'default_min': -100,
-                        'default_max': 2000
+                        'default_max': 1000
                     },
                     'ret_3y': {
                         'name': '3 Year Return',
@@ -10260,7 +10282,7 @@ def main():
                         'slider_range': (-100, 2000),
                         'slider_step': 25,
                         'default_min': -100,
-                        'default_max': 5000
+                        'default_max': 2000
                     },
                     'ret_5y': {
                         'name': '5 Year Return',
@@ -10275,7 +10297,7 @@ def main():
                         'slider_range': (-100, 5000),
                         'slider_step': 50,
                         'default_min': -100,
-                        'default_max': 10000
+                        'default_max': 5000
                     }
                 }
                 
@@ -10308,11 +10330,21 @@ def main():
                         
                         # Handle custom range selection
                         if selection == "🎯 Custom Range":
+                            # Ensure proper type conversion for slider value parameter
+                            default_value = (float(config['default_min']), float(config['default_max']))
+                            current_value = st.session_state.filter_state.get(f'{ret_col}_range', default_value)
+                            
+                            # Ensure current_value is also a tuple of floats
+                            if isinstance(current_value, tuple) and len(current_value) == 2:
+                                current_value = (float(current_value[0]), float(current_value[1]))
+                            else:
+                                current_value = default_value
+                            
                             range_value = st.slider(
                                 f"{config['name']} Range (%)",
                                 min_value=float(config['slider_range'][0]),
                                 max_value=float(config['slider_range'][1]),
-                                value=st.session_state.filter_state.get(f'{ret_col}_range', (config['default_min'], config['default_max'])),
+                                value=current_value,
                                 step=float(config['slider_step']),
                                 help=f"Custom range for {config['name'].lower()}",
                                 key=f"{ret_col}_range_slider",
