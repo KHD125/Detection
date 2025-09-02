@@ -7223,7 +7223,7 @@ class FilterEngine:
         
         # Clean up any cached data related to filters
         cache_keys_to_clear = []
-        for key in st.session_state.keys():
+        for key in list(st.session_state.keys()):
             if key.startswith('filter_cache_') or key.startswith('filtered_'):
                 cache_keys_to_clear.append(key)
         
@@ -7309,9 +7309,15 @@ class FilterEngine:
         
         # 1. Category filters
         if 'categories' in filters:
-            masks.append(create_mask_from_isin('category', filters['categories']))
+            mask = create_mask_from_isin('category', filters['categories'])
+            if mask is not None:
+                masks.append(mask)
+
         if 'sectors' in filters:
-            masks.append(create_mask_from_isin('sector', filters['sectors']))
+            mask = create_mask_from_isin('sector', filters['sectors'])
+            if mask is not None:
+                masks.append(mask)
+
         if 'industries' in filters:
             mask = create_mask_from_isin('industry', filters['industries'])
             if mask is not None:
@@ -7667,7 +7673,10 @@ class FilterEngine:
             'pe_tier': 'pe_tiers',
             'price_tier': 'price_tiers',
             'eps_change_tier': 'eps_change_tiers',
-            'market_state': 'market_states'
+            'market_state': 'market_states',
+            'position_tier': 'position_tiers',
+            'volume_tier': 'volume_tiers',
+            'performance_tier': 'performance_tiers'
         }
         
         if column in filter_key_map:
@@ -8758,7 +8767,7 @@ class SessionStateManager:
         # Collect keys to delete (can't modify dict during iteration)
         dynamic_keys_to_delete = []
         
-        for key in st.session_state.keys():
+        for key in list(st.session_state.keys()):
             # Check if this key ends with any widget pattern
             for pattern in all_widget_patterns:
                 if pattern in key and key not in widget_keys_to_delete:
@@ -12255,66 +12264,6 @@ def main():
         else:
             st.info("No data available for analysis.")
     
-    # Volume Filter Function for Search
-    def apply_search_volume_filters(df):
-        """Apply volume filters to the search results dataframe"""
-        
-        # RVOL filter
-        if 'rvol' in df.columns:
-            rvol_min = st.session_state.get('search_filter_rvol_min', 0.0)
-            rvol_max = st.session_state.get('search_filter_rvol_max', 50.0)
-            if rvol_min > 0 or rvol_max < 50:
-                df = df[(df['rvol'] >= rvol_min) & (df['rvol'] <= rvol_max)]
-        
-        # Turnover filter
-        min_turnover = st.session_state.get('search_filter_min_turnover', 0.0)
-        if min_turnover > 0 and 'volume_1d' in df.columns and 'price' in df.columns:
-            df['turnover_cr'] = (df['volume_1d'] * df['price']) / 10_000_000
-            df = df[df['turnover_cr'] >= min_turnover]
-        
-        # Average volume filter
-        min_avg_vol = st.session_state.get('search_filter_min_avg_volume', 0.0)
-        if min_avg_vol > 0 and 'volume_30d' in df.columns:
-            df = df[df['volume_30d'] >= min_avg_vol * 1_000_000]
-        
-        # Volume score filter
-        vol_score_min = st.session_state.get('search_filter_vol_score_min', 0)
-        if vol_score_min > 0 and 'volume_score' in df.columns:
-            df = df[df['volume_score'] >= vol_score_min]
-        
-        # Price-Volume harmony filter
-        pv_harmony = st.session_state.get('search_filter_price_vol_harmony', 'All')
-        if pv_harmony != 'All' and 'ret_1d' in df.columns and 'rvol' in df.columns:
-            if 'Bullish' in pv_harmony:
-                df = df[(df['ret_1d'] > 0) & (df['rvol'] > 1)]
-            elif 'Divergence' in pv_harmony:
-                df = df[(df['ret_1d'] > 0) & (df['rvol'] < 1)]
-            elif 'Bearish' in pv_harmony:
-                df = df[(df['ret_1d'] < 0) & (df['rvol'] > 1)]
-            elif 'Weak' in pv_harmony:
-                df = df[(df['ret_1d'] < 0) & (df['rvol'] < 1)]
-        
-        # Volume trend filter
-        vol_trend = st.session_state.get('search_filter_volume_trend', 'All')
-        if vol_trend != 'All':
-            # Calculate volume ratio if not present
-            if 'vol_ratio_7d_30d' not in df.columns and 'volume_7d' in df.columns and 'volume_30d' in df.columns:
-                df['vol_ratio_7d_30d'] = df['volume_7d'] / df['volume_30d'].replace(0, np.nan)
-            
-            if 'vol_ratio_7d_30d' in df.columns:
-                if 'Increasing' in vol_trend:
-                    df = df[df['vol_ratio_7d_30d'] > 1.2]
-                elif 'Decreasing' in vol_trend:
-                    df = df[df['vol_ratio_7d_30d'] < 0.8]
-                elif 'Stable' in vol_trend:
-                    df = df[(df['vol_ratio_7d_30d'] >= 0.8) & (df['vol_ratio_7d_30d'] <= 1.2)]
-        
-        # Volume breakout filter
-        if st.session_state.get('search_filter_volume_breakout', False) and 'rvol' in df.columns:
-            df = df[df['rvol'] > 3]
-        
-        return df
-    
     # Tab 4: Search
     # Tab 4: Search
     with tabs[4]:
@@ -12335,141 +12284,6 @@ def main():
             st.markdown("<br>", unsafe_allow_html=True)
             search_clicked = st.button("🔎 Search", type="primary", width="stretch", key="search_btn")
         
-        # Volume Filter Section for Search
-        with st.expander("🔊 Volume Filters for Search", expanded=False):
-            st.markdown("### 🔊 Volume Analysis Filters")
-            
-            # Create three columns for organized layout
-            vol_col1, vol_col2, vol_col3 = st.columns(3)
-            
-            with vol_col1:
-                st.markdown("**📊 Relative Volume**")
-                
-                # RVOL Filter - Most important volume metric
-                rvol_min = st.number_input(
-                    "Min RVOL",
-                    min_value=0.0,
-                    max_value=10.0,
-                    value=0.0,
-                    step=0.1,
-                    key="search_filter_rvol_min",
-                    help="Minimum relative volume (1.0 = average, 2.0 = double average)"
-                )
-                
-                rvol_max = st.number_input(
-                    "Max RVOL",
-                    min_value=0.0,
-                    max_value=50.0,
-                    value=50.0,
-                    step=0.5,
-                    key="search_filter_rvol_max",
-                    help="Maximum relative volume"
-                )
-                
-                # Quick RVOL presets
-                st.markdown("**Quick Filters:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("🔥 High (>2x)", key="search_rvol_high", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 2.0
-                        st.rerun()
-                    if st.button("🚀 Extreme (>5x)", key="search_rvol_extreme", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 5.0
-                        st.rerun()
-                with col2:
-                    if st.button("📉 Low (<0.5x)", key="search_rvol_low", use_container_width=True):
-                        st.session_state.search_filter_rvol_max = 0.5
-                        st.rerun()
-                    if st.button("✓ Normal", key="search_rvol_normal", use_container_width=True):
-                        st.session_state.search_filter_rvol_min = 0.8
-                        st.session_state.search_filter_rvol_max = 1.5
-                        st.rerun()
-            
-            with vol_col2:
-                st.markdown("**💧 Liquidity & Trading**")
-                
-                # Minimum daily turnover
-                min_turnover = st.number_input(
-                    "Min Daily Turnover (₹ Cr)",
-                    min_value=0.0,
-                    max_value=1000.0,
-                    value=0.0,
-                    step=1.0,
-                    key="search_filter_min_turnover",
-                    help="Minimum daily turnover in Crores"
-                )
-                
-                # Average volume filter
-                min_avg_volume = st.number_input(
-                    "Min Avg Volume (30d) in Millions",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.1,
-                    key="search_filter_min_avg_volume",
-                    help="Minimum 30-day average volume"
-                )
-                
-                # Volume score filter
-                st.markdown("**Volume Score**")
-                vol_score_min = st.number_input(
-                    "Min Volume Score",
-                    min_value=0,
-                    max_value=100,
-                    value=0,
-                    step=5,
-                    key="search_filter_vol_score_min"
-                )
-            
-            with vol_col3:
-                st.markdown("**🎯 Price-Volume Analysis**")
-                
-                # Price-Volume Relationship
-                price_vol_harmony = st.selectbox(
-                    "Price-Volume Confirmation",
-                    [
-                        "All",
-                        "✅ Bullish (Price↑ + Vol↑)",
-                        "⚠️ Divergence (Price↑ + Vol↓)",
-                        "🔴 Bearish (Price↓ + Vol↑)",
-                        "😴 Weak (Price↓ + Vol↓)"
-                    ],
-                    key="search_filter_price_vol_harmony",
-                    help="Filter by price and volume relationship"
-                )
-                
-                # Volume trend
-                volume_trend = st.selectbox(
-                    "Volume Trend (7d vs 30d)",
-                    [
-                        "All",
-                        "📈 Increasing",
-                        "📉 Decreasing",
-                        "➡️ Stable"
-                    ],
-                    key="search_filter_volume_trend"
-                )
-                
-                # Special situations
-                st.markdown("**Special Filters**")
-                volume_breakout = st.checkbox(
-                    "🚨 Volume Breakout Only (RVOL > 3)",
-                    key="search_filter_volume_breakout"
-                )
-            
-            # Clear Volume Filters Button
-            st.markdown("---")
-            if st.button("🧹 Clear All Volume Filters", key="clear_search_volume_filters", use_container_width=True):
-                # Reset all volume filter values
-                st.session_state.search_filter_rvol_min = 0.0
-                st.session_state.search_filter_rvol_max = 50.0
-                st.session_state.search_filter_min_turnover = 0.0
-                st.session_state.search_filter_min_avg_volume = 0.0
-                st.session_state.search_filter_vol_score_min = 0
-                st.session_state.search_filter_price_vol_harmony = "All"
-                st.session_state.search_filter_volume_trend = "All"
-                st.session_state.search_filter_volume_breakout = False
-                st.rerun()
-        
         # Perform search
         if search_query or search_clicked:
             with st.spinner("Searching..."):
@@ -12479,27 +12293,9 @@ def main():
                 # ENSURE PATTERN CONFIDENCE IS CALCULATED FOR SEARCH RESULTS
                 if 'patterns' in search_results.columns and 'pattern_confidence' not in search_results.columns:
                     search_results = PatternDetector._calculate_pattern_confidence(search_results)
-                
-                # Apply Volume Filters to Search Results
-                search_results = apply_search_volume_filters(search_results)
             
             if not search_results.empty:
                 st.success(f"Found {len(search_results)} matching stock(s)")
-                
-                # Show volume filter status if active
-                volume_filters_active = (
-                    st.session_state.get('search_filter_rvol_min', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_rvol_max', 50.0) < 50.0 or
-                    st.session_state.get('search_filter_min_turnover', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_min_avg_volume', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_vol_score_min', 0) > 0 or
-                    st.session_state.get('search_filter_price_vol_harmony', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_trend', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_breakout', False)
-                )
-                
-                if volume_filters_active:
-                    st.info("🔊 Volume filters applied - Results filtered by volume criteria")
                 
                 # Create summary dataframe for search results
                 summary_columns = ['ticker', 'company_name', 'rank', 'master_score', 'price', 
@@ -13106,21 +12902,6 @@ def main():
             
             else:
                 st.warning("No stocks found matching your search criteria.")
-                
-                # Check if volume filters might be too restrictive
-                volume_filters_active = (
-                    st.session_state.get('search_filter_rvol_min', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_rvol_max', 50.0) < 50.0 or
-                    st.session_state.get('search_filter_min_turnover', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_min_avg_volume', 0.0) > 0.0 or
-                    st.session_state.get('search_filter_vol_score_min', 0) > 0 or
-                    st.session_state.get('search_filter_price_vol_harmony', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_trend', 'All') != 'All' or
-                    st.session_state.get('search_filter_volume_breakout', False)
-                )
-                
-                if volume_filters_active:
-                    st.info("🔊 **Volume filters are active.** Try relaxing some volume criteria above or click 'Clear All Volume Filters' to see more results.")
                 
                 # Provide search suggestions
                 st.markdown("#### 💡 Search Tips:")
