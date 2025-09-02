@@ -10167,12 +10167,12 @@ def main():
                     'ret_1d': {
                         'name': '1 Day Return',
                         'presets': [
-                            {'label': '💥 Explosive', 'min': 15, 'max': None, 'description': '>15% 1D'},
-                            {'label': '🚀 Strong Rise', 'min': 10, 'max': 15, 'description': '10-15% 1D'},
-                            {'label': '📈 Positive', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
+                            {'label': '💥 Explosive', 'min': 10, 'max': None, 'description': '>10% 1D'},
+                            {'label': '🚀 Strong Rise', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
+                            {'label': '📈 Positive', 'min': 2, 'max': 5, 'description': '2-5% 1D'},
                             {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
-                            {'label': '📉 Negative', 'min': -10, 'max': -2, 'description': '-10% to -2% 1D'},
-                            {'label': '💣 Crash', 'min': None, 'max': -10, 'description': '<-10% 1D'}
+                            {'label': '📉 Negative', 'min': -5, 'max': -2, 'description': '-5% to -2% 1D'},
+                            {'label': '💣 Crash', 'min': None, 'max': -5, 'description': '<-5% 1D'}
                         ],
                         'slider_range': (-50, 50),
                         'slider_step': 0.5,
@@ -10182,12 +10182,12 @@ def main():
                     'ret_3d': {
                         'name': '3 Day Return',
                         'presets': [
-                            {'label': '🌟 3-Day Surge', 'min': 20, 'max': None, 'description': '>20% 3D'},
-                            {'label': '⚡ Strong Momentum', 'min': 10, 'max': 20, 'description': '10-20% 3D'},
-                            {'label': '📊 Steady Rise', 'min': 5, 'max': 10, 'description': '5-10% 3D'},
+                            {'label': '🌟 3-Day Surge', 'min': 15, 'max': None, 'description': '>15% 3D'},
+                            {'label': '⚡ Strong Momentum', 'min': 8, 'max': 15, 'description': '8-15% 3D'},
+                            {'label': '📊 Steady Rise', 'min': 3, 'max': 8, 'description': '3-8% 3D'},
                             {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
-                            {'label': '⚠️ Weakening', 'min': -10, 'max': -3, 'description': '-10% to -3% 3D'},
-                            {'label': '🔻 Sharp Decline', 'min': None, 'max': -10, 'description': '<-10% 3D'}
+                            {'label': '⚠️ Weakening', 'min': -8, 'max': -3, 'description': '-8% to -3% 3D'},
+                            {'label': '🔻 Sharp Decline', 'min': None, 'max': -8, 'description': '<-8% 3D'}
                         ],
                         'slider_range': (-75, 75),
                         'slider_step': 1,
@@ -10197,12 +10197,12 @@ def main():
                     'ret_7d': {
                         'name': 'Weekly Return',
                         'presets': [
-                            {'label': '📈 Weekly Winners', 'min': 25, 'max': None, 'description': '>25% 7D'},
-                            {'label': '💪 Strong Week', 'min': 15, 'max': 25, 'description': '15-25% 7D'},
-                            {'label': '✅ Good Week', 'min': 7, 'max': 15, 'description': '7-15% 7D'},
+                            {'label': '📈 Weekly Winners', 'min': 20, 'max': None, 'description': '>20% 7D'},
+                            {'label': '💪 Strong Week', 'min': 12, 'max': 20, 'description': '12-20% 7D'},
+                            {'label': '✅ Good Week', 'min': 5, 'max': 12, 'description': '5-12% 7D'},
                             {'label': '😐 Flat Week', 'min': -5, 'max': 5, 'description': '-5% to 5% 7D'},
-                            {'label': '😟 Bad Week', 'min': -15, 'max': -5, 'description': '-15% to -5% 7D'},
-                            {'label': '💔 Terrible Week', 'min': None, 'max': -15, 'description': '<-15% 7D'}
+                            {'label': '😟 Bad Week', 'min': -12, 'max': -5, 'description': '-12% to -5% 7D'},
+                            {'label': '💔 Terrible Week', 'min': None, 'max': -12, 'description': '<-12% 7D'}
                         ],
                         'slider_range': (-100, 100),
                         'slider_step': 1,
@@ -10212,27 +10212,27 @@ def main():
                     'ret_30d': {
                         'name': 'Monthly Return',
                         'presets': [
-                            {'label': '🏆 Monthly Champions', 'min': 40, 'max': None, 'description': '>40% 30D'},
-                            {'label': '🎯 Top Performers', 'min': 25, 'max': 40, 'description': '25-40% 30D'},
-                            {'label': '📈 Outperformers', 'min': 15, 'max': 25, 'description': '15-25% 30D'},
+                            {'label': '🏆 Monthly Champions', 'min': 30, 'max': None, 'description': '>30% 30D'},
+                            {'label': '🎯 Top Performers', 'min': 20, 'max': 30, 'description': '20-30% 30D'},
+                            {'label': '📈 Outperformers', 'min': 10, 'max': 20, 'description': '10-20% 30D'},
                             {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
-                            {'label': '📉 Underperformers', 'min': -25, 'max': -10, 'description': '-25% to -10% 30D'},
-                            {'label': '☠️ Monthly Losers', 'min': None, 'max': -25, 'description': '<-25% 30D'}
+                            {'label': '📉 Underperformers', 'min': -20, 'max': -10, 'description': '-20% to -10% 30D'},
+                            {'label': '☠️ Monthly Losers', 'min': None, 'max': -20, 'description': '<-20% 30D'}
                         ],
                         'slider_range': (-100, 200),
                         'slider_step': 2,
                         'default_min': -100,
-                        'default_max': 500
+                        'default_max': 200
                     },
                     'ret_3m': {
                         'name': '3 Month Return',
                         'presets': [
-                            {'label': '🎯 Quarterly Stars', 'min': 60, 'max': None, 'description': '>60% 3M'},
-                            {'label': '⭐ Strong Quarter', 'min': 40, 'max': 60, 'description': '40-60% 3M'},
-                            {'label': '👍 Good Quarter', 'min': 20, 'max': 40, 'description': '20-40% 3M'},
+                            {'label': '🎯 Quarterly Stars', 'min': 50, 'max': None, 'description': '>50% 3M'},
+                            {'label': '⭐ Strong Quarter', 'min': 30, 'max': 50, 'description': '30-50% 3M'},
+                            {'label': '👍 Good Quarter', 'min': 15, 'max': 30, 'description': '15-30% 3M'},
                             {'label': '➖ Flat Quarter', 'min': -15, 'max': 15, 'description': '-15% to 15% 3M'},
-                            {'label': '👎 Weak Quarter', 'min': -40, 'max': -15, 'description': '-40% to -15% 3M'},
-                            {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -40, 'description': '<-40% 3M'}
+                            {'label': '👎 Weak Quarter', 'min': -30, 'max': -15, 'description': '-30% to -15% 3M'},
+                            {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -30, 'description': '<-30% 3M'}
                         ],
                         'slider_range': (-100, 300),
                         'slider_step': 5,
