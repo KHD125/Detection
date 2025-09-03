@@ -11961,7 +11961,7 @@ def main():
         
     # Tab 2: Ultimate Market Radar - ALL TIME BEST IMPLEMENTATION
     with tabs[2]:
-        st.markdown("### 🎯 ULTIMATE MARKET RADAR - PROFESSIONAL TRADING INTELLIGENCE")
+        st.markdown("### 🎯 MARKET RADAR - TRADING INTELLIGENCE")
         st.markdown("*Advanced multi-dimensional market analysis for professional traders*")
         
         # ================================================================================================
