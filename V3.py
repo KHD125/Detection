@@ -13677,6 +13677,7 @@ def main():
                 "🔥 Momentum Heatmap",
                 "💎 Pattern Intelligence",
                 "🏢 Sector Analysis",
+                "🏭 Industry Analysis",
                 "⚡ Risk Dashboard"
             ])
             
@@ -14167,8 +14168,134 @@ def main():
                 else:
                     st.info("No sector data available for analysis")
             
-            # Tab 6: Risk Dashboard
+            # Tab 6: Industry Analysis
             with viz_tabs[5]:
+                st.markdown("#### 🏭 **Comprehensive Industry Intelligence Platform**")
+                
+                industry_intel_cols = st.columns(2)
+                
+                with industry_intel_cols[0]:
+                    st.markdown("**🔍 Industry Performance Rankings**")
+                    
+                    if 'industry' in filtered_df.columns:
+                        # Industry performance analysis
+                        industry_metrics = filtered_df.groupby('industry').agg({
+                            'master_score': ['mean', 'std', 'count'],
+                            'momentum_score': 'mean' if 'momentum_score' in filtered_df.columns else lambda x: None,
+                            'acceleration_score': 'mean' if 'acceleration_score' in filtered_df.columns else lambda x: None,
+                            'volume_score': 'mean' if 'volume_score' in filtered_df.columns else lambda x: None,
+                            'price': 'mean' if 'price' in filtered_df.columns else lambda x: None
+                        }).round(2)
+                        
+                        # Flatten column names
+                        industry_metrics.columns = ['avg_score', 'score_volatility', 'stock_count', 
+                                                  'momentum_avg', 'acceleration_avg', 'volume_avg', 'avg_price']
+                        
+                        # Calculate industry strength index
+                        industry_metrics['strength_index'] = (
+                            (industry_metrics['avg_score'] * 0.4) +
+                            (industry_metrics['momentum_avg'].fillna(50) * 0.2) +
+                            (industry_metrics['acceleration_avg'].fillna(50) * 0.2) +
+                            (industry_metrics['volume_avg'].fillna(50) * 0.2)
+                        ).round(1)
+                        
+                        # Add quality indicators
+                        industry_metrics['quality'] = industry_metrics['strength_index'].apply(
+                            lambda x: '🚀 Elite' if x > 80 else '🔥 Strong' if x > 70 else '📈 Good' if x > 60 else '⚖️ Average' if x > 50 else '📉 Weak'
+                        )
+                        
+                        # Sort by strength index
+                        industry_ranking = industry_metrics.sort_values('strength_index', ascending=False)
+                        
+                        st.dataframe(
+                            industry_ranking[['avg_score', 'strength_index', 'stock_count', 'score_volatility', 'quality']],
+                            width='stretch',
+                            column_config={
+                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
+                                'strength_index': st.column_config.ProgressColumn('Strength Index', min_value=0, max_value=100, format="%.1f"),
+                                'stock_count': st.column_config.NumberColumn('Stock Count', width="small"),
+                                'score_volatility': st.column_config.NumberColumn('Volatility', width="small", format="%.1f"),
+                                'quality': st.column_config.TextColumn('Quality', width="small")
+                            }
+                        )
+                        
+                        # Industry insights
+                        if len(industry_ranking) > 0:
+                            top_industry = industry_ranking.index[0]
+                            top_strength = industry_ranking['strength_index'].iloc[0]
+                            top_count = industry_ranking['stock_count'].iloc[0]
+                            st.success(f"🏆 **Leading Industry**: {top_industry} (Strength: {top_strength:.1f}, {top_count} stocks)")
+                    else:
+                        st.warning("⚠️ **Industry data not available** - No industry column found in dataset")
+                
+                with industry_intel_cols[1]:
+                    st.markdown("**📊 Industry Concentration Analysis**")
+                    
+                    if 'industry' in filtered_df.columns:
+                        industry_dist = filtered_df['industry'].value_counts().head(12)
+                        industry_pct = (industry_dist / len(filtered_df) * 100)
+                        
+                        # Create concentration matrix
+                        concentration_matrix = pd.DataFrame({
+                            'Industry': industry_dist.index,
+                            'Stock Count': industry_dist.values,
+                            'Market Share': industry_pct.values,
+                            'Concentration': industry_pct.apply(
+                                lambda x: '🔥 Dominant' if x > 15 else '📈 Major' if x > 8 else '⚖️ Moderate' if x > 4 else '📉 Niche'
+                            ).values
+                        })
+                        
+                        st.dataframe(
+                            concentration_matrix,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Industry': st.column_config.TextColumn("Industry", width="medium"),
+                                'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Market Share': st.column_config.ProgressColumn("% of Market", min_value=0, max_value=50, format="%.1f%%"),
+                                'Concentration': st.column_config.TextColumn("Level", width="small")
+                            }
+                        )
+                        
+                        # Concentration insights
+                        total_industries = len(filtered_df['industry'].unique())
+                        top_5_concentration = industry_pct.head(5).sum()
+                        
+                        if top_5_concentration > 60:
+                            st.warning(f"⚠️ **High Concentration**: Top 5 industries control {top_5_concentration:.1f}% of market")
+                        elif top_5_concentration > 40:
+                            st.info(f"📊 **Moderate Concentration**: Top 5 industries hold {top_5_concentration:.1f}% of market")
+                        else:
+                            st.success(f"🎯 **Diversified Market**: Well-distributed across {total_industries} industries")
+                        
+                        # Industry momentum analysis
+                        if 'momentum_score' in filtered_df.columns:
+                            st.markdown("**🚀 Industry Momentum Leaders**")
+                            
+                            industry_momentum = filtered_df.groupby('industry')['momentum_score'].mean().sort_values(ascending=False).head(8)
+                            momentum_leaders = pd.DataFrame({
+                                'Industry': industry_momentum.index,
+                                'Avg Momentum': industry_momentum.values.round(1),
+                                'Momentum Level': industry_momentum.apply(
+                                    lambda x: '🚀 Explosive' if x > 80 else '🔥 Strong' if x > 70 else '📈 Building' if x > 60 else '⚖️ Stable'
+                                ).values
+                            })
+                            
+                            st.dataframe(
+                                momentum_leaders,
+                                width='stretch',
+                                hide_index=True,
+                                column_config={
+                                    'Industry': st.column_config.TextColumn("Industry", width="medium"),
+                                    'Avg Momentum': st.column_config.ProgressColumn("Momentum Score", min_value=0, max_value=100, format="%.1f"),
+                                    'Momentum Level': st.column_config.TextColumn("Status", width="small")
+                                }
+                            )
+                    else:
+                        st.warning("⚠️ **Industry data not available** - No industry column found in dataset")
+            
+            # Tab 7: Risk Dashboard
+            with viz_tabs[6]:
                 st.markdown("#### ⚡ **Advanced Risk Management Dashboard**")
                 
                 risk_cols = st.columns(2)
