@@ -8220,26 +8220,7 @@ class UIComponents:
             st.warning("No data available for summary")
             return
         
-        # ================================================================================================
-        # 🎯 EXECUTIVE COMMAND CENTER - REAL-TIME MARKET INTELLIGENCE
-        # ================================================================================================
-        
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        ">
-            <h2 style="margin: 0; font-size: 2rem;">🧠 EXECUTIVE MARKET INTELLIGENCE CENTER</h2>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
-                Real-Time Multi-Dimensional Market Analytics & Strategic Intelligence
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+
         
         # ================================================================================================
         # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
