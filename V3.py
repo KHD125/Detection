@@ -9759,10 +9759,14 @@ def main():
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
         
+        # Clean default values to only include available options (INTERCONNECTION FIX)
+        stored_categories = st.session_state.filter_state.get('categories', [])
+        valid_category_defaults = [cat for cat in stored_categories if cat in categories]
+        
         selected_categories = st.multiselect(
             "Market Cap Category",
             options=categories,
-            default=st.session_state.filter_state.get('categories', []),
+            default=valid_category_defaults,
             placeholder="Select categories (empty = All)",
             help="Filter by market capitalization category",
             key="category_multiselect",
@@ -9775,10 +9779,14 @@ def main():
         # Sector filter with callback
         sectors = FilterEngine.get_filter_options(ranked_df_display, 'sector', filters)
         
+        # Clean default values to only include available options (INTERCONNECTION FIX)
+        stored_sectors = st.session_state.filter_state.get('sectors', [])
+        valid_sector_defaults = [sec for sec in stored_sectors if sec in sectors]
+        
         selected_sectors = st.multiselect(
             "Sector",
             options=sectors,
-            default=st.session_state.filter_state.get('sectors', []),
+            default=valid_sector_defaults,
             placeholder="Select sectors (empty = All)",
             help="Filter by business sector",
             key="sector_multiselect",
@@ -9791,10 +9799,14 @@ def main():
         # Industry filter with callback
         industries = FilterEngine.get_filter_options(ranked_df_display, 'industry', filters)
         
+        # Clean default values to only include available options (INTERCONNECTION FIX)
+        stored_industries = st.session_state.filter_state.get('industries', [])
+        valid_industry_defaults = [ind for ind in stored_industries if ind in industries]
+        
         selected_industries = st.multiselect(
             "Industry",
             options=industries,
-            default=st.session_state.filter_state.get('industries', []),
+            default=valid_industry_defaults,
             placeholder="Select industries (empty = All)",
             help="Filter by specific industry",
             key="industry_multiselect",
@@ -9811,10 +9823,14 @@ def main():
                 all_patterns.update(patterns.split(' | '))
         
         if all_patterns:
+            # Clean default values to only include available options (INTERCONNECTION FIX)
+            stored_patterns = st.session_state.filter_state.get('patterns', [])
+            valid_pattern_defaults = [pat for pat in stored_patterns if pat in sorted(all_patterns)]
+            
             selected_patterns = st.multiselect(
                 "Patterns",
                 options=sorted(all_patterns),
-                default=st.session_state.filter_state.get('patterns', []),
+                default=valid_pattern_defaults,
                 placeholder="Select patterns (empty = All)",
                 help="Filter by specific patterns",
                 key="patterns_multiselect",
