@@ -16128,7 +16128,7 @@ def main():
             
             st.markdown("#### 🔧 Technical Features")
             st.markdown("""
-            - **Data Sources:** Google Sheets API, CSV upload
+            - **Data Sources:** Google Sheets, CSV upload
             - **Caching:** Smart 1-hour cache with validation
             - **UI:** Mobile-responsive design
             - **Export:** Professional Excel templates
