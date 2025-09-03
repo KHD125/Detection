@@ -10962,8 +10962,11 @@ def main():
                 f"{strong_trends/total*100:.0f}%" if total > 0 else "0%"
             )
         else:
-            with_patterns = (filtered_df['patterns'] != '').sum()
-            UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
+            if 'patterns' in filtered_df.columns:
+                with_patterns = (filtered_df['patterns'] != '').sum()
+                UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
+            else:
+                UIComponents.render_metric_card("With Patterns", "N/A")
     
     tabs = st.tabs([
         "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
@@ -11009,15 +11012,23 @@ def main():
             
             with download_cols[2]:
                 st.markdown("**🎯 Pattern Stocks Only**")
-                pattern_stocks = filtered_df[filtered_df['patterns'] != '']
-                st.write(f"Includes {len(pattern_stocks)} stocks with patterns")
-                
-                if len(pattern_stocks) > 0:
-                    csv_patterns = ExportEngine.create_csv_export(pattern_stocks)
-                    st.download_button(
-                        label="📥 Download Pattern Stocks (CSV)",
-                        data=csv_patterns,
-                        file_name=f"wave_detection_patterns_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                if 'patterns' in filtered_df.columns:
+                    pattern_stocks = filtered_df[filtered_df['patterns'] != '']
+                    st.write(f"Includes {len(pattern_stocks)} stocks with patterns")
+                    
+                    if len(pattern_stocks) > 0:
+                        csv_patterns = ExportEngine.create_csv_export(pattern_stocks)
+                        st.download_button(
+                            label="📥 Download Pattern Stocks (CSV)",
+                            data=csv_patterns,
+                            file_name=f"wave_detection_patterns_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            help="Download stocks with technical patterns"
+                        )
+                    else:
+                        st.info("📊 No pattern stocks in current selection")
+                else:
+                    st.warning("⚠️ Pattern data not available in dataset")
                         mime="text/csv",
                         help="Download only stocks showing patterns"
                     )
@@ -13701,23 +13712,46 @@ def main():
                 with score_cols[1]:
                     st.markdown("#### 🔥 **Component Score Analysis**")
                     
-                    if all(col in filtered_df.columns for col in ['momentum_score', 'trend_score', 'acceleration_score']):
+                    # Check if we have at least some score columns
+                    available_score_cols = [col for col in ['momentum_score', 'acceleration_score', 'breakout_score', 'position_score', 'volume_score', 'rvol_score'] if col in filtered_df.columns]
+                    
+                    if len(available_score_cols) >= 2:  # Need at least 2 score columns
+                        # Build component data dynamically based on available columns
+                        components = []
+                        scores = []
+                        
+                        if 'momentum_score' in filtered_df.columns:
+                            components.append('Momentum')
+                            scores.append(filtered_df['momentum_score'].mean())
+                        
+                        if 'acceleration_score' in filtered_df.columns:
+                            components.append('Acceleration')
+                            scores.append(filtered_df['acceleration_score'].mean())
+                        
+                        if 'breakout_score' in filtered_df.columns:
+                            components.append('Breakout')
+                            scores.append(filtered_df['breakout_score'].mean())
+                        
+                        if 'position_score' in filtered_df.columns:
+                            components.append('Position')
+                            scores.append(filtered_df['position_score'].mean())
+                        
+                        if 'volume_score' in filtered_df.columns:
+                            components.append('Volume')
+                            scores.append(filtered_df['volume_score'].mean())
+                        
+                        if 'rvol_score' in filtered_df.columns:
+                            components.append('RVOL')
+                            scores.append(filtered_df['rvol_score'].mean())
+                        elif 'rvol' in filtered_df.columns:
+                            components.append('RVOL')
+                            scores.append(min(filtered_df['rvol'].mean() * 20, 100))  # Normalized to 0-100, capped at 100
+                        
+                        # Create component dataframe
                         component_data = {
-                            'Component': ['Momentum', 'Trend', 'Acceleration', 'Breakout', 'Volume'],
-                            'Avg Score': [
-                                filtered_df['momentum_score'].mean(),
-                                filtered_df['trend_score'].mean() if 'trend_score' in filtered_df.columns else 0,
-                                filtered_df['acceleration_score'].mean(),
-                                filtered_df['breakout_score'].mean() if 'breakout_score' in filtered_df.columns else 0,
-                                filtered_df['rvol'].mean() * 20 if 'rvol' in filtered_df.columns else 0  # Normalized to 0-100
-                            ],
-                            'Quality': ['🔥' if score > 65 else '📈' if score > 55 else '⚖️' for score in [
-                                filtered_df['momentum_score'].mean(),
-                                filtered_df['trend_score'].mean() if 'trend_score' in filtered_df.columns else 0,
-                                filtered_df['acceleration_score'].mean(),
-                                filtered_df['breakout_score'].mean() if 'breakout_score' in filtered_df.columns else 0,
-                                filtered_df['rvol'].mean() * 20 if 'rvol' in filtered_df.columns else 0
-                            ]]
+                            'Component': components,
+                            'Avg Score': scores,
+                            'Quality': ['🔥 Strong' if score >= 65 else '📈 Good' if score >= 55 else '⚖️ Average' if score >= 40 else '📉 Weak' for score in scores]
                         }
                         
                         component_df = pd.DataFrame(component_data)
@@ -13728,15 +13762,22 @@ def main():
                             hide_index=True,
                             column_config={
                                 'Component': st.column_config.TextColumn("Component", width="medium"),
-                                'Avg Score': st.column_config.ProgressColumn("Avg Score", min_value=0, max_value=100),
+                                'Avg Score': st.column_config.ProgressColumn("Avg Score", min_value=0, max_value=100, format="%.1f"),
                                 'Quality': st.column_config.TextColumn("Quality", width="small")
                             }
                         )
                         
                         # Component insights
-                        best_component = component_df.loc[component_df['Avg Score'].idxmax(), 'Component']
-                        best_score = component_df['Avg Score'].max()
-                        st.success(f"🏆 **Strongest Component**: {best_component} ({best_score:.1f} avg score)")
+                        if not component_df.empty:
+                            best_component = component_df.loc[component_df['Avg Score'].idxmax(), 'Component']
+                            best_score = component_df['Avg Score'].max()
+                            st.success(f"🏆 **Strongest Component**: {best_component} ({best_score:.1f} avg score)")
+                            
+                            # Show component count
+                            st.info(f"📊 Analyzing {len(components)} score components from your dataset")
+                    else:
+                        st.warning("⚠️ **Insufficient Data**: Need at least 2 score components for analysis")
+                        st.info("💡 **Available columns**: " + ", ".join(available_score_cols) if available_score_cols else "No score columns found")
             
             # Tab 2: Performance Matrix
             with viz_tabs[1]:
@@ -13825,85 +13866,148 @@ def main():
             with viz_tabs[2]:
                 st.markdown("#### 🔥 **Multi-Dimensional Momentum Analysis**")
                 
-                if all(col in filtered_df.columns for col in ['momentum_score', 'acceleration_score']):
-                    # Create momentum vs acceleration scatter plot
+                # Check for momentum-related columns
+                momentum_cols = [col for col in ['momentum_score', 'acceleration_score'] if col in filtered_df.columns]
+                
+                if len(momentum_cols) >= 1:
                     momentum_viz_cols = st.columns(2)
                     
                     with momentum_viz_cols[0]:
-                        st.markdown("**🎯 Momentum vs Acceleration Matrix**")
-                        
-                        fig_momentum = go.Figure()
-                        
-                        # Add scatter plot with color coding by master score
-                        fig_momentum.add_trace(
-                            go.Scatter(
-                                x=filtered_df['momentum_score'],
-                                y=filtered_df['acceleration_score'],
-                                mode='markers',
-                                marker=dict(
-                                    size=8,
-                                    color=filtered_df['master_score'] if 'master_score' in filtered_df.columns else 'blue',
-                                    colorscale='RdYlGn',
-                                    showscale=True,
-                                    colorbar=dict(title="Master Score")
-                                ),
-                                text=filtered_df['ticker'],
-                                hovertemplate='<b>%{text}</b><br>Momentum: %{x}<br>Acceleration: %{y}<extra></extra>'
+                        if len(momentum_cols) == 2:  # Both momentum and acceleration available
+                            st.markdown("**🎯 Momentum vs Acceleration Matrix**")
+                            
+                            fig_momentum = go.Figure()
+                            
+                            # Add scatter plot with color coding by master score
+                            fig_momentum.add_trace(
+                                go.Scatter(
+                                    x=filtered_df['momentum_score'],
+                                    y=filtered_df['acceleration_score'],
+                                    mode='markers',
+                                    marker=dict(
+                                        size=8,
+                                        color=filtered_df['master_score'] if 'master_score' in filtered_df.columns else 'blue',
+                                        colorscale='RdYlGn',
+                                        showscale=True,
+                                        colorbar=dict(title="Master Score")
+                                    ),
+                                    text=filtered_df['ticker'] if 'ticker' in filtered_df.columns else filtered_df.index,
+                                    hovertemplate='<b>%{text}</b><br>Momentum: %{x}<br>Acceleration: %{y}<extra></extra>'
+                                )
                             )
-                        )
-                        
-                        # Add quadrant lines
-                        fig_momentum.add_hline(y=60, line_dash="dash", line_color="gray", opacity=0.5)
-                        fig_momentum.add_vline(x=60, line_dash="dash", line_color="gray", opacity=0.5)
-                        
-                        fig_momentum.update_layout(
-                            title="Momentum-Acceleration Matrix",
-                            xaxis_title="Momentum Score",
-                            yaxis_title="Acceleration Score",
-                            template='plotly_white',
-                            height=400
-                        )
-                        
-                        st.plotly_chart(fig_momentum, width='stretch')
+                            
+                            # Add quadrant lines
+                            fig_momentum.add_hline(y=60, line_dash="dash", line_color="gray", opacity=0.5)
+                            fig_momentum.add_vline(x=60, line_dash="dash", line_color="gray", opacity=0.5)
+                            
+                            fig_momentum.update_layout(
+                                title="Momentum-Acceleration Matrix",
+                                xaxis_title="Momentum Score",
+                                yaxis_title="Acceleration Score",
+                                template='plotly_white',
+                                height=400
+                            )
+                            
+                            st.plotly_chart(fig_momentum, width='stretch')
+                        else:
+                            # Show single momentum metric
+                            available_col = momentum_cols[0]
+                            st.markdown(f"**📊 {available_col.replace('_', ' ').title()} Distribution**")
+                            
+                            fig_single = go.Figure()
+                            fig_single.add_trace(
+                                go.Histogram(
+                                    x=filtered_df[available_col],
+                                    nbinsx=20,
+                                    marker_color='lightblue',
+                                    opacity=0.7
+                                )
+                            )
+                            
+                            fig_single.update_layout(
+                                title=f"{available_col.replace('_', ' ').title()} Distribution",
+                                xaxis_title=available_col.replace('_', ' ').title(),
+                                yaxis_title="Count",
+                                template='plotly_white',
+                                height=400
+                            )
+                            
+                            st.plotly_chart(fig_single, width='stretch')
                     
                     with momentum_viz_cols[1]:
-                        st.markdown("**📊 Momentum Quadrant Analysis**")
-                        
-                        # Quadrant analysis
-                        high_momentum = filtered_df['momentum_score'] >= 60
-                        high_acceleration = filtered_df['acceleration_score'] >= 60
-                        
-                        quadrants = {
-                            '🚀 Explosive (High/High)': len(filtered_df[high_momentum & high_acceleration]),
-                            '📈 Building (High/Low)': len(filtered_df[high_momentum & ~high_acceleration]),
-                            '⚡ Accelerating (Low/High)': len(filtered_df[~high_momentum & high_acceleration]),
-                            '⚖️ Consolidating (Low/Low)': len(filtered_df[~high_momentum & ~high_acceleration])
-                        }
-                        
-                        quadrant_df = pd.DataFrame([
-                            {'Quadrant': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
-                            for k, v in quadrants.items()
-                        ])
-                        
-                        st.dataframe(
-                            quadrant_df,
-                            width='stretch',
-                            hide_index=True,
-                            column_config={
-                                'Quadrant': st.column_config.TextColumn("Momentum Quadrant", width="medium"),
-                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                        if len(momentum_cols) == 2:  # Both momentum and acceleration available
+                            st.markdown("**📊 Momentum Quadrant Analysis**")
+                            
+                            # Quadrant analysis
+                            high_momentum = filtered_df['momentum_score'] >= 60
+                            high_acceleration = filtered_df['acceleration_score'] >= 60
+                            
+                            quadrants = {
+                                '🚀 Explosive (High/High)': len(filtered_df[high_momentum & high_acceleration]),
+                                '📈 Building (High/Low)': len(filtered_df[high_momentum & ~high_acceleration]),
+                                '⚡ Accelerating (Low/High)': len(filtered_df[~high_momentum & high_acceleration]),
+                                '⚖️ Consolidating (Low/Low)': len(filtered_df[~high_momentum & ~high_acceleration])
                             }
-                        )
-                        
-                        # Quadrant insights
-                        explosive_pct = (quadrants['🚀 Explosive (High/High)'] / len(filtered_df) * 100)
-                        if explosive_pct > 20:
-                            st.success(f"🚀 **Explosive Market**: {explosive_pct:.1f}% stocks in high momentum/acceleration")
-                        elif explosive_pct > 10:
-                            st.info(f"📈 **Building Momentum**: {explosive_pct:.1f}% stocks showing explosive potential")
+                            
+                            quadrant_df = pd.DataFrame([
+                                {'Quadrant': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
+                                for k, v in quadrants.items()
+                            ])
+                            
+                            st.dataframe(
+                                quadrant_df,
+                                width='stretch',
+                                hide_index=True,
+                                column_config={
+                                    'Quadrant': st.column_config.TextColumn("Momentum Quadrant", width="medium"),
+                                    'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                }
+                            )
+                            
+                            # Quadrant insights
+                            explosive_pct = (quadrants['🚀 Explosive (High/High)'] / len(filtered_df) * 100)
+                            if explosive_pct > 20:
+                                st.success(f"🚀 **Explosive Market**: {explosive_pct:.1f}% stocks in high momentum/acceleration")
+                            elif explosive_pct > 10:
+                                st.info(f"📈 **Building Momentum**: {explosive_pct:.1f}% stocks showing explosive potential")
+                            else:
+                                st.warning(f"⚖️ **Consolidation Phase**: Only {explosive_pct:.1f}% explosive stocks")
                         else:
-                            st.warning(f"⚖️ **Consolidation Phase**: Only {explosive_pct:.1f}% explosive stocks")
+                            # Show insights for single momentum metric
+                            available_col = momentum_cols[0]
+                            col_name = available_col.replace('_', ' ').title()
+                            st.markdown(f"**📊 {col_name} Analysis**")
+                            
+                            high_threshold = filtered_df[available_col].quantile(0.7)
+                            high_count = len(filtered_df[filtered_df[available_col] >= high_threshold])
+                            high_pct = (high_count / len(filtered_df) * 100)
+                            
+                            metric_analysis = pd.DataFrame([
+                                {'Category': f'🔥 High {col_name}', 'Count': high_count, 'Percentage': high_pct},
+                                {'Category': f'📈 Medium {col_name}', 'Count': len(filtered_df) - high_count - len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]), 'Percentage': 100 - high_pct - (len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]) / len(filtered_df) * 100)},
+                                {'Category': f'⚖️ Low {col_name}', 'Count': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]), 'Percentage': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]) / len(filtered_df) * 100}
+                            ])
+                            
+                            st.dataframe(
+                                metric_analysis,
+                                width='stretch',
+                                hide_index=True,
+                                column_config={
+                                    'Category': st.column_config.TextColumn(f"{col_name} Range", width="medium"),
+                                    'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                }
+                            )
+                            
+                            if high_pct > 30:
+                                st.success(f"🔥 **Strong {col_name}**: {high_pct:.1f}% stocks showing high {available_col.replace('_', ' ')}")
+                            elif high_pct > 15:
+                                st.info(f"📈 **Moderate {col_name}**: {high_pct:.1f}% stocks with elevated {available_col.replace('_', ' ')}")
+                            else:
+                                st.warning(f"⚖️ **Low {col_name}**: Only {high_pct:.1f}% stocks with high {available_col.replace('_', ' ')}")
+                else:
+                    st.warning("⚠️ **Momentum data not available** - No momentum or acceleration scores found in dataset")
             
             # Tab 4: Pattern Intelligence
             with viz_tabs[3]:
@@ -13914,41 +14018,44 @@ def main():
                 with pattern_intel_cols[0]:
                     st.markdown("**🔍 Pattern Frequency Analysis**")
                     
-                    pattern_counts = {}
-                    for patterns in filtered_df['patterns'].dropna():
-                        if patterns:
-                            for p in patterns.split(' | '):
-                                pattern_counts[p] = pattern_counts.get(p, 0) + 1
-                    
-                    if pattern_counts:
-                        pattern_df = pd.DataFrame(
-                            list(pattern_counts.items()),
-                            columns=['Pattern', 'Count']
-                        ).sort_values('Count', ascending=False).head(15)
+                    if 'patterns' in filtered_df.columns:
+                        pattern_counts = {}
+                        for patterns in filtered_df['patterns'].dropna():
+                            if patterns:
+                                for p in patterns.split(' | '):
+                                    pattern_counts[p] = pattern_counts.get(p, 0) + 1
                         
-                        pattern_df['Percentage'] = (pattern_df['Count'] / len(filtered_df) * 100)
-                        pattern_df['Quality'] = pattern_df['Percentage'].apply(
-                            lambda x: '🔥' if x > 15 else '📈' if x > 8 else '⚖️' if x > 3 else '📉'
-                        )
-                        
-                        st.dataframe(
-                            pattern_df,
-                            width='stretch',
-                            hide_index=True,
-                            column_config={
-                                'Pattern': st.column_config.TextColumn("Pattern Type", width="medium"),
-                                'Count': st.column_config.NumberColumn("Occurrences", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f%%"),
-                                'Quality': st.column_config.TextColumn("Quality", width="small")
-                            }
-                        )
-                        
-                        # Pattern insights
-                        dominant_pattern = pattern_df.iloc[0]['Pattern']
-                        dominant_pct = pattern_df.iloc[0]['Percentage']
-                        st.success(f"🎯 **Dominant Pattern**: {dominant_pattern} ({dominant_pct:.1f}% of stocks)")
+                        if pattern_counts:
+                            pattern_df = pd.DataFrame(
+                                list(pattern_counts.items()),
+                                columns=['Pattern', 'Count']
+                            ).sort_values('Count', ascending=False).head(15)
+                            
+                            pattern_df['Percentage'] = (pattern_df['Count'] / len(filtered_df) * 100)
+                            pattern_df['Quality'] = pattern_df['Percentage'].apply(
+                                lambda x: '🔥' if x > 15 else '📈' if x > 8 else '⚖️' if x > 3 else '📉'
+                            )
+                            
+                            st.dataframe(
+                                pattern_df,
+                                width='stretch',
+                                hide_index=True,
+                                column_config={
+                                    'Pattern': st.column_config.TextColumn("Pattern Type", width="medium"),
+                                    'Count': st.column_config.NumberColumn("Occurrences", width="small"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f%%"),
+                                    'Quality': st.column_config.TextColumn("Quality", width="small")
+                                }
+                            )
+                            
+                            # Pattern insights
+                            dominant_pattern = pattern_df.iloc[0]['Pattern']
+                            dominant_pct = pattern_df.iloc[0]['Percentage']
+                            st.success(f"🎯 **Dominant Pattern**: {dominant_pattern} ({dominant_pct:.1f}% of stocks)")
+                        else:
+                            st.info("📊 **No patterns detected** in current selection")
                     else:
-                        st.info("No patterns detected in current selection")
+                        st.warning("⚠️ **Pattern data not available** - No pattern column found in dataset")
                 
                 with pattern_intel_cols[1]:
                     st.markdown("**📊 Pattern Quality Matrix**")
