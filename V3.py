@@ -27,7 +27,7 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timezone, timedelta
 import logging
-from typing import Dict, List, Tuple, Optional, Any  # Remove Union, Set
+from typing import Dict, List, Tuple, Optional, Any, Union  # Add Union back for type hints
 from dataclasses import dataclass, field
 from functools import wraps  # Remove lru_cache
 import time
@@ -44,6 +44,115 @@ np.seterr(all='ignore')
 
 # Set random seed for reproducibility of any random-based operations.
 np.random.seed(42)
+
+# ============================================
+# SAFE DIVISION UTILITIES - CRITICAL BUG FIXES
+# ============================================
+
+def safe_divide(numerator: Union[float, int, np.ndarray, pd.Series],
+                denominator: Union[float, int, np.ndarray, pd.Series],
+                default: Union[float, int] = 0,
+                handle_inf: bool = True,
+                warn_on_zero: bool = False) -> Union[float, np.ndarray, pd.Series]:
+    """
+    Safely perform division operations, handling division by zero and other edge cases.
+
+    Parameters:
+    -----------
+    numerator : float, int, np.ndarray, or pd.Series
+        The numerator value(s)
+    denominator : float, int, np.ndarray, or pd.Series
+        The denominator value(s)
+    default : float or int, default=0
+        Value to return when division by zero occurs
+    handle_inf : bool, default=True
+        Whether to replace infinity values with default
+    warn_on_zero : bool, default=False
+        Whether to emit warnings when division by zero occurs
+
+    Returns:
+    --------
+    float, np.ndarray, or pd.Series
+        Result of safe division operation
+    """
+    # Handle pandas Series and numpy arrays
+    if isinstance(numerator, (pd.Series, np.ndarray)) or isinstance(denominator, (pd.Series, np.ndarray)):
+        # Convert to numpy arrays for consistent handling
+        num_array = np.asarray(numerator)
+        den_array = np.asarray(denominator)
+
+        # Create result array initialized with default values
+        result = np.full_like(num_array, default, dtype=float)
+
+        # Handle different cases
+        if isinstance(denominator, (pd.Series, np.ndarray)):
+            # Element-wise division with zero checking
+            valid_mask = (den_array != 0) & pd.notna(den_array) & pd.notna(num_array)
+
+            if warn_on_zero and np.any(den_array == 0):
+                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
+
+            # Perform division only for valid elements
+            result[valid_mask] = num_array[valid_mask] / den_array[valid_mask]
+        else:
+            # Scalar denominator
+            if denominator != 0 and pd.notna(denominator):
+                valid_mask = pd.notna(num_array)
+                result[valid_mask] = num_array[valid_mask] / denominator
+            elif warn_on_zero:
+                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
+
+        # Handle infinity values if requested
+        if handle_inf:
+            result = np.where(np.isinf(result), default, result)
+
+        # Return same type as input
+        if isinstance(numerator, pd.Series):
+            return pd.Series(result, index=numerator.index)
+        else:
+            return result
+
+    else:
+        # Handle scalar values
+        if denominator == 0 or pd.isna(denominator) or pd.isna(numerator):
+            if warn_on_zero and denominator == 0:
+                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
+            return default
+
+        result = numerator / denominator
+
+        # Handle infinity
+        if handle_inf and np.isinf(result):
+            return default
+
+        return result
+
+
+def safe_percentage(numerator: Union[float, int, np.ndarray, pd.Series],
+                   denominator: Union[float, int, np.ndarray, pd.Series],
+                   default: float = 0.0) -> Union[float, np.ndarray, pd.Series]:
+    """
+    Safely calculate percentage: (numerator / denominator) * 100
+    """
+    return safe_divide(numerator, denominator, default) * 100
+
+
+def safe_ratio(numerator: Union[float, int, np.ndarray, pd.Series],
+               denominator: Union[float, int, np.ndarray, pd.Series],
+               default: float = 1.0) -> Union[float, np.ndarray, pd.Series]:
+    """
+    Safely calculate ratio, with default of 1.0 for ratios
+    """
+    return safe_divide(numerator, denominator, default)
+
+
+def safe_normalize(values: Union[np.ndarray, pd.Series],
+                  total: Union[float, np.ndarray, pd.Series],
+                  default: float = 0.0) -> Union[np.ndarray, pd.Series]:
+    """
+    Safely normalize values by their sum or a total
+    """
+    return safe_divide(values, total, default)
 
 # ============================================
 # LOGGING CONFIGURATION
@@ -390,7 +499,7 @@ class DataValidator:
         # Calculate data completeness
         total_cells = len(df) * len(df.columns)
         filled_cells = df.notna().sum().sum()
-        completeness = (filled_cells / total_cells * 100) if total_cells > 0 else 0
+        completeness = safe_percentage(filled_cells, total_cells, default=0.0)
         
         if completeness < 50:
             logger.warning(f"{context}: Low data completeness ({completeness:.1f}%)")
@@ -546,7 +655,7 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     # If no match, return as is.
     return url_or_id.strip()
 
-@st.cache_data(persist="disk", show_spinner=False)  # TTL not supported with persist="disk" 
+@st.cache_data(ttl=3600, show_spinner=False)  # 1 hour TTL to prevent stale data
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
                          sheet_id: str = None, gid: str = None,
                          data_version: str = "1.0") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
@@ -949,7 +1058,7 @@ class DataProcessor:
             range_52w = df['high_52w'] - df['low_52w']
             df['position_pct'] = np.where(
                 range_52w > 0,
-                ((df['price'] - df['low_52w']) / range_52w * 100).clip(0, 100),
+                safe_percentage(df['price'] - df['low_52w'], range_52w, default=50.0).clip(0, 100),
                 50  # Default to middle position when high equals low
             )
             df['position_tier'] = df['position_pct'].apply(
@@ -1035,9 +1144,9 @@ class AdvancedMetrics:
                 # ENHANCED NaN HANDLING with explicit checks
                 safe_ret_7d = df['ret_7d'].fillna(0)
                 safe_ret_30d = df['ret_30d'].fillna(0)
-                daily_ret_7d = np.where((safe_ret_7d != 0) & pd.notna(safe_ret_7d), safe_ret_7d / 7, 0)
+                daily_ret_7d = safe_divide(safe_ret_7d, 7, default=0.0)
                 daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
-                daily_ret_30d = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
+                daily_ret_30d = safe_divide(safe_ret_30d, 30, default=0.0)
                 daily_ret_30d = pd.Series(daily_ret_30d, index=df.index)
             df['momentum_harmony'] += ((daily_ret_7d > daily_ret_30d)).astype(int)
         
@@ -1046,9 +1155,9 @@ class AdvancedMetrics:
                 # ENHANCED NaN HANDLING with explicit checks
                 safe_ret_30d = df['ret_30d'].fillna(0)
                 safe_ret_3m = df['ret_3m'].fillna(0)
-                daily_ret_30d_comp = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
+                daily_ret_30d_comp = safe_divide(safe_ret_30d, 30, default=0.0)
                 daily_ret_30d_comp = pd.Series(daily_ret_30d_comp, index=df.index)
-                daily_ret_3m_comp = np.where((safe_ret_3m != 0) & pd.notna(safe_ret_3m), safe_ret_3m / 90, 0)
+                daily_ret_3m_comp = safe_divide(safe_ret_3m, 90, default=0.0)
                 daily_ret_3m_comp = pd.Series(daily_ret_3m_comp, index=df.index)
             df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
         
@@ -1200,10 +1309,10 @@ class AdvancedMetrics:
         # Calculate momentum at different scales
         # Daily-equivalent rates for comparison
         very_short = ret_1d  # 1-day momentum
-        # ENHANCED DIVISION PROTECTION with explicit zero checks
-        short = ret_7d / 7 if ret_7d != 0 and pd.notna(ret_7d) else 0  # Daily rate over week
-        medium = ret_30d / 30 if ret_30d != 0 and pd.notna(ret_30d) else 0  # Daily rate over month
-        long = ret_90d / 90 if ret_90d != 0 and pd.notna(ret_90d) else 0  # Daily rate over quarter
+        # ENHANCED DIVISION PROTECTION with safe division functions
+        short = safe_divide(ret_7d, 7, default=0.0)  # Daily rate over week
+        medium = safe_divide(ret_30d, 30, default=0.0)  # Daily rate over month
+        long = safe_divide(ret_90d, 90, default=0.0)  # Daily rate over quarter
         
         # Count positive periods (direction consistency) - ENHANCED NULL HANDLING
         periods = [ret_1d, ret_3d, ret_7d, ret_30d, ret_90d, ret_180d]
@@ -1211,9 +1320,9 @@ class AdvancedMetrics:
         positive_count = sum(1 for r in valid_periods if r > 0)
         negative_count = sum(1 for r in valid_periods if r < 0)
         
-        # Trend alignment score (-100 to 100) - DIVISION BY ZERO PROTECTION
+        # Trend alignment score (-100 to 100) - SAFE DIVISION IMPLEMENTATION
         period_count = len(valid_periods) if valid_periods else 1  # Prevent division by zero
-        trend_alignment = ((positive_count - negative_count) / period_count) * 100
+        trend_alignment = safe_percentage(positive_count - negative_count, period_count, default=0.0)
         state['trend_alignment'] = trend_alignment
         
         # Overall momentum score
@@ -1289,7 +1398,7 @@ class AdvancedMetrics:
             state['description'] = 'Relief rally in downtrend. Could be dead cat bounce.'
         
         # 7. ROTATION/TRANSITION
-        elif (abs(ret_30d - ret_90d/3) > 10 or 
+        elif (abs(ret_30d - safe_divide(ret_90d, 3, default=0)) > 10 or 
               (positive_count == 3 and negative_count == 3)):
             state['state'] = 'ROTATION'
             state['strength'] = 50
@@ -1406,11 +1515,11 @@ class AdvancedMetrics:
         median_return_30d = valid_df['ret_30d'].median()
         mean_return_30d = valid_df['ret_30d'].mean()
         
-        # Percentage of stocks in different states - DIVISION PROTECTED
-        strong_up = (valid_df['ret_30d'] > 20).sum() / valid_count * 100
-        up = (valid_df['ret_30d'] > 5).sum() / valid_count * 100
-        down = (valid_df['ret_30d'] < -5).sum() / valid_count * 100
-        strong_down = (valid_df['ret_30d'] < -20).sum() / valid_count * 100
+        # Percentage of stocks in different states - SAFE DIVISION IMPLEMENTATION
+        strong_up = safe_percentage((valid_df['ret_30d'] > 20).sum(), valid_count, default=0.0)
+        up = safe_percentage((valid_df['ret_30d'] > 5).sum(), valid_count, default=0.0)
+        down = safe_percentage((valid_df['ret_30d'] < -5).sum(), valid_count, default=0.0)
+        strong_down = safe_percentage((valid_df['ret_30d'] < -20).sum(), valid_count, default=0.0)
         
         # Determine regime
         regime = {
@@ -1625,10 +1734,11 @@ class RankingEngine:
         primary_score_names = list(score_definitions['primary'].keys())
         primary_weights = np.array([score_definitions['primary'][s]['weight'] for s in primary_score_names])
         
-        # Ensure weights sum to 1
+        # Ensure weights sum to 1 - SAFE DIVISION IMPLEMENTATION
         if primary_weights.sum() != 1.0:
             logger.warning(f"Weights sum to {primary_weights.sum():.3f}, normalizing...")
-            primary_weights = primary_weights / primary_weights.sum()
+            default_weight = 1.0/len(primary_weights) if len(primary_weights) > 0 else 1.0
+            primary_weights = safe_normalize(primary_weights, primary_weights.sum(), default=default_weight)
         
         # Calculate data availability matrix
         scores_matrix = df[primary_score_names].values
@@ -1672,9 +1782,10 @@ class RankingEngine:
                     valid_scores = scores_matrix[idx][valid_mask]
                     valid_weights = primary_weights[valid_mask]
                     
-                    # Normalize weights
+                    # Normalize weights - SAFE DIVISION IMPLEMENTATION
                     if valid_weights.sum() > 0:
-                        normalized_weights = valid_weights / valid_weights.sum()
+                        default_weight = 1.0/len(valid_weights) if len(valid_weights) > 0 else 1.0
+                        normalized_weights = safe_normalize(valid_weights, valid_weights.sum(), default=default_weight)
                         # Calculate weighted average
                         master_scores[idx] = np.dot(valid_scores, normalized_weights)
                         # Store weights for transparency
@@ -1685,10 +1796,11 @@ class RankingEngine:
         
         # Calculate quality multiplier (no linear penalty, use curve)
         # 6/6 = 1.00, 5/6 = 0.88, 4/6 = 0.72
+        MAX_COMPONENTS = 6  # Make configurable instead of hard-coded
         df['quality_multiplier'] = np.where(
             df['components_available'] < MIN_REQUIRED_COMPONENTS,
             np.nan,  # No score if insufficient data
-            0.5 + 0.5 * (df['components_available'] / 6) ** 1.5  # Exponential curve
+            0.5 + 0.5 * safe_divide(df['components_available'], MAX_COMPONENTS, default=1.0) ** 1.5  # Exponential curve
         )
         
         # Apply quality adjustment
@@ -1941,13 +2053,11 @@ class RankingEngine:
                 market_regime = 'unknown'
             
             # Z-scores
-            if market_stats['std_score'] > 0:
-                df['z_score'] = (
-                    (df['master_score'] - market_stats['mean_score']) / 
-                    market_stats['std_score']
-                ).clip(-3, 3)
-            else:
-                df['z_score'] = 0
+            df['z_score'] = safe_divide(
+                df['master_score'] - market_stats['mean_score'],
+                market_stats['std_score'],
+                default=0.0
+            ).clip(-3, 3)
                 
         else:
             market_stats.update({
@@ -5046,10 +5156,10 @@ class RankingEngine:
             df[stat_col] = df['category'].map(category_stats[stat_col])
         
         # 4. Relative score vs category average
-        df['category_relative_score'] = np.where(
-            df['category_std_score'] > 0,
-            (df['master_score'] - df['category_avg_score']) / df['category_std_score'],
-            0
+        df['category_relative_score'] = safe_divide(
+            df['master_score'] - df['category_avg_score'],
+            df['category_std_score'],
+            default=0.0
         )
         
         # 5. Decile within category (1-10, 1 = best)
@@ -5516,7 +5626,7 @@ class PatternDetector:
             # Build momentum DNA without master_score
             momentum_dna_score = (
                 np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
-                np.where(ret_7d > (ret_30d / 4), 30, 0) +
+                np.where(ret_7d > safe_divide(ret_30d, 4, default=0), 30, 0) +
                 np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
                 np.where(ret_30d > 20, 25, 0)  # Use return instead of score
             )
@@ -6638,9 +6748,9 @@ class MarketIntelligence:
             'advancing': advancing,
             'declining': declining,
             'unchanged': unchanged,
-            'ad_ratio': advancing / declining if declining > 0 else (float('inf') if advancing > 0 else 1.0),
+            'ad_ratio': safe_divide(advancing, declining, default=1.0) if declining > 0 else (float('inf') if advancing > 0 else 1.0),
             'ad_line': advancing - declining,
-            'breadth_pct': (advancing / len(df)) * 100 if len(df) > 0 else 0
+            'breadth_pct': safe_percentage(advancing, len(df), default=0.0)
         }
         
         return ad_metrics
