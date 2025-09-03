@@ -14044,9 +14044,9 @@ def main():
                                 'Sector': sector_dist.index,
                                 'Stock Count': sector_dist.values,
                                 'Percentage': sector_pct.values,
-                                'Representation': sector_pct.values.map(
+                                'Representation': sector_pct.map(
                                     lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖️ Moderate' if x > 5 else '📉 Light'
-                                )
+                                ).values
                             })
                             
                             st.dataframe(
