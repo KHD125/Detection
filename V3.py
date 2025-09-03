@@ -1,5 +1,5 @@
 """
-Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -13749,7 +13749,7 @@ def main():
         """
         <div style="text-align: center; color: #666; padding: 1rem;">
             🌊 Wave Detection Ultimate 3.0<br>
-            <small>Professional Stock Ranking System • All Features Complete • Performance Optimized • Permanently Locked</small>
+            <small>Professional Stock Ranking System</small>
         </div>
         """,
         unsafe_allow_html=True
