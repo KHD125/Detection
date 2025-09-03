@@ -7028,7 +7028,22 @@ class FilterEngine:
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
                 'quick_filter': None,
-                'quick_filter_applied': False
+                'quick_filter_applied': False,
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
+                'vmi_tiers': [],
+                'custom_vmi_range': (0.5, 3.0),
+                'momentum_harmony_tiers': [],
+                # Performance filter selections
+                'ret_1d_selection': "All Returns",
+                'ret_3d_selection': "All Returns", 
+                'ret_7d_selection': "All Returns",
+                'ret_30d_selection': "All Returns",
+                'ret_3m_selection': "All Returns",
+                'ret_6m_selection': "All Returns",
+                'ret_1y_selection': "All Returns",
+                'ret_3y_selection': "All Returns",
+                'ret_5y_selection': "All Returns"
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -7075,12 +7090,6 @@ class FilterEngine:
         count = 0
         filters = st.session_state.filter_state
         
-        # Debug: print all filter values
-        print("DEBUG - Filter state:")
-        for key, value in filters.items():
-            if value and value != [] and value != 0 and value != None and value != "All Trends" and value != (0, 100) and value != (0.5, 3.0):
-                print(f"  {key}: {value}")
-        
         # Check each filter type
         if filters.get('categories'): count += 1
         if filters.get('sectors'): count += 1
@@ -7110,7 +7119,6 @@ class FilterEngine:
         if filters.get('breakout_score_range') != (0, 100): count += 1
         if filters.get('rvol_score_range') != (0, 100): count += 1
         
-        print(f"DEBUG - Total count: {count}")
         return count
     
     @staticmethod
