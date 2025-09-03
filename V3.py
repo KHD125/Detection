@@ -13692,14 +13692,6 @@ def main():
             with sophisticated mathematical 
             patterns and reduced noise.
             
-            **Quality Enhancement**: August 2025
-            - Removed 6 redundant patterns
-            - Enhanced TURNAROUND with 5-factor confirmation
-            - Added ATOMIC DECAY MOMENTUM (physics-based)
-            - Improved signal-to-noise ratio
-            
-            ---
-            
             **Indian Market Optimized**
             - ₹ Currency formatting
             - IST timezone aware
