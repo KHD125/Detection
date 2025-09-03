@@ -11781,6 +11781,7 @@ def main():
                             "📈 Positive Returns", 
                             f"{positive_returns}",
                             f"{positive_returns/len(display_df)*100:.0f}% winners"
+                        )
         
         else:
             st.warning("No stocks match the selected filters.")
