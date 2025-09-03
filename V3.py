@@ -11067,7 +11067,52 @@ def main():
                 key="export_format"
             )
         
-        display_df = filtered_df.head(display_count).copy()
+        # 🔧 PERFORMANCE PERIOD FILTERING IMPLEMENTATION
+        # Apply performance-based filtering before display
+        performance_filtered_df = filtered_df.copy()
+        
+        if performance_timeframe != "All":
+            # Map timeframe to return column
+            timeframe_mapping = {
+                "1D": "ret_1d",
+                "3D": "ret_3d", 
+                "7D": "ret_7d",
+                "30D": "ret_30d"
+            }
+            
+            primary_return_col = timeframe_mapping.get(performance_timeframe)
+            
+            if primary_return_col and primary_return_col in performance_filtered_df.columns:
+                # Adjust master score based on selected timeframe performance
+                # Give higher weight to the selected timeframe
+                valid_returns = performance_filtered_df[primary_return_col].notna()
+                
+                if valid_returns.any():
+                    # Create performance-adjusted score
+                    timeframe_multiplier = pd.Series(1.0, index=performance_filtered_df.index)
+                    
+                    # Boost scores for strong performers in selected timeframe
+                    strong_performers = (performance_filtered_df[primary_return_col] > 10) & valid_returns
+                    moderate_performers = (performance_filtered_df[primary_return_col] > 5) & (performance_filtered_df[primary_return_col] <= 10) & valid_returns
+                    weak_performers = (performance_filtered_df[primary_return_col] < -5) & valid_returns
+                    
+                    timeframe_multiplier[strong_performers] = 1.15  # 15% boost for strong performers
+                    timeframe_multiplier[moderate_performers] = 1.05  # 5% boost for moderate performers  
+                    timeframe_multiplier[weak_performers] = 0.95    # 5% penalty for weak performers
+                    
+                    # Apply timeframe adjustment to master score
+                    performance_filtered_df['master_score_adjusted'] = (
+                        performance_filtered_df['master_score'] * timeframe_multiplier
+                    ).clip(0, 100)
+                    
+                    # Resort by adjusted score for this timeframe
+                    performance_filtered_df = performance_filtered_df.sort_values('master_score_adjusted', ascending=False)
+                    
+                    logger.info(f"Applied {performance_timeframe} performance weighting: "
+                              f"{strong_performers.sum()} strong, {moderate_performers.sum()} moderate, "
+                              f"{weak_performers.sum()} weak performers")
+        
+        display_df = performance_filtered_df.head(display_count).copy()
         
         
         # Enhanced sorting logic
@@ -11093,13 +11138,17 @@ def main():
         if not display_df.empty:
             
             # PROFESSIONAL COLUMN CONFIGURATION BASED ON VIEW MODE
+            # Use adjusted score if performance timeframe filtering is applied
+            score_column = 'master_score_adjusted' if (performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns) else 'master_score'
+            score_label = f'{performance_timeframe} Score' if performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns else 'Score'
+            
             if view_mode == "Essential":
                 # Core metrics every trader needs
                 display_cols = {
                     'rank': 'Rank',
                     'ticker': 'Ticker',
                     'company_name': 'Company',
-                    'master_score': 'Score',
+                    score_column: score_label,
                     'market_state': 'State',
                     'price': 'Price',
                     'from_low_pct': 'Low%',
@@ -11120,7 +11169,7 @@ def main():
                     'rank': 'Rank',
                     'ticker': 'Ticker',
                     'company_name': 'Company',
-                    'master_score': 'Master',
+                    score_column: 'Master' if performance_timeframe == "All" else f'{performance_timeframe} Master',
                     'position_score': 'Position',
                     'momentum_score': 'Momentum',
                     'volume_score': 'Volume',
@@ -11142,7 +11191,7 @@ def main():
                     'rank': 'Rank',
                     'ticker': 'Ticker', 
                     'company_name': 'Company',
-                    'master_score': 'Master',
+                    score_column: 'Master' if performance_timeframe == "All" else f'{performance_timeframe} Master',
                     'position_score': 'Pos',
                     'momentum_score': 'Mom',
                     'volume_score': 'Vol',
@@ -11237,6 +11286,7 @@ def main():
             # PROFESSIONAL FORMATTING RULES
             format_rules = {
                 'master_score': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
+                'master_score_adjusted': lambda x: f"{x:.1f}" if pd.notna(x) else '-',  # Add adjusted score formatting
                 'position_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'momentum_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'volume_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
@@ -11429,9 +11479,29 @@ def main():
             # ENHANCED MAIN DATAFRAME DISPLAY
             st.markdown("#### 📊 Main Rankings Table")
             
-            # Display performance timeframe if not "All"
+            # Enhanced performance timeframe display with detailed info
             if performance_timeframe != "All":
-                st.info(f"📅 **Performance Focus**: {performance_timeframe} timeframe analysis")
+                timeframe_info_cols = st.columns([3, 1])
+                
+                with timeframe_info_cols[0]:
+                    # Show performance impact details
+                    if 'master_score_adjusted' in display_df.columns:
+                        adjustment_stats = {
+                            'boosted': (display_df['master_score_adjusted'] > display_df['master_score']).sum(),
+                            'penalized': (display_df['master_score_adjusted'] < display_df['master_score']).sum(),
+                            'unchanged': (display_df['master_score_adjusted'] == display_df['master_score']).sum()
+                        }
+                        
+                        st.info(f"📅 **{performance_timeframe} Performance Focus Active** | "
+                               f"🚀 {adjustment_stats['boosted']} boosted • "
+                               f"⚠️ {adjustment_stats['penalized']} penalized • "
+                               f"➖ {adjustment_stats['unchanged']} unchanged")
+                    else:
+                        st.info(f"📅 **Performance Focus**: {performance_timeframe} timeframe analysis")
+                
+                with timeframe_info_cols[1]:
+                    if st.button("🔄 Reset to All", key="reset_timeframe", help="Show all timeframes"):
+                        st.rerun()
             
             st.dataframe(
                 final_display_df,
