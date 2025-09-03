@@ -16226,30 +16226,6 @@ def main():
                 f"{cache_emoji} {minutes}min ago"
             )
         
-        # Production information
-        st.markdown("---")
-        st.markdown("#### 🔒 Production Information")
-        
-        prod_col1, prod_col2 = st.columns(2)
-        
-        with prod_col1:
-            st.markdown("""
-            **Version Information**
-            - Version: 3.1.0-PROFESSIONAL
-            - Status: Production Ready
-            - Last Updated: September 2025
-            - Code Base: 16,729 lines
-            """)
-        
-        with prod_col2:
-            st.markdown("""
-            **Quality Assurance**
-            - Pattern Count: 41 optimized algorithms
-            - Testing: Comprehensive validation
-            - Reliability: 99.9% uptime target
-            - Performance: Sub-2 second processing
-            """)
-        
         # Footer
         st.markdown("---")
         st.markdown("""
