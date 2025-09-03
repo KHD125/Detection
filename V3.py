@@ -13605,298 +13605,718 @@ def main():
         if filtered_df.empty:
             st.warning("No data available for Ultimate Market Radar analysis")
 
-    # Tab 3: Analysis
+    # Tab 3: 🏆 ALL TIME BEST ANALYSIS TAB - INSTITUTIONAL GRADE INTELLIGENCE
     with tabs[3]:
-        st.markdown("### 📊 Market Analysis")
+        st.markdown("# 🧠 **ULTIMATE MARKET INTELLIGENCE CENTER**")
+        st.markdown("### *Professional-Grade Multi-Dimensional Analysis Platform*")
         
         if not filtered_df.empty:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig_dist = Visualizer.create_score_distribution(filtered_df)
-                st.plotly_chart(fig_dist, width="stretch", theme="streamlit")
-            
-            with col2:
-                pattern_counts = {}
-                for patterns in filtered_df['patterns'].dropna():
-                    if patterns:
-                        for p in patterns.split(' | '):
-                            pattern_counts[p] = pattern_counts.get(p, 0) + 1
-                
-                if pattern_counts:
-                    pattern_df = pd.DataFrame(
-                        list(pattern_counts.items()),
-                        columns=['Pattern', 'Count']
-                    ).sort_values('Count', ascending=True).tail(15)
-                    
-                    fig_patterns = go.Figure([
-                        go.Bar(
-                            x=pattern_df['Count'],
-                            y=pattern_df['Pattern'],
-                            orientation='h',
-                            marker_color='#3498db',
-                            text=pattern_df['Count'],
-                            textposition='outside'
-                        )
-                    ])
-                    
-                    fig_patterns.update_layout(
-                        title="Pattern Frequency Analysis",
-                        xaxis_title="Number of Stocks",
-                        yaxis_title="Pattern",
-                        template='plotly_white',
-                        height=400,
-                        margin=dict(l=150)
-                    )
-                    
-                    st.plotly_chart(fig_patterns, width="stretch", theme="streamlit")
-                else:
-                    st.info("No patterns detected in current selection")
+            # ================================================================================================
+            # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
+            # ================================================================================================
             
             st.markdown("---")
+            st.markdown("### 📊 **EXECUTIVE MARKET DASHBOARD**")
             
-            st.markdown("#### 🏢 Sector Performance")
-            sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
+            # Calculate comprehensive market intelligence metrics
+            total_analyzed = len(filtered_df)
+            elite_threshold = 80
+            strong_threshold = 70
             
-            if not sector_overview_df_local.empty:
-                # Display enhanced LDI columns
-                display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
-                                        'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
-                
-                available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
-                
-                sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
-                
-                # Rename columns for better UI display
-                column_mapping = {
-                    'flow_score': 'Enhanced Flow Score',
-                    'ldi_score': 'LDI Score',
-                    'leadership_density': 'Leadership Density',
-                    'analyzed_stocks': 'Market Leaders',
-                    'total_stocks': 'Total Stocks',
-                    'avg_score': 'Avg Score',
-                    'elite_avg_score': 'Elite Avg Score',
-                    'ldi_quality': 'LDI Quality'
-                }
-                
-                sector_overview_display = sector_overview_display.rename(columns=column_mapping)
-
-                # Enhanced styling for LDI data
-                st.dataframe(
-                    sector_overview_display.style.background_gradient(
-                        subset=['Enhanced Flow Score', 'LDI Score', 'Elite Avg Score'], 
-                        cmap='RdYlGn'
-                    ),
-                    width="stretch",
-                    column_config={
-                        'LDI Score': st.column_config.NumberColumn(
-                            'LDI Score',
-                            help="Leadership Density Index - % of market leaders in sector",
-                            format="%.1f%%",
-                            width="medium"
-                        ),
-                        'Leadership Density': st.column_config.TextColumn(
-                            'Leadership Density',
-                            help="Visual representation of leadership concentration",
-                            width="medium"
-                        ),
-                        'LDI Quality': st.column_config.TextColumn(
-                            'LDI Quality',
-                            help="Quality assessment based on LDI score",
-                            width="medium"
-                        )
-                    }
-                )
-                
-                # Add enhanced explanation
-                st.info("**Revolutionary LDI Analysis**: Uses Leadership Density Index to measure sector strength through market leader concentration. "
-                       "LDI = (Market Leaders in Sector / Total Stocks in Sector) × 100. Higher LDI = stronger sector leadership.")
-                
-                # Add LDI insights
-                if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
-                    top_ldi_sector = sector_overview_df_local.index[0]
-                    top_ldi_score = sector_overview_df_local['ldi_score'].iloc[0]
-                    
-                    st.success(f"💎 **Top LDI Sector**: {top_ldi_sector} with {top_ldi_score:.1f}% leadership density")
-
-            else:
-                st.info("No sector data available in the filtered dataset for analysis. Please check your filters.")
+            elite_stocks = len(filtered_df[filtered_df['master_score'] >= elite_threshold]) if 'master_score' in filtered_df.columns else 0
+            strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
+            
+            # Market health indicators
+            market_health = "🔥 BULLISH" if elite_stocks > total_analyzed * 0.15 else "📈 POSITIVE" if strong_stocks > total_analyzed * 0.25 else "⚖️ NEUTRAL" if strong_stocks > total_analyzed * 0.15 else "⚠️ CAUTIOUS"
+            
+            # Executive metrics row
+            exec_cols = st.columns(6)
+            
+            with exec_cols[0]:
+                UIComponents.render_metric_card("Market Health", market_health, f"{strong_stocks} strong signals")
+            
+            with exec_cols[1]:
+                elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
+                UIComponents.render_metric_card("Elite Stocks", f"{elite_pct:.1f}%", f"{elite_stocks}/{total_analyzed}")
+            
+            with exec_cols[2]:
+                avg_momentum = filtered_df['momentum_score'].mean() if 'momentum_score' in filtered_df.columns else 0
+                momentum_rating = "🚀" if avg_momentum > 70 else "📈" if avg_momentum > 60 else "➡️"
+                UIComponents.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
+            
+            with exec_cols[3]:
+                avg_volume = filtered_df['rvol'].mean() if 'rvol' in filtered_df.columns else 0
+                volume_activity = "🔥 HIGH" if avg_volume > 2.0 else "📊 MEDIUM" if avg_volume > 1.5 else "📉 LOW"
+                UIComponents.render_metric_card("Volume Activity", volume_activity, f"{avg_volume:.1f}x avg")
+            
+            with exec_cols[4]:
+                breakout_count = len(filtered_df[filtered_df['breakout_score'] >= 70]) if 'breakout_score' in filtered_df.columns else 0
+                breakout_pct = (breakout_count / total_analyzed * 100) if total_analyzed > 0 else 0
+                UIComponents.render_metric_card("Breakouts", f"{breakout_pct:.1f}%", f"{breakout_count} stocks")
+            
+            with exec_cols[5]:
+                risk_level = "🛡️ LOW" if avg_momentum > 65 and avg_volume < 3 else "⚠️ MEDIUM" if avg_volume < 4 else "🚨 HIGH"
+                UIComponents.render_metric_card("Risk Level", risk_level, "Systematic")
+            
+            # ================================================================================================
+            # 📈 ADVANCED VISUALIZATION SUITE - PROFESSIONAL CHARTS
+            # ================================================================================================
             
             st.markdown("---")
+            st.markdown("### 📊 **ADVANCED MARKET VISUALIZATION SUITE**")
             
-            st.markdown("#### 🏭 Industry Performance")
-            industry_rotation = MarketIntelligence.detect_industry_rotation(filtered_df)
+            viz_tabs = st.tabs([
+                "🎯 Score Analytics", 
+                "📊 Performance Matrix", 
+                "🔥 Momentum Heatmap",
+                "💎 Pattern Intelligence",
+                "🏢 Sector Analysis",
+                "⚡ Risk Dashboard"
+            ])
             
-            if not industry_rotation.empty:
-                # Check if LDI columns are available
-                has_ldi = 'ldi_score' in industry_rotation.columns
+            # Tab 1: Score Analytics
+            with viz_tabs[0]:
+                score_cols = st.columns(2)
                 
-                if has_ldi:
-                    # Display enhanced LDI columns for industries
-                    industry_cols = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
-                                   'total_stocks', 'avg_score', 'quality_flag']
+                with score_cols[0]:
+                    st.markdown("#### 📊 **Master Score Distribution**")
+                    fig_dist = Visualizer.create_score_distribution(filtered_df)
+                    st.plotly_chart(fig_dist, width='stretch', theme="streamlit")
                     
-                    available_industry_cols = [col for col in industry_cols if col in industry_rotation.columns]
-                    industry_display = industry_rotation[available_industry_cols].head(15)
-                    
-                    # Rename columns for better display
-                    industry_rename_dict = {
-                        'flow_score': 'Enhanced Flow Score',
-                        'ldi_score': 'LDI Score', 
-                        'leadership_density': 'Leadership Density',
-                        'analyzed_stocks': 'Market Leaders',
-                        'total_stocks': 'Total Stocks',
-                        'avg_score': 'Avg Score',
-                        'quality_flag': 'LDI Quality'
-                    }
-                    
-                    industry_display = industry_display.rename(columns=industry_rename_dict)
-                    
-                    # Only apply gradient to columns that exist
-                    gradient_cols = [col for col in ['Enhanced Flow Score', 'LDI Score', 'Avg Score'] 
-                                   if col in industry_display.columns]
-                    
-                    st.dataframe(
-                        industry_display.style.background_gradient(
-                            subset=gradient_cols,
-                            cmap='RdYlGn'
-                        ) if gradient_cols else industry_display,
-                        width="stretch",
-                        column_config={
-                            'LDI Score': st.column_config.NumberColumn(
-                                'LDI Score',
-                                help="Leadership Density Index - % of market leaders in industry",
-                                format="%.1f%%",
-                                width="medium"
-                            ),
-                            'Leadership Density': st.column_config.TextColumn(
-                                'Leadership Density',
-                                help="Visual representation of leadership concentration",
-                                width="medium"
-                            )
+                    # Score quality analysis
+                    if 'master_score' in filtered_df.columns:
+                        score_stats = {
+                            "Elite (80-100)": len(filtered_df[filtered_df['master_score'] >= 80]),
+                            "Strong (70-79)": len(filtered_df[(filtered_df['master_score'] >= 70) & (filtered_df['master_score'] < 80)]),
+                            "Good (60-69)": len(filtered_df[(filtered_df['master_score'] >= 60) & (filtered_df['master_score'] < 70)]),
+                            "Average (50-59)": len(filtered_df[(filtered_df['master_score'] >= 50) & (filtered_df['master_score'] < 60)]),
+                            "Below Avg (<50)": len(filtered_df[filtered_df['master_score'] < 50])
                         }
-                    )
-                    
-                    # Enhanced industry insights
-                    st.info("🔥 **LDI Industry Analysis**: Shows leadership density across industries. "
-                           "Industries with higher LDI scores have more market leaders per total stocks.")
-                    
-                else:
-                    # Fallback to traditional display
-                    traditional_cols = ['flow_score', 'avg_score', 'analyzed_stocks', 'total_stocks', 'sampling_pct']
-                    available_traditional_cols = [col for col in traditional_cols if col in industry_rotation.columns]
-                    
-                    industry_display = industry_rotation[available_traditional_cols].head(15)
-                    
-                    rename_dict = {
-                        'flow_score': 'Flow Score',
-                        'avg_score': 'Avg Score',
-                        'analyzed_stocks': 'Analyzed',
-                        'total_stocks': 'Total',
-                        'sampling_pct': 'Sample %'
-                    }
-                    
-                    industry_display = industry_display.rename(columns=rename_dict)
-                    
-                    st.dataframe(
-                        industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                        width="stretch"
-                    )
-                    
-                    st.info("📊 **Traditional Industry Analysis**: LDI analysis unavailable, showing traditional metrics.")
-                
-                # Show quality warnings if needed
-                if 'quality_flag' in industry_rotation.columns:
-                    low_sample = industry_rotation[industry_rotation['quality_flag'].str.contains('Small Sample|No Leaders', na=False)]
-                    if len(low_sample) > 0:
-                        st.warning(f"⚠️ {len(low_sample)} industries have quality indicators. Review quality column for details.")
-            
-            else:
-                st.info("No industry data available for analysis.")
-            
-            st.markdown("---")
-            
-            st.markdown("#### 📊 Category Performance")
-            if 'category' in filtered_df.columns:
-                # Calculate LDI for categories
-                category_ldi = LeadershipDensityEngine.calculate_category_ldi(filtered_df)
-                
-                if not category_ldi.empty:
-                    # Display enhanced category analysis with LDI
-                    category_display_cols = ['ldi_score', 'leadership_density', 'leader_count', 
-                                           'total_stocks', 'avg_score', 'avg_percentile']
-                    
-                    available_cat_cols = [col for col in category_display_cols if col in category_ldi.columns]
-                    category_display = category_ldi[available_cat_cols].copy()
-                    
-                    # Rename for better UI
-                    category_rename_dict = {
-                        'ldi_score': 'LDI Score',
-                        'leadership_density': 'Leadership Density',
-                        'leader_count': 'Market Leaders',
-                        'total_stocks': 'Total Stocks',
-                        'avg_score': 'Avg Score',
-                        'avg_percentile': 'Avg Category %ile'
-                    }
-                    
-                    category_display = category_display.rename(columns=category_rename_dict)
-                    
-                    st.dataframe(
-                        category_display.style.background_gradient(
-                            subset=['LDI Score', 'Avg Score'],
-                            cmap='RdYlGn'
-                        ),
-                        width="stretch",
-                        column_config={
-                            'LDI Score': st.column_config.NumberColumn(
-                                'LDI Score',
-                                help="Leadership Density Index - % of market leaders in category",
-                                format="%.1f%%",
-                                width="medium"
-                            ),
-                            'Leadership Density': st.column_config.TextColumn(
-                                'Leadership Density',
-                                help="Visual representation of leadership concentration",
-                                width="medium"
-                            )
-                        }
-                    )
-                    
-                    st.info("🔥 **LDI Category Analysis**: Market cap categories analyzed through leadership density. "
-                           "Shows which categories (Large Cap, Mid Cap, Small Cap) have the highest concentration of market leaders.")
-                    
-                    # Category insights
-                    if len(category_ldi) > 0 and 'ldi_score' in category_ldi.columns:
-                        top_category = category_ldi.index[0]
-                        top_ldi = category_ldi['ldi_score'].iloc[0]
-                        st.success(f"👑 **Top LDI Category**: {top_category} with {top_ldi:.1f}% leadership density")
                         
-                else:
-                    # Fallback to traditional category analysis
-                    category_df = filtered_df.groupby('category').agg({
-                        'master_score': ['mean', 'count'],
-                        'category_percentile': 'mean',
-                        'money_flow_mm': 'sum' if 'money_flow_mm' in filtered_df.columns else lambda x: 0
-                    }).round(2)
+                        st.markdown("**🎯 Score Quality Distribution:**")
+                        for category, count in score_stats.items():
+                            pct = (count / total_analyzed * 100) if total_analyzed > 0 else 0
+                            st.write(f"• {category}: **{count}** stocks ({pct:.1f}%)")
+                
+                with score_cols[1]:
+                    st.markdown("#### 🔥 **Component Score Analysis**")
                     
-                    if 'money_flow_mm' in filtered_df.columns:
-                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Total Money Flow']
+                    if all(col in filtered_df.columns for col in ['momentum_score', 'trend_score', 'acceleration_score']):
+                        component_data = {
+                            'Component': ['Momentum', 'Trend', 'Acceleration', 'Breakout', 'Volume'],
+                            'Avg Score': [
+                                filtered_df['momentum_score'].mean(),
+                                filtered_df['trend_score'].mean() if 'trend_score' in filtered_df.columns else 0,
+                                filtered_df['acceleration_score'].mean(),
+                                filtered_df['breakout_score'].mean() if 'breakout_score' in filtered_df.columns else 0,
+                                filtered_df['rvol'].mean() * 20 if 'rvol' in filtered_df.columns else 0  # Normalized to 0-100
+                            ],
+                            'Quality': ['🔥' if score > 65 else '📈' if score > 55 else '⚖️' for score in [
+                                filtered_df['momentum_score'].mean(),
+                                filtered_df['trend_score'].mean() if 'trend_score' in filtered_df.columns else 0,
+                                filtered_df['acceleration_score'].mean(),
+                                filtered_df['breakout_score'].mean() if 'breakout_score' in filtered_df.columns else 0,
+                                filtered_df['rvol'].mean() * 20 if 'rvol' in filtered_df.columns else 0
+                            ]]
+                        }
+                        
+                        component_df = pd.DataFrame(component_data)
+                        
+                        st.dataframe(
+                            component_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Component': st.column_config.TextColumn("Component", width="medium"),
+                                'Avg Score': st.column_config.ProgressColumn("Avg Score", min_value=0, max_value=100),
+                                'Quality': st.column_config.TextColumn("Quality", width="small")
+                            }
+                        )
+                        
+                        # Component insights
+                        best_component = component_df.loc[component_df['Avg Score'].idxmax(), 'Component']
+                        best_score = component_df['Avg Score'].max()
+                        st.success(f"🏆 **Strongest Component**: {best_component} ({best_score:.1f} avg score)")
+            
+            # Tab 2: Performance Matrix
+            with viz_tabs[1]:
+                perf_cols = st.columns(2)
+                
+                with perf_cols[0]:
+                    st.markdown("#### 💰 **Return Performance Analysis**")
+                    
+                    if any(col in filtered_df.columns for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d']):
+                        return_analysis = {}
+                        
+                        for period, col in [('1D', 'ret_1d'), ('3D', 'ret_3d'), ('7D', 'ret_7d'), ('30D', 'ret_30d')]:
+                            if col in filtered_df.columns:
+                                positive_returns = len(filtered_df[filtered_df[col] > 0])
+                                avg_return = filtered_df[col].mean()
+                                max_return = filtered_df[col].max()
+                                
+                                return_analysis[period] = {
+                                    'Positive %': (positive_returns / len(filtered_df) * 100),
+                                    'Avg Return': avg_return,
+                                    'Max Return': max_return,
+                                    'Quality': '🔥' if avg_return > 5 else '📈' if avg_return > 2 else '⚖️' if avg_return > 0 else '📉'
+                                }
+                        
+                        if return_analysis:
+                            return_df = pd.DataFrame(return_analysis).T
+                            
+                            st.dataframe(
+                                return_df,
+                                width='stretch',
+                                column_config={
+                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f%%"),
+                                    'Avg Return': st.column_config.NumberColumn("Avg Return", format="%.2f%%"),
+                                    'Max Return': st.column_config.NumberColumn("Max Return", format="%.2f%%"),
+                                    'Quality': st.column_config.TextColumn("Quality", width="small")
+                                }
+                            )
+                            
+                            # Performance insights
+                            best_period = return_df['Avg Return'].idxmax()
+                            best_avg = return_df.loc[best_period, 'Avg Return']
+                            st.success(f"🎯 **Best Timeframe**: {best_period} with {best_avg:.2f}% avg return")
                     else:
-                        category_df.columns = ['Avg Score', 'Count', 'Avg Cat %ile', 'Dummy Flow']
-                        category_df = category_df.drop('Dummy Flow', axis=1)
+                        st.info("📊 Return data not available in current dataset")
+                
+                with perf_cols[1]:
+                    st.markdown("#### 📊 **Volume & Liquidity Matrix**")
                     
-                    category_df = category_df.sort_values('Avg Score', ascending=False)
+                    if 'rvol' in filtered_df.columns:
+                        volume_ranges = {
+                            'Extreme (>5x)': len(filtered_df[filtered_df['rvol'] > 5]),
+                            'Very High (3-5x)': len(filtered_df[(filtered_df['rvol'] >= 3) & (filtered_df['rvol'] <= 5)]),
+                            'High (2-3x)': len(filtered_df[(filtered_df['rvol'] >= 2) & (filtered_df['rvol'] < 3)]),
+                            'Above Avg (1.5-2x)': len(filtered_df[(filtered_df['rvol'] >= 1.5) & (filtered_df['rvol'] < 2)]),
+                            'Normal (<1.5x)': len(filtered_df[filtered_df['rvol'] < 1.5])
+                        }
+                        
+                        volume_df = pd.DataFrame([
+                            {'Range': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
+                            for k, v in volume_ranges.items()
+                        ])
+                        
+                        st.dataframe(
+                            volume_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Range': st.column_config.TextColumn("Volume Range", width="medium"),
+                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                            }
+                        )
+                        
+                        # Volume insights
+                        high_volume = volume_ranges['Extreme (>5x)'] + volume_ranges['Very High (3-5x)'] + volume_ranges['High (2-3x)']
+                        high_vol_pct = (high_volume / len(filtered_df) * 100)
+                        
+                        if high_vol_pct > 30:
+                            st.success(f"🔥 **High Activity Market**: {high_vol_pct:.1f}% stocks showing elevated volume")
+                        elif high_vol_pct > 15:
+                            st.info(f"📊 **Moderate Activity**: {high_vol_pct:.1f}% stocks with high volume")
+                        else:
+                            st.warning(f"📉 **Low Activity**: Only {high_vol_pct:.1f}% stocks with high volume")
+            
+            # Tab 3: Momentum Heatmap
+            with viz_tabs[2]:
+                st.markdown("#### 🔥 **Multi-Dimensional Momentum Analysis**")
+                
+                if all(col in filtered_df.columns for col in ['momentum_score', 'acceleration_score']):
+                    # Create momentum vs acceleration scatter plot
+                    momentum_viz_cols = st.columns(2)
+                    
+                    with momentum_viz_cols[0]:
+                        st.markdown("**🎯 Momentum vs Acceleration Matrix**")
+                        
+                        fig_momentum = go.Figure()
+                        
+                        # Add scatter plot with color coding by master score
+                        fig_momentum.add_trace(
+                            go.Scatter(
+                                x=filtered_df['momentum_score'],
+                                y=filtered_df['acceleration_score'],
+                                mode='markers',
+                                marker=dict(
+                                    size=8,
+                                    color=filtered_df['master_score'] if 'master_score' in filtered_df.columns else 'blue',
+                                    colorscale='RdYlGn',
+                                    showscale=True,
+                                    colorbar=dict(title="Master Score")
+                                ),
+                                text=filtered_df['ticker'],
+                                hovertemplate='<b>%{text}</b><br>Momentum: %{x}<br>Acceleration: %{y}<extra></extra>'
+                            )
+                        )
+                        
+                        # Add quadrant lines
+                        fig_momentum.add_hline(y=60, line_dash="dash", line_color="gray", opacity=0.5)
+                        fig_momentum.add_vline(x=60, line_dash="dash", line_color="gray", opacity=0.5)
+                        
+                        fig_momentum.update_layout(
+                            title="Momentum-Acceleration Matrix",
+                            xaxis_title="Momentum Score",
+                            yaxis_title="Acceleration Score",
+                            template='plotly_white',
+                            height=400
+                        )
+                        
+                        st.plotly_chart(fig_momentum, width='stretch')
+                    
+                    with momentum_viz_cols[1]:
+                        st.markdown("**📊 Momentum Quadrant Analysis**")
+                        
+                        # Quadrant analysis
+                        high_momentum = filtered_df['momentum_score'] >= 60
+                        high_acceleration = filtered_df['acceleration_score'] >= 60
+                        
+                        quadrants = {
+                            '🚀 Explosive (High/High)': len(filtered_df[high_momentum & high_acceleration]),
+                            '📈 Building (High/Low)': len(filtered_df[high_momentum & ~high_acceleration]),
+                            '⚡ Accelerating (Low/High)': len(filtered_df[~high_momentum & high_acceleration]),
+                            '⚖️ Consolidating (Low/Low)': len(filtered_df[~high_momentum & ~high_acceleration])
+                        }
+                        
+                        quadrant_df = pd.DataFrame([
+                            {'Quadrant': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
+                            for k, v in quadrants.items()
+                        ])
+                        
+                        st.dataframe(
+                            quadrant_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Quadrant': st.column_config.TextColumn("Momentum Quadrant", width="medium"),
+                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                            }
+                        )
+                        
+                        # Quadrant insights
+                        explosive_pct = (quadrants['🚀 Explosive (High/High)'] / len(filtered_df) * 100)
+                        if explosive_pct > 20:
+                            st.success(f"🚀 **Explosive Market**: {explosive_pct:.1f}% stocks in high momentum/acceleration")
+                        elif explosive_pct > 10:
+                            st.info(f"📈 **Building Momentum**: {explosive_pct:.1f}% stocks showing explosive potential")
+                        else:
+                            st.warning(f"⚖️ **Consolidation Phase**: Only {explosive_pct:.1f}% explosive stocks")
+            
+            # Tab 4: Pattern Intelligence
+            with viz_tabs[3]:
+                st.markdown("#### 💎 **Advanced Pattern Recognition Intelligence**")
+                
+                pattern_intel_cols = st.columns(2)
+                
+                with pattern_intel_cols[0]:
+                    st.markdown("**🔍 Pattern Frequency Analysis**")
+                    
+                    pattern_counts = {}
+                    for patterns in filtered_df['patterns'].dropna():
+                        if patterns:
+                            for p in patterns.split(' | '):
+                                pattern_counts[p] = pattern_counts.get(p, 0) + 1
+                    
+                    if pattern_counts:
+                        pattern_df = pd.DataFrame(
+                            list(pattern_counts.items()),
+                            columns=['Pattern', 'Count']
+                        ).sort_values('Count', ascending=False).head(15)
+                        
+                        pattern_df['Percentage'] = (pattern_df['Count'] / len(filtered_df) * 100)
+                        pattern_df['Quality'] = pattern_df['Percentage'].apply(
+                            lambda x: '🔥' if x > 15 else '📈' if x > 8 else '⚖️' if x > 3 else '📉'
+                        )
+                        
+                        st.dataframe(
+                            pattern_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Pattern': st.column_config.TextColumn("Pattern Type", width="medium"),
+                                'Count': st.column_config.NumberColumn("Occurrences", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f%%"),
+                                'Quality': st.column_config.TextColumn("Quality", width="small")
+                            }
+                        )
+                        
+                        # Pattern insights
+                        dominant_pattern = pattern_df.iloc[0]['Pattern']
+                        dominant_pct = pattern_df.iloc[0]['Percentage']
+                        st.success(f"🎯 **Dominant Pattern**: {dominant_pattern} ({dominant_pct:.1f}% of stocks)")
+                    else:
+                        st.info("No patterns detected in current selection")
+                
+                with pattern_intel_cols[1]:
+                    st.markdown("**📊 Pattern Quality Matrix**")
+                    
+                    if 'breakout_score' in filtered_df.columns:
+                        # Pattern quality analysis
+                        pattern_quality = {
+                            'Elite Patterns (>80)': len(filtered_df[filtered_df['breakout_score'] > 80]),
+                            'Strong Patterns (70-80)': len(filtered_df[(filtered_df['breakout_score'] >= 70) & (filtered_df['breakout_score'] <= 80)]),
+                            'Good Patterns (60-70)': len(filtered_df[(filtered_df['breakout_score'] >= 60) & (filtered_df['breakout_score'] < 70)]),
+                            'Average Patterns (50-60)': len(filtered_df[(filtered_df['breakout_score'] >= 50) & (filtered_df['breakout_score'] < 60)]),
+                            'Weak Patterns (<50)': len(filtered_df[filtered_df['breakout_score'] < 50])
+                        }
+                        
+                        quality_df = pd.DataFrame([
+                            {'Quality Level': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
+                            for k, v in pattern_quality.items()
+                        ])
+                        
+                        st.dataframe(
+                            quality_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Quality Level': st.column_config.TextColumn("Pattern Quality", width="medium"),
+                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                            }
+                        )
+                        
+                        # Quality insights
+                        elite_patterns = pattern_quality['Elite Patterns (>80)']
+                        strong_patterns = pattern_quality['Strong Patterns (70-80)']
+                        high_quality_pct = ((elite_patterns + strong_patterns) / len(filtered_df) * 100)
+                        
+                        if high_quality_pct > 25:
+                            st.success(f"💎 **High Pattern Quality**: {high_quality_pct:.1f}% elite/strong patterns")
+                        elif high_quality_pct > 15:
+                            st.info(f"📈 **Good Pattern Quality**: {high_quality_pct:.1f}% high-quality patterns")
+                        else:
+                            st.warning(f"⚖️ **Mixed Pattern Quality**: {high_quality_pct:.1f}% high-quality patterns")
+            
+            # Tab 5: Sector Analysis 
+            with viz_tabs[4]:
+                st.markdown("#### 🏢 **Comprehensive Sector Intelligence**")
+                
+                sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
+                
+                if not sector_overview_df_local.empty:
+                    sector_intel_cols = st.columns(2)
+                    
+                    with sector_intel_cols[0]:
+                        st.markdown("**🎯 Sector Leadership Analysis**")
+                        
+                        # Enhanced sector display
+                        display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                               'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
+                        
+                        available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
+                        sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
+                        
+                        # Add quality indicators
+                        if 'ldi_score' in sector_overview_display.columns:
+                            sector_overview_display['Sector_Quality'] = sector_overview_display['ldi_score'].apply(
+                                lambda x: '💎 Elite' if x > 20 else '🔥 Strong' if x > 15 else '📈 Good' if x > 10 else '⚖️ Average'
+                            )
+                        
+                        st.dataframe(
+                            sector_overview_display,
+                            width='stretch',
+                            column_config={
+                                'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
+                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100),
+                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100),
+                                'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
+                            }
+                        )
+                        
+                        # Sector insights
+                        if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
+                            top_sector = sector_overview_df_local.index[0]
+                            top_ldi = sector_overview_df_local['ldi_score'].iloc[0]
+                            st.success(f"🏆 **Leading Sector**: {top_sector} (LDI: {top_ldi:.1f}%)")
+                    
+                    with sector_intel_cols[1]:
+                        st.markdown("**📊 Sector Distribution Matrix**")
+                        
+                        if 'sector' in filtered_df.columns:
+                            sector_dist = filtered_df['sector'].value_counts().head(10)
+                            sector_pct = (sector_dist / len(filtered_df) * 100)
+                            
+                            sector_matrix = pd.DataFrame({
+                                'Sector': sector_dist.index,
+                                'Stock Count': sector_dist.values,
+                                'Percentage': sector_pct.values,
+                                'Representation': sector_pct.values.map(
+                                    lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖️ Moderate' if x > 5 else '📉 Light'
+                                )
+                            })
+                            
+                            st.dataframe(
+                                sector_matrix,
+                                width='stretch',
+                                hide_index=True,
+                                column_config={
+                                    'Sector': st.column_config.TextColumn("Sector", width="medium"),
+                                    'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f%%"),
+                                    'Representation': st.column_config.TextColumn("Level", width="small")
+                                }
+                            )
+                        else:
+                            st.info("Sector data not available")
+                else:
+                    st.info("No sector data available for analysis")
+            
+            # Tab 6: Risk Dashboard
+            with viz_tabs[5]:
+                st.markdown("#### ⚡ **Advanced Risk Management Dashboard**")
+                
+                risk_cols = st.columns(2)
+                
+                with risk_cols[0]:
+                    st.markdown("**🛡️ Risk Distribution Analysis**")
+                    
+                    # Calculate risk metrics
+                    if 'rvol' in filtered_df.columns and 'master_score' in filtered_df.columns:
+                        # Risk categorization based on volume and score
+                        high_risk = (filtered_df['rvol'] > 4) | (filtered_df['master_score'] < 50)
+                        medium_risk = ((filtered_df['rvol'] >= 2) & (filtered_df['rvol'] <= 4)) & (filtered_df['master_score'] >= 50)
+                        low_risk = (filtered_df['rvol'] < 2) & (filtered_df['master_score'] >= 70)
+                        
+                        risk_distribution = {
+                            '🚨 High Risk': len(filtered_df[high_risk]),
+                            '⚠️ Medium Risk': len(filtered_df[medium_risk]),
+                            '🛡️ Low Risk': len(filtered_df[low_risk])
+                        }
+                        
+                        risk_df = pd.DataFrame([
+                            {'Risk Level': k, 'Count': v, 'Percentage': (v/len(filtered_df)*100)}
+                            for k, v in risk_distribution.items()
+                        ])
+                        
+                        st.dataframe(
+                            risk_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Risk Level': st.column_config.TextColumn("Risk Category", width="medium"),
+                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% of Portfolio", min_value=0, max_value=100, format="%.1f%%")
+                            }
+                        )
+                        
+                        # Risk insights
+                        high_risk_pct = (risk_distribution['🚨 High Risk'] / len(filtered_df) * 100)
+                        if high_risk_pct > 40:
+                            st.error(f"🚨 **High Risk Portfolio**: {high_risk_pct:.1f}% high-risk positions")
+                        elif high_risk_pct > 25:
+                            st.warning(f"⚠️ **Moderate Risk**: {high_risk_pct:.1f}% high-risk positions")
+                        else:
+                            st.success(f"🛡️ **Controlled Risk**: Only {high_risk_pct:.1f}% high-risk positions")
+                
+                with risk_cols[1]:
+                    st.markdown("**📊 Position Sizing Recommendations**")
+                    
+                    if 'master_score' in filtered_df.columns and 'rvol' in filtered_df.columns:
+                        # Position sizing based on score and volatility
+                        filtered_df_copy = filtered_df.copy()
+                        
+                        # Calculate recommended position size (1-5% of portfolio)
+                        filtered_df_copy['position_size'] = (
+                            (filtered_df_copy['master_score'] / 100 * 3) +  # Base on score (0-3%)
+                            np.where(filtered_df_copy['rvol'] < 2, 2, 1)     # Bonus for low volatility
+                        ).clip(0.5, 5.0)  # Min 0.5%, Max 5%
+                        
+                        # Position categories
+                        position_categories = pd.cut(
+                            filtered_df_copy['position_size'], 
+                            bins=[0, 1, 2, 3, 5], 
+                            labels=['🔸 Small (0.5-1%)', '🔹 Medium (1-2%)', '🔷 Large (2-3%)', '💎 Max (3-5%)']
+                        ).value_counts()
+                        
+                        position_df = pd.DataFrame({
+                            'Position Size': position_categories.index,
+                            'Count': position_categories.values,
+                            'Percentage': (position_categories.values / len(filtered_df) * 100)
+                        })
+                        
+                        st.dataframe(
+                            position_df,
+                            width='stretch',
+                            hide_index=True,
+                            column_config={
+                                'Position Size': st.column_config.TextColumn("Recommended Size", width="medium"),
+                                'Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                'Percentage': st.column_config.ProgressColumn("% Allocation", min_value=0, max_value=100, format="%.1f%%")
+                            }
+                        )
+                        
+                        # Position sizing insights
+                        max_positions = position_categories.get('💎 Max (3-5%)', 0)
+                        max_pct = (max_positions / len(filtered_df) * 100) if len(filtered_df) > 0 else 0
+                        
+                        if max_pct > 15:
+                            st.success(f"💎 **High Conviction Opportunities**: {max_pct:.1f}% qualify for maximum position size")
+                        elif max_pct > 8:
+                            st.info(f"🔷 **Solid Opportunities**: {max_pct:.1f}% qualify for large positions")
+                        else:
+                            st.warning(f"🔸 **Conservative Allocation**: Only {max_pct:.1f}% qualify for large positions")
+            
+            # ================================================================================================
+            # 🎯 EXECUTIVE SUMMARY AND ACTIONABLE INSIGHTS
+            # ================================================================================================
+            
+            st.markdown("---")
+            st.markdown("### 🎯 **EXECUTIVE SUMMARY & ACTIONABLE INSIGHTS**")
+            
+            summary_cols = st.columns(2)
+            
+            with summary_cols[0]:
+                st.markdown("#### 📋 **Key Findings**")
+                
+                findings = []
+                
+                # Market sentiment finding
+                if elite_stocks > total_analyzed * 0.15:
+                    findings.append(f"🔥 **Strong Market**: {elite_pct:.1f}% elite stocks indicate bullish conditions")
+                elif strong_stocks > total_analyzed * 0.25:
+                    findings.append(f"📈 **Positive Market**: {(strong_stocks/total_analyzed*100):.1f}% strong stocks")
+                else:
+                    findings.append(f"⚖️ **Neutral Market**: {(strong_stocks/total_analyzed*100):.1f}% strong stocks - selective approach needed")
+                
+                # Volume finding
+                if 'rvol' in filtered_df.columns:
+                    high_vol_stocks = len(filtered_df[filtered_df['rvol'] > 2.5])
+                    high_vol_pct = (high_vol_stocks / total_analyzed * 100)
+                    if high_vol_pct > 25:
+                        findings.append(f"📊 **High Activity**: {high_vol_pct:.1f}% stocks show elevated volume")
+                    else:
+                        findings.append(f"📉 **Low Activity**: Only {high_vol_pct:.1f}% stocks with high volume")
+                
+                # Momentum finding
+                if 'momentum_score' in filtered_df.columns:
+                    avg_momentum = filtered_df['momentum_score'].mean()
+                    if avg_momentum > 65:
+                        findings.append(f"🚀 **Strong Momentum**: {avg_momentum:.1f} average momentum score")
+                    elif avg_momentum > 55:
+                        findings.append(f"📈 **Building Momentum**: {avg_momentum:.1f} average momentum score")
+                    else:
+                        findings.append(f"⚖️ **Weak Momentum**: {avg_momentum:.1f} average momentum score")
+                
+                # Risk finding
+                if 'rvol' in filtered_df.columns:
+                    high_risk_count = len(filtered_df[filtered_df['rvol'] > 4])
+                    risk_pct = (high_risk_count / total_analyzed * 100)
+                    if risk_pct > 30:
+                        findings.append(f"🚨 **High Risk Environment**: {risk_pct:.1f}% highly volatile stocks")
+                    elif risk_pct > 15:
+                        findings.append(f"⚠️ **Moderate Risk**: {risk_pct:.1f}% highly volatile stocks")
+                    else:
+                        findings.append(f"🛡️ **Low Risk Environment**: Only {risk_pct:.1f}% highly volatile stocks")
+                
+                for finding in findings:
+                    st.write(f"• {finding}")
+            
+            with summary_cols[1]:
+                st.markdown("#### 🎯 **Strategic Recommendations**")
+                
+                recommendations = []
+                
+                # Position sizing recommendation
+                if elite_stocks > total_analyzed * 0.1:
+                    recommendations.append("💎 **Increase Position Sizes** on elite-scoring stocks (80+)")
+                else:
+                    recommendations.append("🔸 **Conservative Sizing** - limited high-conviction opportunities")
+                
+                # Diversification recommendation
+                if 'sector' in filtered_df.columns:
+                    sector_concentration = filtered_df['sector'].value_counts().iloc[0] / len(filtered_df)
+                    if sector_concentration > 0.4:
+                        recommendations.append("🌐 **Increase Diversification** - high sector concentration detected")
+                    else:
+                        recommendations.append("✅ **Good Diversification** - balanced sector exposure")
+                
+                # Risk management recommendation
+                if 'rvol' in filtered_df.columns:
+                    avg_rvol = filtered_df['rvol'].mean()
+                    if avg_rvol > 3:
+                        recommendations.append("🛡️ **Implement Stop Losses** - high volatility environment")
+                    elif avg_rvol > 2:
+                        recommendations.append("⚠️ **Monitor Positions Closely** - elevated volatility")
+                    else:
+                        recommendations.append("📈 **Normal Risk Management** - stable environment")
+                
+                # Timing recommendation
+                if 'momentum_score' in filtered_df.columns:
+                    momentum_trend = filtered_df['momentum_score'].mean()
+                    if momentum_trend > 65:
+                        recommendations.append("⚡ **Aggressive Entry** - strong momentum environment")
+                    elif momentum_trend > 55:
+                        recommendations.append("📈 **Selective Entry** - building momentum")
+                    else:
+                        recommendations.append("⏳ **Wait for Setup** - weak momentum environment")
+                
+                for rec in recommendations:
+                    st.write(f"• {rec}")
+            
+            # ================================================================================================
+            # 🏆 TOP PICKS SUMMARY
+            # ================================================================================================
+            
+            st.markdown("---")
+            st.markdown("### 🏆 **INSTITUTIONAL TOP PICKS**")
+            
+            if 'master_score' in filtered_df.columns:
+                # Get top picks based on multiple criteria
+                top_picks = filtered_df[
+                    (filtered_df['master_score'] >= 75) &
+                    (filtered_df['rvol'] >= 1.5 if 'rvol' in filtered_df.columns else True)
+                ].nlargest(10, 'master_score')
+                
+                if not top_picks.empty:
+                    # Display top picks with key metrics
+                    display_columns = ['ticker', 'company_name', 'master_score']
+                    if 'momentum_score' in top_picks.columns:
+                        display_columns.append('momentum_score')
+                    if 'rvol' in top_picks.columns:
+                        display_columns.append('rvol')
+                    if 'ret_1d' in top_picks.columns:
+                        display_columns.append('ret_1d')
+                    
+                    picks_display = top_picks[display_columns].copy()
+                    
+                    # Add quality rating
+                    picks_display['Quality'] = picks_display['master_score'].apply(
+                        lambda x: '💎 Elite' if x >= 85 else '🔥 Premium' if x >= 80 else '📈 Strong'
+                    )
                     
                     st.dataframe(
-                        category_df.style.background_gradient(subset=['Avg Score']),
-                        width="stretch"
+                        picks_display,
+                        width='stretch',
+                        hide_index=True,
+                        column_config={
+                            'ticker': st.column_config.TextColumn("Ticker", width="small"),
+                            'company_name': st.column_config.TextColumn("Company", width="medium"),
+                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100),
+                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
+                            'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
+                            'ret_1d': st.column_config.NumberColumn("1D Return", format="%.2f%%"),
+                            'Quality': st.column_config.TextColumn("Quality", width="small")
+                        }
                     )
-                    st.info("Using traditional category analysis (LDI calculation failed)")
-            else:
-                st.info("Category column not available in data.")
+                    
+                    # Top pick insights
+                    elite_picks = len(picks_display[picks_display['Quality'] == '💎 Elite'])
+                    premium_picks = len(picks_display[picks_display['Quality'] == '🔥 Premium'])
+                    
+                    if elite_picks > 0:
+                        st.success(f"💎 **{elite_picks} Elite-Grade Opportunities** identified for institutional allocation")
+                    if premium_picks > 0:
+                        st.success(f"🔥 **{premium_picks} Premium-Grade Opportunities** suitable for aggressive positions")
+                else:
+                    st.info("📊 No stocks meet institutional-grade criteria in current selection")
         
         else:
-            st.info("No data available for analysis.")
+            st.warning("📊 No data available for comprehensive analysis. Please adjust your filters.")
+            st.info("💡 **Tip**: Try expanding your filters or checking different tabs for data availability")
     
     # Tab 4: Search
     # Tab 4: Search
