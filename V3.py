@@ -12979,11 +12979,11 @@ def main():
                 ].copy()
                 
                 if not momentum_stocks.empty:
-                    # Calculate momentum strength score
+                    # 🚨 CRITICAL FIX: Proper momentum strength calculation with normalized values
                     momentum_stocks['momentum_strength'] = (
-                        momentum_stocks.get('momentum_score', 0) * 0.4 +
-                        momentum_stocks.get('acceleration_score', 0) * 0.4 +
-                        momentum_stocks.get('rvol', 0) * 10  # RVOL weight
+                        momentum_stocks.get('momentum_score', 0) * 0.5 +
+                        momentum_stocks.get('acceleration_score', 0) * 0.3 +
+                        np.clip(momentum_stocks.get('rvol', 0) * 4, 0, 20)  # Cap RVOL contribution at 20 points
                     )
                     
                     top_momentum = momentum_stocks.nlargest(15, 'momentum_strength')
@@ -13016,7 +13016,7 @@ def main():
                             'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
                             'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
-                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=200)
+                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120)
                         }
                     )
                 else:
@@ -13354,9 +13354,9 @@ def main():
                 if 'momentum_score' in high_prob_analysis.columns:
                     prob_factors.append(('Momentum', 'momentum_score', 0.25))
                 
-                # Volume factor with sensitivity adjustment
+                # Volume factor with sensitivity adjustment - 🚨 FIXED: Proper volume scoring
                 if 'rvol' in high_prob_analysis.columns:
-                    volume_multiplier = 20 if "Conservative" in sensitivity_level else 25 if "Balanced" in sensitivity_level else 30
+                    volume_multiplier = 8 if "Conservative" in sensitivity_level else 10 if "Balanced" in sensitivity_level else 12
                     high_prob_analysis['volume_score'] = np.clip(high_prob_analysis['rvol'] * volume_multiplier, 0, 100)
                     prob_factors.append(('Volume', 'volume_score', 0.25))
                 
@@ -13489,7 +13489,7 @@ def main():
                         total_factors += 1
                         
                     if 'rvol' in stock and pd.notna(stock.get('rvol')):
-                        volume_boost = min(stock['rvol'] * 15, 50)  # Cap at 50 points
+                        volume_boost = min(stock['rvol'] * 8, 30)  # 🚨 FIXED: Reduced multiplier and cap
                         short_score += volume_boost
                         total_factors += 1
                     
