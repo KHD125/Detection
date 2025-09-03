@@ -11029,11 +11029,6 @@ def main():
                         st.info("📊 No pattern stocks in current selection")
                 else:
                     st.warning("⚠️ Pattern data not available in dataset")
-                        mime="text/csv",
-                        help="Download only stocks showing patterns"
-                    )
-                else:
-                    st.info("No stocks with patterns in current filter")
         
         else:
             st.warning("No data available for summary. Please adjust filters.")
