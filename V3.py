@@ -11029,7 +11029,7 @@ def main():
     
     # Tab 1: Rankings - ALL TIME BEST PROFESSIONAL RANKING TAB
     with tabs[1]:
-        st.markdown("### 🏆 ULTIMATE PROFESSIONAL RANKINGS DASHBOARD")
+        st.markdown("### 🏆 Top Ranked Stocks")
         st.markdown("*Complete analysis with all critical metrics for professional stock ranking*")
         
         # Enhanced Control Panel
