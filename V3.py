@@ -7781,7 +7781,7 @@ class FilterEngine:
     def get_filter_options(df: pd.DataFrame, column: str, current_filters: Optional[Dict[str, Any]] = None) -> List[str]:
         """
         Get available options for a filter based on other active filters.
-        This creates SMART INTERCONNECTED filters for Category/Sector/Industry.
+        This creates BIDIRECTIONAL SMART INTERCONNECTED filters for Category/Sector/Industry.
         """
         if df.empty or column not in df.columns:
             return []
@@ -7790,24 +7790,22 @@ class FilterEngine:
         if current_filters is None:
             current_filters = FilterEngine.build_filter_dict()
         
-        # SMART INTERCONNECTION LOGIC: Apply other filters but keep interconnected ones
+        # BIDIRECTIONAL SMART INTERCONNECTION LOGIC
         temp_filters = current_filters.copy()
         
-        # For Category/Sector/Industry interconnection, apply the "parent" filters only
+        # For Category/Sector/Industry interconnection - BIDIRECTIONAL FILTERING
         if column == 'category':
-            # For categories, apply all other filters EXCEPT categories/sectors/industries
-            temp_filters.pop('categories', None)
-            temp_filters.pop('sectors', None)  # Don't apply sector filter when getting categories
-            temp_filters.pop('industries', None)  # Don't apply industry filter when getting categories
+            # For categories, apply sector AND industry filters to show only relevant categories
+            temp_filters.pop('categories', None)  # Don't apply category filter when getting categories
+            # Keep sectors and industries filters to show only categories that have those sectors/industries
         elif column == 'sector':
-            # For sectors, apply category filter but not sector/industry filters
-            temp_filters.pop('sectors', None)
-            temp_filters.pop('industries', None)  # Don't apply industry filter when getting sectors
-            # Keep categories filter to show only sectors for selected categories
+            # For sectors, apply category AND industry filters to show only relevant sectors
+            temp_filters.pop('sectors', None)  # Don't apply sector filter when getting sectors  
+            # Keep categories and industries filters to show only sectors that have those categories/industries
         elif column == 'industry':
-            # For industries, apply both category and sector filters
-            temp_filters.pop('industries', None)
-            # Keep both categories and sectors filters to show only industries for selected combinations
+            # For industries, apply category AND sector filters to show only relevant industries
+            temp_filters.pop('industries', None)  # Don't apply industry filter when getting industries
+            # Keep categories and sectors filters to show only industries that have those categories/sectors
         else:
             # For non-interconnected filters, remove only the current filter
             filter_key_map = {
@@ -9769,9 +9767,9 @@ def main():
             if 'rvol_score_slider' in st.session_state:
                 st.session_state.filter_state['rvol_score_range'] = st.session_state.rvol_score_slider
         
-        # SMART INTERCONNECTED FILTERS: Category → Sector → Industry
-        # Categories affect available Sectors, Sectors affect available Industries
-        st.markdown("#### 🏢 Company Classification (Smart Interconnected)")
+        # BIDIRECTIONAL SMART INTERCONNECTED FILTERS: Category ↔ Sector ↔ Industry
+        # Any selection affects the other two filters bidirectionally
+        st.markdown("#### 🏢 Company Classification (Bidirectional Smart Filter)")
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -9785,7 +9783,7 @@ def main():
             options=categories,
             default=valid_category_defaults,
             placeholder="Select categories (empty = All)",
-            help="📊 Filter by market capitalization category. This will update available sectors and industries.",
+            help="📊 Filter by market cap category. Updates based on selected sectors and industries.",
             key="category_multiselect",
             on_change=sync_categories  # SYNC ON CHANGE
         )
@@ -9805,7 +9803,7 @@ def main():
             options=sectors,
             default=valid_sector_defaults,
             placeholder="Select sectors (empty = All)",
-            help="🏭 Filter by business sector. Options are filtered based on selected categories.",
+            help="🏭 Filter by business sector. Updates based on selected categories and industries.",
             key="sector_multiselect",
             on_change=sync_sectors  # SYNC ON CHANGE
         )
@@ -9825,7 +9823,7 @@ def main():
             options=industries,
             default=valid_industry_defaults,
             placeholder="Select industries (empty = All)",
-            help="🏢 Filter by specific industry. Options are filtered based on selected categories and sectors.",
+            help="🏢 Filter by specific industry. Updates categories and sectors to show only relevant options.",
             key="industry_multiselect",
             on_change=sync_industries  # SYNC ON CHANGE
         )
