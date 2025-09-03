@@ -424,7 +424,7 @@ class DataValidator:
         Returns:
             Optional[float]: The cleaned float value, or np.nan if invalid.
         """
-        # FIX: Removed col_name parameter that was not used
+        # ENHANCED INPUT VALIDATION
         if pd.isna(value) or value == '' or value is None:
             return np.nan
         
@@ -432,11 +432,14 @@ class DataValidator:
             # Convert to string for cleaning
             cleaned = str(value).strip()
             
-            # Identify and handle invalid string representations
-            if cleaned.upper() in ['', '-', 'N/A', 'NA', 'NAN', 'NONE', '#VALUE!', '#ERROR!', '#DIV/0!', 'INF', '-INF']:
+            # COMPREHENSIVE invalid string detection
+            invalid_strings = ['', '-', 'N/A', 'NA', 'NAN', 'NONE', 'NULL', 'NIL', 
+                             '#VALUE!', '#ERROR!', '#DIV/0!', '#N/A', '#REF!', '#NAME?',
+                             'INF', '-INF', 'INFINITY', '-INFINITY', '∞', '-∞']
+            if cleaned.upper() in invalid_strings:
                 return np.nan
             
-            # Remove symbols and spaces
+            # Remove symbols and spaces - ENHANCED CLEANING
             cleaned = cleaned.replace('₹', '').replace('$', '').replace(',', '').replace(' ', '').replace('%', '')
             
             # Convert to float
@@ -589,7 +592,8 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                         df = pd.read_csv(file_data, low_memory=False, encoding=encoding)
                         metadata['warnings'].append(f"Used {encoding} encoding")
                         break
-                    except:
+                    except (UnicodeDecodeError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+                        logger.warning(f"Failed to decode with {encoding}: {e}")
                         continue
                 else:
                     raise ValueError("Unable to decode CSV file")
@@ -643,9 +647,14 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         if not is_valid:
             raise ValueError(validation_msg)
         
-        # Store as last good data
+        # Store as last good data - MEMORY OPTIMIZED
+        # Only store essential columns to reduce memory footprint
         timestamp = datetime.now(timezone.utc)
-        st.session_state.last_good_data = (df.copy(), timestamp, metadata)
+        essential_cols = ['ticker', 'company_name', 'price', 'master_score', 'market_state'] + \
+                        [col for col in df.columns if col.endswith(('_score', '_pct', 'ret_'))]
+        essential_cols = [col for col in essential_cols if col in df.columns]
+        st.session_state.last_good_data = (df[essential_cols].copy() if len(essential_cols) > 0 else df.copy(), 
+                                         timestamp, metadata)
         
         # Record processing time
         processing_time = time.perf_counter() - start_time
@@ -1023,15 +1032,24 @@ class AdvancedMetrics:
         
         if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
             with np.errstate(divide='ignore', invalid='ignore'):
-                daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
+                # ENHANCED NaN HANDLING with explicit checks
+                safe_ret_7d = df['ret_7d'].fillna(0)
+                safe_ret_30d = df['ret_30d'].fillna(0)
+                daily_ret_7d = np.where((safe_ret_7d != 0) & pd.notna(safe_ret_7d), safe_ret_7d / 7, 0)
                 daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
-                daily_ret_30d = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
-            df['momentum_harmony'] += ((daily_ret_7d.fillna(-np.inf) > daily_ret_30d.fillna(-np.inf))).astype(int)
+                daily_ret_30d = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
+                daily_ret_30d = pd.Series(daily_ret_30d, index=df.index)
+            df['momentum_harmony'] += ((daily_ret_7d > daily_ret_30d)).astype(int)
         
         if all(col in df.columns for col in ['ret_30d', 'ret_3m']):
             with np.errstate(divide='ignore', invalid='ignore'):
-                daily_ret_30d_comp = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
-                daily_ret_3m_comp = pd.Series(np.where(df['ret_3m'].fillna(0) != 0, df['ret_3m'].fillna(0) / 90, np.nan), index=df.index)
+                # ENHANCED NaN HANDLING with explicit checks
+                safe_ret_30d = df['ret_30d'].fillna(0)
+                safe_ret_3m = df['ret_3m'].fillna(0)
+                daily_ret_30d_comp = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
+                daily_ret_30d_comp = pd.Series(daily_ret_30d_comp, index=df.index)
+                daily_ret_3m_comp = np.where((safe_ret_3m != 0) & pd.notna(safe_ret_3m), safe_ret_3m / 90, 0)
+                daily_ret_3m_comp = pd.Series(daily_ret_3m_comp, index=df.index)
             df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
         
         if 'ret_3m' in df.columns:
@@ -1182,17 +1200,20 @@ class AdvancedMetrics:
         # Calculate momentum at different scales
         # Daily-equivalent rates for comparison
         very_short = ret_1d  # 1-day momentum
-        short = ret_7d / 7 if ret_7d != 0 else 0  # Daily rate over week
-        medium = ret_30d / 30 if ret_30d != 0 else 0  # Daily rate over month
-        long = ret_90d / 90 if ret_90d != 0 else 0  # Daily rate over quarter
+        # ENHANCED DIVISION PROTECTION with explicit zero checks
+        short = ret_7d / 7 if ret_7d != 0 and pd.notna(ret_7d) else 0  # Daily rate over week
+        medium = ret_30d / 30 if ret_30d != 0 and pd.notna(ret_30d) else 0  # Daily rate over month
+        long = ret_90d / 90 if ret_90d != 0 and pd.notna(ret_90d) else 0  # Daily rate over quarter
         
-        # Count positive periods (direction consistency)
+        # Count positive periods (direction consistency) - ENHANCED NULL HANDLING
         periods = [ret_1d, ret_3d, ret_7d, ret_30d, ret_90d, ret_180d]
-        positive_count = sum(1 for r in periods if r > 0)
-        negative_count = sum(1 for r in periods if r < 0)
+        valid_periods = [r for r in periods if pd.notna(r)]
+        positive_count = sum(1 for r in valid_periods if r > 0)
+        negative_count = sum(1 for r in valid_periods if r < 0)
         
-        # Trend alignment score (-100 to 100)
-        trend_alignment = ((positive_count - negative_count) / len(periods)) * 100
+        # Trend alignment score (-100 to 100) - DIVISION BY ZERO PROTECTION
+        period_count = len(valid_periods) if valid_periods else 1  # Prevent division by zero
+        trend_alignment = ((positive_count - negative_count) / period_count) * 100
         state['trend_alignment'] = trend_alignment
         
         # Overall momentum score
@@ -1369,22 +1390,27 @@ class AdvancedMetrics:
         if df.empty or 'ret_30d' not in df.columns:
             return {'regime': 'UNKNOWN', 'confidence': 0}
         
-        # Get valid stocks
+        # Get valid stocks - ENHANCED VALIDATION
         valid_mask = df['ret_30d'].notna()
         if not valid_mask.any():
-            return {'regime': 'UNKNOWN', 'confidence': 0}
+            return {'regime': 'UNKNOWN', 'confidence': 0, 'description': 'No valid data available'}
         
         valid_df = df[valid_mask]
+        valid_count = len(valid_df)
+        
+        # Prevent division by zero
+        if valid_count == 0:
+            return {'regime': 'UNKNOWN', 'confidence': 0, 'description': 'No valid stocks found'}
         
         # Calculate market statistics
         median_return_30d = valid_df['ret_30d'].median()
         mean_return_30d = valid_df['ret_30d'].mean()
         
-        # Percentage of stocks in different states
-        strong_up = (valid_df['ret_30d'] > 20).sum() / len(valid_df) * 100
-        up = (valid_df['ret_30d'] > 5).sum() / len(valid_df) * 100
-        down = (valid_df['ret_30d'] < -5).sum() / len(valid_df) * 100
-        strong_down = (valid_df['ret_30d'] < -20).sum() / len(valid_df) * 100
+        # Percentage of stocks in different states - DIVISION PROTECTED
+        strong_up = (valid_df['ret_30d'] > 20).sum() / valid_count * 100
+        up = (valid_df['ret_30d'] > 5).sum() / valid_count * 100
+        down = (valid_df['ret_30d'] < -5).sum() / valid_count * 100
+        strong_down = (valid_df['ret_30d'] < -20).sum() / valid_count * 100
         
         # Determine regime
         regime = {
@@ -2122,8 +2148,7 @@ class RankingEngine:
                 'description': 'No filtering - all market states included'
             })
         
-        # Work on copy to preserve original
-        df = df.copy()
+        # MEMORY OPTIMIZATION: Work on view first, only copy if changes needed
         original_count = len(df)
         
         logger.info(f"="*50)
@@ -2147,7 +2172,14 @@ class RankingEngine:
         try:
             # Create filter mask
             state_mask = df['market_state'].isin(allowed_states)
-            filtered_df = df[state_mask].copy()
+            
+            # MEMORY OPTIMIZATION: Only copy if filtering is actually needed
+            if state_mask.all():
+                # No filtering needed, return original
+                filtered_df = df
+                logger.info("No filtering applied - all stocks match criteria")
+            else:
+                filtered_df = df[state_mask].copy()
             
             # Log filtering results
             filtered_count = len(filtered_df)
@@ -2156,7 +2188,7 @@ class RankingEngine:
             logger.info(f"Filter allowed states: {', '.join(allowed_states)}")
             logger.info(f"Filtered dataset: {filtered_count} stocks ({filtered_pct:.1f}% retained)")
             
-            # Show state breakdown before filtering
+            # Show state breakdown before filtering - DIVISION PROTECTED
             state_counts = df['market_state'].value_counts()
             logger.info("Market state distribution before filtering:")
             for state, count in state_counts.items():
@@ -4403,7 +4435,8 @@ class RankingEngine:
                                 market_cap_numeric[idx] = float(mc_val.replace('K', '').replace(',', '')) / 1_000
                             else:
                                 market_cap_numeric[idx] = float(str(mc_val).replace(',', ''))
-                        except:
+                        except (ValueError, TypeError, AttributeError) as e:
+                            logger.debug(f"Failed to parse market cap value {mc_val}: {e}")
                             market_cap_numeric[idx] = np.nan
                     else:
                         market_cap_numeric[idx] = float(mc_val)
@@ -11196,8 +11229,10 @@ def main():
                 st.error("This will cause the application to crash. Please report this bug.")
                 return
             
-            # Create formatted dataframe for display
-            display_df_formatted = display_df.copy()
+            # Create formatted dataframe for display - PERFORMANCE OPTIMIZED
+            # Only copy columns that will be displayed to reduce memory usage
+            display_cols_list = list(final_display_cols.keys())
+            display_df_formatted = display_df[display_cols_list].copy()
             
             # PROFESSIONAL FORMATTING RULES
             format_rules = {
@@ -11249,7 +11284,7 @@ def main():
                         return f"{val:.1f}"
                     else:
                         return f"{val:.1f}"
-                except:
+                except (ValueError, TypeError, AttributeError):
                     return '-'
             
             # Format EPS Change with professional logic
@@ -11266,7 +11301,7 @@ def main():
                         return f"{val:+.0f}%"
                     else:
                         return f"{val:+.1f}%"
-                except:
+                except (ValueError, TypeError, AttributeError):
                     return '-'
             
             # Apply professional fundamental formatting - ONLY EXISTING COLUMNS
