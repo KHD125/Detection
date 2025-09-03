@@ -9769,7 +9769,7 @@ def main():
         
         # BIDIRECTIONAL SMART INTERCONNECTED FILTERS: Category ↔ Sector ↔ Industry
         # Any selection affects the other two filters bidirectionally
-        st.markdown("#### 🏢 Company Classification (Bidirectional Smart Filter)")
+        st.markdown("#### 🏢 Company Classification")
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -9830,6 +9830,8 @@ def main():
         
         if selected_industries:
             filters['industries'] = selected_industries
+
+        st.markdown("#### ✨ Pattern Detector")
         
         # Pattern filter with callback
         all_patterns = set()
