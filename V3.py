@@ -7089,97 +7089,35 @@ class FilterEngine:
         FilterEngine.initialize_filters()
         count = 0
         filters = st.session_state.filter_state
-        active_filters = []
         
-        # Check each filter type and track which ones are active
-        if filters.get('categories'): 
-            count += 1
-            active_filters.append(f"categories: {filters.get('categories')}")
-        if filters.get('sectors'): 
-            count += 1
-            active_filters.append(f"sectors: {filters.get('sectors')}")
-        if filters.get('industries'): 
-            count += 1
-            active_filters.append(f"industries: {filters.get('industries')}")
-        if filters.get('min_score', 0) > 0: 
-            count += 1
-            active_filters.append(f"min_score: {filters.get('min_score')}")
-        if filters.get('patterns'): 
-            count += 1
-            active_filters.append(f"patterns: {filters.get('patterns')}")
-        if filters.get('trend_filter') != "All Trends": 
-            count += 1
-            active_filters.append(f"trend_filter: {filters.get('trend_filter')}")
-        if filters.get('eps_tiers'): 
-            count += 1
-            active_filters.append(f"eps_tiers: {filters.get('eps_tiers')}")
-        if filters.get('pe_tiers'): 
-            count += 1
-            active_filters.append(f"pe_tiers: {filters.get('pe_tiers')}")
-        if filters.get('price_tiers'): 
-            count += 1
-            active_filters.append(f"price_tiers: {filters.get('price_tiers')}")
-        if filters.get('eps_change_tiers'): 
-            count += 1
-            active_filters.append(f"eps_change_tiers: {filters.get('eps_change_tiers')}")
-        if filters.get('min_pe') is not None: 
-            count += 1
-            active_filters.append(f"min_pe: {filters.get('min_pe')}")
-        if filters.get('max_pe') is not None: 
-            count += 1
-            active_filters.append(f"max_pe: {filters.get('max_pe')}")
-        if filters.get('require_fundamental_data'): 
-            count += 1
-            active_filters.append(f"require_fundamental_data: {filters.get('require_fundamental_data')}")
-        if filters.get('market_states'): 
-            count += 1
-            active_filters.append(f"market_states: {filters.get('market_states')}")
-        if filters.get('market_strength_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"market_strength_range: {filters.get('market_strength_range')}")
-        if filters.get('performance_tiers'): 
-            count += 1
-            active_filters.append(f"performance_tiers: {filters.get('performance_tiers')}")
-        if filters.get('position_tiers'): 
-            count += 1
-            active_filters.append(f"position_tiers: {filters.get('position_tiers')}")
-        if filters.get('volume_tiers'): 
-            count += 1
-            active_filters.append(f"volume_tiers: {filters.get('volume_tiers')}")
-        if filters.get('vmi_tiers'): 
-            count += 1
-            active_filters.append(f"vmi_tiers: {filters.get('vmi_tiers')}")
-        if filters.get('momentum_harmony_tiers'): 
-            count += 1
-            active_filters.append(f"momentum_harmony_tiers: {filters.get('momentum_harmony_tiers')}")
-        if filters.get('custom_vmi_range') != (0.5, 3.0): 
-            count += 1
-            active_filters.append(f"custom_vmi_range: {filters.get('custom_vmi_range')}")
-        if filters.get('position_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"position_score_range: {filters.get('position_score_range')}")
-        if filters.get('volume_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"volume_score_range: {filters.get('volume_score_range')}")
-        if filters.get('momentum_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"momentum_score_range: {filters.get('momentum_score_range')}")
-        if filters.get('acceleration_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"acceleration_score_range: {filters.get('acceleration_score_range')}")
-        if filters.get('breakout_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"breakout_score_range: {filters.get('breakout_score_range')}")
-        if filters.get('rvol_score_range') != (0, 100): 
-            count += 1
-            active_filters.append(f"rvol_score_range: {filters.get('rvol_score_range')}")
-        
-        # Log the active filters for debugging
-        import logging
-        if active_filters:
-            logging.info(f"🔍 ACTIVE FILTERS DETECTED: {active_filters}")
-        else:
-            logging.info("🔍 NO ACTIVE FILTERS DETECTED")
+        # Check each filter type
+        if filters.get('categories'): count += 1
+        if filters.get('sectors'): count += 1
+        if filters.get('industries'): count += 1
+        if filters.get('min_score', 0) > 0: count += 1
+        if filters.get('patterns'): count += 1
+        if filters.get('trend_filter') != "All Trends": count += 1
+        if filters.get('eps_tiers'): count += 1
+        if filters.get('pe_tiers'): count += 1
+        if filters.get('price_tiers'): count += 1
+        if filters.get('eps_change_tiers'): count += 1
+        if filters.get('min_pe') is not None: count += 1
+        if filters.get('max_pe') is not None: count += 1
+        if filters.get('require_fundamental_data'): count += 1
+        if filters.get('market_states'): count += 1
+        if filters.get('market_strength_range') != (0, 100): count += 1
+        if filters.get('performance_tiers'): count += 1
+        if filters.get('position_tiers'): count += 1
+        if filters.get('volume_tiers'): count += 1
+        if filters.get('vmi_tiers'): count += 1
+        if filters.get('momentum_harmony_tiers'): count += 1
+        if filters.get('custom_vmi_range') and filters.get('custom_vmi_range') != (0.5, 3.0): count += 1
+        if filters.get('position_score_range') != (0, 100): count += 1
+        if filters.get('volume_score_range') != (0, 100): count += 1
+        if filters.get('momentum_score_range') != (0, 100): count += 1
+        if filters.get('acceleration_score_range') != (0, 100): count += 1
+        if filters.get('breakout_score_range') != (0, 100): count += 1
+        if filters.get('rvol_score_range') != (0, 100): count += 1
         
         return count
     
@@ -8584,6 +8522,18 @@ class SessionStateManager:
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
                 'rvol_range': (0.1, 20.0),
+                'vmi_tiers': [],
+                'custom_vmi_range': (0.5, 3.0),
+                'momentum_harmony_tiers': [],
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
                 'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
@@ -8602,6 +8552,15 @@ class SessionStateManager:
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
+                'ret_1d_selection': "All Returns",
+                'ret_3d_selection': "All Returns",
+                'ret_7d_selection': "All Returns",
+                'ret_30d_selection': "All Returns",
+                'ret_3m_selection': "All Returns",
+                'ret_6m_selection': "All Returns",
+                'ret_1y_selection': "All Returns",
+                'ret_3y_selection': "All Returns",
+                'ret_5y_selection': "All Returns",
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
