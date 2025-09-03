@@ -16054,24 +16054,6 @@ def main():
     with tabs[6]:
         st.markdown("### ℹ️ About Wave Detection Ultimate 3.0")
         
-        # Clean, professional header
-        st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        ">
-            <h1 style="margin: 0; font-size: 2.5rem;">🌊 Wave Detection Ultimate 3.0</h1>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.2rem;">
-                Professional Stock Ranking System - Version 3.1.0
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
         # Main content in clean two-column layout
         col1, col2 = st.columns([2, 1])
         
