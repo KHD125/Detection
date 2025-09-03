@@ -12106,6 +12106,151 @@ def main():
         # Initialize the filtered dataframe
         radar_df = filtered_df.copy()
         
+        # ================================================================================================
+        # 🚨 CRITICAL FIX: APPLY RADAR MODE FILTERING (PREVIOUSLY MISSING!)
+        # ================================================================================================
+        
+        # Apply Radar Mode filtering
+        original_count = len(radar_df)
+        
+        if radar_mode == "🌊 Wave Hunter":
+            radar_df = radar_df[
+                (radar_df.get('momentum_score', 0) >= 50) &
+                (radar_df.get('rvol', 0) >= 1.5) &
+                (radar_df.get('acceleration_score', 0) >= 40)
+            ]
+            st.info(f"🌊 Wave Hunter Mode: {len(radar_df)}/{original_count} stocks meet momentum+volume criteria")
+            
+        elif radar_mode == "⚡ Breakout Scanner":
+            radar_df = radar_df[radar_df.get('breakout_score', 0) >= 65]
+            st.info(f"⚡ Breakout Scanner Mode: {len(radar_df)}/{original_count} stocks have breakout score ≥65")
+            
+        elif radar_mode == "🏗️ Pattern Recognition":
+            if 'patterns' in radar_df.columns:
+                radar_df = radar_df[radar_df['patterns'].str.len() > 0]
+                st.info(f"🏗️ Pattern Recognition Mode: {len(radar_df)}/{original_count} stocks have detected patterns")
+            else:
+                st.warning("🏗️ Pattern Recognition Mode: 'patterns' column not available - using all data")
+                
+        elif radar_mode == "💰 Institutional Flow":
+            flow_filter = (
+                (radar_df.get('money_flow_mm', 0).abs() >= 10) |
+                (radar_df.get('rvol', 0) >= 3.0)
+            )
+            radar_df = radar_df[flow_filter]
+            st.info(f"💰 Institutional Flow Mode: {len(radar_df)}/{original_count} stocks show institutional activity")
+            
+        elif radar_mode == "🔥 Momentum Surge":
+            momentum_filter = (
+                (radar_df.get('momentum_score', 0) >= 60) &
+                (radar_df.get('acceleration_score', 0) >= 50)
+            )
+            radar_df = radar_df[momentum_filter]
+            st.info(f"🔥 Momentum Surge Mode: {len(radar_df)}/{original_count} stocks in momentum surge")
+            
+        # 📊 Full Spectrum uses all data (no additional filtering)
+        elif radar_mode == "📊 Full Spectrum":
+            st.info(f"📊 Full Spectrum Mode: Analyzing all {len(radar_df)} stocks")
+        
+        # ================================================================================================
+        # 🚨 CRITICAL FIX: APPLY RISK PROFILE FILTERING (PREVIOUSLY MISSING!)
+        # ================================================================================================
+        
+        pre_risk_count = len(radar_df)
+        
+        if risk_filter == "🛡️ Low Risk Only":
+            risk_filter_condition = (
+                (radar_df.get('pe', 999) < 25) &
+                (radar_df.get('volatility_score', 100) < 60) &
+                (radar_df.get('master_score', 0) >= 50)
+            )
+            radar_df = radar_df[risk_filter_condition]
+            st.info(f"🛡️ Low Risk Filter: {len(radar_df)}/{pre_risk_count} stocks meet low-risk criteria")
+            
+        elif risk_filter == "🚀 High Risk/Reward":
+            risk_filter_condition = (
+                (radar_df.get('momentum_score', 0) >= 70) |
+                (radar_df.get('from_low_pct', 0) >= 100) |
+                (radar_df.get('volatility_score', 0) >= 70)
+            )
+            radar_df = radar_df[risk_filter_condition]
+            st.info(f"🚀 High Risk/Reward Filter: {len(radar_df)}/{pre_risk_count} high-potential stocks")
+            
+        elif risk_filter == "🔥 Maximum Alpha":
+            risk_filter_condition = (
+                (radar_df.get('master_score', 0) >= 80) &
+                (radar_df.get('rvol', 0) >= 2.0) &
+                (radar_df.get('momentum_score', 0) >= 65)
+            )
+            radar_df = radar_df[risk_filter_condition]
+            st.info(f"🔥 Maximum Alpha Filter: {len(radar_df)}/{pre_risk_count} elite alpha-generating stocks")
+            
+        # ⚖️ Balanced Risk uses current data (no additional filtering)
+        elif risk_filter == "⚖️ Balanced Risk":
+            st.info(f"⚖️ Balanced Risk Filter: Analyzing all {len(radar_df)} stocks")
+        
+        # ================================================================================================
+        # 🚨 CRITICAL FIX: APPLY MARKET REGIME FILTERING (PREVIOUSLY MISSING!)
+        # ================================================================================================
+        
+        pre_regime_count = len(radar_df)
+        
+        if market_regime == "🐂 Bull Market":
+            regime_filter = (
+                (radar_df.get('trend_score', 0) >= 60) &
+                (radar_df.get('momentum_score', 0) >= 50)
+            )
+            radar_df = radar_df[regime_filter]
+            st.info(f"🐂 Bull Market Filter: {len(radar_df)}/{pre_regime_count} stocks aligned with bull market")
+            
+        elif market_regime == "🐻 Bear Market":
+            regime_filter = (
+                (radar_df.get('from_high_pct', 0) < -20) &
+                (radar_df.get('value_score', 0) >= 60)
+            )
+            radar_df = radar_df[regime_filter]
+            st.info(f"🐻 Bear Market Filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+            
+        elif market_regime == "🔄 Sideways/Choppy":
+            regime_filter = (
+                (radar_df.get('volatility_score', 50) >= 40) &
+                (radar_df.get('volatility_score', 50) <= 70)
+            )
+            radar_df = radar_df[regime_filter]
+            st.info(f"🔄 Sideways Market Filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
+            
+        # 📊 Auto-Detect uses current data
+        elif market_regime == "📊 Auto-Detect":
+            st.info(f"📊 Auto-Detect Mode: Analyzing all {len(radar_df)} stocks")
+        
+        # ================================================================================================
+        # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
+        # ================================================================================================
+        
+        def get_sensitivity_thresholds(sensitivity_level):
+            """Get thresholds based on sensitivity level for consistent application across all tabs"""
+            if "Conservative" in sensitivity_level:
+                return {
+                    'momentum': 70, 'acceleration': 80, 'rvol': 2.5,
+                    'breakout': 80, 'pattern_distance': 5, 'confluence': 70,
+                    'institutional_flow': 50, 'probability': 75
+                }
+            elif "Balanced" in sensitivity_level:
+                return {
+                    'momentum': 60, 'acceleration': 70, 'rvol': 2.0, 
+                    'breakout': 70, 'pattern_distance': 10, 'confluence': 60,
+                    'institutional_flow': 25, 'probability': 65
+                }
+            else:  # Aggressive
+                return {
+                    'momentum': 50, 'acceleration': 60, 'rvol': 1.5,
+                    'breakout': 60, 'pattern_distance': 15, 'confluence': 50,
+                    'institutional_flow': 10, 'probability': 55
+                }
+        
+        # Get sensitivity thresholds for use throughout all analysis
+        thresholds = get_sensitivity_thresholds(sensitivity_level)
+        
         if not radar_df.empty:
             
             # ============================================================================================
@@ -12888,43 +13033,55 @@ def main():
             try:
                 pattern_analysis = radar_df.copy()
                 
+                # 🚨 CRITICAL FIX: Use sensitivity-based pattern thresholds
+                pattern_thresholds = {
+                    'breakout': thresholds['pattern'],
+                    'reversal': thresholds['pattern'],
+                    'trend': thresholds['trend']
+                }
+                
+                st.info(f"🎯 Using {sensitivity_level} pattern thresholds: Breakout/Reversal ≥{pattern_thresholds['breakout']}%, Trend ≥{pattern_thresholds['trend']}%")
+                
                 # Pattern scoring system
                 pattern_signals = []
                 
                 # Breakout patterns
                 if 'breakout_score' in pattern_analysis.columns:
-                    breakout_stocks = pattern_analysis[pattern_analysis['breakout_score'] >= 70]
+                    breakout_stocks = pattern_analysis[pattern_analysis['breakout_score'] >= pattern_thresholds['breakout']]
                     for _, stock in breakout_stocks.iterrows():
+                        reliability_threshold = pattern_thresholds['breakout'] + 15
                         pattern_signals.append({
                             'Ticker': stock['ticker'],
                             'Company': stock.get('company_name', 'Unknown'),
                             'Pattern': '📈 Breakout',
                             'Score': stock['breakout_score'],
-                            'Reliability': 'High' if stock['breakout_score'] > 80 else 'Medium'
+                            'Reliability': 'High' if stock['breakout_score'] > reliability_threshold else 'Medium'
                         })
                 
                 # Reversal patterns
                 if 'reversal_score' in pattern_analysis.columns:
-                    reversal_stocks = pattern_analysis[pattern_analysis['reversal_score'] >= 70]
+                    reversal_stocks = pattern_analysis[pattern_analysis['reversal_score'] >= pattern_thresholds['reversal']]
                     for _, stock in reversal_stocks.iterrows():
+                        reliability_threshold = pattern_thresholds['reversal'] + 15
                         pattern_signals.append({
                             'Ticker': stock['ticker'],
                             'Company': stock.get('company_name', 'Unknown'),
                             'Pattern': '🔄 Reversal',
                             'Score': stock['reversal_score'],
-                            'Reliability': 'High' if stock['reversal_score'] > 80 else 'Medium'
+                            'Reliability': 'High' if stock['reversal_score'] > reliability_threshold else 'Medium'
                         })
                 
                 # Continuation patterns
                 if 'trend_score' in pattern_analysis.columns:
-                    trend_stocks = pattern_analysis[pattern_analysis['trend_score'] >= 75]
+                    trend_stocks = pattern_analysis[pattern_analysis['trend_score'] >= pattern_thresholds['trend']]
                     for _, stock in trend_stocks.iterrows():
+                        reliability_threshold = pattern_thresholds['trend'] + 10
                         pattern_signals.append({
                             'Ticker': stock['ticker'],
                             'Company': stock.get('company_name', 'Unknown'),
                             'Pattern': '➡️ Continuation',
                             'Score': stock['trend_score'],
-                            'Reliability': 'High' if stock['trend_score'] > 85 else 'Medium'
+                            'Reliability': 'High' if stock['trend_score'] > reliability_threshold else 'Medium'
                         })
                 
                 if pattern_signals:
@@ -12971,36 +13128,50 @@ def main():
             try:
                 institutional_analysis = radar_df.copy()
                 
+                # 🚨 CRITICAL FIX: Use sensitivity-based flow thresholds
+                flow_threshold = thresholds['institutional']
+                rvol_threshold = 3.0 if "Conservative" in sensitivity_level else 2.5 if "Balanced" in sensitivity_level else 2.0
+                
+                st.info(f"🎯 Using {sensitivity_level} flow sensitivity: Volume ≥{rvol_threshold}x, Institutional threshold: {flow_threshold}%")
+                
                 # Money flow analysis
                 flow_signals = []
                 
                 if 'money_flow_mm' in institutional_analysis.columns:
+                    # Use sensitivity-based percentile threshold
+                    percentile_threshold = 0.9 if "Conservative" in sensitivity_level else 0.8 if "Balanced" in sensitivity_level else 0.7
+                    flow_cutoff = institutional_analysis['money_flow_mm'].quantile(percentile_threshold)
+                    
                     large_flows = institutional_analysis[
-                        institutional_analysis['money_flow_mm'] >= institutional_analysis['money_flow_mm'].quantile(0.8)
+                        abs(institutional_analysis['money_flow_mm']) >= abs(flow_cutoff)
                     ].copy()
                     
                     for _, stock in large_flows.iterrows():
-                        flow_type = "🟢 Inflow" if stock.get('money_flow_mm', 0) > 0 else "🔴 Outflow"
+                        flow_value = stock.get('money_flow_mm', 0)
+                        flow_type = "🟢 Inflow" if flow_value > 0 else "🔴 Outflow"
+                        extreme_threshold = abs(flow_cutoff) * 1.5
+                        
                         flow_signals.append({
                             'Ticker': stock['ticker'],
                             'Company': stock.get('company_name', 'Unknown'),
                             'Flow Type': flow_type,
-                            'Amount': f"₹{abs(stock['money_flow_mm']):.1f}M",
-                            'Intensity': 'Extreme' if abs(stock['money_flow_mm']) > 100 else 'High'
+                            'Amount': f"₹{abs(flow_value):.1f}M",
+                            'Intensity': 'Extreme' if abs(flow_value) > extreme_threshold else 'High'
                         })
                 
-                # Volume-based institutional detection
+                # Volume-based institutional detection with sensitivity threshold
                 if 'rvol' in institutional_analysis.columns:
-                    inst_volume = institutional_analysis[institutional_analysis['rvol'] >= 3.0].copy()
+                    inst_volume = institutional_analysis[institutional_analysis['rvol'] >= rvol_threshold].copy()
                     
                     for _, stock in inst_volume.iterrows():
                         if stock['ticker'] not in [s['Ticker'] for s in flow_signals]:
+                            extreme_rvol_threshold = rvol_threshold * 2
                             flow_signals.append({
                                 'Ticker': stock['ticker'],
                                 'Company': stock.get('company_name', 'Unknown'),
                                 'Flow Type': '📊 Volume Inst.',
                                 'Amount': f"{stock['rvol']:.1f}x RVOL",
-                                'Intensity': 'Extreme' if stock['rvol'] > 5 else 'High'
+                                'Intensity': 'Extreme' if stock['rvol'] > extreme_rvol_threshold else 'High'
                             })
                 
                 if flow_signals:
@@ -13055,19 +13226,44 @@ def main():
             try:
                 breakout_analysis = radar_df.copy()
                 
+                # 🚨 CRITICAL FIX: Use sensitivity-based breakout thresholds
+                breakout_threshold = thresholds['breakout']
+                price_proximity = 0.98 if "Conservative" in sensitivity_level else 0.96 if "Balanced" in sensitivity_level else 0.94
+                volume_threshold = 2.5 if "Conservative" in sensitivity_level else 2.0 if "Balanced" in sensitivity_level else 1.5
+                
+                st.info(f"🎯 Using {sensitivity_level} breakout criteria: Price proximity ≥{price_proximity*100:.0f}%, Volume ≥{volume_threshold}x")
+                
                 # Multi-timeframe breakout detection
                 breakout_candidates = []
                 
-                # Price-based breakouts
+                # Price-based breakouts with sensitivity adjustment
                 if all(col in breakout_analysis.columns for col in ['price', 'high_20d', 'high_50d']):
                     price_breakouts = breakout_analysis[
-                        (breakout_analysis['price'] >= breakout_analysis['high_20d'] * 0.98) |
-                        (breakout_analysis['price'] >= breakout_analysis['high_50d'] * 0.95)
+                        (breakout_analysis['price'] >= breakout_analysis['high_20d'] * price_proximity) |
+                        (breakout_analysis['price'] >= breakout_analysis['high_50d'] * (price_proximity - 0.02))
                     ].copy()
                     
                     for _, stock in price_breakouts.iterrows():
-                        breakout_type = "🚀 20D High" if stock['price'] >= stock['high_20d'] * 0.98 else "📈 50D High"
-                        distance = (stock['price'] / stock['high_20d'] - 1) * 100 if 'high_20d' in stock else 0
+                        # Calculate precise distance metrics
+                        high_20_distance = (stock['price'] / stock['high_20d'] - 1) * 100 if 'high_20d' in stock and pd.notna(stock['high_20d']) else -999
+                        high_50_distance = (stock['price'] / stock['high_50d'] - 1) * 100 if 'high_50d' in stock and pd.notna(stock['high_50d']) else -999
+                        
+                        # Determine breakout type
+                        if high_20_distance >= (price_proximity - 1) * 100:
+                            breakout_type = "🚀 20D High"
+                            distance = high_20_distance
+                        elif high_50_distance >= (price_proximity - 1.02) * 100:
+                            breakout_type = "📈 50D High"
+                            distance = high_50_distance
+                        else:
+                            continue
+                        
+                        # Apply breakout threshold if available
+                        if 'breakout_score' in stock and pd.notna(stock['breakout_score']):
+                            if stock['breakout_score'] < breakout_threshold:
+                                continue
+                        
+                        strength = 'Strong' if distance > 2 else 'Emerging'
                         
                         breakout_candidates.append({
                             'Ticker': stock['ticker'],
@@ -13075,16 +13271,18 @@ def main():
                             'Breakout Type': breakout_type,
                             'Distance': f"{distance:+.1f}%",
                             'Volume': f"{stock.get('rvol', 0):.1f}x" if 'rvol' in stock else "N/A",
-                            'Strength': 'Strong' if distance > 2 else 'Emerging'
+                            'Strength': strength
                         })
                 
-                # Volume breakouts
+                # Volume breakouts with sensitivity threshold
                 if 'rvol' in breakout_analysis.columns:
-                    volume_breakouts = breakout_analysis[breakout_analysis['rvol'] >= 2.5].copy()
+                    volume_breakouts = breakout_analysis[breakout_analysis['rvol'] >= volume_threshold].copy()
                     
                     for _, stock in volume_breakouts.iterrows():
                         if stock['ticker'] not in [c['Ticker'] for c in breakout_candidates]:
-                            vol_strength = "🔥 Extreme" if stock['rvol'] > 4 else "📊 High"
+                            vol_extreme_threshold = volume_threshold * 2
+                            vol_strength = "🔥 Extreme" if stock['rvol'] > vol_extreme_threshold else "📊 High"
+                            strength = 'Strong' if stock['rvol'] > vol_extreme_threshold else 'Medium'
                             
                             breakout_candidates.append({
                                 'Ticker': stock['ticker'],
@@ -13092,7 +13290,7 @@ def main():
                                 'Breakout Type': f'{vol_strength} Volume',
                                 'Distance': f"{stock['rvol']:.1f}x",
                                 'Volume': f"{stock['rvol']:.1f}x",
-                                'Strength': 'Strong' if stock['rvol'] > 4 else 'Medium'
+                                'Strength': strength
                             })
                 
                 if breakout_candidates:
@@ -13141,6 +13339,10 @@ def main():
                 # Multi-factor scoring for high probability signals
                 high_prob_analysis = radar_df.copy()
                 
+                # 🚨 CRITICAL FIX: Use sensitivity-based probability thresholds
+                prob_threshold = thresholds['probability']
+                st.info(f"🎯 Using {sensitivity_level} probability threshold: ≥{prob_threshold}%")
+                
                 # Calculate composite probability score
                 prob_factors = []
                 
@@ -13152,9 +13354,10 @@ def main():
                 if 'momentum_score' in high_prob_analysis.columns:
                     prob_factors.append(('Momentum', 'momentum_score', 0.25))
                 
-                # Volume factor
+                # Volume factor with sensitivity adjustment
                 if 'rvol' in high_prob_analysis.columns:
-                    high_prob_analysis['volume_score'] = np.clip(high_prob_analysis['rvol'] * 25, 0, 100)
+                    volume_multiplier = 20 if "Conservative" in sensitivity_level else 25 if "Balanced" in sensitivity_level else 30
+                    high_prob_analysis['volume_score'] = np.clip(high_prob_analysis['rvol'] * volume_multiplier, 0, 100)
                     prob_factors.append(('Volume', 'volume_score', 0.25))
                 
                 # Trend factor
@@ -13168,16 +13371,22 @@ def main():
                         if col in high_prob_analysis.columns:
                             high_prob_analysis['probability_score'] += high_prob_analysis[col] * weight
                     
-                    # Filter high probability stocks
-                    high_prob_threshold = 70 if "Conservative" in sensitivity_level else 60 if "Balanced" in sensitivity_level else 50
+                    # Filter high probability stocks using sensitivity threshold
                     high_prob_stocks = high_prob_analysis[
-                        high_prob_analysis['probability_score'] >= high_prob_threshold
+                        high_prob_analysis['probability_score'] >= prob_threshold
                     ].copy()
                     
                     if not high_prob_stocks.empty:
-                        # Add confidence intervals
+                        # Add confidence intervals with sensitivity-aware thresholds
+                        very_high_threshold = prob_threshold + 15
+                        high_threshold = prob_threshold + 10
+                        good_threshold = prob_threshold + 5
+                        
                         high_prob_stocks['confidence'] = high_prob_stocks['probability_score'].apply(
-                            lambda x: 'Very High' if x > 85 else 'High' if x > 75 else 'Good' if x > 65 else 'Moderate'
+                            lambda x: 'Very High' if x > very_high_threshold 
+                            else 'High' if x > high_threshold 
+                            else 'Good' if x > good_threshold 
+                            else 'Moderate'
                         )
                         
                         top_prob = high_prob_stocks.nlargest(20, 'probability_score')
@@ -13236,140 +13445,162 @@ def main():
             st.markdown("#### 🔄 Multi-Timeframe Confluence Analysis")
             
             try:
-                mtf_analysis = radar_df.copy()
+                # 🚨 CRITICAL FIX: Use sensitivity-based confluence threshold
+                confluence_threshold = thresholds['confluence']
+                st.info(f"🎯 Using {sensitivity_level} confluence threshold: {confluence_threshold}%")
                 
-                # Multi-timeframe scoring
-                timeframe_scores = []
-                
-                # Short-term signals (1-3 days)
-                short_term_cols = ['ret_1d', 'ret_3d', 'momentum_score']
-                short_term_signals = []
-                
-                for _, stock in mtf_analysis.iterrows():
-                    short_score = 0
-                    short_factors = 0
-                    
-                    if 'ret_1d' in stock and pd.notna(stock['ret_1d']):
-                        short_score += 25 if stock['ret_1d'] > 2 else 15 if stock['ret_1d'] > 0 else 0
-                        short_factors += 1
-                    
-                    if 'ret_3d' in stock and pd.notna(stock['ret_3d']):
-                        short_score += 25 if stock['ret_3d'] > 5 else 15 if stock['ret_3d'] > 0 else 0
-                        short_factors += 1
-                    
-                    if 'momentum_score' in stock and pd.notna(stock['momentum_score']):
-                        short_score += stock['momentum_score'] * 0.5
-                        short_factors += 1
-                    
-                    if short_factors > 0:
-                        short_term_signals.append({
-                            'ticker': stock['ticker'],
-                            'short_term_score': short_score / short_factors if short_factors > 0 else 0
-                        })
-                
-                # Medium-term signals (7-30 days)
-                medium_term_signals = []
-                
-                for _, stock in mtf_analysis.iterrows():
-                    medium_score = 0
-                    medium_factors = 0
-                    
-                    if 'ret_7d' in stock and pd.notna(stock['ret_7d']):
-                        medium_score += 30 if stock['ret_7d'] > 10 else 20 if stock['ret_7d'] > 0 else 0
-                        medium_factors += 1
-                    
-                    if 'ret_30d' in stock and pd.notna(stock['ret_30d']):
-                        medium_score += 30 if stock['ret_30d'] > 20 else 20 if stock['ret_30d'] > 0 else 0
-                        medium_factors += 1
-                    
-                    if 'trend_score' in stock and pd.notna(stock['trend_score']):
-                        medium_score += stock['trend_score'] * 0.4
-                        medium_factors += 1
-                    
-                    if medium_factors > 0:
-                        medium_term_signals.append({
-                            'ticker': stock['ticker'],
-                            'medium_term_score': medium_score / medium_factors if medium_factors > 0 else 0
-                        })
-                
-                # Combine timeframe scores
+                # Enhanced confluence calculation with better data handling
                 confluence_signals = []
                 
-                if short_term_signals and medium_term_signals:
-                    short_df = pd.DataFrame(short_term_signals).set_index('ticker')
-                    medium_df = pd.DataFrame(medium_term_signals).set_index('ticker')
+                for _, stock in radar_df.iterrows():
+                    short_score = 0
+                    medium_score = 0
+                    total_factors = 0
                     
-                    combined_df = short_df.join(medium_df, how='inner')
-                    
-                    # Calculate confluence score
-                    combined_df['confluence_score'] = (
-                        combined_df['short_term_score'] * 0.6 +
-                        combined_df['medium_term_score'] * 0.4
-                    )
-                    
-                    # Add alignment indicator
-                    combined_df['alignment'] = combined_df.apply(
-                        lambda row: 'Strong' if abs(row['short_term_score'] - row['medium_term_score']) < 20 
-                        else 'Weak', axis=1
-                    )
-                    
-                    # Filter for high confluence
-                    high_confluence = combined_df[combined_df['confluence_score'] >= 60].copy()
-                    
-                    if not high_confluence.empty:
-                        # Add stock details
-                        high_confluence = high_confluence.reset_index()
-                        high_confluence = high_confluence.merge(
-                            mtf_analysis[['ticker', 'company_name']].drop_duplicates(),
-                            on='ticker',
-                            how='left'
-                        )
+                    # Short-term factors (with fallbacks)
+                    if 'ret_1d' in stock and pd.notna(stock.get('ret_1d')):
+                        short_score += 30 if stock['ret_1d'] > 3 else 20 if stock['ret_1d'] > 1 else 10 if stock['ret_1d'] > 0 else 0
+                        total_factors += 1
                         
-                        # MTF statistics
-                        mtf_cols = st.columns(4)
-                        with mtf_cols[0]:
-                            UIComponents.render_metric_card("Confluence Signals", len(high_confluence))
-                        with mtf_cols[1]:
-                            strong_alignment = len(high_confluence[high_confluence['alignment'] == 'Strong'])
-                            UIComponents.render_metric_card("Strong Alignment", strong_alignment)
-                        with mtf_cols[2]:
-                            avg_confluence = high_confluence['confluence_score'].mean()
-                            UIComponents.render_metric_card("Avg Confluence", f"{avg_confluence:.1f}")
-                        with mtf_cols[3]:
-                            best_timeframe = "Short-term" if high_confluence['short_term_score'].mean() > high_confluence['medium_term_score'].mean() else "Medium-term"
-                            UIComponents.render_metric_card("Best Timeframe", best_timeframe)
+                    if 'ret_3d' in stock and pd.notna(stock.get('ret_3d')):
+                        short_score += 35 if stock['ret_3d'] > 7 else 25 if stock['ret_3d'] > 3 else 15 if stock['ret_3d'] > 0 else 0
+                        total_factors += 1
                         
-                        # Display confluence analysis
-                        st.dataframe(
-                            high_confluence.sort_values('confluence_score', ascending=False),
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                'ticker': st.column_config.TextColumn("Ticker", width="small"),
-                                'company_name': st.column_config.TextColumn("Company", width="medium"),
-                                'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100),
-                                'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100),
-                                'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100),
-                                'alignment': st.column_config.TextColumn("Alignment", width="small")
-                            }
-                        )
+                    if 'momentum_score' in stock and pd.notna(stock.get('momentum_score')):
+                        short_score += stock['momentum_score'] * 0.6
+                        total_factors += 1
                         
-                        # Timeframe recommendations
-                        if strong_alignment > len(high_confluence) * 0.7:
-                            st.success("🎯 **Strong Multi-Timeframe Alignment** - High conviction signals")
-                        elif strong_alignment > len(high_confluence) * 0.4:
-                            st.info("⚖️ **Mixed Timeframe Signals** - Moderate conviction")
-                        else:
-                            st.warning("⚠️ **Weak Timeframe Alignment** - Lower conviction signals")
-                            
+                    # Medium-term factors (with fallbacks)
+                    if 'ret_7d' in stock and pd.notna(stock.get('ret_7d')):
+                        medium_score += 40 if stock['ret_7d'] > 15 else 30 if stock['ret_7d'] > 7 else 20 if stock['ret_7d'] > 0 else 0
+                        total_factors += 1
+                        
+                    if 'ret_30d' in stock and pd.notna(stock.get('ret_30d')):
+                        medium_score += 45 if stock['ret_30d'] > 30 else 35 if stock['ret_30d'] > 15 else 25 if stock['ret_30d'] > 0 else 0
+                        total_factors += 1
+                        
+                    if 'trend_score' in stock and pd.notna(stock.get('trend_score')):
+                        medium_score += stock['trend_score'] * 0.5
+                        total_factors += 1
+                    
+                    # Additional scoring factors for better results
+                    if 'acceleration_score' in stock and pd.notna(stock.get('acceleration_score')):
+                        short_score += stock['acceleration_score'] * 0.3
+                        total_factors += 1
+                        
+                    if 'rvol' in stock and pd.notna(stock.get('rvol')):
+                        volume_boost = min(stock['rvol'] * 15, 50)  # Cap at 50 points
+                        short_score += volume_boost
+                        total_factors += 1
+                    
+                    # Only include stocks with minimum data availability
+                    if total_factors >= 3:
+                        # Calculate normalized scores
+                        short_term_final = short_score / max(1, (total_factors * 0.6))
+                        medium_term_final = medium_score / max(1, (total_factors * 0.4))
+                        
+                        # Calculate confluence with timeframe weighting
+                        confluence_score = (short_term_final * 0.6 + medium_term_final * 0.4)
+                        
+                        # Alignment calculation
+                        alignment_diff = abs(short_term_final - medium_term_final)
+                        alignment = 'Strong' if alignment_diff < 25 else 'Medium' if alignment_diff < 40 else 'Weak'
+                        
+                        # Apply sensitivity-based threshold
+                        if confluence_score >= confluence_threshold:
+                            confluence_signals.append({
+                                'ticker': stock['ticker'],
+                                'company_name': stock.get('company_name', 'Unknown'),
+                                'short_term_score': round(short_term_final, 1),
+                                'medium_term_score': round(medium_term_final, 1),
+                                'confluence_score': round(confluence_score, 1),
+                                'alignment': alignment,
+                                'data_factors': total_factors
+                            })
+                
+                if confluence_signals:
+                    confluence_df = pd.DataFrame(confluence_signals)
+                    confluence_df = confluence_df.sort_values('confluence_score', ascending=False)
+                    
+                    # Enhanced statistics
+                    mtf_cols = st.columns(4)
+                    with mtf_cols[0]:
+                        UIComponents.render_metric_card("Confluence Signals", len(confluence_df))
+                    with mtf_cols[1]:
+                        strong_alignment = len(confluence_df[confluence_df['alignment'] == 'Strong'])
+                        UIComponents.render_metric_card("Strong Alignment", strong_alignment)
+                    with mtf_cols[2]:
+                        avg_confluence = confluence_df['confluence_score'].mean()
+                        UIComponents.render_metric_card("Avg Confluence", f"{avg_confluence:.1f}%")
+                    with mtf_cols[3]:
+                        max_confluence = confluence_df['confluence_score'].max()
+                        UIComponents.render_metric_card("Max Confluence", f"{max_confluence:.1f}%")
+                    
+                    # Data quality indicator
+                    avg_factors = confluence_df['data_factors'].mean()
+                    if avg_factors >= 6:
+                        data_quality = "🟢 Excellent"
+                    elif avg_factors >= 4:
+                        data_quality = "🟡 Good"
                     else:
-                        st.info("No high confluence signals detected")
+                        data_quality = "🟠 Limited"
+                    
+                    st.info(f"📊 Data Quality: {data_quality} (Avg {avg_factors:.1f} factors per stock)")
+                    
+                    # Enhanced dataframe display
+                    display_df = confluence_df.drop('data_factors', axis=1)  # Hide technical column
+                    
+                    st.dataframe(
+                        display_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            'ticker': st.column_config.TextColumn("Ticker", width="small"),
+                            'company_name': st.column_config.TextColumn("Company", width="medium"),
+                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f%%"),
+                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f%%"),
+                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f%%"),
+                            'alignment': st.column_config.TextColumn("Alignment", width="small")
+                        }
+                    )
+                    
+                    # Enhanced analysis feedback
+                    strong_signals = len(confluence_df[confluence_df['alignment'] == 'Strong'])
+                    total_signals = len(confluence_df)
+                    
+                    if strong_signals > total_signals * 0.7:
+                        st.success("🎯 **Excellent Multi-Timeframe Alignment** - Very high conviction signals!")
+                    elif strong_signals > total_signals * 0.5:
+                        st.success("✅ **Good Multi-Timeframe Alignment** - High conviction signals")
+                    elif strong_signals > total_signals * 0.3:
+                        st.info("⚖️ **Mixed Timeframe Signals** - Moderate conviction, selective approach recommended")
+                    else:
+                        st.warning("⚠️ **Weak Timeframe Alignment** - Lower conviction, careful position sizing advised")
+                    
+                    # Sensitivity adjustment recommendations
+                    if len(confluence_df) < 5:
+                        st.info("💡 **Tip**: Try 'Aggressive' sensitivity for more signals, or 'Conservative' for higher quality")
+                
                 else:
-                    st.info("Insufficient data for multi-timeframe analysis")
+                    # Enhanced "no signals" feedback with actionable advice
+                    total_analyzed = len(radar_df)
+                    st.warning(f"🔍 **No confluence signals detected** (Analyzed {total_analyzed} stocks with {confluence_threshold}% threshold)")
+                    
+                    # Provide actionable suggestions
+                    st.markdown("**🛠 Troubleshooting Suggestions:**")
+                    if "Conservative" in sensitivity_level:
+                        st.info("• Try **'Balanced'** or **'Aggressive'** sensitivity for more signals")
+                    if radar_mode != "📊 Full Spectrum":
+                        st.info(f"• Current mode: **{radar_mode}** - Try **'📊 Full Spectrum'** for broader analysis")
+                    if total_analyzed < 50:
+                        st.info("• Current filters may be too restrictive - try adjusting Risk Profile or Market Regime")
+                    
+                    st.info("• Confluence analysis requires multiple timeframe data - some datasets may have limited historical returns")
                     
             except Exception as e:
                 logger.error(f"Multi-timeframe analysis error: {str(e)}")
-                st.error("Error in multi-timeframe analysis")
+                st.error(f"Error in multi-timeframe analysis: {str(e)}")
+                st.info("💡 This might be due to missing return columns (ret_1d, ret_3d, ret_7d, ret_30d) in your dataset")
         
         if filtered_df.empty:
             st.warning("No data available for Ultimate Market Radar analysis")
