@@ -7075,6 +7075,12 @@ class FilterEngine:
         count = 0
         filters = st.session_state.filter_state
         
+        # Debug: print all filter values
+        print("DEBUG - Filter state:")
+        for key, value in filters.items():
+            if value and value != [] and value != 0 and value != None and value != "All Trends" and value != (0, 100) and value != (0.5, 3.0):
+                print(f"  {key}: {value}")
+        
         # Check each filter type
         if filters.get('categories'): count += 1
         if filters.get('sectors'): count += 1
@@ -7104,6 +7110,7 @@ class FilterEngine:
         if filters.get('breakout_score_range') != (0, 100): count += 1
         if filters.get('rvol_score_range') != (0, 100): count += 1
         
+        print(f"DEBUG - Total count: {count}")
         return count
     
     @staticmethod
