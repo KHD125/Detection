@@ -1,5 +1,5 @@
 """
-Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
