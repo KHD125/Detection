@@ -8220,7 +8220,29 @@ class UIComponents:
             st.warning("No data available for summary")
             return
         
-
+        # ================================================================================================
+        # 🎯 EXECUTIVE COMMAND CENTER - REAL-TIME MARKET INTELLIGENCE
+        # ================================================================================================
+        
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        ">
+            <h2 style="margin: 0; font-size: 2rem;">🧠 EXECUTIVE MARKET INTELLIGENCE CENTER</h2>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
+                Real-Time Multi-Dimensional Market Analytics & Strategic Intelligence
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Market Regime Detection
+        regime, regime_metrics = MarketIntelligence.detect_market_regime(df)
         
         # ================================================================================================
         # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
@@ -8231,221 +8253,209 @@ class UIComponents:
         pulse_col1, pulse_col2, pulse_col3, pulse_col4, pulse_col5 = st.columns(5)
         
         with pulse_col1:
-            # Enhanced A/D Ratio with institutional perspective
+            # Advanced A/D Ratio with Institutional Logic
             ad_metrics = MarketIntelligence.calculate_advance_decline_ratio(df)
             ad_ratio = ad_metrics.get('ad_ratio', 1.0)
             advancing = ad_metrics.get('advancing', 0)
             declining = ad_metrics.get('declining', 0)
             
             if ad_ratio == float('inf'):
-                ad_emoji = "🚀🚀"
+                ad_status = "�� EXPLOSIVE"
                 ad_display = "∞"
-                ad_signal = "EXPLOSIVE"
+                market_signal = "EXTREME BULLISH"
             elif ad_ratio > 3:
-                ad_emoji = "🔥🔥"
+                ad_status = "� POWERFUL"
                 ad_display = f"{ad_ratio:.1f}"
-                ad_signal = "VERY STRONG"
+                market_signal = "STRONG BULLISH"
             elif ad_ratio > 2:
-                ad_emoji = "🔥"
+                ad_status = "🔥 STRONG"
                 ad_display = f"{ad_ratio:.1f}"
-                ad_signal = "STRONG"
+                market_signal = "BULLISH"
             elif ad_ratio > 1.5:
-                ad_emoji = "📈"
+                ad_status = "📈 POSITIVE"
                 ad_display = f"{ad_ratio:.1f}"
-                ad_signal = "BULLISH"
-            elif ad_ratio > 1:
-                ad_emoji = "⚖️"
+                market_signal = "MILD BULLISH"
+            elif ad_ratio > 0.8:
+                ad_status = "⚖️ NEUTRAL"
                 ad_display = f"{ad_ratio:.1f}"
-                ad_signal = "NEUTRAL+"
+                market_signal = "MIXED"
             else:
-                ad_emoji = "📉"
+                ad_status = "📉 WEAK"
                 ad_display = f"{ad_ratio:.1f}"
-                ad_signal = "BEARISH"
+                market_signal = "BEARISH"
             
             UIComponents.render_metric_card(
-                "A/D Signal",
-                f"{ad_emoji} {ad_display}",
-                f"{ad_signal} | {advancing}↗/{declining}↘",
-                "Advance/Decline Ratio - Market breadth indicator"
+                "Market Breadth",
+                f"{ad_status}",
+                f"A/D: {ad_display} • {market_signal}",
+                f"Advance/Decline Ratio: {advancing} advancing vs {declining} declining stocks. Critical market breadth indicator."
             )
         
         with pulse_col2:
-            # Revolutionary Momentum Health with multi-tier analysis
+            # Institutional Momentum Intelligence
             if 'momentum_score' in df.columns:
-                explosive_momentum = len(df[df['momentum_score'] >= 85])
-                strong_momentum = len(df[df['momentum_score'] >= 70])
-                total_stocks = len(df)
+                momentum_stats = df['momentum_score'].describe()
+                high_momentum = len(df[df['momentum_score'] >= 80])
+                elite_momentum = len(df[df['momentum_score'] >= 90])
+                momentum_pct = (high_momentum / len(df) * 100) if len(df) > 0 else 0
                 
-                momentum_pct = (strong_momentum / total_stocks * 100) if total_stocks > 0 else 0
-                explosive_pct = (explosive_momentum / total_stocks * 100) if total_stocks > 0 else 0
-                
-                if explosive_pct > 20:
-                    momentum_emoji = "🚀🚀"
-                    momentum_level = "EXPLOSIVE"
-                elif momentum_pct > 40:
-                    momentum_emoji = "🔥"
-                    momentum_level = "STRONG"
-                elif momentum_pct > 25:
-                    momentum_emoji = "📈"
-                    momentum_level = "HEALTHY"
+                if momentum_pct > 25:
+                    momentum_status = "🚀 EXPLOSIVE"
+                    momentum_quality = "INSTITUTIONAL GRADE"
                 elif momentum_pct > 15:
-                    momentum_emoji = "⚖️"
-                    momentum_level = "MODERATE"
+                    momentum_status = "� STRONG"
+                    momentum_quality = "PROFESSIONAL GRADE"
+                elif momentum_pct > 8:
+                    momentum_status = "📈 BUILDING"
+                    momentum_quality = "DEVELOPING"
                 else:
-                    momentum_emoji = "📉"
-                    momentum_level = "WEAK"
+                    momentum_status = "⚖️ WEAK"
+                    momentum_quality = "CONSOLIDATING"
                 
                 UIComponents.render_metric_card(
-                    "Momentum Health",
-                    f"{momentum_emoji} {momentum_pct:.0f}%",
-                    f"{momentum_level} | Elite: {explosive_momentum}",
-                    "Percentage of stocks with strong momentum (≥70)"
+                    "Momentum Engine",
+                    f"{momentum_status}",
+                    f"{momentum_pct:.0f}% • {elite_momentum} Elite • {momentum_quality}",
+                    f"Momentum analysis: {high_momentum} stocks with institutional-grade momentum (≥80). Avg: {momentum_stats['mean']:.1f}"
                 )
             else:
-                UIComponents.render_metric_card("Momentum Health", "📊 N/A", "Data unavailable")
+                UIComponents.render_metric_card(
+                    "Momentum Engine", 
+                    "⚠️ NO DATA",
+                    "Momentum data unavailable",
+                    "Momentum scoring requires momentum_score column in dataset"
+                )
         
         with pulse_col3:
-            # Advanced Volume Intelligence with tsunami detection
+            # Advanced Volume Intelligence
             if 'rvol' in df.columns:
-                tsunami_vol = len(df[df['rvol'] > 5])  # Tsunami level
-                surge_vol = len(df[df['rvol'] > 2])    # Strong surge
+                volume_stats = df['rvol'].describe()
                 avg_rvol = df['rvol'].median()
+                volume_surge = len(df[df['rvol'] > 3])
+                extreme_volume = len(df[df['rvol'] > 5])
+                institutional_volume = len(df[df['rvol'] > 2])
                 
-                if tsunami_vol > 10:
-                    vol_emoji = "🌊🌊"
-                    vol_level = "TSUNAMI"
-                elif avg_rvol > 2.0:
-                    vol_emoji = "🌊"
-                    vol_level = "SURGING"
+                if avg_rvol > 2.0:
+                    vol_status = "🌊🌊 TSUNAMI"
+                    vol_quality = "EXTREME ACTIVITY"
                 elif avg_rvol > 1.5:
-                    vol_emoji = "💧💧"
-                    vol_level = "ACTIVE"
+                    vol_status = "🌊 SURGE"
+                    vol_quality = "HIGH ACTIVITY"
                 elif avg_rvol > 1.2:
-                    vol_emoji = "💧"
-                    vol_level = "NORMAL"
+                    vol_status = "💧 ELEVATED"
+                    vol_quality = "ACTIVE"
                 else:
-                    vol_emoji = "🏜️"
-                    vol_level = "QUIET"
+                    vol_status = "🏜️ QUIET"
+                    vol_quality = "LOW ACTIVITY"
                 
                 UIComponents.render_metric_card(
                     "Volume Intelligence",
-                    f"{vol_emoji} {avg_rvol:.1f}x",
-                    f"{vol_level} | Surges: {surge_vol}",
-                    "Relative volume analysis with tsunami detection"
+                    f"{vol_status}",
+                    f"{avg_rvol:.1f}x • {volume_surge} Surges • {vol_quality}",
+                    f"Volume analysis: {institutional_volume} stocks with institutional volume (>2x). {extreme_volume} extreme volume spikes."
                 )
             else:
-                UIComponents.render_metric_card("Volume Intelligence", "📊 N/A", "Data unavailable")
+                UIComponents.render_metric_card(
+                    "Volume Intelligence",
+                    "⚠️ NO DATA",
+                    "Volume data unavailable",
+                    "Volume analysis requires rvol column in dataset"
+                )
         
         with pulse_col4:
-            # Multi-Factor Risk Intelligence System
+            # Professional Risk Assessment
             risk_score = 0
             risk_factors = []
             
             # Factor 1: Overextension Risk
             if 'from_high_pct' in df.columns and 'momentum_score' in df.columns:
-                overextended = len(df[(df['from_high_pct'] >= -5) & (df['momentum_score'] < 40)])
-                if overextended > len(df) * 0.2:
+                overextended = len(df[(df['from_high_pct'] >= -2) & (df['momentum_score'] < 50)])
+                if overextended > len(df) * 0.15:
                     risk_score += 25
-                    risk_factors.append("Overextension")
+                    risk_factors.append(f"{overextended} overextended")
             
-            # Factor 2: Volume Manipulation Risk
+            # Factor 2: Pump & Dump Risk
             if 'rvol' in df.columns and 'master_score' in df.columns:
-                pump_risk = len(df[(df['rvol'] > 8) & (df['master_score'] < 40)])
-                if pump_risk > len(df) * 0.1:
+                pump_risk = len(df[(df['rvol'] > 8) & (df['master_score'] < 60)])
+                if pump_risk > 10:
                     risk_score += 20
-                    risk_factors.append("Vol Manipulation")
+                    risk_factors.append(f"{pump_risk} pump suspects")
             
             # Factor 3: Trend Deterioration
             if 'trend_quality' in df.columns:
-                bad_trends = len(df[df['trend_quality'] < 30])
-                if bad_trends > len(df) * 0.4:
-                    risk_score += 30
-                    risk_factors.append("Trend Decay")
-            
-            # Factor 4: Pattern Distribution Risk
-            if 'patterns' in df.columns:
-                pattern_concentration = (df['patterns'] != '').sum() / len(df)
-                if pattern_concentration < 0.1:
+                weak_trends = len(df[df['trend_quality'] < 40])
+                if weak_trends > len(df) * 0.25:
                     risk_score += 15
-                    risk_factors.append("Pattern Scarcity")
+                    risk_factors.append(f"{weak_trends} weak trends")
+            
+            # Factor 4: Pattern Quality
+            if 'patterns' in df.columns:
+                warning_patterns = len(df[df['patterns'].str.contains('🪤|📉|🔉|📊', na=False)])
+                if warning_patterns > len(df) * 0.1:
+                    risk_score += 20
+                    risk_factors.append(f"{warning_patterns} warning patterns")
             
             # Factor 5: Market Regime Risk
-            if 'market_state' in df.columns:
-                weak_states = len(df[df['market_state'].isin(['WEAK_UPTREND', 'SIDEWAYS', 'WEAK_DOWNTREND', 'DOWNTREND'])])
-                if weak_states > len(df) * 0.6:
-                    risk_score += 20
-                    risk_factors.append("Regime Risk")
+            regime_risk = 0
+            if regime in ['WEAK_DOWNTREND', 'STRONG_DOWNTREND', 'CRASH']:
+                regime_risk = 30
+            elif regime in ['DISTRIBUTION', 'PULLBACK']:
+                regime_risk = 15
             
+            risk_score += regime_risk
+            
+            # Risk Classification
             if risk_score >= 70:
-                risk_emoji = "🔴🔴"
-                risk_level = "EXTREME"
+                risk_status = "🔴 EXTREME"
+                risk_action = "DEFENSIVE MODE"
             elif risk_score >= 50:
-                risk_emoji = "🟠"
-                risk_level = "HIGH"
+                risk_status = "🟠 HIGH"
+                risk_action = "REDUCE EXPOSURE"
             elif risk_score >= 30:
-                risk_emoji = "🟡"
-                risk_level = "MODERATE"
-            elif risk_score >= 15:
-                risk_emoji = "🟢🟡"
-                risk_level = "LOW-MOD"
+                risk_status = "🟡 MODERATE"
+                risk_action = "SELECTIVE"
             else:
-                risk_emoji = "🟢"
-                risk_level = "LOW"
+                risk_status = "🟢 LOW"
+                risk_action = "OPPORTUNITY MODE"
+            
+            risk_detail = " • ".join(risk_factors[:2]) if risk_factors else "Minimal risks detected"
             
             UIComponents.render_metric_card(
-                "Risk Intelligence",
-                f"{risk_emoji} {risk_level}",
-                f"Score: {risk_score}/100 | {len(risk_factors)} factors",
-                f"Multi-factor risk analysis: {', '.join(risk_factors) if risk_factors else 'All clear'}"
+                "Risk Assessment",
+                f"{risk_status}",
+                f"Score: {risk_score}/100 • {risk_action}",
+                f"Professional risk analysis: {risk_detail}. Market regime: {regime}"
             )
         
         with pulse_col5:
-            # Market Opportunity Score - Proprietary Algorithm
-            opportunity_score = 0
-            opportunities = []
+            # Market Regime Intelligence
+            regime_strength = regime_metrics.get('strength', 50)
+            regime_confidence = regime_metrics.get('confidence', 50)
             
-            # High-momentum + high-volume opportunities
-            if 'momentum_score' in df.columns and 'rvol' in df.columns:
-                explosive_opps = len(df[(df['momentum_score'] >= 80) & (df['rvol'] >= 2)])
-                if explosive_opps > 0:
-                    opportunity_score += min(explosive_opps * 5, 40)
-                    opportunities.append(f"Explosive: {explosive_opps}")
-            
-            # Pattern-based opportunities
-            if 'patterns' in df.columns:
-                elite_patterns = len(df[df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI|🕰️ INFORMATION DECAY|🎆 EARNINGS SURPRISE', na=False)])
-                if elite_patterns > 0:
-                    opportunity_score += min(elite_patterns * 8, 35)
-                    opportunities.append(f"Elite Patterns: {elite_patterns}")
-            
-            # Breakout opportunities
-            if 'breakout_score' in df.columns and 'position_score' in df.columns:
-                breakout_opps = len(df[(df['breakout_score'] >= 75) & (df['position_score'] >= 60)])
-                if breakout_opps > 0:
-                    opportunity_score += min(breakout_opps * 3, 25)
-                    opportunities.append(f"Breakouts: {breakout_opps}")
-            
-            if opportunity_score >= 80:
-                opp_emoji = "💎💎"
-                opp_level = "EXCEPTIONAL"
-            elif opportunity_score >= 60:
-                opp_emoji = "💎"
-                opp_level = "EXCELLENT"
-            elif opportunity_score >= 40:
-                opp_emoji = "🔥"
-                opp_level = "STRONG"
-            elif opportunity_score >= 20:
-                opp_emoji = "📈"
-                opp_level = "MODERATE"
+            if regime in ['STRONG_UPTREND', 'PARABOLIC']:
+                regime_emoji = "🚀🚀"
+                regime_action = "AGGRESSIVE LONG"
+            elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
+                regime_emoji = "�"
+                regime_action = "LONG BIAS"
+            elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
+                regime_emoji = "�"
+                regime_action = "BUY DIPS"
+            elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
+                regime_emoji = "⚖️"
+                regime_action = "RANGE TRADE"
+            elif regime in ['DISTRIBUTION', 'TOPPING']:
+                regime_emoji = "⚠️"
+                regime_action = "REDUCE LONGS"
             else:
-                opp_emoji = "⚖️"
-                opp_level = "LIMITED"
+                regime_emoji = "📉"
+                regime_action = "DEFENSIVE"
             
             UIComponents.render_metric_card(
-                "Opportunity Matrix",
-                f"{opp_emoji} {opp_level}",
-                f"Score: {opportunity_score}/100",
-                f"Current opportunities: {', '.join(opportunities) if opportunities else 'Limited setups'}"
+                "Market Regime",
+                f"{regime_emoji} {regime.replace('_', ' ')}",
+                f"Strength: {regime_strength:.0f}% • {regime_action}",
+                f"Institutional market regime analysis. Confidence: {regime_confidence:.0f}%. Strategic positioning: {regime_action}"
             )
         
         # ================================================================================================
