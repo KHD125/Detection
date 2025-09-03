@@ -11093,13 +11093,12 @@ def main():
                     'volume_score': 'Volume',
                     'acceleration_score': 'Accel',
                     'breakout_score': 'Breakout',
-                    'rvol_score': 'RVOL',
+                    'rvol_score': 'RVOL Scr',
                     'trend_quality': 'Trend',
                     'long_term_strength': 'LT Str',
                     'liquidity_score': 'Liquid',
                     'overall_market_strength': 'Mkt Str',
                     'price': 'Price',
-                    'rvol': 'RVOL',
                     'vmi': 'VMI',
                     'patterns': 'Patterns'
                 }
@@ -11133,8 +11132,6 @@ def main():
                     'vmi': 'VMI',
                     'volume_1d': 'Vol(Cr)',
                     'money_flow_mm': 'MF(MM)',
-                    'atr_pct': 'ATR%',
-                    'rsi': 'RSI',
                     'patterns': 'Patterns',
                     'category': 'Category',
                     'sector': 'Sector',
@@ -11158,7 +11155,7 @@ def main():
                     'volume_score', 'acceleration_score', 'breakout_score', 'rvol_score', 'trend_quality',
                     'long_term_strength', 'liquidity_score', 'overall_market_strength', 'market_state',
                     'price', 'from_low_pct', 'from_high_pct', 'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d',
-                    'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'atr_pct', 'rsi', 'patterns',
+                    'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'patterns',
                     'category', 'sector', 'industry'
                 ]
                 
@@ -11169,19 +11166,35 @@ def main():
                 # Filter to only available columns
                 available_cols = [col for col in available_cols if col in display_df.columns]
                 
+                # Smart default selection - only columns that exist
+                default_cols = ['rank', 'ticker', 'company_name', 'master_score', 'price']
+                if 'ret_30d' in available_cols:
+                    default_cols.append('ret_30d')
+                if 'rvol' in available_cols:
+                    default_cols.append('rvol')
+                if 'patterns' in available_cols:
+                    default_cols.append('patterns')
+                
                 custom_cols = st.multiselect(
                     "Select columns to display:",
                     options=available_cols,
-                    default=['rank', 'ticker', 'company_name', 'master_score', 'price', 'ret_30d', 'rvol', 'patterns'],
+                    default=default_cols,
                     key="custom_columns_select"
                 )
                 
                 # Create display_cols dict for custom selection
                 display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
         
-            # Filter display_cols to only include available columns
+            # ROBUST COLUMN FILTERING - Only include columns that actually exist
             available_display_cols = [c for c in display_cols.keys() if c in display_df.columns]
             final_display_cols = {k: display_cols[k] for k in available_display_cols}
+            
+            # SAFETY CHECK: Ensure no duplicate column names
+            column_names = list(final_display_cols.values())
+            if len(column_names) != len(set(column_names)):
+                st.error(f"🚨 **CRITICAL ERROR**: Duplicate column names detected: {column_names}")
+                st.error("This will cause the application to crash. Please report this bug.")
+                return
             
             # Create formatted dataframe for display
             display_df_formatted = display_df.copy()
@@ -11210,8 +11223,6 @@ def main():
                 'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
                 'volume_1d': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'money_flow_mm': lambda x: f"₹{x:.0f}M" if pd.notna(x) else '-',
-                'atr_pct': lambda x: f"{x:.1f}%" if pd.notna(x) else '-',
-                'rsi': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-'
             }
             
@@ -11335,6 +11346,7 @@ def main():
                 "Brk": st.column_config.TextColumn("Brk", help="Breakout Score", width="tiny"),
                 "Breakout": st.column_config.TextColumn("Breakout", help="Breakout Score", width="small"),
                 "RVS": st.column_config.TextColumn("RVS", help="RVOL Score", width="tiny"),
+                "RVOL Scr": st.column_config.TextColumn("RVOL Scr", help="RVOL Score (0-100)", width="small"),
                 "RVOL": st.column_config.TextColumn("RVOL", help="Relative Volume vs Avg", width="small"),
                 "Trd": st.column_config.TextColumn("Trd", help="Trend Quality Score", width="tiny"),
                 "Trend": st.column_config.TextColumn("Trend", help="Trend Quality Indicator", width="small"),
@@ -11617,21 +11629,6 @@ def main():
                 with perf_cols[2]:
                     st.markdown("**⚡ Risk & Volatility**")
                     risk_stats = {}
-                    
-                    if 'atr_pct' in display_df.columns:
-                        risk_stats.update({
-                            'Avg ATR%': f"{display_df['atr_pct'].mean():.1f}%",
-                            'High Vol (ATR>5%)': f"{(display_df['atr_pct'] > 5).sum()}",
-                            'Low Vol (ATR<2%)': f"{(display_df['atr_pct'] < 2).sum()}"
-                        })
-                    
-                    if 'rsi' in display_df.columns:
-                        risk_stats.update({
-                            'Avg RSI': f"{display_df['rsi'].mean():.0f}",
-                            'Overbought (RSI>70)': f"{(display_df['rsi'] > 70).sum()}",
-                            'Oversold (RSI<30)': f"{(display_df['rsi'] < 30).sum()}",
-                            'Neutral Zone': f"{((display_df['rsi'] >= 30) & (display_df['rsi'] <= 70)).sum()}"
-                        })
                     
                     if 'from_high_pct' in display_df.columns:
                         risk_stats.update({
