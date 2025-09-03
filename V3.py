@@ -11549,7 +11549,7 @@ def main():
             
             st.dataframe(
                 final_display_df,
-                use_container_width=True,
+                width='stretch',
                 height=min(800, len(final_display_df) * 35 + 100),
                 hide_index=True,
                 column_config=column_config
@@ -11634,7 +11634,7 @@ def main():
                         }
                         
                         score_df = pd.DataFrame(list(score_stats.items()), columns=['Range', 'Count'])
-                        st.dataframe(score_df, use_container_width=True, hide_index=True)
+                        st.dataframe(score_df, width='stretch', hide_index=True)
                 
                 with score_cols[1]:
                     st.markdown("**🚀 Momentum Analysis**")
@@ -11649,7 +11649,7 @@ def main():
                         }
                         
                         momentum_df = pd.DataFrame(list(momentum_stats.items()), columns=['Level', 'Value'])
-                        st.dataframe(momentum_df, use_container_width=True, hide_index=True)
+                        st.dataframe(momentum_df, width='stretch', hide_index=True)
                 
                 with score_cols[2]:
                     st.markdown("**📊 Volume Analysis**") 
@@ -11664,7 +11664,7 @@ def main():
                         }
                         
                         volume_df = pd.DataFrame(list(volume_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(volume_df, use_container_width=True, hide_index=True)
+                        st.dataframe(volume_df, width='stretch', hide_index=True)
                 
                 with score_cols[3]:
                     st.markdown("**📍 Position Analysis**")
@@ -11679,7 +11679,7 @@ def main():
                         }
                         
                         position_df = pd.DataFrame(list(position_stats.items()), columns=['Range', 'Value'])
-                        st.dataframe(position_df, use_container_width=True, hide_index=True)
+                        st.dataframe(position_df, width='stretch', hide_index=True)
             
             with analytics_tabs[1]:  # Performance Metrics
                 st.markdown("#### 💰 Performance & Returns Analysis")
@@ -11717,7 +11717,7 @@ def main():
                         return_stats = {'No Data': 'Returns data not available'}
                     
                     ret_df = pd.DataFrame(list(return_stats.items()), columns=['Metric', 'Value'])
-                    st.dataframe(ret_df, use_container_width=True, hide_index=True)
+                    st.dataframe(ret_df, width='stretch', hide_index=True)
                 
                 with perf_cols[1]:
                     st.markdown("**💎 Quality Metrics**")
@@ -11753,7 +11753,7 @@ def main():
                         
                         if fund_stats:
                             fund_df = pd.DataFrame(list(fund_stats.items()), columns=['Metric', 'Value'])
-                            st.dataframe(fund_df, use_container_width=True, hide_index=True)
+                            st.dataframe(fund_df, width='stretch', hide_index=True)
                         else:
                             st.info("No fundamental data available")
                     else:
@@ -11773,7 +11773,7 @@ def main():
                             })
                         
                         liq_df = pd.DataFrame(list(liquidity_stats.items()), columns=['Metric', 'Value'])
-                        st.dataframe(liq_df, use_container_width=True, hide_index=True)
+                        st.dataframe(liq_df, width='stretch', hide_index=True)
                 
                 with perf_cols[2]:
                     st.markdown("**⚡ Risk & Volatility**")
@@ -11787,7 +11787,7 @@ def main():
                     
                     if risk_stats:
                         risk_df = pd.DataFrame(list(risk_stats.items()), columns=['Metric', 'Value'])
-                        st.dataframe(risk_df, use_container_width=True, hide_index=True)
+                        st.dataframe(risk_df, width='stretch', hide_index=True)
                     else:
                         st.info("Risk metrics not available")
             
@@ -11813,7 +11813,7 @@ def main():
                             top_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)[:8]
                             pattern_data = [{'Pattern': p, 'Count': c} for p, c in top_patterns]
                             patterns_df = pd.DataFrame(pattern_data)
-                            st.dataframe(patterns_df, use_container_width=True, hide_index=True)
+                            st.dataframe(patterns_df, width='stretch', hide_index=True)
                         else:
                             st.info("No patterns detected")
                     else:
@@ -11832,7 +11832,7 @@ def main():
                         }
                         
                         breakout_df = pd.DataFrame(list(breakout_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(breakout_df, use_container_width=True, hide_index=True)
+                        st.dataframe(breakout_df, width='stretch', hide_index=True)
                 
                 with tech_cols[2]:
                     st.markdown("**⚡ Acceleration Signals**")
@@ -11847,7 +11847,7 @@ def main():
                         }
                         
                         accel_df = pd.DataFrame(list(accel_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(accel_df, use_container_width=True, hide_index=True)
+                        st.dataframe(accel_df, width='stretch', hide_index=True)
             
             with analytics_tabs[3]:  # Sector Analysis
                 st.markdown("#### 🏭 Sector & Category Performance")
@@ -11874,7 +11874,7 @@ def main():
                         if 'Avg RVOL' in cat_display.columns:
                             cat_display['Avg RVOL'] = cat_display['Avg RVOL'].apply(lambda x: f"{x:.1f}x")
                         
-                        st.dataframe(cat_display, use_container_width=True)
+                        st.dataframe(cat_display, width='stretch')
                     else:
                         st.info("Category data not available")
                 
@@ -11886,7 +11886,7 @@ def main():
                             'Sector': sector_counts.index,
                             'Count': sector_counts.values
                         })
-                        st.dataframe(sector_df, use_container_width=True, hide_index=True)
+                        st.dataframe(sector_df, width='stretch', hide_index=True)
                     else:
                         st.info("Sector data not available")
             
@@ -12232,20 +12232,20 @@ def main():
             if "Conservative" in sensitivity_level:
                 return {
                     'momentum': 70, 'acceleration': 80, 'rvol': 2.5,
-                    'breakout': 80, 'pattern_distance': 5, 'confluence': 70,
-                    'institutional_flow': 50, 'probability': 75
+                    'breakout': 80, 'pattern': 75, 'trend': 80, 'confluence': 70,
+                    'institutional': 50, 'probability': 75
                 }
             elif "Balanced" in sensitivity_level:
                 return {
                     'momentum': 60, 'acceleration': 70, 'rvol': 2.0, 
-                    'breakout': 70, 'pattern_distance': 10, 'confluence': 60,
-                    'institutional_flow': 25, 'probability': 65
+                    'breakout': 70, 'pattern': 65, 'trend': 70, 'confluence': 60,
+                    'institutional': 25, 'probability': 65
                 }
             else:  # Aggressive
                 return {
                     'momentum': 50, 'acceleration': 60, 'rvol': 1.5,
-                    'breakout': 60, 'pattern_distance': 15, 'confluence': 50,
-                    'institutional_flow': 10, 'probability': 55
+                    'breakout': 60, 'pattern': 55, 'trend': 60, 'confluence': 50,
+                    'institutional': 10, 'probability': 55
                 }
         
         # Get sensitivity thresholds for use throughout all analysis
@@ -13008,7 +13008,7 @@ def main():
                     
                     st.dataframe(
                         display_momentum,
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True,
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -13104,7 +13104,7 @@ def main():
                     # Display patterns
                     st.dataframe(
                         pattern_df.sort_values('Score', ascending=False),
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True,
                         column_config={
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -13202,7 +13202,7 @@ def main():
                     # Display flows
                     st.dataframe(
                         flow_df,
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True,
                         column_config={
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -13313,7 +13313,7 @@ def main():
                     # Display breakouts
                     st.dataframe(
                         breakout_df,
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True,
                         column_config={
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -13416,7 +13416,7 @@ def main():
                         
                         st.dataframe(
                             prob_display,
-                            use_container_width=True,
+                            width='stretch',
                             hide_index=True,
                             column_config={
                                 'ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -13552,7 +13552,7 @@ def main():
                     
                     st.dataframe(
                         display_df,
-                        use_container_width=True,
+                        width='stretch',
                         hide_index=True,
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
@@ -14527,8 +14527,7 @@ def main():
                                     vol_df = pd.DataFrame(volume_data)
                                     st.dataframe(
                                         vol_df,
-                                        width="stretch",
-                                        use_container_width=True,
+                                        width='stretch',
                                         hide_index=True
                                     )
                                 else:
@@ -14580,8 +14579,7 @@ def main():
                                     ratio_df = pd.DataFrame(ratio_data)
                                     st.dataframe(
                                         ratio_df,
-                                        width="stretch",
-                                        use_container_width=True,
+                                        width='stretch',
                                         hide_index=True
                                     )
                                 else:
