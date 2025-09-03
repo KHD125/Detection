@@ -8214,40 +8214,483 @@ class UIComponents:
     
     @staticmethod
     def render_summary_section(df: pd.DataFrame) -> None:
-        """🏆 ALL TIME BEST SUMMARY TAB - Institutional Grade Market Intelligence Dashboard"""
+        """🏆 ENHANCED SUMMARY TAB - Clean, Professional Market Intelligence Dashboard"""
         
         if df.empty:
             st.error("⚠️ No data available for summary - Please adjust filters or check data source")
             return
         
         # ====================================================================================================
-        # 🎯 EXECUTIVE COMMAND CENTER - REAL-TIME MARKET STATE INTELLIGENCE
+        # 🎯 EXECUTIVE MARKET PULSE
         # ====================================================================================================
         
         st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem; color: white;">
-            <h2 style="margin: 0; text-align: center;">🏛️ EXECUTIVE COMMAND CENTER</h2>
+                    padding: 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; color: white;">
+            <h2 style="margin: 0; text-align: center;">🏛️ MARKET INTELLIGENCE CENTER</h2>
             <p style="margin: 0.5rem 0 0 0; text-align: center; opacity: 0.9;">
-                Real-Time Market Intelligence • Professional Grade Analytics • Institutional Decision Support
+                Professional Market Analysis • Real-Time Intelligence • Strategic Insights
             </p>
         </div>
         """, unsafe_allow_html=True)
         
         # ====================================================================================================
-        # 📊 TIER 1: CRITICAL MARKET PULSE INDICATORS
+        # 📊 MARKET PULSE - CLEAN LAYOUT
         # ====================================================================================================
         
-        st.markdown("### 🚨 **TIER 1: CRITICAL MARKET PULSE**")
+        st.markdown("### 📊 **Market Pulse**")
+        
         pulse_cols = st.columns(5)
         
         # Market Regime Detection
         regime, regime_metrics = MarketIntelligence.detect_market_regime(df)
         
         with pulse_cols[0]:
-            # Advanced A/D Ratio with Institutional Logic
+            # Advanced A/D Ratio
             ad_metrics = MarketIntelligence.calculate_advance_decline_ratio(df)
             ad_ratio = ad_metrics.get('ad_ratio', 1.0)
+            advancing = ad_metrics.get('advancing', 0)
+            declining = ad_metrics.get('declining', 0)
+            
+            if ad_ratio == float('inf'):
+                ad_status = "🔥 EXPLOSIVE"
+                ad_display = "∞"
+            elif ad_ratio > 2:
+                ad_status = "🚀 STRONG"
+                ad_display = f"{ad_ratio:.1f}"
+            elif ad_ratio > 1:
+                ad_status = "📈 POSITIVE"
+                ad_display = f"{ad_ratio:.1f}"
+            else:
+                ad_status = "📉 WEAK"
+                ad_display = f"{ad_ratio:.1f}"
+            
+            UIComponents.render_metric_card(
+                "Market Breadth",
+                f"{ad_status}",
+                f"A/D: {ad_display}",
+                f"{advancing} advancing vs {declining} declining stocks"
+            )
+        
+        with pulse_cols[1]:
+            # Momentum Health
+            if 'momentum_score' in df.columns:
+                momentum_stats = df['momentum_score'].describe()
+                high_momentum = len(df[df['momentum_score'] >= 80])
+                momentum_pct = (high_momentum / len(df) * 100) if len(df) > 0 else 0
+                
+                if momentum_pct > 20:
+                    momentum_status = "🚀 STRONG"
+                elif momentum_pct > 10:
+                    momentum_status = "📈 BUILDING"
+                else:
+                    momentum_status = "⚖️ WEAK"
+                
+                UIComponents.render_metric_card(
+                    "Momentum Health",
+                    f"{momentum_status}",
+                    f"{high_momentum} stocks ({momentum_pct:.0f}%)",
+                    f"Stocks with momentum ≥80. Avg: {momentum_stats['mean']:.1f}"
+                )
+            else:
+                UIComponents.render_metric_card(
+                    "Momentum Health", 
+                    "⚠️ NO DATA",
+                    "Data unavailable",
+                    "Momentum scoring requires momentum_score column"
+                )
+        
+        with pulse_cols[2]:
+            # Volume Intelligence
+            if 'rvol' in df.columns:
+                avg_rvol = df['rvol'].median()
+                volume_surge = len(df[df['rvol'] > 2])
+                
+                if avg_rvol > 2.0:
+                    vol_status = "🌊 TSUNAMI"
+                elif avg_rvol > 1.5:
+                    vol_status = "💧 ELEVATED"
+                else:
+                    vol_status = "🏜️ QUIET"
+                
+                UIComponents.render_metric_card(
+                    "Volume State",
+                    f"{vol_status}",
+                    f"{avg_rvol:.1f}x avg • {volume_surge} surges",
+                    f"Relative volume analysis. {volume_surge} stocks >2x volume"
+                )
+            else:
+                UIComponents.render_metric_card(
+                    "Volume State",
+                    "⚠️ NO DATA",
+                    "Data unavailable",
+                    "Volume analysis requires rvol column"
+                )
+        
+        with pulse_cols[3]:
+            # Risk Assessment
+            risk_score = 0
+            risk_factors = []
+            
+            # Check overextension
+            if 'from_high_pct' in df.columns and 'momentum_score' in df.columns:
+                overextended = len(df[(df['from_high_pct'] >= -2) & (df['momentum_score'] < 50)])
+                if overextended > len(df) * 0.1:
+                    risk_score += 25
+                    risk_factors.append(f"{overextended} overextended")
+            
+            # Check pump risk
+            if 'rvol' in df.columns and 'master_score' in df.columns:
+                pump_risk = len(df[(df['rvol'] > 5) & (df['master_score'] < 60)])
+                if pump_risk > 5:
+                    risk_score += 20
+                    risk_factors.append(f"{pump_risk} pump risks")
+            
+            # Market regime risk
+            if regime in ['WEAK_DOWNTREND', 'STRONG_DOWNTREND']:
+                risk_score += 30
+            elif regime in ['DISTRIBUTION', 'PULLBACK']:
+                risk_score += 15
+            
+            if risk_score > 50:
+                risk_status = "🔴 HIGH"
+            elif risk_score > 25:
+                risk_status = "🟡 MODERATE"
+            else:
+                risk_status = "🟢 LOW"
+            
+            UIComponents.render_metric_card(
+                "Risk Level",
+                f"{risk_status}",
+                f"Score: {risk_score}/100",
+                f"Risk factors: {len(risk_factors)} detected"
+            )
+        
+        with pulse_cols[4]:
+            # Market Regime
+            regime_strength = regime_metrics.get('strength', 50)
+            
+            if regime in ['STRONG_UPTREND', 'PARABOLIC']:
+                regime_emoji = "🚀"
+                regime_action = "AGGRESSIVE"
+            elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
+                regime_emoji = "📈"
+                regime_action = "LONG BIAS"
+            elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
+                regime_emoji = "💰"
+                regime_action = "BUY DIPS"
+            elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
+                regime_emoji = "⚖️"
+                regime_action = "RANGE TRADE"
+            else:
+                regime_emoji = "🛡️"
+                regime_action = "DEFENSIVE"
+            
+            UIComponents.render_metric_card(
+                "Market Regime",
+                f"{regime_emoji} {regime.replace('_', ' ')[:12]}",
+                f"Strength: {regime_strength:.0f}%",
+                f"Strategy: {regime_action}"
+            )
+        
+        # ====================================================================================================
+        # 🎯 TODAY'S BEST OPPORTUNITIES - IMPROVED LAYOUT WITH COMPANY NAMES
+        # ====================================================================================================
+        
+        st.markdown("---")
+        st.markdown("### 🎯 **Today's Best Opportunities**")
+        st.markdown("*Top patterns and setups with company names for easy identification*")
+        
+        # Use 3 columns for better spacing (less congested than 4)
+        opp_cols = st.columns(3)
+        
+        with opp_cols[0]:
+            st.markdown("#### 🌋 **Institutional Tsunami**")
+            if 'patterns' in df.columns:
+                tsunami_stocks = df[df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)].nlargest(5, 'master_score')
+                
+                if len(tsunami_stocks) > 0:
+                    for i, (_, stock) in enumerate(tsunami_stocks.iterrows()):
+                        ticker = stock['ticker']
+                        company_name = stock.get('company_name', 'N/A')[:30]  # Show more chars
+                        score = stock['master_score']
+                        rvol = stock.get('rvol', 0)
+                        
+                        # Clean display with company name
+                        st.markdown(f"**{i+1}. {ticker}** - {company_name}")
+                        st.caption(f"💎 Score: {score:.1f} • 🌊 RVOL: {rvol:.1f}x")
+                        
+                        if i < len(tsunami_stocks) - 1:  # Add spacing between items
+                            st.markdown("")
+                    
+                    st.success(f"🎯 **{len(tsunami_stocks)} Active Tsunamis**")
+                else:
+                    st.info("🔍 **Scanning for institutional flows...**")
+                    st.caption("No massive institutional activity detected")
+            else:
+                st.warning("⚠️ Pattern data required")
+        
+        with opp_cols[1]:
+            st.markdown("#### 🕰️ **Information Decay Arbitrage**")
+            if 'patterns' in df.columns:
+                decay_stocks = df[df['patterns'].str.contains('🕰️ INFORMATION DECAY ARBITRAGE', na=False)].nlargest(5, 'master_score')
+                
+                if len(decay_stocks) > 0:
+                    for i, (_, stock) in enumerate(decay_stocks.iterrows()):
+                        ticker = stock['ticker']
+                        company_name = stock.get('company_name', 'N/A')[:30]
+                        score = stock['master_score']
+                        momentum = stock.get('momentum_score', 0)
+                        
+                        st.markdown(f"**{i+1}. {ticker}** - {company_name}")
+                        st.caption(f"⚛️ Score: {score:.1f} • 🚀 Momentum: {momentum:.0f}")
+                        
+                        if i < len(decay_stocks) - 1:
+                            st.markdown("")
+                    
+                    st.success(f"🎯 **{len(decay_stocks)} Decay Opportunities**")
+                else:
+                    st.info("🔍 **Scanning decay patterns...**")
+                    st.caption("No decay arbitrage opportunities detected")
+            else:
+                st.warning("⚠️ Pattern data required")
+        
+        with opp_cols[2]:
+            st.markdown("#### 🎆 **Earnings Surprise Leaders**")
+            if 'patterns' in df.columns:
+                earnings_stocks = df[df['patterns'].str.contains('🎆 EARNINGS SURPRISE LEADER', na=False)].nlargest(5, 'master_score')
+                
+                if len(earnings_stocks) > 0:
+                    for i, (_, stock) in enumerate(earnings_stocks.iterrows()):
+                        ticker = stock['ticker']
+                        company_name = stock.get('company_name', 'N/A')[:30]
+                        score = stock['master_score']
+                        eps_growth = stock.get('eps_change_pct', 0)
+                        
+                        st.markdown(f"**{i+1}. {ticker}** - {company_name}")
+                        st.caption(f"🚀 EPS Growth: {eps_growth:.0f}% • 💎 Score: {score:.1f}")
+                        
+                        if i < len(earnings_stocks) - 1:
+                            st.markdown("")
+                    
+                    avg_growth = earnings_stocks['eps_change_pct'].mean() if 'eps_change_pct' in earnings_stocks.columns else 0
+                    st.success(f"🎯 **{len(earnings_stocks)} Surprise Leaders** • Avg Growth: {avg_growth:.0f}%")
+                else:
+                    st.info("🔍 **Scanning earnings surprises...**")
+                    st.caption("No earnings surprise leaders detected")
+            else:
+                st.warning("⚠️ Pattern data required")
+        
+        # ====================================================================================================
+        # 🧠 MARKET INTELLIGENCE - SIMPLIFIED
+        # ====================================================================================================
+        
+        st.markdown("---")
+        st.markdown("### 🧠 **Market Intelligence**")
+        
+        intel_cols = st.columns([2, 1])
+        
+        with intel_cols[0]:
+            st.markdown("#### 📊 **Sector Rotation Analysis**")
+            
+            try:
+                sector_rotation = MarketIntelligence.detect_sector_rotation(df)
+                
+                if not sector_rotation.empty and len(sector_rotation) > 0:
+                    top_sectors = sector_rotation.head(8)  # Show fewer for cleaner look
+                    
+                    fig = go.Figure()
+                    
+                    # Simplified color scheme
+                    colors = []
+                    for score in top_sectors['flow_score']:
+                        if score >= 75:
+                            colors.append('#00ff00')  # Green for strong
+                        elif score >= 60:
+                            colors.append('#ffd700')  # Gold for good
+                        elif score >= 45:
+                            colors.append('#ff8c00')  # Orange for average
+                        else:
+                            colors.append('#ff4500')  # Red for weak
+                    
+                    fig.add_trace(go.Bar(
+                        x=top_sectors.index,
+                        y=top_sectors['flow_score'],
+                        text=[f"{val:.1f}" for val in top_sectors['flow_score']],
+                        textposition='outside',
+                        marker_color=colors,
+                        hovertemplate=(
+                            '<b>%{x}</b><br>'
+                            'Flow Score: <b>%{y:.1f}</b><br>'
+                            'Analyzed: %{customdata[0]} stocks<br>'
+                            'Quality: %{customdata[1]}<extra></extra>'
+                        ),
+                        customdata=np.column_stack((
+                            top_sectors['analyzed_stocks'],
+                            top_sectors['ldi_quality'] if 'ldi_quality' in top_sectors.columns else ['Standard'] * len(top_sectors)
+                        ))
+                    ))
+                    
+                    fig.update_layout(
+                        title="🔄 Sector Leadership Intelligence",
+                        xaxis_title="Sector",
+                        yaxis_title="Flow Score",
+                        height=400,
+                        template='plotly_white',
+                        showlegend=False,
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)'
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                    
+                    # Show leading sector
+                    leader_sector = top_sectors.index[0]
+                    leader_score = top_sectors['flow_score'].iloc[0]
+                    st.success(f"🏆 **Leading Sector**: {leader_sector} (Score: {leader_score:.1f})")
+                    
+                else:
+                    st.info("📊 Sector rotation analysis requires sector data")
+                    
+            except Exception as e:
+                st.error(f"⚠️ Sector analysis error: {str(e)}")
+        
+        with intel_cols[1]:
+            st.markdown("#### 🎭 **Market Regime**")
+            
+            st.markdown(f"**Current State:** `{regime.replace('_', ' ')}`")
+            
+            # Regime strength meter
+            strength = regime_metrics.get('strength', 50)
+            strength_bars = "🟢" * int(strength/20) + "⚪" * (5 - int(strength/20))
+            st.markdown(f"**Strength:** {strength_bars} ({strength:.0f}%)")
+            
+            # Key signals
+            st.markdown("**🔍 Key Signals:**")
+            
+            signals = []
+            breadth = regime_metrics.get('breadth', 0.5)
+            if breadth > 0.6:
+                signals.append("✅ Strong market breadth")
+            elif breadth < 0.4:
+                signals.append("⚠️ Weak market breadth")
+            
+            avg_rvol = regime_metrics.get('avg_rvol', 1.0)
+            if avg_rvol > 1.5:
+                signals.append("🌊 High volume activity")
+            elif avg_rvol < 1.0:
+                signals.append("🏜️ Low volume environment")
+            
+            if 'patterns' in df.columns:
+                pattern_rate = (df['patterns'] != '').sum() / len(df) * 100
+                if pattern_rate > 25:
+                    signals.append(f"🎯 High pattern activity ({pattern_rate:.0f}%)")
+                elif pattern_rate < 10:
+                    signals.append(f"📉 Low pattern formation ({pattern_rate:.0f}%)")
+            
+            for signal in signals:
+                st.markdown(f"• {signal}")
+            
+            # Strategic recommendation
+            st.markdown("**⚡ Strategy:**")
+            if regime in ['STRONG_UPTREND', 'PARABOLIC']:
+                st.success("🚀 **AGGRESSIVE LONG** - Full exposure")
+            elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
+                st.success("📈 **LONG BIAS** - Favor longs")
+            elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
+                st.info("💰 **BUY DIPS** - Quality entries")
+            elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
+                st.info("⚖️ **RANGE TRADE** - Neutral stance")
+            else:
+                st.warning("🛡️ **DEFENSIVE** - Protect capital")
+        
+        # ====================================================================================================
+        # 📈 PERFORMANCE SUMMARY - SIMPLIFIED
+        # ====================================================================================================
+        
+        st.markdown("---")
+        st.markdown("### 📈 **Performance Summary**")
+        
+        summary_cols = st.columns(4)
+        
+        with summary_cols[0]:
+            # Elite concentration
+            if 'master_score' in df.columns:
+                elite_count = len(df[df['master_score'] >= 90])
+                elite_pct = (elite_count / len(df) * 100) if len(df) > 0 else 0
+                
+                UIComponents.render_metric_card(
+                    "Elite Stocks",
+                    f"💎 {elite_count}",
+                    f"{elite_pct:.1f}% of universe",
+                    f"Stocks with score ≥90"
+                )
+            else:
+                UIComponents.render_metric_card("Elite Stocks", "⚠️ NO DATA")
+        
+        with summary_cols[1]:
+            # Pattern activity
+            if 'patterns' in df.columns:
+                pattern_stocks = len(df[df['patterns'] != ''])
+                pattern_rate = (pattern_stocks / len(df) * 100) if len(df) > 0 else 0
+                
+                UIComponents.render_metric_card(
+                    "Pattern Activity",
+                    f"🎯 {pattern_stocks}",
+                    f"{pattern_rate:.1f}% active",
+                    f"Stocks with technical patterns"
+                )
+            else:
+                UIComponents.render_metric_card("Pattern Activity", "⚠️ NO DATA")
+        
+        with summary_cols[2]:
+            # Momentum leaders
+            if 'momentum_score' in df.columns:
+                momentum_leaders = len(df[df['momentum_score'] >= 80])
+                momentum_pct = (momentum_leaders / len(df) * 100) if len(df) > 0 else 0
+                
+                UIComponents.render_metric_card(
+                    "Momentum Leaders",
+                    f"🚀 {momentum_leaders}",
+                    f"{momentum_pct:.1f}% strong",
+                    f"Stocks with momentum ≥80"
+                )
+            else:
+                UIComponents.render_metric_card("Momentum Leaders", "⚠️ NO DATA")
+        
+        with summary_cols[3]:
+            # Universe quality
+            total_stocks = len(df)
+            score_columns = len([col for col in df.columns if 'score' in col.lower()])
+            
+            if score_columns >= 5:
+                quality = "💎 PREMIUM"
+            elif score_columns >= 3:
+                quality = "🔥 STANDARD"
+            else:
+                quality = "📊 BASIC"
+            
+            UIComponents.render_metric_card(
+                "Data Quality",
+                f"{quality}",
+                f"{total_stocks:,} stocks",
+                f"{score_columns} score metrics available"
+            )
+        
+        # ====================================================================================================
+        # 🎪 PROFESSIONAL FOOTER
+        # ====================================================================================================
+        
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="background: linear-gradient(45deg, #1e3c72 0%, #2a5298 100%); 
+                    padding: 1rem; border-radius: 10px; margin-top: 1.5rem; color: white; text-align: center;">
+            <h4 style="margin: 0;">🏛️ PROFESSIONAL MARKET INTELLIGENCE</h4>
+            <p style="margin: 0.3rem 0 0 0; opacity: 0.9;">
+                Real-Time Analysis • {len(df):,} Data Points • Professional Grade Intelligence
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
             advancing = ad_metrics.get('advancing', 0)
             declining = ad_metrics.get('declining', 0)
             
