@@ -8465,8 +8465,8 @@ class SessionStateManager:
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'min_eps_change': "",
-            'min_pe': "",
-            'max_pe': "",
+            'min_pe': None,
+            'max_pe': None,
             'require_fundamental_data': False,
             
             # Wave Radar specific filters
