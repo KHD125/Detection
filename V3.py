@@ -9630,16 +9630,31 @@ def main():
         
         # Display Mode
         st.markdown("### 📊 Display Mode")
+        
+        # Ensure user_preferences exists and safe access to display_mode with fallback
+        if 'user_preferences' not in st.session_state:
+            st.session_state.user_preferences = {'display_mode': 'Hybrid (Technical + Fundamentals)'}
+        current_display_mode = st.session_state.user_preferences.get('display_mode', 'Hybrid (Technical + Fundamentals)')
+        
         display_mode = st.radio(
             "Choose your view:",
             options=["Technical", "Hybrid (Technical + Fundamentals)"],
-            index=0 if st.session_state.user_preferences['display_mode'] == 'Technical' else 1,
+            index=0 if current_display_mode == 'Technical' else 1,
             help="Technical: Pure momentum analysis | Hybrid: Adds PE & EPS data",
             key="display_mode_toggle"
         )
         
         st.session_state.user_preferences['display_mode'] = display_mode
         show_fundamentals = (display_mode == "Hybrid (Technical + Fundamentals)")
+        
+        # DEBUG: Show available columns when in Hybrid mode
+        if show_fundamentals and 'ranked_df' in st.session_state:
+            available_fund_cols = [col for col in ['pe', 'eps_current', 'eps_change_pct'] 
+                                 if col in st.session_state.ranked_df.columns]
+            if available_fund_cols:
+                st.sidebar.success(f"✅ Fundamental data available: {', '.join(available_fund_cols)}")
+            else:
+                st.sidebar.warning("⚠️ No fundamental data found in current dataset")
         
         st.markdown("---")
         
@@ -11163,6 +11178,14 @@ def main():
                     'category': 'Category'
                 }
                 
+                # Add fundamentals if in Hybrid mode
+                if show_fundamentals:
+                    display_cols.update({
+                        'pe': 'PE',
+                        'eps_current': 'EPS',
+                        'eps_change_pct': 'EPS Δ%'
+                    })
+                
             elif view_mode == "Technical":
                 # All technical scores and indicators
                 display_cols = {
@@ -11184,6 +11207,14 @@ def main():
                     'vmi': 'VMI',
                     'patterns': 'Patterns'
                 }
+                
+                # Add fundamentals if in Hybrid mode
+                if show_fundamentals:
+                    display_cols.update({
+                        'pe': 'PE',
+                        'eps_current': 'EPS',
+                        'eps_change_pct': 'EPS Δ%'
+                    })
                 
             elif view_mode == "Complete":
                 # Everything - ultimate professional view
@@ -11271,6 +11302,15 @@ def main():
             available_display_cols = [c for c in display_cols.keys() if c in display_df.columns]
             final_display_cols = {k: display_cols[k] for k in available_display_cols}
             
+            # Check if fundamental columns were requested but missing
+            if show_fundamentals:
+                requested_fund_cols = [c for c in ['pe', 'eps_current', 'eps_change_pct'] if c in display_cols.keys()]
+                missing_fund_cols = [c for c in requested_fund_cols if c not in display_df.columns]
+                
+                if missing_fund_cols:
+                    st.warning(f"⚠️ **Hybrid Mode**: Some fundamental data missing from dataset: {', '.join(missing_fund_cols)}")
+                    st.info("💡 **Tip**: Upload data with PE, EPS columns or switch to Technical mode for full experience")
+            
             # SAFETY CHECK: Ensure no duplicate column names
             column_names = list(final_display_cols.values())
             if len(column_names) != len(set(column_names)):
@@ -11308,6 +11348,10 @@ def main():
                 'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
                 'volume_1d': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'money_flow_mm': lambda x: f"₹{x:.0f}M" if pd.notna(x) else '-',
+                # Fundamental columns formatting
+                'pe': lambda x: f"{x:.1f}x" if pd.notna(x) and x > 0 else 'N/A',
+                'eps_current': lambda x: f"₹{x:.2f}" if pd.notna(x) else 'N/A',
+                'eps_change_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else 'N/A',
                 'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-'
             }
             
