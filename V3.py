@@ -9024,6 +9024,17 @@ class SessionStateManager:
             if state.get('require_fundamental_data'): count += 1
             if state.get('market_states'): count += 1
             if state.get('market_strength_range') != (0, 100): count += 1
+            # VMI and Momentum Harmony filters
+            if state.get('vmi_tiers'): count += 1
+            if state.get('momentum_harmony_tiers'): count += 1
+            # Volume and Position filters  
+            if state.get('volume_tiers'): count += 1
+            if state.get('position_tiers'): count += 1
+            if state.get('performance_tiers'): count += 1
+            # Custom range filters (only count if different from defaults)
+            if state.get('custom_vmi_range') != (0.5, 3.0): count += 1
+            if state.get('position_range') != (0, 100): count += 1
+            if state.get('rvol_range') != (0.1, 20.0): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -10727,22 +10738,26 @@ def main():
                     if time_taken > 0.001:
                         st.write(f"• {func}: {time_taken:.4f}s")
     
-    active_filter_count = st.session_state.get('active_filter_count', 0)
-    if quick_filter:
+    # Get fresh active filter count to avoid stale state issues
+    active_filter_count = SessionStateManager.get_active_filter_count()
+    
+    # Only show filter status and clear button if there are actually active filters or quick filter applied
+    if active_filter_count > 0 or quick_filter_applied:
         filter_status_col1, filter_status_col2 = st.columns([5, 1])
         with filter_status_col1:
-            quick_filter_names = {
-                'top_gainers': '📈 Top Gainers',
-                'volume_surges': '🔥 Volume Surges',
-                'velocity_breakout': '🚀 High Velocity',
-                'institutional_tsunami': '🌋 Tsunami'
-            }
-            filter_display = quick_filter_names.get(quick_filter, 'Filtered')
-            
-            if active_filter_count > 1:
-                st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
-            else:
-                st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
+            if quick_filter:
+                quick_filter_names = {
+                    'top_gainers': '📈 Top Gainers',
+                    'volume_surges': '🔥 Volume Surges',
+                    'velocity_breakout': '🚀 High Velocity',
+                    'institutional_tsunami': '🌋 Tsunami'
+                }
+                filter_display = quick_filter_names.get(quick_filter, 'Filtered')
+                
+                if active_filter_count > 1:
+                    st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
+                else:
+                    st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
         
         with filter_status_col2:
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
