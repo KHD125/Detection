@@ -11812,7 +11812,7 @@ def main():
         st.markdown("### 📊 Executive Summary Dashboard")
         
         if not filtered_df.empty:
-            UIComponents.render_summary_section(filtered_df)
+            ModernUI.render_summary_section(filtered_df)
             
             st.markdown("---")
             st.markdown("#### 💾 Download Clean Processed Data")
