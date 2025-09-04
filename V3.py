@@ -8302,46 +8302,289 @@ class ExportEngine:
         return export_df.to_csv(index=False)
 
 # ============================================
-# UI COMPONENTS
+# MODERN UI COMPONENTS - PROFESSIONAL GRADE
 # ============================================
 
-class UIComponents:
-    """Reusable UI components with proper tooltips"""
+class ModernUI:
+    """Modern, clean UI system with professional design"""
+    
+    # Color scheme - Professional dark theme
+    COLORS = {
+        'primary': '#4F46E5',      # Purple-blue accent
+        'secondary': '#6B7280',    # Neutral gray
+        'success': '#10B981',      # Success green
+        'warning': '#F59E0B',      # Warning amber
+        'danger': '#EF4444',       # Danger red
+        'background': '#0A0E27',   # Deep navy
+        'surface': '#151932',      # Elevated panels
+        'text_primary': '#FFFFFF', # Primary text
+        'text_secondary': '#9CA3AF', # Secondary text
+        'border': '#374151'        # Subtle borders
+    }
+    
+    @staticmethod
+    def apply_modern_theme():
+        """Apply modern dark theme with professional styling"""
+        st.markdown("""
+        <style>
+        /* Global Modern Theme */
+        .stApp {
+            background: linear-gradient(135deg, #0A0E27 0%, #151932 100%);
+            color: #FFFFFF;
+        }
+        
+        /* Modern Card Design */
+        .metric-card {
+            background: rgba(21, 25, 50, 0.8);
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 8px 0;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.2);
+            border-color: #4F46E5;
+        }
+        
+        /* Professional Typography */
+        .main-header {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .section-header {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            color: #4F46E5;
+            margin: 24px 0 16px 0;
+            border-bottom: 2px solid #4F46E5;
+            padding-bottom: 8px;
+        }
+        
+        /* Modern Data Grid */
+        .dataframe {
+            background: rgba(21, 25, 50, 0.9) !important;
+            border: 1px solid #374151 !important;
+            border-radius: 8px !important;
+            font-family: 'Cascadia Code', 'Consolas', monospace !important;
+        }
+        
+        .dataframe th {
+            background: #4F46E5 !important;
+            color: white !important;
+            font-weight: 600 !important;
+            padding: 12px 16px !important;
+        }
+        
+        .dataframe td {
+            padding: 10px 16px !important;
+            border-bottom: 1px solid #374151 !important;
+        }
+        
+        .dataframe tr:nth-child(even) {
+            background: rgba(55, 65, 81, 0.3) !important;
+        }
+        
+        .dataframe tr:hover {
+            background: rgba(79, 70, 229, 0.1) !important;
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-success { background: #10B981; color: white; }
+        .badge-warning { background: #F59E0B; color: white; }
+        .badge-danger { background: #EF4444; color: white; }
+        .badge-info { background: #4F46E5; color: white; }
+        
+        /* Modern Sidebar */
+        .css-1d391kg {
+            background: rgba(21, 25, 50, 0.95) !important;
+            border-right: 1px solid #374151 !important;
+        }
+        
+        /* Custom Metrics */
+        .metric-container {
+            background: rgba(21, 25, 50, 0.8);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #4F46E5;
+            margin-bottom: 4px;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            color: #9CA3AF;
+            font-weight: 500;
+        }
+        
+        .metric-delta {
+            font-size: 12px;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(79, 70, 229, 0.1);
+            color: #4F46E5;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    @staticmethod
+    def render_modern_header(title: str, subtitle: str = None):
+        """Render modern page header"""
+        st.markdown(f'<h1 class="main-header">{title}</h1>', unsafe_allow_html=True)
+        if subtitle:
+            st.markdown(f'<p style="text-align: center; color: #9CA3AF; font-size: 16px; margin-top: -16px;">{subtitle}</p>', unsafe_allow_html=True)
     
     @staticmethod
     def render_metric_card(label: str, value: Any, delta: Optional[str] = None, 
-                          help_text: Optional[str] = None) -> None:
-        """Render a styled metric card with tooltips"""
+                          help_text: Optional[str] = None, status: str = 'info') -> None:
+        """Render a modern styled metric card"""
         # Add tooltip from CONFIG if available
         metric_key = label.lower().replace(' ', '_')
-        if not help_text and metric_key in CONFIG.METRIC_TOOLTIPS:
+        if not help_text and hasattr(CONFIG, 'METRIC_TOOLTIPS') and metric_key in CONFIG.METRIC_TOOLTIPS:
             help_text = CONFIG.METRIC_TOOLTIPS[metric_key]
         
+        # Create modern metric card HTML
+        delta_html = ""
+        if delta:
+            badge_class = f"badge-{status}"
+            delta_html = f'<div class="metric-delta"><span class="status-badge {badge_class}">{delta}</span></div>'
+        
+        card_html = f"""
+        <div class="metric-container">
+            <div class="metric-value">{value}</div>
+            <div class="metric-label">{label}</div>
+            {delta_html}
+        </div>
+        """
+        
         if help_text:
-            st.metric(label, value, delta, help=help_text)
+            st.markdown(card_html, unsafe_allow_html=True)
+            st.caption(f"💡 {help_text}")
         else:
-            st.metric(label, value, delta)
+            st.markdown(card_html, unsafe_allow_html=True)
+    
+    @staticmethod
+    def create_status_badge(text: str, status: str = 'info') -> str:
+        """Create a status badge with appropriate styling"""
+        return f'<span class="status-badge badge-{status}">{text}</span>'
+    
+    @staticmethod
+    def render_modern_dataframe(df: pd.DataFrame, title: str = None, max_height: int = 400, 
+                               sortable: bool = True, searchable: bool = True):
+        """Render a modern, styled dataframe with enhanced features"""
+        if title:
+            st.markdown(f'<h3 class="section-header">{title}</h3>', unsafe_allow_html=True)
+        
+        if searchable and len(df) > 10:
+            search_term = st.text_input("🔍 Search data", placeholder="Enter search term...")
+            if search_term:
+                # Search across all string columns
+                string_cols = df.select_dtypes(include=['object']).columns
+                mask = df[string_cols].astype(str).apply(
+                    lambda x: x.str.contains(search_term, case=False, na=False)
+                ).any(axis=1)
+                df = df[mask]
+        
+        # Apply modern styling to dataframe
+        styled_df = df.style.set_table_styles([
+            {'selector': 'table', 'props': [
+                ('background-color', 'rgba(21, 25, 50, 0.9)'),
+                ('border', '1px solid #374151'),
+                ('border-radius', '8px'),
+                ('font-family', 'Cascadia Code, Consolas, monospace'),
+                ('font-size', '13px')
+            ]},
+            {'selector': 'th', 'props': [
+                ('background-color', '#4F46E5'),
+                ('color', 'white'),
+                ('font-weight', '600'),
+                ('padding', '12px 16px'),
+                ('text-align', 'center')
+            ]},
+            {'selector': 'td', 'props': [
+                ('padding', '10px 16px'),
+                ('border-bottom', '1px solid #374151'),
+                ('text-align', 'center')
+            ]},
+            {'selector': 'tr:nth-child(even)', 'props': [
+                ('background-color', 'rgba(55, 65, 81, 0.3)')
+            ]},
+            {'selector': 'tr:hover', 'props': [
+                ('background-color', 'rgba(79, 70, 229, 0.1)')
+            ]}
+        ])
+        
+        # Display with pagination for large datasets
+        if len(df) > 50:
+            page_size = 50
+            total_pages = (len(df) - 1) // page_size + 1
+            page = st.selectbox("📄 Page", range(1, total_pages + 1)) - 1
+            start_idx = page * page_size
+            end_idx = start_idx + page_size
+            display_df = df.iloc[start_idx:end_idx]
+            st.caption(f"Showing {start_idx + 1}-{min(end_idx, len(df))} of {len(df)} rows")
+        else:
+            display_df = df
+        
+        st.dataframe(
+            styled_df.data if len(df) <= 50 else display_df.style.set_table_styles(styled_df.table_styles),
+            height=max_height,
+            use_container_width=True
+        )
     
     @staticmethod
     def render_summary_section(df: pd.DataFrame) -> None:
-        """🚀 ALL TIME BEST REVOLUTIONARY SUMMARY DASHBOARD - INSTITUTIONAL GRADE INTELLIGENCE 🚀"""
+        """Modern Market Intelligence Dashboard - Professional Grade Analytics"""
+        
+        # Apply modern theme
+        ModernUI.apply_modern_theme()
         
         if df.empty:
-            st.warning("No data available for summary")
+            st.warning("📊 No data available for analysis")
             return
         
-        # ================================================================================================
-        # 🎯 EXECUTIVE COMMAND CENTER - REAL-TIME MARKET INTELLIGENCE
-        # ================================================================================================
+        # Modern header
+        ModernUI.render_modern_header(
+            "🎯 Market Intelligence Dashboard", 
+            "Real-time professional-grade market analysis and detection system"
+        )
         
         # Market Regime Detection
         regime, regime_metrics = MarketIntelligence.detect_market_regime(df)
         
         # ================================================================================================
-        # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
+        # TIER 1: CRITICAL MARKET PULSE INDICATORS
         # ================================================================================================
         
-        st.markdown("### 🔥 **TIER 1: CRITICAL MARKET PULSE**")
+        st.markdown('<h2 class="section-header">� Market Pulse Indicators</h2>', unsafe_allow_html=True)
         
         pulse_col1, pulse_col2, pulse_col3, pulse_col4, pulse_col5 = st.columns(5)
         
@@ -8377,11 +8620,13 @@ class UIComponents:
                 ad_display = f"{ad_ratio:.1f}"
                 market_signal = "BEARISH"
             
-            UIComponents.render_metric_card(
+            status = "success" if ad_ratio > 1.5 else "warning" if ad_ratio > 0.8 else "danger"
+            ModernUI.render_metric_card(
                 "Market Breadth",
                 f"{ad_status}",
                 f"A/D: {ad_display} • {market_signal}",
-                f"Advance/Decline Ratio: {advancing} advancing vs {declining} declining stocks. Critical market breadth indicator."
+                f"Advance/Decline Ratio: {advancing} advancing vs {declining} declining stocks. Critical market breadth indicator.",
+                status=status
             )
         
         with pulse_col2:
@@ -8405,14 +8650,14 @@ class UIComponents:
                     momentum_status = "⚖️ WEAK"
                     momentum_quality = "CONSOLIDATING"
                 
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "Momentum Engine",
                     f"{momentum_status}",
                     f"{momentum_pct:.0f}% • {elite_momentum} Elite • {momentum_quality}",
                     f"Momentum analysis: {high_momentum} stocks with institutional-grade momentum (≥80). Avg: {momentum_stats['mean']:.1f}"
                 )
             else:
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "Momentum Engine", 
                     "⚠️ NO DATA",
                     "Momentum data unavailable",
@@ -8441,14 +8686,14 @@ class UIComponents:
                     vol_status = "🏜️ QUIET"
                     vol_quality = "LOW ACTIVITY"
                 
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "Volume Intelligence",
                     f"{vol_status}",
                     f"{avg_rvol:.1f}x • {volume_surge} Surges • {vol_quality}",
                     f"Volume analysis: {institutional_volume} stocks with institutional volume (>2x). {extreme_volume} extreme volume spikes."
                 )
             else:
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "Volume Intelligence",
                     "⚠️ NO DATA",
                     "Volume data unavailable",
@@ -8513,7 +8758,7 @@ class UIComponents:
             
             risk_detail = " • ".join(risk_factors[:2]) if risk_factors else "Minimal risks detected"
             
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Risk Assessment",
                 f"{risk_status}",
                 f"Score: {risk_score}/100 • {risk_action}",
@@ -8544,7 +8789,7 @@ class UIComponents:
                 regime_emoji = "📉"
                 regime_action = "DEFENSIVE"
             
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Market Regime",
                 f"{regime_emoji} {regime.replace('_', ' ')}",
                 f"Strength: {regime_strength:.0f}% • {regime_action}",
@@ -11465,7 +11710,7 @@ def main():
         total_original = len(ranked_df)
         pct_of_all = (total_stocks/total_original*100) if total_original > 0 else 0
         
-        UIComponents.render_metric_card(
+        ModernUI.render_metric_card(
             "Total Stocks",
             f"{total_stocks:,}",
             f"{pct_of_all:.0f}% of {total_original:,}"
@@ -11475,13 +11720,13 @@ def main():
         if not filtered_df.empty and 'master_score' in filtered_df.columns:
             avg_score = filtered_df['master_score'].mean()
             std_score = filtered_df['master_score'].std()
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Avg Score",
                 f"{avg_score:.1f}",
                 f"σ={std_score:.1f}"
             )
         else:
-            UIComponents.render_metric_card("Avg Score", "N/A")
+            ModernUI.render_metric_card("Avg Score", "N/A")
     
     with col3:
         if show_fundamentals and 'pe' in filtered_df.columns:
@@ -11491,13 +11736,13 @@ def main():
             
             if pe_coverage > 0:
                 median_pe = filtered_df.loc[valid_pe, 'pe'].median()
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "Median PE",
                     f"{median_pe:.1f}x",
                     f"{pe_pct:.0f}% have data"
                 )
             else:
-                UIComponents.render_metric_card("PE Data", "Limited", "No PE data")
+                ModernUI.render_metric_card("PE Data", "Limited", "No PE data")
         else:
             if not filtered_df.empty and 'master_score' in filtered_df.columns:
                 min_score = filtered_df['master_score'].min()
@@ -11505,7 +11750,7 @@ def main():
                 score_range = f"{min_score:.1f}-{max_score:.1f}"
             else:
                 score_range = "N/A"
-            UIComponents.render_metric_card("Score Range", score_range)
+            ModernUI.render_metric_card("Score Range", score_range)
     
     with col4:
         if show_fundamentals and 'eps_change_pct' in filtered_df.columns:
@@ -11518,13 +11763,13 @@ def main():
             strong_count = strong_growth.sum()
             
             if mega_growth.sum() > 0:
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "EPS Growth +ve",
                     f"{growth_count}",
                     f"{strong_count} >50% | {mega_growth.sum()} >100%"
                 )
             else:
-                UIComponents.render_metric_card(
+                ModernUI.render_metric_card(
                     "EPS Growth +ve",
                     f"{growth_count}",
                     f"{valid_eps_change.sum()} have data"
@@ -11534,20 +11779,20 @@ def main():
                 accelerating = (filtered_df['acceleration_score'] >= 80).sum()
             else:
                 accelerating = 0
-            UIComponents.render_metric_card("Accelerating", f"{accelerating}")
+            ModernUI.render_metric_card("Accelerating", f"{accelerating}")
     
     with col5:
         if 'rvol' in filtered_df.columns:
             high_rvol = (filtered_df['rvol'] > 2).sum()
         else:
             high_rvol = 0
-        UIComponents.render_metric_card("High RVOL", f"{high_rvol}")
+        ModernUI.render_metric_card("High RVOL", f"{high_rvol}")
     
     with col6:
         if 'trend_quality' in filtered_df.columns:
             strong_trends = (filtered_df['trend_quality'] >= 80).sum()
             total = len(filtered_df)
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Strong Trends", 
                 f"{strong_trends}",
                 f"{strong_trends/total*100:.0f}%" if total > 0 else "0%"
@@ -11555,9 +11800,9 @@ def main():
         else:
             if 'patterns' in filtered_df.columns:
                 with_patterns = (filtered_df['patterns'] != '').sum()
-                UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
+                ModernUI.render_metric_card("With Patterns", f"{with_patterns}")
             else:
-                UIComponents.render_metric_card("With Patterns", "N/A")
+                ModernUI.render_metric_card("With Patterns", "N/A")
     
     tabs = st.tabs([
         "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
@@ -12493,7 +12738,7 @@ def main():
                 quick_cols = st.columns(4)
                 
                 with quick_cols[0]:
-                    UIComponents.render_metric_card(
+                    ModernUI.render_metric_card(
                         "💎 Elite Stocks", 
                         f"{(display_df['master_score'] >= 90).sum()}",
                         f"{(display_df['master_score'] >= 90).sum()/len(display_df)*100:.0f}% of total"
@@ -12502,7 +12747,7 @@ def main():
                 with quick_cols[1]:
                     if 'patterns' in display_df.columns:
                         with_patterns = (display_df['patterns'] != '').sum()
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "🎯 With Patterns", 
                             f"{with_patterns}",
                             f"{with_patterns/len(display_df)*100:.0f}% have signals"
@@ -12511,7 +12756,7 @@ def main():
                 with quick_cols[2]:
                     if 'rvol' in display_df.columns:
                         high_volume = (display_df['rvol'] > 2).sum()
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "🔊 High Volume", 
                             f"{high_volume}",
                             f"RVOL > 2x"
@@ -12520,7 +12765,7 @@ def main():
                 with quick_cols[3]:
                     if 'ret_30d' in display_df.columns:
                         positive_returns = (display_df['ret_30d'] > 0).sum()
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "📈 Positive Returns", 
                             f"{positive_returns}",
                             f"{positive_returns/len(display_df)*100:.0f}% winners"
@@ -12865,7 +13110,7 @@ def main():
                     strong_stocks = len(radar_df[radar_df['master_score'] >= 70]) if 'master_score' in radar_df.columns else 0
                     strength_pct = (strong_stocks / total_stocks * 100) if total_stocks > 0 else 0
                     
-                    UIComponents.render_metric_card(
+                    ModernUI.render_metric_card(
                         "Market Strength",
                         f"{strength_pct:.1f}%",
                         f"{strong_stocks}/{total_stocks} stocks"
@@ -12877,26 +13122,26 @@ def main():
                         volume_pct = (high_volume / total_stocks * 100) if total_stocks > 0 else 0
                         volume_status = "🔥 Active" if volume_pct > 30 else "📊 Normal" if volume_pct > 15 else "💤 Quiet"
                         
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "Volume Activity",
                             f"{volume_pct:.1f}%",
                             f"{volume_status}"
                         )
                     else:
-                        UIComponents.render_metric_card("Volume Activity", "N/A", "Data not available")
+                        ModernUI.render_metric_card("Volume Activity", "N/A", "Data not available")
                 
                 with overview_cols[2]:
                     if 'momentum_score' in radar_df.columns:
                         momentum_avg = radar_df['momentum_score'].mean()
                         momentum_trend = "🚀 Bullish" if momentum_avg > 60 else "📊 Neutral" if momentum_avg > 40 else "🐻 Bearish"
                         
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "Momentum Regime",
                             f"{momentum_avg:.0f}",
                             momentum_trend
                         )
                     else:
-                        UIComponents.render_metric_card("Momentum Regime", "N/A", "Data not available")
+                        ModernUI.render_metric_card("Momentum Regime", "N/A", "Data not available")
                 
                 with overview_cols[3]:
                     if 'patterns' in radar_df.columns:
@@ -12904,13 +13149,13 @@ def main():
                         pattern_pct = (pattern_stocks / total_stocks * 100) if total_stocks > 0 else 0
                         pattern_activity = "🎯 High" if pattern_pct > 20 else "📈 Moderate" if pattern_pct > 10 else "� Low"
                         
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "Pattern Activity",
                             f"{pattern_pct:.1f}%",
                             f"{pattern_activity}"
                         )
                     else:
-                        UIComponents.render_metric_card("Pattern Activity", "N/A", "Data not available")
+                        ModernUI.render_metric_card("Pattern Activity", "N/A", "Data not available")
                 
                 with overview_cols[4]:
                     if 'breakout_score' in radar_df.columns:
@@ -12918,13 +13163,13 @@ def main():
                         breakout_pct = (breakout_candidates / total_stocks * 100) if total_stocks > 0 else 0
                         breakout_status = "🚀 Explosive" if breakout_pct > 15 else "📈 Active" if breakout_pct > 8 else "📊 Quiet"
                         
-                        UIComponents.render_metric_card(
+                        ModernUI.render_metric_card(
                             "Breakout Potential",
                             f"{breakout_pct:.1f}%",
                             breakout_status
                         )
                     else:
-                        UIComponents.render_metric_card("Breakout Potential", "N/A", "Data not available")
+                        ModernUI.render_metric_card("Breakout Potential", "N/A", "Data not available")
             
             except Exception as e:
                 logger.error(f"Error in market overview: {str(e)}")
@@ -13409,7 +13654,7 @@ def main():
                         }
                     )
                 with col2:
-                    UIComponents.render_metric_card("Emerging Patterns", len(emergence_df))
+                    ModernUI.render_metric_card("Emerging Patterns", len(emergence_df))
             else:
                 st.info(f"No patterns emerging within {pattern_distance}% threshold.")
             
@@ -13523,9 +13768,9 @@ def main():
                     )
                 
                 with col2:
-                    UIComponents.render_metric_card("Active Surges", len(volume_surges))
-                    UIComponents.render_metric_card("Extreme (>5x)", len(volume_surges[volume_surges['rvol'] > 5]))
-                    UIComponents.render_metric_card("High (>3x)", len(volume_surges[volume_surges['rvol'] > 3]))
+                    ModernUI.render_metric_card("Active Surges", len(volume_surges))
+                    ModernUI.render_metric_card("Extreme (>5x)", len(volume_surges[volume_surges['rvol'] > 5]))
+                    ModernUI.render_metric_card("High (>3x)", len(volume_surges[volume_surges['rvol'] > 3]))
                     
                     if 'category' in volume_surges.columns:
                         st.markdown("**📊 Surge by Category:**")
@@ -13588,16 +13833,16 @@ def main():
                     # Display metrics
                     momentum_cols = st.columns(4)
                     with momentum_cols[0]:
-                        UIComponents.render_metric_card("Total Momentum", len(momentum_stocks))
+                        ModernUI.render_metric_card("Total Momentum", len(momentum_stocks))
                     with momentum_cols[1]:
                         avg_score = top_momentum['momentum_score'].mean() if 'momentum_score' in top_momentum.columns and len(top_momentum) > 0 else 0
-                        UIComponents.render_metric_card("Avg Score", f"{avg_score:.1f}")
+                        ModernUI.render_metric_card("Avg Score", f"{avg_score:.1f}")
                     with momentum_cols[2]:
                         avg_rvol = top_momentum['rvol'].mean() if 'rvol' in top_momentum.columns and len(top_momentum) > 0 else 0
-                        UIComponents.render_metric_card("Avg RVOL", f"{avg_rvol:.1f}x")
+                        ModernUI.render_metric_card("Avg RVOL", f"{avg_rvol:.1f}x")
                     with momentum_cols[3]:
                         strength_rating = "🔥🔥🔥" if avg_score > 70 else "🔥🔥" if avg_score > 60 else "🔥"
-                        UIComponents.render_metric_card("Strength", strength_rating)
+                        ModernUI.render_metric_card("Strength", strength_rating)
                     
                     # Display dataframe
                     display_cols = ['ticker', 'company_name', 'momentum_score', 'acceleration_score', 'rvol', 'momentum_strength']
@@ -13687,16 +13932,16 @@ def main():
                     # Pattern statistics
                     pattern_cols = st.columns(4)
                     with pattern_cols[0]:
-                        UIComponents.render_metric_card("Total Patterns", len(pattern_df))
+                        ModernUI.render_metric_card("Total Patterns", len(pattern_df))
                     with pattern_cols[1]:
                         high_rel = len(pattern_df[pattern_df['Reliability'] == 'High'])
-                        UIComponents.render_metric_card("High Reliability", high_rel)
+                        ModernUI.render_metric_card("High Reliability", high_rel)
                     with pattern_cols[2]:
                         avg_score = pattern_df['Score'].mean()
-                        UIComponents.render_metric_card("Avg Score", f"{avg_score:.1f}")
+                        ModernUI.render_metric_card("Avg Score", f"{avg_score:.1f}")
                     with pattern_cols[3]:
                         top_pattern = pattern_df['Pattern'].mode().iloc[0] if not pattern_df.empty else "None"
-                        UIComponents.render_metric_card("Top Pattern", top_pattern)
+                        ModernUI.render_metric_card("Top Pattern", top_pattern)
                     
                     # Display patterns
                     st.dataframe(
@@ -13777,16 +14022,16 @@ def main():
                     # Flow statistics
                     flow_cols = st.columns(4)
                     with flow_cols[0]:
-                        UIComponents.render_metric_card("Total Signals", len(flow_df))
+                        ModernUI.render_metric_card("Total Signals", len(flow_df))
                     with flow_cols[1]:
                         inflows = len(flow_df[flow_df['Flow Type'].str.contains('Inflow')])
-                        UIComponents.render_metric_card("Inflows", inflows)
+                        ModernUI.render_metric_card("Inflows", inflows)
                     with flow_cols[2]:
                         outflows = len(flow_df[flow_df['Flow Type'].str.contains('Outflow')])
-                        UIComponents.render_metric_card("Outflows", outflows)
+                        ModernUI.render_metric_card("Outflows", outflows)
                     with flow_cols[3]:
                         extreme_flows = len(flow_df[flow_df['Intensity'] == 'Extreme'])
-                        UIComponents.render_metric_card("Extreme", extreme_flows)
+                        ModernUI.render_metric_card("Extreme", extreme_flows)
                     
                     # Flow direction indicator
                     if inflows > outflows + 2:
@@ -13896,16 +14141,16 @@ def main():
                     # Breakout statistics
                     breakout_cols = st.columns(4)
                     with breakout_cols[0]:
-                        UIComponents.render_metric_card("Total Breakouts", len(breakout_df))
+                        ModernUI.render_metric_card("Total Breakouts", len(breakout_df))
                     with breakout_cols[1]:
                         strong_breakouts = len(breakout_df[breakout_df['Strength'] == 'Strong'])
-                        UIComponents.render_metric_card("Strong", strong_breakouts)
+                        ModernUI.render_metric_card("Strong", strong_breakouts)
                     with breakout_cols[2]:
                         price_breakouts_count = len(breakout_df[breakout_df['Breakout Type'].str.contains('High')])
-                        UIComponents.render_metric_card("Price Breakouts", price_breakouts_count)
+                        ModernUI.render_metric_card("Price Breakouts", price_breakouts_count)
                     with breakout_cols[3]:
                         volume_breakouts_count = len(breakout_df[breakout_df['Breakout Type'].str.contains('Volume')])
-                        UIComponents.render_metric_card("Volume Breakouts", volume_breakouts_count)
+                        ModernUI.render_metric_card("Volume Breakouts", volume_breakouts_count)
                     
                     # Display breakouts
                     st.dataframe(
@@ -13991,16 +14236,16 @@ def main():
                         # Probability statistics
                         prob_cols = st.columns(4)
                         with prob_cols[0]:
-                            UIComponents.render_metric_card("High Prob Signals", len(high_prob_stocks))
+                            ModernUI.render_metric_card("High Prob Signals", len(high_prob_stocks))
                         with prob_cols[1]:
                             very_high = len(high_prob_stocks[high_prob_stocks['confidence'] == 'Very High'])
-                            UIComponents.render_metric_card("Very High", very_high)
+                            ModernUI.render_metric_card("Very High", very_high)
                         with prob_cols[2]:
                             avg_prob = top_prob['probability_score'].mean()
-                            UIComponents.render_metric_card("Avg Probability", f"{avg_prob:.1f}%")
+                            ModernUI.render_metric_card("Avg Probability", f"{avg_prob:.1f}%")
                         with prob_cols[3]:
                             success_rate = min(avg_prob * 1.1, 95)  # Estimated success rate
-                            UIComponents.render_metric_card("Est. Success", f"{success_rate:.0f}%")
+                            ModernUI.render_metric_card("Est. Success", f"{success_rate:.0f}%")
                         
                         # Display high probability signals
                         display_cols = ['ticker', 'company_name', 'probability_score', 'confidence']
@@ -14122,16 +14367,16 @@ def main():
                     # Enhanced statistics
                     mtf_cols = st.columns(4)
                     with mtf_cols[0]:
-                        UIComponents.render_metric_card("Confluence Signals", len(confluence_df))
+                        ModernUI.render_metric_card("Confluence Signals", len(confluence_df))
                     with mtf_cols[1]:
                         strong_alignment = len(confluence_df[confluence_df['alignment'] == 'Strong'])
-                        UIComponents.render_metric_card("Strong Alignment", strong_alignment)
+                        ModernUI.render_metric_card("Strong Alignment", strong_alignment)
                     with mtf_cols[2]:
                         avg_confluence = confluence_df['confluence_score'].mean()
-                        UIComponents.render_metric_card("Avg Confluence", f"{avg_confluence:.1f}%")
+                        ModernUI.render_metric_card("Avg Confluence", f"{avg_confluence:.1f}%")
                     with mtf_cols[3]:
                         max_confluence = confluence_df['confluence_score'].max()
-                        UIComponents.render_metric_card("Max Confluence", f"{max_confluence:.1f}%")
+                        ModernUI.render_metric_card("Max Confluence", f"{max_confluence:.1f}%")
                     
                     # Data quality indicator
                     avg_factors = confluence_df['data_factors'].mean()
@@ -14227,30 +14472,30 @@ def main():
             exec_cols = st.columns(6)
             
             with exec_cols[0]:
-                UIComponents.render_metric_card("Market Health", market_health, f"{strong_stocks} strong signals")
+                ModernUI.render_metric_card("Market Health", market_health, f"{strong_stocks} strong signals")
             
             with exec_cols[1]:
                 elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
-                UIComponents.render_metric_card("Elite Stocks", f"{elite_pct:.1f}%", f"{elite_stocks}/{total_analyzed}")
+                ModernUI.render_metric_card("Elite Stocks", f"{elite_pct:.1f}%", f"{elite_stocks}/{total_analyzed}")
             
             with exec_cols[2]:
                 avg_momentum = filtered_df['momentum_score'].mean() if 'momentum_score' in filtered_df.columns else 0
                 momentum_rating = "🚀" if avg_momentum > 70 else "📈" if avg_momentum > 60 else "➡️"
-                UIComponents.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
+                ModernUI.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
             
             with exec_cols[3]:
                 avg_volume = filtered_df['rvol'].mean() if 'rvol' in filtered_df.columns else 0
                 volume_activity = "🔥 HIGH" if avg_volume > 2.0 else "📊 MEDIUM" if avg_volume > 1.5 else "📉 LOW"
-                UIComponents.render_metric_card("Volume Activity", volume_activity, f"{avg_volume:.1f}x avg")
+                ModernUI.render_metric_card("Volume Activity", volume_activity, f"{avg_volume:.1f}x avg")
             
             with exec_cols[4]:
                 breakout_count = len(filtered_df[filtered_df['breakout_score'] >= 70]) if 'breakout_score' in filtered_df.columns else 0
                 breakout_pct = (breakout_count / total_analyzed * 100) if total_analyzed > 0 else 0
-                UIComponents.render_metric_card("Breakouts", f"{breakout_pct:.1f}%", f"{breakout_count} stocks")
+                ModernUI.render_metric_card("Breakouts", f"{breakout_pct:.1f}%", f"{breakout_count} stocks")
             
             with exec_cols[5]:
                 risk_level = "🛡️ LOW" if avg_momentum > 65 and avg_volume < 3 else "⚠️ MEDIUM" if avg_volume < 4 else "🚨 HIGH"
-                UIComponents.render_metric_card("Risk Level", risk_level, "Systematic")
+                ModernUI.render_metric_card("Risk Level", risk_level, "Systematic")
             
             # ================================================================================================
             # 📈 ADVANCED VISUALIZATION SUITE - PROFESSIONAL CHARTS
@@ -15282,7 +15527,7 @@ def main():
                         metric_cols = st.columns(6)
                         
                         with metric_cols[0]:
-                            UIComponents.render_metric_card(
+                            ModernUI.render_metric_card(
                                 "Master Score",
                                 f"{stock['master_score']:.1f}",
                                 f"Rank #{int(stock['rank'])}"
@@ -15291,10 +15536,10 @@ def main():
                         with metric_cols[1]:
                             price_value = f"₹{stock['price']:,.0f}" if pd.notna(stock.get('price')) else "N/A"
                             ret_1d_value = f"{stock['ret_1d']:+.1f}%" if pd.notna(stock.get('ret_1d')) else None
-                            UIComponents.render_metric_card("Price", price_value, ret_1d_value)
+                            ModernUI.render_metric_card("Price", price_value, ret_1d_value)
                         
                         with metric_cols[2]:
-                            UIComponents.render_metric_card(
+                            ModernUI.render_metric_card(
                                 "From Low",
                                 f"{stock['from_low_pct']:.0f}%" if pd.notna(stock.get('from_low_pct')) else "N/A",
                                 "52-week range position"
@@ -15302,7 +15547,7 @@ def main():
                         
                         with metric_cols[3]:
                             ret_30d = stock.get('ret_30d', 0)
-                            UIComponents.render_metric_card(
+                            ModernUI.render_metric_card(
                                 "30D Return",
                                 f"{ret_30d:+.1f}%" if pd.notna(ret_30d) else "N/A",
                                 "↑" if ret_30d > 0 else "↓" if ret_30d < 0 else "→"
@@ -15310,14 +15555,14 @@ def main():
                         
                         with metric_cols[4]:
                             rvol = stock.get('rvol', 1)
-                            UIComponents.render_metric_card(
+                            ModernUI.render_metric_card(
                                 "RVOL",
                                 f"{rvol:.1f}x" if pd.notna(rvol) else "N/A",
                                 "High" if rvol > 2 else "Normal" if rvol > 0.5 else "Low"
                             )
                         
                         with metric_cols[5]:
-                            UIComponents.render_metric_card(
+                            ModernUI.render_metric_card(
                                 "Market State",
                                 stock.get('market_state', 'N/A'),
                                 stock.get('category', 'N/A')
@@ -16139,7 +16384,7 @@ def main():
         stat_cols = st.columns(3)
         for i, (label, value) in enumerate(export_stats.items()):
             with stat_cols[i % 3]:
-                UIComponents.render_metric_card(label, value)
+                ModernUI.render_metric_card(label, value)
     
     with tabs[6]:
         st.markdown("### ℹ️ About Wave Detection Ultimate 3.0")
@@ -16193,10 +16438,10 @@ def main():
             st.markdown("#### ⚡ Performance Specifications")
             
             # Clean performance metrics
-            UIComponents.render_metric_card("Initial Load Time", "< 2 seconds")
-            UIComponents.render_metric_card("Filter Response", "< 200ms") 
-            UIComponents.render_metric_card("Search Speed", "< 50ms")
-            UIComponents.render_metric_card("Stock Capacity", "2,000+")
+            ModernUI.render_metric_card("Initial Load Time", "< 2 seconds")
+            ModernUI.render_metric_card("Filter Response", "< 200ms") 
+            ModernUI.render_metric_card("Search Speed", "< 50ms")
+            ModernUI.render_metric_card("Stock Capacity", "2,000+")
             
             st.markdown("#### 🔧 Technical Features")
             st.markdown("""
@@ -16270,13 +16515,13 @@ def main():
         session_cols = st.columns(4)
         
         with session_cols[0]:
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Stocks Loaded",
                 f"{len(ranked_df):,}" if 'ranked_df' in locals() else "0"
             )
         
         with session_cols[1]:
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Filtered Results",
                 f"{len(filtered_df):,}" if 'filtered_df' in locals() else "0"
             )
@@ -16284,7 +16529,7 @@ def main():
         with session_cols[2]:
             data_quality = st.session_state.data_quality.get('completeness', 0)
             quality_emoji = "🟢" if data_quality > 80 else "🟡" if data_quality > 60 else "🔴"
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Data Quality",
                 f"{quality_emoji} {data_quality:.1f}%"
             )
@@ -16293,7 +16538,7 @@ def main():
             cache_time = datetime.now(timezone.utc) - st.session_state.last_refresh
             minutes = int(cache_time.total_seconds() / 60)
             cache_emoji = "🟢" if minutes < 60 else "🔴"
-            UIComponents.render_metric_card(
+            ModernUI.render_metric_card(
                 "Cache Status",
                 f"{cache_emoji} {minutes}min ago"
             )
