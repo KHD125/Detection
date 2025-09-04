@@ -8993,7 +8993,7 @@ class UIComponents:
                     return_df,
                     width='stretch',
                     column_config={
-                        'Win Rate': st.column_config.ProgressColumn("Win Rate %", min_value=0, max_value=100, format="%.1f%%"),
+                        'Win Rate': st.column_config.ProgressColumn("Win Rate %", min_value=0, max_value=100, format="%.1f"),
                         'Avg Return': st.column_config.NumberColumn("Avg Return %", format="%.2f%%"),
                         'Quality': st.column_config.TextColumn("Signal", width="small")
                     }
@@ -13610,10 +13610,10 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
-                            'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100),
+                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
+                            'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100, format="%.1f"),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
-                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120)
+                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120, format="%.1f")
                         }
                     )
                 else:
@@ -13707,7 +13707,7 @@ def main():
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'Company': st.column_config.TextColumn("Company", width="medium"),
                             'Pattern': st.column_config.TextColumn("Pattern", width="medium"),
-                            'Score': st.column_config.ProgressColumn("Score", min_value=0, max_value=100),
+                            'Score': st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.1f"),
                             'Reliability': st.column_config.TextColumn("Reliability", width="small")
                         }
                     )
@@ -14018,9 +14018,9 @@ def main():
                             column_config={
                                 'ticker': st.column_config.TextColumn("Ticker", width="small"),
                                 'company_name': st.column_config.TextColumn("Company", width="medium"),
-                                'probability_score': st.column_config.ProgressColumn("Probability", min_value=0, max_value=100, format="%.1f%%"),
+                                'probability_score': st.column_config.ProgressColumn("Probability", min_value=0, max_value=100, format="%.1f"),
                                 'confidence': st.column_config.TextColumn("Confidence", width="small"),
-                                'master_score': st.column_config.ProgressColumn("Technical", min_value=0, max_value=100),
+                                'master_score': st.column_config.ProgressColumn("Technical", min_value=0, max_value=100, format="%.1f"),
                                 'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx")
                             }
                         )
@@ -14154,9 +14154,9 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f%%"),
-                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f%%"),
-                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f%%"),
+                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f"),
+                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f"),
+                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f"),
                             'alignment': st.column_config.TextColumn("Alignment", width="small")
                         }
                     )
@@ -14393,7 +14393,7 @@ def main():
                                 return_df,
                                 width='stretch',
                                 column_config={
-                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f%%"),
+                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f"),
                                     'Avg Return': st.column_config.NumberColumn("Avg Return", format="%.2f%%"),
                                     'Max Return': st.column_config.NumberColumn("Max Return", format="%.2f%%"),
                                     'Quality': st.column_config.TextColumn("Quality", width="small")
@@ -14431,7 +14431,7 @@ def main():
                             column_config={
                                 'Range': st.column_config.TextColumn("Volume Range", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
                             }
                         )
                         
@@ -14545,7 +14545,7 @@ def main():
                                 column_config={
                                     'Quadrant': st.column_config.TextColumn("Momentum Quadrant", width="medium"),
                                     'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
                                 }
                             )
                             
@@ -14580,7 +14580,7 @@ def main():
                                 column_config={
                                     'Category': st.column_config.TextColumn(f"{col_name} Range", width="medium"),
                                     'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
                                 }
                             )
                             
@@ -14627,7 +14627,7 @@ def main():
                                 column_config={
                                     'Pattern': st.column_config.TextColumn("Pattern Type", width="medium"),
                                     'Count': st.column_config.NumberColumn("Occurrences", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f%%"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f"),
                                     'Quality': st.column_config.TextColumn("Quality", width="small")
                                 }
                             )
@@ -14666,7 +14666,7 @@ def main():
                             column_config={
                                 'Quality Level': st.column_config.TextColumn("Pattern Quality", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
                             }
                         )
                         
@@ -14712,8 +14712,8 @@ def main():
                             width='stretch',
                             column_config={
                                 'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
-                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100),
-                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100),
+                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100, format="%.1f"),
+                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
                                 'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
                             }
                         )
@@ -14747,7 +14747,7 @@ def main():
                                 column_config={
                                     'Sector': st.column_config.TextColumn("Sector", width="medium"),
                                     'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f%%"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f"),
                                     'Representation': st.column_config.TextColumn("Level", width="small")
                                 }
                             )
@@ -14840,7 +14840,7 @@ def main():
                             column_config={
                                 'Industry': st.column_config.TextColumn("Industry", width="medium"),
                                 'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Market Share': st.column_config.ProgressColumn("% of Market", min_value=0, max_value=50, format="%.1f%%"),
+                                'Market Share': st.column_config.ProgressColumn("% of Market", min_value=0, max_value=50, format="%.1f"),
                                 'Concentration': st.column_config.TextColumn("Level", width="small")
                             }
                         )
@@ -14916,7 +14916,7 @@ def main():
                             column_config={
                                 'Risk Level': st.column_config.TextColumn("Risk Category", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Portfolio", min_value=0, max_value=100, format="%.1f%%")
+                                'Percentage': st.column_config.ProgressColumn("% of Portfolio", min_value=0, max_value=100, format="%.1f")
                             }
                         )
                         
@@ -14962,7 +14962,7 @@ def main():
                             column_config={
                                 'Position Size': st.column_config.TextColumn("Recommended Size", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% Allocation", min_value=0, max_value=100, format="%.1f%%")
+                                'Percentage': st.column_config.ProgressColumn("% Allocation", min_value=0, max_value=100, format="%.1f")
                             }
                         )
                         
@@ -15112,8 +15112,8 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
+                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100, format="%.1f"),
+                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
                             'ret_1d': st.column_config.NumberColumn("1D Return", format="%.2f%%"),
                             'Quality': st.column_config.TextColumn("Quality", width="small")
