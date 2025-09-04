@@ -184,12 +184,12 @@ class Config:
     STALE_DATA_HOURS: int = 24
     
     # Master Score 3.0 weights (total = 100%)
-    POSITION_WEIGHT: float = 0.30
-    VOLUME_WEIGHT: float = 0.25
-    MOMENTUM_WEIGHT: float = 0.15
-    ACCELERATION_WEIGHT: float = 0.10
-    BREAKOUT_WEIGHT: float = 0.10
-    RVOL_WEIGHT: float = 0.10
+    POSITION_WEIGHT: float = 0.25
+    VOLUME_WEIGHT: float = 0.10
+    MOMENTUM_WEIGHT: float = 0.35
+    ACCELERATION_WEIGHT: float = 0.01
+    BREAKOUT_WEIGHT: float = 0.25
+    RVOL_WEIGHT: float = 0.04
     
     # Display settings
     DEFAULT_TOP_N: int = 50
@@ -1642,32 +1642,32 @@ class RankingEngine:
             'primary': {
                 'position_score': {
                     'func': RankingEngine._calculate_position_score,
-                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
+                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.25),
                     'required': True
                 },
                 'volume_score': {
                     'func': RankingEngine._calculate_volume_score,
-                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
+                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.10),
                     'required': True
                 },
                 'momentum_score': {
                     'func': RankingEngine._calculate_momentum_score,
-                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
+                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.35),
                     'required': True
                 },
                 'acceleration_score': {
                     'func': RankingEngine._calculate_acceleration_score,
-                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
+                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.01),
                     'required': True
                 },
                 'breakout_score': {
                     'func': RankingEngine._calculate_breakout_score,
-                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
+                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.25),
                     'required': True
                 },
                 'rvol_score': {
                     'func': RankingEngine._calculate_rvol_score,
-                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.10),
+                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.04),
                     'required': True
                 }
             },
@@ -2184,12 +2184,12 @@ class RankingEngine:
         """
         # Get available score columns and their weights
         score_cols = {
-            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
-            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
-            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
-            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
-            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
-            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.10)
+            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.25),
+            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.10),
+            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.35),
+            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.01),
+            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.25),
+            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.04)
         }
         
         # Initialize new master scores
