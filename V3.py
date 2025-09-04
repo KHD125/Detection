@@ -8341,7 +8341,7 @@ class UIComponents:
         # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
         # ================================================================================================
         
-        st.markdown("### 📊 Market Pulse**")
+        st.markdown("### 📊 Market Pulse")
         
         pulse_col1, pulse_col2, pulse_col3, pulse_col4, pulse_col5 = st.columns(5)
         
@@ -8556,7 +8556,7 @@ class UIComponents:
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🎯 Today's Best Opportunities**")
+        st.markdown("### 🎯 Today's Best Opportunities")
         
         opp_col1, opp_col2, opp_col3, opp_col4 = st.columns(4)
         
@@ -8912,7 +8912,7 @@ class UIComponents:
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🏆PERFORMANCE ATTRIBUTION ANALYSIS**")
+        st.markdown("### 🏆PERFORMANCE ATTRIBUTION ANALYSIS")
         
         perf_col1, perf_col2, perf_col3 = st.columns(3)
         
