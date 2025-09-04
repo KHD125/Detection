@@ -12457,7 +12457,7 @@ def main():
                 # Main dataframe display with enhanced features
                 selected_data = st.dataframe(
                     final_display_df,
-                    use_container_width=True,
+                    width='stretch',
                     height=min(800, len(final_display_df) * 35 + 100),
                     hide_index=True,
                     column_config=column_config,
