@@ -8948,7 +8948,7 @@ class UIComponents:
                     hide_index=True,
                     column_config={
                         'Component': st.column_config.TextColumn("Component", width="medium"),
-                        'Score': st.column_config.ProgressColumn("Average Score", min_value=0, max_value=100, format="%.1f"),
+                        'Score': st.column_config.TextColumn("Average Score"),
                         'Quality': st.column_config.TextColumn("Quality", width="small")
                     }
                 )
@@ -8993,7 +8993,7 @@ class UIComponents:
                     return_df,
                     width='stretch',
                     column_config={
-                        'Win Rate': st.column_config.ProgressColumn("Win Rate %", min_value=0, max_value=100, format="%.1f"),
+                        'Win Rate': st.column_config.TextColumn("Win Rate %"),
                         'Avg Return': st.column_config.NumberColumn("Avg Return %", format="%.2f%%"),
                         'Quality': st.column_config.TextColumn("Signal", width="small")
                     }
@@ -9048,7 +9048,7 @@ class UIComponents:
                         column_config={
                             'Pattern': st.column_config.TextColumn("Pattern", width="medium"),
                             'Count': st.column_config.NumberColumn("Count", width="small"),
-                            'Avg Score': st.column_config.ProgressColumn("Avg Score", min_value=0, max_value=100, format="%.1f"),
+                            'Avg Score': st.column_config.TextColumn("Avg Score"),
                             'Effectiveness': st.column_config.TextColumn("Quality", width="small")
                         }
                     )
@@ -11920,9 +11920,8 @@ def main():
             display_cols_list = list(final_display_cols.keys())
             display_df_formatted = display_df[display_cols_list].copy()
             
-            # PROFESSIONAL FORMATTING RULES - NUMERIC COLUMNS LEFT AS NUMBERS FOR STREAMLIT FORMATTING
+            # PROFESSIONAL FORMATTING RULES
             format_rules = {
-                # Score columns - format as strings for display
                 'master_score': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'master_score_adjusted': lambda x: f"{x:.1f}" if pd.notna(x) else '-',  # Add adjusted score formatting
                 'position_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
@@ -11935,73 +11934,78 @@ def main():
                 'long_term_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'liquidity_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                
-                # Percentage columns - format as strings for display  
+                'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'from_high_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'ret_1d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_3d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_7d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_30d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                
-                # Other formatted columns
+                'rvol': lambda x: f"{x:.1f}x" if pd.notna(x) else '-',
                 'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
                 'volume_1d': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'money_flow_mm': lambda x: f"₹{x:.0f}M" if pd.notna(x) else '-',
-                'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-',
-                
-                # NUMERIC COLUMNS - KEEP AS NUMBERS FOR STREAMLIT NumberColumn FORMATTING
-                # These will be handled by NumberColumn configurations:
-                # - price: NumberColumn with format="₹%.2f"
-                # - rvol: NumberColumn with format="%.1fx" 
-                # - pe: NumberColumn with format="%.1f"
-                # - eps_current: NumberColumn with format="₹%.2f"
-                # - eps_change_pct: NumberColumn with format="%.1f%%"
+                # Fundamental columns formatting
+                'pe': lambda x: f"{x:.1f}x" if pd.notna(x) and x > 0 else 'N/A',
+                'eps_current': lambda x: f"₹{x:.2f}" if pd.notna(x) else 'N/A',
+                'eps_change_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else 'N/A',
+                'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-'
             }
             
-            # Apply formatting to non-numeric columns only
+            # Apply formatting
             for col, formatter in format_rules.items():
                 if col in display_df_formatted.columns:
                     display_df_formatted[col] = display_df[col].apply(formatter)
             
-            # ENSURE NUMERIC COLUMNS ARE PROPERLY CONVERTED FOR NumberColumn COMPATIBILITY
-            numeric_columns = ['price', 'rvol', 'pe', 'eps_current', 'eps_change_pct']
-            for col in numeric_columns:
-                if col in display_df_formatted.columns:
-                    # Convert to numeric, handle NaN/infinite values properly
-                    display_df_formatted[col] = pd.to_numeric(display_df_formatted[col], errors='coerce')
-                    # Fill NaN values with 0 for numeric columns (except PE which should be NaN for loss-making companies)
-                    if col == 'pe':
-                        # PE can be NaN for loss-making companies, keep as is
-                        pass
+            # Format PE with professional logic
+            def format_pe_professional(value):
+                try:
+                    if pd.isna(value) or value == 'N/A':
+                        return '-'
+                    
+                    val = float(value)
+                    
+                    if val <= 0:
+                        return 'Loss'
+                    elif val > 10000:
+                        return '>10K'
+                    elif val > 1000:
+                        return f"{val:.0f}"
+                    elif val > 100:
+                        return f"{val:.1f}"
                     else:
-                        display_df_formatted[col] = display_df_formatted[col].fillna(0)
+                        return f"{val:.1f}"
+                except (ValueError, TypeError, AttributeError):
+                    return '-'
             
-            # NUMERIC DATA VALIDATION AND CLEANING FOR FUNDAMENTAL COLUMNS
+            # Format EPS Change with professional logic
+            def format_eps_change_professional(value):
+                try:
+                    if pd.isna(value):
+                        return '-'
+                    
+                    val = float(value)
+                    
+                    if abs(val) >= 1000:
+                        return f"{val/1000:+.1f}K%"
+                    elif abs(val) >= 100:
+                        return f"{val:+.0f}%"
+                    else:
+                        return f"{val:+.1f}%"
+                except (ValueError, TypeError, AttributeError):
+                    return '-'
+            
+            # Apply professional fundamental formatting - ONLY EXISTING COLUMNS
             if show_fundamentals:
-                # PE ratio cleaning - keep as numeric for NumberColumn
                 if 'pe' in display_df_formatted.columns:
-                    # Convert PE to numeric, handle edge cases
-                    pe_series = pd.to_numeric(display_df_formatted['pe'], errors='coerce')
-                    # Cap extremely high PE ratios for display purposes
-                    pe_series = pe_series.where(pe_series <= 10000, 10000)
-                    # Negative PE (loss-making companies) should be NaN
-                    pe_series = pe_series.where(pe_series > 0, np.nan)
-                    display_df_formatted['pe'] = pe_series
+                    display_df_formatted['pe'] = display_df['pe'].apply(format_pe_professional)
                 
-                # EPS change percentage cleaning - keep as numeric for NumberColumn  
                 if 'eps_change_pct' in display_df_formatted.columns:
-                    # Convert to numeric and cap extreme values
-                    eps_change_series = pd.to_numeric(display_df_formatted['eps_change_pct'], errors='coerce')
-                    # Cap extreme percentage changes for display
-                    eps_change_series = eps_change_series.clip(-1000, 1000)
-                    display_df_formatted['eps_change_pct'] = eps_change_series
+                    display_df_formatted['eps_change_pct'] = display_df['eps_change_pct'].apply(format_eps_change_professional)
                 
-                # EPS current cleaning - keep as numeric for NumberColumn
+                # Format EPS current (earnings per share)
                 if 'eps_current' in display_df_formatted.columns:
-                    # Convert to numeric, negative EPS is valid (losses)
-                    eps_current_series = pd.to_numeric(display_df_formatted['eps_current'], errors='coerce')
-                    display_df_formatted['eps_current'] = eps_current_series
+                    display_df_formatted['eps_current'] = display_df['eps_current'].apply(lambda x: f"₹{x:.1f}" if pd.notna(x) and x > 0 else '-')
             
             # Add trend indicators for better visualization
             if 'trend_quality' in display_df.columns:
@@ -12071,211 +12075,160 @@ def main():
                     width="medium", 
                     max_chars=40
                 ),
-                "Master": st.column_config.ProgressColumn(
+                "Master": st.column_config.TextColumn(
                     "Master", 
                     help="Master Score (0-100)", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Score": st.column_config.ProgressColumn(
+                "Score": st.column_config.TextColumn(
                     "Score", 
                     help="Master Score (0-100)", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Pos": st.column_config.NumberColumn(
+                "Pos": st.column_config.TextColumn(
                     "Pos", 
                     help="Position Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Position": st.column_config.ProgressColumn(
+                "Position": st.column_config.TextColumn(
                     "Position", 
                     help="Position Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Mom": st.column_config.NumberColumn(
+                "Mom": st.column_config.TextColumn(
                     "Mom", 
                     help="Momentum Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Momentum": st.column_config.ProgressColumn(
+                "Momentum": st.column_config.TextColumn(
                     "Momentum", 
                     help="Momentum Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Vol": st.column_config.NumberColumn(
+                "Vol": st.column_config.TextColumn(
                     "Vol", 
                     help="Volume Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Volume": st.column_config.ProgressColumn(
+                "Volume": st.column_config.TextColumn(
                     "Volume", 
                     help="Volume Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Acc": st.column_config.NumberColumn(
+                "Acc": st.column_config.TextColumn(
                     "Acc", 
                     help="Acceleration Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Accel": st.column_config.ProgressColumn(
+                "Accel": st.column_config.TextColumn(
                     "Accel", 
                     help="Acceleration Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Brk": st.column_config.NumberColumn(
+                "Brk": st.column_config.TextColumn(
                     "Brk", 
                     help="Breakout Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Breakout": st.column_config.ProgressColumn(
+                "Breakout": st.column_config.TextColumn(
                     "Breakout", 
                     help="Breakout Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "RVS": st.column_config.NumberColumn(
+                "RVS": st.column_config.TextColumn(
                     "RVS", 
                     help="RVOL Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "RVOL Scr": st.column_config.ProgressColumn(
+                "RVOL Scr": st.column_config.TextColumn(
                     "RVOL Scr", 
                     help="RVOL Score (0-100)", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "RVOL": st.column_config.NumberColumn(
+                "RVOL": st.column_config.TextColumn(
                     "RVOL", 
                     help="Relative Volume vs Avg", 
-                    width="small",
-                    format="%.1fx"
+                    width="small"
                 ),
-                "Trd": st.column_config.NumberColumn(
+                "Trd": st.column_config.TextColumn(
                     "Trd", 
                     help="Trend Quality Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
                 "Trend": st.column_config.TextColumn(
                     "Trend", 
                     help="Trend Quality Indicator", 
                     width="small"
                 ),
-                "LTS": st.column_config.NumberColumn(
+                "LTS": st.column_config.TextColumn(
                     "LTS", 
                     help="Long Term Strength", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "LT Str": st.column_config.ProgressColumn(
+                "LT Str": st.column_config.TextColumn(
                     "LT Str", 
                     help="Long Term Strength", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "Liq": st.column_config.NumberColumn(
+                "Liq": st.column_config.TextColumn(
                     "Liq", 
                     help="Liquidity Score", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Liquid": st.column_config.ProgressColumn(
+                "Liquid": st.column_config.TextColumn(
                     "Liquid", 
                     help="Liquidity Score", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
-                "MktS": st.column_config.NumberColumn(
+                "MktS": st.column_config.TextColumn(
                     "MktS", 
                     help="Overall Market Strength", 
-                    width="tiny",
-                    format="%.0f"
+                    width="tiny"
                 ),
-                "Mkt Str": st.column_config.ProgressColumn(
+                "Mkt Str": st.column_config.TextColumn(
                     "Mkt Str", 
                     help="Overall Market Strength", 
-                    width="small",
-                    min_value=0,
-                    max_value=100,
-                    format="%.1f"
+                    width="small"
                 ),
                 "State": st.column_config.TextColumn(
                     "State", 
                     help="Current Market State", 
                     width="medium"
                 ),
-                "Price": st.column_config.NumberColumn(
+                "Price": st.column_config.TextColumn(
                     "Price", 
                     help="Current stock price", 
-                    width="small",
-                    format="₹%.2f"
+                    width="small"
                 ),
-                "Low%": st.column_config.NumberColumn(
+                "Low%": st.column_config.TextColumn(
                     "Low%", 
                     help="Distance from 52W low", 
-                    width="small",
-                    format="%.1f%%"
+                    width="small"
                 ),
-                "High%": st.column_config.NumberColumn(
+                "High%": st.column_config.TextColumn(
                     "High%", 
                     help="Distance from 52W high", 
-                    width="small",
-                    format="%.1f%%"
+                    width="small"
                 ),
-                "1D%": st.column_config.NumberColumn(
+                "1D%": st.column_config.TextColumn(
                     "1D%", 
                     help="1-day return", 
-                    width="small",
-                    format="%.2f%%"
+                    width="small"
                 ),
-                "3D%": st.column_config.NumberColumn(
+                "3D%": st.column_config.TextColumn(
                     "3D%", 
                     help="3-day return", 
-                    width="small",
-                    format="%.2f%%"
+                    width="small"
                 ),
-                "7D%": st.column_config.NumberColumn(
+                "7D%": st.column_config.TextColumn(
                     "7D%", 
                     help="7-day return", 
-                    width="small",
-                    format="%.2f%%"
+                    width="small"
                 ),
-                "30D%": st.column_config.NumberColumn(
+                "30D%": st.column_config.TextColumn(
                     "30D%", 
                     help="30-day return", 
-                    width="small",
-                    format="%.2f%%"
+                    width="small"
                 ),
                 "VMI": st.column_config.NumberColumn(
                     "VMI", 
@@ -12350,12 +12303,6 @@ def main():
                     width="small",
                     format="%.1f%%"
                 ),
-                "RVOL": st.column_config.NumberColumn(
-                    "RVOL", 
-                    help="Relative Volume vs Avg", 
-                    width="small",
-                    format="%.1fx"
-                ),
                 
                 # Indicator columns with enhanced formatting
                 "Mom": st.column_config.TextColumn(
@@ -12372,24 +12319,19 @@ def main():
                 else:
                     # Enhanced default configuration for any missing columns
                     if any(keyword in col_name.lower() for keyword in ['score', 'rating']):
-                        column_config[col_name] = st.column_config.ProgressColumn(
+                        column_config[col_name] = st.column_config.TextColumn(
                             col_name, 
-                            width="small",
-                            min_value=0,
-                            max_value=100,
-                            format="%.1f"
+                            width="small"
                         )
                     elif any(keyword in col_name.lower() for keyword in ['%', 'percent', 'return']):
-                        column_config[col_name] = st.column_config.NumberColumn(
+                        column_config[col_name] = st.column_config.TextColumn(
                             col_name, 
-                            width="small",
-                            format="%.2f%%"
+                            width="small"
                         )
                     elif any(keyword in col_name.lower() for keyword in ['price', 'value', 'amount']):
-                        column_config[col_name] = st.column_config.NumberColumn(
+                        column_config[col_name] = st.column_config.TextColumn(
                             col_name, 
-                            width="small",
-                            format="%.2f"
+                            width="small"
                         )
                     else:
                         column_config[col_name] = st.column_config.TextColumn(
@@ -12459,7 +12401,7 @@ def main():
                 # Main dataframe display with enhanced features
                 selected_data = st.dataframe(
                     final_display_df,
-                    width='stretch',
+                    use_container_width=True,
                     height=min(800, len(final_display_df) * 35 + 100),
                     hide_index=True,
                     column_config=column_config,
@@ -13477,28 +13419,19 @@ def main():
                             help="Company name",
                             width="medium"
                         ),
-                        'Score': st.column_config.ProgressColumn(
+                        'Score': st.column_config.TextColumn(
                             'Score',
                             help="Master Score",
-                            format="%.1f",
-                            min_value=0,
-                            max_value=100,
                             width="small"
                         ),
-                        'Momentum': st.column_config.ProgressColumn(
+                        'Momentum': st.column_config.TextColumn(
                             'Momentum',
                             help="Momentum Score",
-                            format="%.0f",
-                            min_value=0,
-                            max_value=100,
                             width="small"
                         ),
-                        'Acceleration': st.column_config.ProgressColumn(
+                        'Acceleration': st.column_config.TextColumn(
                             'Acceleration',
                             help="Acceleration Score",
-                            format="%.0f",
-                            min_value=0,
-                            max_value=100,
                             width="small"
                         ),
                         'RVOL': st.column_config.TextColumn(
@@ -13978,10 +13911,10 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
-                            'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100, format="%.1f"),
+                            'momentum_score': st.column_config.TextColumn("Momentum"),
+                            'acceleration_score': st.column_config.TextColumn("Acceleration"),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
-                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120, format="%.1f")
+                            'momentum_strength': st.column_config.TextColumn("Strength")
                         }
                     )
                 else:
@@ -14075,7 +14008,7 @@ def main():
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'Company': st.column_config.TextColumn("Company", width="medium"),
                             'Pattern': st.column_config.TextColumn("Pattern", width="medium"),
-                            'Score': st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.1f"),
+                            'Score': st.column_config.TextColumn("Score"),
                             'Reliability': st.column_config.TextColumn("Reliability", width="small")
                         }
                     )
@@ -14386,9 +14319,9 @@ def main():
                             column_config={
                                 'ticker': st.column_config.TextColumn("Ticker", width="small"),
                                 'company_name': st.column_config.TextColumn("Company", width="medium"),
-                                'probability_score': st.column_config.ProgressColumn("Probability", min_value=0, max_value=100, format="%.1f"),
+                                'probability_score': st.column_config.TextColumn("Probability"),
                                 'confidence': st.column_config.TextColumn("Confidence", width="small"),
-                                'master_score': st.column_config.ProgressColumn("Technical", min_value=0, max_value=100, format="%.1f"),
+                                'master_score': st.column_config.TextColumn("Technical"),
                                 'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx")
                             }
                         )
@@ -14522,9 +14455,9 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f"),
-                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f"),
-                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f"),
+                            'short_term_score': st.column_config.TextColumn("Short-term"),
+                            'medium_term_score': st.column_config.TextColumn("Medium-term"),
+                            'confluence_score': st.column_config.TextColumn("Confluence"),
                             'alignment': st.column_config.TextColumn("Alignment", width="small")
                         }
                     )
@@ -14714,7 +14647,7 @@ def main():
                             hide_index=True,
                             column_config={
                                 'Component': st.column_config.TextColumn("Component", width="medium"),
-                                'Avg Score': st.column_config.ProgressColumn("Avg Score", min_value=0, max_value=100, format="%.1f"),
+                                'Avg Score': st.column_config.TextColumn("Avg Score"),
                                 'Quality': st.column_config.TextColumn("Quality", width="small")
                             }
                         )
@@ -14761,7 +14694,7 @@ def main():
                                 return_df,
                                 width='stretch',
                                 column_config={
-                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f"),
+                                    'Positive %': st.column_config.TextColumn("Win Rate"),
                                     'Avg Return': st.column_config.NumberColumn("Avg Return", format="%.2f%%"),
                                     'Max Return': st.column_config.NumberColumn("Max Return", format="%.2f%%"),
                                     'Quality': st.column_config.TextColumn("Quality", width="small")
@@ -15080,8 +15013,8 @@ def main():
                             width='stretch',
                             column_config={
                                 'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
-                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100, format="%.1f"),
-                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
+                                'flow_score': st.column_config.TextColumn('Flow Score'),
+                                'avg_score': st.column_config.TextColumn('Avg Score'),
                                 'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
                             }
                         )
@@ -15167,7 +15100,7 @@ def main():
                             industry_ranking[['avg_score', 'strength_index', 'stock_count', 'score_volatility', 'quality']],
                             width='stretch',
                             column_config={
-                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
+                                'avg_score': st.column_config.TextColumn('Avg Score'),
                                 'strength_index': st.column_config.ProgressColumn('Strength Index', min_value=0, max_value=100, format="%.1f"),
                                 'stock_count': st.column_config.NumberColumn('Stock Count', width="small"),
                                 'score_volatility': st.column_config.NumberColumn('Volatility', width="small", format="%.1f"),
@@ -15243,7 +15176,7 @@ def main():
                                 hide_index=True,
                                 column_config={
                                     'Industry': st.column_config.TextColumn("Industry", width="medium"),
-                                    'Avg Momentum': st.column_config.ProgressColumn("Momentum Score", min_value=0, max_value=100, format="%.1f"),
+                                    'Avg Momentum': st.column_config.TextColumn("Momentum Score"),
                                     'Momentum Level': st.column_config.TextColumn("Status", width="small")
                                 }
                             )
@@ -15480,8 +15413,8 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100, format="%.1f"),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
+                            'master_score': st.column_config.TextColumn("Master Score"),
+                            'momentum_score': st.column_config.TextColumn("Momentum"),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
                             'ret_1d': st.column_config.NumberColumn("1D Return", format="%.2f%%"),
                             'Quality': st.column_config.TextColumn("Quality", width="small")
