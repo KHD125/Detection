@@ -8341,7 +8341,7 @@ class UIComponents:
         # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
         # ================================================================================================
         
-        st.markdown("### 🔥 **TIER 1: CRITICAL MARKET PULSE**")
+        st.markdown("### 📊 Market Pulse**")
         
         pulse_col1, pulse_col2, pulse_col3, pulse_col4, pulse_col5 = st.columns(5)
         
@@ -8556,7 +8556,7 @@ class UIComponents:
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 💎 **TIER 2: TODAY'S ELITE OPPORTUNITIES**")
+        st.markdown("### 🎯 Today's Best Opportunities**")
         
         opp_col1, opp_col2, opp_col3, opp_col4 = st.columns(4)
         
@@ -8674,11 +8674,11 @@ class UIComponents:
                 st.warning("Pattern data unavailable")
         
         # ================================================================================================
-        # 🧠 TIER 3: ADVANCED MARKET INTELLIGENCE & SECTOR ROTATION
+        # ADVANCED MARKET INTELLIGENCE & SECTOR ROTATION
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🧠 **TIER 3: ADVANCED MARKET INTELLIGENCE**")
+        st.markdown("### 🧠 **Market Intelligence**")
         
         intel_col1, intel_col2 = st.columns([3, 2])
         
@@ -8908,11 +8908,11 @@ class UIComponents:
                 st.error("• Defensive positioning\n• Cash preservation\n• Avoid new positions")
 
         # ================================================================================================
-        # 🏆 TIER 4: PERFORMANCE ATTRIBUTION & ADVANCED METRICS
+        # PERFORMANCE ATTRIBUTION & ADVANCED METRICS
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🏆 **TIER 4: PERFORMANCE ATTRIBUTION ANALYSIS**")
+        st.markdown("### 🏆PERFORMANCE ATTRIBUTION ANALYSIS**")
         
         perf_col1, perf_col2, perf_col3 = st.columns(3)
         
