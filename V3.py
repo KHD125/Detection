@@ -11957,55 +11957,26 @@ def main():
                 if col in display_df_formatted.columns:
                     display_df_formatted[col] = display_df[col].apply(formatter)
             
-            # Format PE with professional logic
-            def format_pe_professional(value):
-                try:
-                    if pd.isna(value) or value == 'N/A':
-                        return '-'
-                    
-                    val = float(value)
-                    
-                    if val <= 0:
-                        return 'Loss'
-                    elif val > 10000:
-                        return '>10K'
-                    elif val > 1000:
-                        return f"{val:.0f}"
-                    elif val > 100:
-                        return f"{val:.1f}"
-                    else:
-                        return f"{val:.1f}"
-                except (ValueError, TypeError, AttributeError):
-                    return '-'
+            # Clean numeric data for NumberColumn display
             
-            # Format EPS Change with professional logic
-            def format_eps_change_professional(value):
-                try:
-                    if pd.isna(value):
-                        return '-'
-                    
-                    val = float(value)
-                    
-                    if abs(val) >= 1000:
-                        return f"{val/1000:+.1f}K%"
-                    elif abs(val) >= 100:
-                        return f"{val:+.0f}%"
-                    else:
-                        return f"{val:+.1f}%"
-                except (ValueError, TypeError, AttributeError):
-                    return '-'
+            # Keep numeric values for NumberColumn - formatting handled by column config
+            # No string formatting applied here to maintain numeric data types
+            # All formatting is handled by st.column_config.NumberColumn format parameter
             
-            # Apply professional fundamental formatting - ONLY EXISTING COLUMNS
-            if show_fundamentals:
-                if 'pe' in display_df_formatted.columns:
-                    display_df_formatted['pe'] = display_df['pe'].apply(format_pe_professional)
-                
-                if 'eps_change_pct' in display_df_formatted.columns:
-                    display_df_formatted['eps_change_pct'] = display_df['eps_change_pct'].apply(format_eps_change_professional)
-                
-                # Format EPS current (earnings per share)
-                if 'eps_current' in display_df_formatted.columns:
-                    display_df_formatted['eps_current'] = display_df['eps_current'].apply(lambda x: f"₹{x:.1f}" if pd.notna(x) and x > 0 else '-')
+            # Ensure numeric columns are properly formatted for NumberColumn
+            numeric_columns = ['price', 'pe', 'eps_current', 'eps_change_pct']
+            for col in numeric_columns:
+                if col in display_df_formatted.columns:
+                    # Convert to numeric, replacing any non-numeric values with NaN
+                    display_df_formatted[col] = pd.to_numeric(display_df_formatted[col], errors='coerce')
+                    
+                    # Handle specific column constraints
+                    if col == 'pe':
+                        # Cap PE ratios at reasonable values for display
+                        display_df_formatted[col] = display_df_formatted[col].clip(lower=0, upper=1000)
+                    elif col == 'eps_change_pct':
+                        # Cap EPS change percentage at reasonable values for display
+                        display_df_formatted[col] = display_df_formatted[col].clip(lower=-1000, upper=1000)
             
             # Add trend indicators for better visualization
             if 'trend_quality' in display_df.columns:
@@ -12340,7 +12311,9 @@ def main():
                     "PE", 
                     help="Price to Earnings Ratio", 
                     width="small",
-                    format="%.1f"
+                    format="%.1f",
+                    min_value=0,  # PE ratios are typically positive
+                    max_value=1000  # Cap extremely high PE ratios for display
                 ),
                 "EPS": st.column_config.NumberColumn(
                     "EPS", 
@@ -12352,7 +12325,9 @@ def main():
                     "EPS Δ%", 
                     help="EPS Change %", 
                     width="small",
-                    format="%.1f%%"
+                    format="%.1f%%",
+                    min_value=-1000,  # Allow for large negative changes
+                    max_value=1000    # Cap extremely high positive changes
                 ),
                 
                 # Indicator columns with enhanced formatting
