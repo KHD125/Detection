@@ -14204,8 +14204,6 @@ def main():
 
     # Tab 3: 🏆 ALL TIME BEST ANALYSIS TAB - INSTITUTIONAL GRADE INTELLIGENCE
     with tabs[3]:
-        st.markdown("# 🧠 **ULTIMATE MARKET INTELLIGENCE CENTER**")
-        st.markdown("### *Professional-Grade Multi-Dimensional Analysis Platform*")
         
         if not filtered_df.empty:
             # ================================================================================================
