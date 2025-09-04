@@ -12747,7 +12747,7 @@ def main():
             
         # 📊 Full Spectrum uses all data (no additional filtering)
         elif radar_mode == "📊 Full Spectrum":
-            st.info(f"📊 Full Spectrum Mode: Analyzing all {len(radar_df)} stocks")
+            pass  # No filtering applied
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: APPLY RISK PROFILE FILTERING (PREVIOUSLY MISSING!)
@@ -12784,7 +12784,7 @@ def main():
             
         # ⚖️ Balanced Risk uses current data (no additional filtering)
         elif risk_filter == "⚖️ Balanced Risk":
-            st.info(f"⚖️ Balanced Risk Filter: Analyzing all {len(radar_df)} stocks")
+            pass  # No filtering applied
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: APPLY MARKET REGIME FILTERING (PREVIOUSLY MISSING!)
@@ -12818,7 +12818,7 @@ def main():
             
         # 📊 Auto-Detect uses current data
         elif market_regime == "📊 Auto-Detect":
-            st.info(f"📊 Auto-Detect Mode: Analyzing all {len(radar_df)} stocks")
+            pass  # No filtering applied
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
