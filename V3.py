@@ -11920,8 +11920,9 @@ def main():
             display_cols_list = list(final_display_cols.keys())
             display_df_formatted = display_df[display_cols_list].copy()
             
-            # PROFESSIONAL FORMATTING RULES
+            # PROFESSIONAL FORMATTING RULES - NUMERIC COLUMNS LEFT AS NUMBERS FOR STREAMLIT FORMATTING
             format_rules = {
+                # Score columns - format as strings for display
                 'master_score': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'master_score_adjusted': lambda x: f"{x:.1f}" if pd.notna(x) else '-',  # Add adjusted score formatting
                 'position_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
@@ -11934,49 +11935,73 @@ def main():
                 'long_term_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'liquidity_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
+                
+                # Percentage columns - format as strings for display  
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'from_high_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'ret_1d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_3d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_7d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_30d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                'rvol': lambda x: f"{x:.1f}x" if pd.notna(x) else '-',
+                
+                # Other formatted columns
                 'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
                 'volume_1d': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
                 'money_flow_mm': lambda x: f"₹{x:.0f}M" if pd.notna(x) else '-',
-                # Fundamental columns formatting
-                'pe': lambda x: f"{x:.1f}x" if pd.notna(x) and x > 0 else 'N/A',
-                'eps_current': lambda x: f"₹{x:.2f}" if pd.notna(x) else 'N/A',
-                'eps_change_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else 'N/A',
-                'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-'
+                'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-',
+                
+                # NUMERIC COLUMNS - KEEP AS NUMBERS FOR STREAMLIT NumberColumn FORMATTING
+                # These will be handled by NumberColumn configurations:
+                # - price: NumberColumn with format="₹%.2f"
+                # - rvol: NumberColumn with format="%.1fx" 
+                # - pe: NumberColumn with format="%.1f"
+                # - eps_current: NumberColumn with format="₹%.2f"
+                # - eps_change_pct: NumberColumn with format="%.1f%%"
             }
             
-            # Apply formatting
+            # Apply formatting to non-numeric columns only
             for col, formatter in format_rules.items():
                 if col in display_df_formatted.columns:
                     display_df_formatted[col] = display_df[col].apply(formatter)
             
-            # Clean numeric data for NumberColumn display
-            
-            # Keep numeric values for NumberColumn - formatting handled by column config
-            # No string formatting applied here to maintain numeric data types
-            # All formatting is handled by st.column_config.NumberColumn format parameter
-            
-            # Ensure numeric columns are properly formatted for NumberColumn
-            numeric_columns = ['price', 'pe', 'eps_current', 'eps_change_pct']
+            # ENSURE NUMERIC COLUMNS ARE PROPERLY CONVERTED FOR NumberColumn COMPATIBILITY
+            numeric_columns = ['price', 'rvol', 'pe', 'eps_current', 'eps_change_pct']
             for col in numeric_columns:
                 if col in display_df_formatted.columns:
-                    # Convert to numeric, replacing any non-numeric values with NaN
+                    # Convert to numeric, handle NaN/infinite values properly
                     display_df_formatted[col] = pd.to_numeric(display_df_formatted[col], errors='coerce')
-                    
-                    # Handle specific column constraints
+                    # Fill NaN values with 0 for numeric columns (except PE which should be NaN for loss-making companies)
                     if col == 'pe':
-                        # Cap PE ratios at reasonable values for display
-                        display_df_formatted[col] = display_df_formatted[col].clip(lower=0, upper=1000)
-                    elif col == 'eps_change_pct':
-                        # Cap EPS change percentage at reasonable values for display
-                        display_df_formatted[col] = display_df_formatted[col].clip(lower=-1000, upper=1000)
+                        # PE can be NaN for loss-making companies, keep as is
+                        pass
+                    else:
+                        display_df_formatted[col] = display_df_formatted[col].fillna(0)
+            
+            # NUMERIC DATA VALIDATION AND CLEANING FOR FUNDAMENTAL COLUMNS
+            if show_fundamentals:
+                # PE ratio cleaning - keep as numeric for NumberColumn
+                if 'pe' in display_df_formatted.columns:
+                    # Convert PE to numeric, handle edge cases
+                    pe_series = pd.to_numeric(display_df_formatted['pe'], errors='coerce')
+                    # Cap extremely high PE ratios for display purposes
+                    pe_series = pe_series.where(pe_series <= 10000, 10000)
+                    # Negative PE (loss-making companies) should be NaN
+                    pe_series = pe_series.where(pe_series > 0, np.nan)
+                    display_df_formatted['pe'] = pe_series
+                
+                # EPS change percentage cleaning - keep as numeric for NumberColumn  
+                if 'eps_change_pct' in display_df_formatted.columns:
+                    # Convert to numeric and cap extreme values
+                    eps_change_series = pd.to_numeric(display_df_formatted['eps_change_pct'], errors='coerce')
+                    # Cap extreme percentage changes for display
+                    eps_change_series = eps_change_series.clip(-1000, 1000)
+                    display_df_formatted['eps_change_pct'] = eps_change_series
+                
+                # EPS current cleaning - keep as numeric for NumberColumn
+                if 'eps_current' in display_df_formatted.columns:
+                    # Convert to numeric, negative EPS is valid (losses)
+                    eps_current_series = pd.to_numeric(display_df_formatted['eps_current'], errors='coerce')
+                    display_df_formatted['eps_current'] = eps_current_series
             
             # Add trend indicators for better visualization
             if 'trend_quality' in display_df.columns:
@@ -12311,9 +12336,7 @@ def main():
                     "PE", 
                     help="Price to Earnings Ratio", 
                     width="small",
-                    format="%.1f",
-                    min_value=0,  # PE ratios are typically positive
-                    max_value=1000  # Cap extremely high PE ratios for display
+                    format="%.1f"
                 ),
                 "EPS": st.column_config.NumberColumn(
                     "EPS", 
@@ -12325,9 +12348,13 @@ def main():
                     "EPS Δ%", 
                     help="EPS Change %", 
                     width="small",
-                    format="%.1f%%",
-                    min_value=-1000,  # Allow for large negative changes
-                    max_value=1000    # Cap extremely high positive changes
+                    format="%.1f%%"
+                ),
+                "RVOL": st.column_config.NumberColumn(
+                    "RVOL", 
+                    help="Relative Volume vs Avg", 
+                    width="small",
+                    format="%.1fx"
                 ),
                 
                 # Indicator columns with enhanced formatting
