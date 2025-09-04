@@ -14210,7 +14210,6 @@ def main():
             # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
             # ================================================================================================
             
-            st.markdown("---")
             st.markdown("### 📊 **EXECUTIVE MARKET DASHBOARD**")
             
             # Calculate comprehensive market intelligence metrics
