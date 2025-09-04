@@ -14029,7 +14029,7 @@ def main():
                         st.warning("⚠️ **Risk Warning**: High probability signals are statistical indicators. Always use proper risk management and position sizing.")
                         
                     else:
-                        st.info(f"No high probability signals found with {sensitivity_level} criteria (≥{high_prob_threshold}%)")
+                        st.info(f"No high probability signals found with {sensitivity_level} criteria (≥{prob_threshold}%)")
                 else:
                     st.info("Insufficient data for probability analysis")
                     
