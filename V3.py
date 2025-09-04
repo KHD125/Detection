@@ -12051,62 +12051,316 @@ def main():
             final_display_df = display_df_formatted[list(final_display_cols.keys())]
             final_display_df.columns = list(final_display_cols.values())
             
-            # PROFESSIONAL COLUMN CONFIGURATION FOR STREAMLIT
+            # PROFESSIONAL COLUMN CONFIGURATION - LATEST STREAMLIT STANDARDS
             column_config = {}
             
-            # Define comprehensive column configurations
+            # Define comprehensive column configurations with latest Streamlit features
             config_map = {
-                "Rank": st.column_config.NumberColumn("Rank", help="Overall ranking position", format="%d", width="tiny"),
-                "Ticker": st.column_config.TextColumn("Ticker", help="Stock symbol", width="small"),
-                "Company": st.column_config.TextColumn("Company", help="Company name", width="medium", max_chars=40),
-                "Master": st.column_config.TextColumn("Master", help="Master Score (0-100)", width="small"),
-                "Score": st.column_config.TextColumn("Score", help="Master Score (0-100)", width="small"),
-                "Pos": st.column_config.TextColumn("Pos", help="Position Score", width="tiny"),
-                "Position": st.column_config.TextColumn("Position", help="Position Score", width="small"),
-                "Mom": st.column_config.TextColumn("Mom", help="Momentum Score", width="tiny"),
-                "Momentum": st.column_config.TextColumn("Momentum", help="Momentum Score", width="small"),
-                "Vol": st.column_config.TextColumn("Vol", help="Volume Score", width="tiny"),
-                "Volume": st.column_config.TextColumn("Volume", help="Volume Score", width="small"),
-                "Acc": st.column_config.TextColumn("Acc", help="Acceleration Score", width="tiny"),
-                "Accel": st.column_config.TextColumn("Accel", help="Acceleration Score", width="small"),
-                "Brk": st.column_config.TextColumn("Brk", help="Breakout Score", width="tiny"),
-                "Breakout": st.column_config.TextColumn("Breakout", help="Breakout Score", width="small"),
-                "RVS": st.column_config.TextColumn("RVS", help="RVOL Score", width="tiny"),
-                "RVOL Scr": st.column_config.TextColumn("RVOL Scr", help="RVOL Score (0-100)", width="small"),
-                "RVOL": st.column_config.TextColumn("RVOL", help="Relative Volume vs Avg", width="small"),
-                "Trd": st.column_config.TextColumn("Trd", help="Trend Quality Score", width="tiny"),
-                "Trend": st.column_config.TextColumn("Trend", help="Trend Quality Indicator", width="small"),
-                "LTS": st.column_config.TextColumn("LTS", help="Long Term Strength", width="tiny"),
-                "LT Str": st.column_config.TextColumn("LT Str", help="Long Term Strength", width="small"),
-                "Liq": st.column_config.TextColumn("Liq", help="Liquidity Score", width="tiny"),
-                "Liquid": st.column_config.TextColumn("Liquid", help="Liquidity Score", width="small"),
-                "MktS": st.column_config.TextColumn("MktS", help="Overall Market Strength", width="tiny"),
-                "Mkt Str": st.column_config.TextColumn("Mkt Str", help="Overall Market Strength", width="small"),
-                "State": st.column_config.TextColumn("State", help="Current Market State", width="medium"),
-                "Price": st.column_config.TextColumn("Price", help="Current stock price", width="small"),
-                "Low%": st.column_config.TextColumn("Low%", help="Distance from 52W low", width="small"),
-                "High%": st.column_config.TextColumn("High%", help="Distance from 52W high", width="small"),
-                "1D%": st.column_config.TextColumn("1D%", help="1-day return", width="small"),
-                "3D%": st.column_config.TextColumn("3D%", help="3-day return", width="small"),
-                "7D%": st.column_config.TextColumn("7D%", help="7-day return", width="small"),
-                "30D%": st.column_config.TextColumn("30D%", help="30-day return", width="small"),
-                "VMI": st.column_config.TextColumn("VMI", help="Volume Momentum Index", width="small"),
-                "Vol(Cr)": st.column_config.TextColumn("Vol(Cr)", help="Volume in Crores", width="small"),
-                "MF(MM)": st.column_config.TextColumn("MF(MM)", help="Money Flow in MM", width="small"),
-                "ATR%": st.column_config.TextColumn("ATR%", help="Average True Range %", width="small"),
-                "RSI": st.column_config.TextColumn("RSI", help="Relative Strength Index", width="small"),
-                "Patterns": st.column_config.TextColumn("Patterns", help="Technical Patterns", width="large", max_chars=80),
-                "Category": st.column_config.TextColumn("Category", help="Market Cap Category", width="medium"),
-                "Sector": st.column_config.TextColumn("Sector", help="Sector Classification", width="medium"),
-                "Industry": st.column_config.TextColumn("Industry", help="Industry Classification", width="medium", max_chars=40),
+                "Rank": st.column_config.NumberColumn(
+                    "Rank", 
+                    help="Overall ranking position", 
+                    format="%d", 
+                    width="tiny",
+                    disabled=True
+                ),
+                "Ticker": st.column_config.TextColumn(
+                    "Ticker", 
+                    help="Stock symbol", 
+                    width="small",
+                    max_chars=15
+                ),
+                "Company": st.column_config.TextColumn(
+                    "Company", 
+                    help="Company name", 
+                    width="medium", 
+                    max_chars=40
+                ),
+                "Master": st.column_config.ProgressColumn(
+                    "Master", 
+                    help="Master Score (0-100)", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Score": st.column_config.ProgressColumn(
+                    "Score", 
+                    help="Master Score (0-100)", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Pos": st.column_config.NumberColumn(
+                    "Pos", 
+                    help="Position Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Position": st.column_config.ProgressColumn(
+                    "Position", 
+                    help="Position Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Mom": st.column_config.NumberColumn(
+                    "Mom", 
+                    help="Momentum Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Momentum": st.column_config.ProgressColumn(
+                    "Momentum", 
+                    help="Momentum Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Vol": st.column_config.NumberColumn(
+                    "Vol", 
+                    help="Volume Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Volume": st.column_config.ProgressColumn(
+                    "Volume", 
+                    help="Volume Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Acc": st.column_config.NumberColumn(
+                    "Acc", 
+                    help="Acceleration Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Accel": st.column_config.ProgressColumn(
+                    "Accel", 
+                    help="Acceleration Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Brk": st.column_config.NumberColumn(
+                    "Brk", 
+                    help="Breakout Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Breakout": st.column_config.ProgressColumn(
+                    "Breakout", 
+                    help="Breakout Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "RVS": st.column_config.NumberColumn(
+                    "RVS", 
+                    help="RVOL Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "RVOL Scr": st.column_config.ProgressColumn(
+                    "RVOL Scr", 
+                    help="RVOL Score (0-100)", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "RVOL": st.column_config.NumberColumn(
+                    "RVOL", 
+                    help="Relative Volume vs Avg", 
+                    width="small",
+                    format="%.1fx"
+                ),
+                "Trd": st.column_config.NumberColumn(
+                    "Trd", 
+                    help="Trend Quality Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Trend": st.column_config.TextColumn(
+                    "Trend", 
+                    help="Trend Quality Indicator", 
+                    width="small"
+                ),
+                "LTS": st.column_config.NumberColumn(
+                    "LTS", 
+                    help="Long Term Strength", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "LT Str": st.column_config.ProgressColumn(
+                    "LT Str", 
+                    help="Long Term Strength", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "Liq": st.column_config.NumberColumn(
+                    "Liq", 
+                    help="Liquidity Score", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Liquid": st.column_config.ProgressColumn(
+                    "Liquid", 
+                    help="Liquidity Score", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "MktS": st.column_config.NumberColumn(
+                    "MktS", 
+                    help="Overall Market Strength", 
+                    width="tiny",
+                    format="%.0f"
+                ),
+                "Mkt Str": st.column_config.ProgressColumn(
+                    "Mkt Str", 
+                    help="Overall Market Strength", 
+                    width="small",
+                    min_value=0,
+                    max_value=100,
+                    format="%.1f"
+                ),
+                "State": st.column_config.TextColumn(
+                    "State", 
+                    help="Current Market State", 
+                    width="medium"
+                ),
+                "Price": st.column_config.NumberColumn(
+                    "Price", 
+                    help="Current stock price", 
+                    width="small",
+                    format="₹%.2f"
+                ),
+                "Low%": st.column_config.NumberColumn(
+                    "Low%", 
+                    help="Distance from 52W low", 
+                    width="small",
+                    format="%.1f%%"
+                ),
+                "High%": st.column_config.NumberColumn(
+                    "High%", 
+                    help="Distance from 52W high", 
+                    width="small",
+                    format="%.1f%%"
+                ),
+                "1D%": st.column_config.NumberColumn(
+                    "1D%", 
+                    help="1-day return", 
+                    width="small",
+                    format="%.2f%%"
+                ),
+                "3D%": st.column_config.NumberColumn(
+                    "3D%", 
+                    help="3-day return", 
+                    width="small",
+                    format="%.2f%%"
+                ),
+                "7D%": st.column_config.NumberColumn(
+                    "7D%", 
+                    help="7-day return", 
+                    width="small",
+                    format="%.2f%%"
+                ),
+                "30D%": st.column_config.NumberColumn(
+                    "30D%", 
+                    help="30-day return", 
+                    width="small",
+                    format="%.2f%%"
+                ),
+                "VMI": st.column_config.NumberColumn(
+                    "VMI", 
+                    help="Volume Momentum Index", 
+                    width="small",
+                    format="%.1f"
+                ),
+                "Vol(Cr)": st.column_config.NumberColumn(
+                    "Vol(Cr)", 
+                    help="Volume in Crores", 
+                    width="small",
+                    format="%.1f"
+                ),
+                "MF(MM)": st.column_config.NumberColumn(
+                    "MF(MM)", 
+                    help="Money Flow in MM", 
+                    width="small",
+                    format="%.1f"
+                ),
+                "ATR%": st.column_config.NumberColumn(
+                    "ATR%", 
+                    help="Average True Range %", 
+                    width="small",
+                    format="%.2f%%"
+                ),
+                "RSI": st.column_config.NumberColumn(
+                    "RSI", 
+                    help="Relative Strength Index", 
+                    width="small",
+                    format="%.1f"
+                ),
+                "Patterns": st.column_config.TextColumn(
+                    "Patterns", 
+                    help="Technical Patterns", 
+                    width="large", 
+                    max_chars=80
+                ),
+                "Category": st.column_config.SelectboxColumn(
+                    "Category", 
+                    help="Market Cap Category", 
+                    width="medium",
+                    options=["Large Cap", "Mid Cap", "Small Cap", "Micro Cap"]
+                ),
+                "Sector": st.column_config.TextColumn(
+                    "Sector", 
+                    help="Sector Classification", 
+                    width="medium"
+                ),
+                "Industry": st.column_config.TextColumn(
+                    "Industry", 
+                    help="Industry Classification", 
+                    width="medium", 
+                    max_chars=40
+                ),
                 
-                # Fundamental columns - ONLY WHAT EXISTS IN V9.PY
-                "PE": st.column_config.TextColumn("PE", help="Price to Earnings Ratio", width="small"),
-                "EPS": st.column_config.TextColumn("EPS", help="Earnings Per Share (Current)", width="small"),
-                "EPS Δ%": st.column_config.TextColumn("EPS Δ%", help="EPS Change %", width="small"),
+                # Fundamental columns - ENHANCED WITH PROPER FORMATTING
+                "PE": st.column_config.NumberColumn(
+                    "PE", 
+                    help="Price to Earnings Ratio", 
+                    width="small",
+                    format="%.1f"
+                ),
+                "EPS": st.column_config.NumberColumn(
+                    "EPS", 
+                    help="Earnings Per Share (Current)", 
+                    width="small",
+                    format="₹%.2f"
+                ),
+                "EPS Δ%": st.column_config.NumberColumn(
+                    "EPS Δ%", 
+                    help="EPS Change %", 
+                    width="small",
+                    format="%.1f%%"
+                ),
                 
-                # Indicator columns
-                "Mom": st.column_config.TextColumn("Mom", help="Momentum Indicator", width="tiny"),
+                # Indicator columns with enhanced formatting
+                "Mom": st.column_config.TextColumn(
+                    "Mom", 
+                    help="Momentum Indicator", 
+                    width="tiny"
+                ),
             }
             
             # Apply configurations for columns that exist in our dataframe
@@ -12114,8 +12368,32 @@ def main():
                 if col_name in config_map:
                     column_config[col_name] = config_map[col_name]
                 else:
-                    # Default configuration for any missing columns
-                    column_config[col_name] = st.column_config.TextColumn(col_name, width="medium")
+                    # Enhanced default configuration for any missing columns
+                    if any(keyword in col_name.lower() for keyword in ['score', 'rating']):
+                        column_config[col_name] = st.column_config.ProgressColumn(
+                            col_name, 
+                            width="small",
+                            min_value=0,
+                            max_value=100,
+                            format="%.1f"
+                        )
+                    elif any(keyword in col_name.lower() for keyword in ['%', 'percent', 'return']):
+                        column_config[col_name] = st.column_config.NumberColumn(
+                            col_name, 
+                            width="small",
+                            format="%.2f%%"
+                        )
+                    elif any(keyword in col_name.lower() for keyword in ['price', 'value', 'amount']):
+                        column_config[col_name] = st.column_config.NumberColumn(
+                            col_name, 
+                            width="small",
+                            format="%.2f"
+                        )
+                    else:
+                        column_config[col_name] = st.column_config.TextColumn(
+                            col_name, 
+                            width="medium"
+                        )
             
             # ENHANCED MAIN DATAFRAME DISPLAY
             st.markdown("#### 📊 Main Rankings Table")
@@ -12144,13 +12422,101 @@ def main():
                     if st.button("🔄 Reset to All", key="reset_timeframe", help="Show all timeframes"):
                         st.rerun()
             
-            st.dataframe(
-                final_display_df,
-                width='stretch',
-                height=min(800, len(final_display_df) * 35 + 100),
-                hide_index=True,
-                column_config=column_config
-            )
+            # ENHANCED DATAFRAME DISPLAY - LATEST STREAMLIT STANDARDS
+            # Add selection capabilities and modern features
+            dataframe_container = st.container()
+            
+            with dataframe_container:
+                # Add dataframe info and controls
+                df_info_cols = st.columns([2, 1, 1])
+                
+                with df_info_cols[0]:
+                    st.caption(f"📊 Showing **{len(final_display_df):,}** stocks with **{len(final_display_df.columns)}** metrics")
+                
+                with df_info_cols[1]:
+                    # Add selection toggle
+                    enable_selection = st.toggle(
+                        "Enable Row Selection", 
+                        value=False,
+                        help="Enable to select rows for detailed analysis",
+                        key="enable_selection_rankings"
+                    )
+                
+                with df_info_cols[2]:
+                    # Add column visibility toggle
+                    show_all_columns = st.toggle(
+                        "Show All Columns", 
+                        value=False,
+                        help="Toggle to show/hide additional columns",
+                        key="show_all_columns_rankings"
+                    )
+                
+                # Configure selection mode
+                selection_mode = "multi-row" if enable_selection else None
+                
+                # Main dataframe display with enhanced features
+                selected_data = st.dataframe(
+                    final_display_df,
+                    use_container_width=True,
+                    height=min(800, len(final_display_df) * 35 + 100),
+                    hide_index=True,
+                    column_config=column_config,
+                    column_order=None,
+                    selection_mode=selection_mode,
+                    on_select="rerun" if enable_selection else None,
+                    key="rankings_dataframe"
+                )
+                
+                # Handle row selection
+                if enable_selection and selected_data.selection.rows:
+                    st.success(f"✅ Selected {len(selected_data.selection.rows)} row(s) for analysis")
+                    
+                    # Show selected stocks summary
+                    selected_indices = selected_data.selection.rows
+                    selected_stocks = final_display_df.iloc[selected_indices]
+                    
+                    with st.expander("📋 Selected Stocks Summary", expanded=True):
+                        if len(selected_stocks) > 0:
+                            summary_cols = st.columns(4)
+                            
+                            with summary_cols[0]:
+                                if 'Score' in selected_stocks.columns:
+                                    avg_score = pd.to_numeric(selected_stocks['Score'], errors='coerce').mean()
+                                    st.metric("Avg Score", f"{avg_score:.1f}")
+                            
+                            with summary_cols[1]:
+                                if 'Sector' in selected_stocks.columns:
+                                    top_sector = selected_stocks['Sector'].mode().iloc[0] if len(selected_stocks['Sector'].mode()) > 0 else "N/A"
+                                    st.metric("Top Sector", top_sector)
+                            
+                            with summary_cols[2]:
+                                if 'Category' in selected_stocks.columns:
+                                    top_category = selected_stocks['Category'].mode().iloc[0] if len(selected_stocks['Category'].mode()) > 0 else "N/A"
+                                    st.metric("Top Category", top_category)
+                            
+                            with summary_cols[3]:
+                                st.metric("Total Selected", len(selected_stocks))
+                            
+                            # Quick action buttons
+                            action_cols = st.columns(3)
+                            with action_cols[0]:
+                                if st.button("📊 Analyze Selected", key="analyze_selected"):
+                                    st.info("Analysis feature - redirect to detailed analysis tab")
+                            
+                            with action_cols[1]:
+                                if st.button("📥 Export Selected", key="export_selected"):
+                                    csv_data = selected_stocks.to_csv(index=False)
+                                    st.download_button(
+                                        "Download CSV", 
+                                        csv_data, 
+                                        f"selected_stocks_{len(selected_stocks)}.csv",
+                                        mime="text/csv"
+                                    )
+                            
+                            with action_cols[2]:
+                                if st.button("🔄 Clear Selection", key="clear_selection"):
+                                    st.rerun()
+            
             
             # PROFESSIONAL EXPORT FUNCTIONALITY
             if export_format != "None":
