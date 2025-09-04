@@ -14211,7 +14211,6 @@ def main():
             # 📈 ADVANCED VISUALIZATION SUITE - PROFESSIONAL CHARTS
             # ================================================================================================
             
-            st.markdown("---")
             st.markdown("### 📊 **ADVANCED MARKET VISUALIZATION SUITE**")
             
             viz_tabs = st.tabs([
