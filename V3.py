@@ -12463,7 +12463,7 @@ def main():
                     column_config=column_config,
                     column_order=None,
                     selection_mode=selection_mode,
-                    on_select="rerun" if enable_selection else None,
+                    on_select="rerun" if enable_selection else "ignore",
                     key="rankings_dataframe"
                 )
                 
