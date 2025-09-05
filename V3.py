@@ -1,5 +1,5 @@
 """
-Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -7280,6 +7280,7 @@ class FilterEngine:
             'patterns': [],
             'trend_filter': "All Trends",
             'trend_range': (0, 100),
+            'trend_custom_range': (0, 100),
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
@@ -9416,6 +9417,7 @@ class SessionStateManager:
                 'patterns': [],
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
+                'trend_custom_range': (0, 100),
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
@@ -10345,25 +10347,7 @@ def main():
         def sync_patterns():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
-        
-        def sync_trend():
-            if 'trend_selectbox' in st.session_state:
-                trend_options = {
-                    "All Trends": (0, 100),
-                    "🔥 Exceptional (85+)": (85, 100),
-                    "🚀 Strong (70-84)": (70, 84),
-                    "✅ Good (55-69)": (55, 69),
-                    "➡️ Neutral (40-54)": (40, 54),
-                    "⚠️ Weak (25-39)": (25, 39),
-                    "🔻 Poor (<25)": (0, 24),
-                    "🎯 Custom Range": None
-                }
-                selected = st.session_state.trend_selectbox
-                st.session_state.filter_state['trend_filter'] = selected
-                
-                if selected != "🎯 Custom Range":
-                    st.session_state.filter_state['trend_range'] = trend_options[selected]
-        
+
         def sync_market_states():
             if 'market_states_multiselect' in st.session_state:
                 st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
@@ -10572,6 +10556,8 @@ def main():
             # Set the filter range to custom slider value
             filters['trend_filter'] = selected_trend
             filters['trend_range'] = custom_range
+            # Also update session state for consistency
+            st.session_state.filter_state['trend_range'] = custom_range
             
             # Show indicator for selected range
             def get_trend_indicator_for_range(min_val, max_val):
