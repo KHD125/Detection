@@ -1,5 +1,5 @@
 """
-Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -11727,7 +11727,7 @@ def main():
             performance_timeframe = st.selectbox(
                 "⏱️ Performance Period",
                 options=["1D", "3D", "7D", "30D", "All"],
-                index=3,
+                index=4,
                 key="perf_timeframe",
                 help="Focus on specific performance timeframe"
             )
