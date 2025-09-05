@@ -1,5 +1,5 @@
 """
-Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -8356,11 +8356,11 @@ class UIComponents:
             declining = ad_metrics.get('declining', 0)
             
             if ad_ratio == float('inf'):
-                ad_status = "�� EXPLOSIVE"
+                ad_status = "🚀💥 EXPLOSIVE"
                 ad_display = "∞"
                 market_signal = "EXTREME BULLISH"
             elif ad_ratio > 3:
-                ad_status = "� POWERFUL"
+                ad_status = "⚡ POWERFUL"
                 ad_display = f"{ad_ratio:.1f}"
                 market_signal = "STRONG BULLISH"
             elif ad_ratio > 2:
@@ -8399,7 +8399,7 @@ class UIComponents:
                     momentum_status = "🚀 EXPLOSIVE"
                     momentum_quality = "INSTITUTIONAL GRADE"
                 elif momentum_pct > 15:
-                    momentum_status = "� STRONG"
+                    momentum_status = "🔥 STRONG"
                     momentum_quality = "PROFESSIONAL GRADE"
                 elif momentum_pct > 8:
                     momentum_status = "📈 BUILDING"
@@ -8532,10 +8532,10 @@ class UIComponents:
                 regime_emoji = "🚀🚀"
                 regime_action = "AGGRESSIVE LONG"
             elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
-                regime_emoji = "�"
+                regime_emoji = "📈"
                 regime_action = "LONG BIAS"
             elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
-                regime_emoji = "�"
+                regime_emoji = "🔄"
                 regime_action = "BUY DIPS"
             elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
                 regime_emoji = "⚖️"
@@ -12961,7 +12961,7 @@ def main():
                     if 'patterns' in radar_df.columns:
                         pattern_stocks = len(radar_df[radar_df['patterns'].str.len() > 0])
                         pattern_pct = (pattern_stocks / total_stocks * 100) if total_stocks > 0 else 0
-                        pattern_activity = "🎯 High" if pattern_pct > 20 else "📈 Moderate" if pattern_pct > 10 else "� Low"
+                        pattern_activity = "🎯 High" if pattern_pct > 20 else "📈 Moderate" if pattern_pct > 10 else "📊 Low"
                         
                         UIComponents.render_metric_card(
                             "Pattern Activity",
