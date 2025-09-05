@@ -882,8 +882,15 @@ class DataProcessor:
             df['from_low_pct'] = df['from_low_pct'].fillna(0)
         
         if 'from_high_pct' in df.columns:
-            # FIXED: When from_high_pct is NaN, it means stock is at its high (0% from high)
-            df['from_high_pct'] = df['from_high_pct'].fillna(0)
+            # FIXED: Calculate proper from_high_pct - positive when above 52w high, negative when below
+            if all(col in df.columns for col in ['price', 'high_52w']):
+                # Recalculate from_high_pct properly: (current_price / 52w_high - 1) * 100
+                df['from_high_pct'] = ((df['price'] / df['high_52w']) - 1) * 100
+                # Fill any remaining NaN values (division by zero cases) with 0
+                df['from_high_pct'] = df['from_high_pct'].fillna(0)
+            else:
+                # Fallback if no price/high_52w data
+                df['from_high_pct'] = df['from_high_pct'].fillna(0)
         
         # Default for Relative Volume (RVOL)
         if 'rvol' in df.columns:
@@ -11997,7 +12004,7 @@ def main():
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
-                'from_high_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
+                'from_high_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_1d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_3d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_7d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
