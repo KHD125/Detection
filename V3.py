@@ -9379,10 +9379,12 @@ class SessionStateManager:
             # Trend filter
             if st.session_state.get('trend_filter') != "All Trends":
                 trend_options = {
-                    "🔥 Strong Uptrend (80+)": (80, 100), 
-                    "✅ Good Uptrend (60-79)": (60, 79),
-                    "➡️ Neutral Trend (40-59)": (40, 59), 
-                    "⚠️ Weak/Downtrend (<40)": (0, 39)
+                    "🔥 Exceptional (85+)": (85, 100),
+                    "🚀 Strong (70-84)": (70, 84),
+                    "✅ Good (55-69)": (55, 69),
+                    "➡️ Neutral (40-54)": (40, 54),
+                    "⚠️ Weak (25-39)": (25, 39),
+                    "🔻 Poor (<25)": (0, 24)
                 }
                 filters['trend_filter'] = st.session_state['trend_filter']
                 filters['trend_range'] = trend_options.get(st.session_state['trend_filter'], (0, 100))
@@ -11604,7 +11606,7 @@ def main():
     
     with col6:
         if 'trend_quality' in filtered_df.columns:
-            strong_trends = (filtered_df['trend_quality'] >= 80).sum()
+            strong_trends = (filtered_df['trend_quality'] >= 70).sum()
             total = len(filtered_df)
             UIComponents.render_metric_card(
                 "Strong Trends", 
@@ -15741,17 +15743,23 @@ def main():
                             # Trend Analysis
                             if 'trend_quality' in stock.index and pd.notna(stock['trend_quality']):
                                 tq = stock['trend_quality']
-                                if tq >= 80:
-                                    trend_status = f"🔥 Strong Uptrend ({tq:.0f})"
+                                if tq >= 85:
+                                    trend_status = f"🔥 Exceptional ({tq:.0f})"
                                     trend_color = "success"
-                                elif tq >= 60:
-                                    trend_status = f"✅ Good Uptrend ({tq:.0f})"
+                                elif tq >= 70:
+                                    trend_status = f"🚀 Strong ({tq:.0f})"
+                                    trend_color = "success"
+                                elif tq >= 55:
+                                    trend_status = f"✅ Good ({tq:.0f})"
                                     trend_color = "success"
                                 elif tq >= 40:
-                                    trend_status = f"➡️ Neutral Trend ({tq:.0f})"
+                                    trend_status = f"➡️ Neutral ({tq:.0f})"
+                                    trend_color = "warning"
+                                elif tq >= 25:
+                                    trend_status = f"⚠️ Weak ({tq:.0f})"
                                     trend_color = "warning"
                                 else:
-                                    trend_status = f"⚠️ Weak/Downtrend ({tq:.0f})"
+                                    trend_status = f"🔻 Poor ({tq:.0f})"
                                     trend_color = "error"
                                 
                                 getattr(st, trend_color)(f"**Trend Status:** {trend_status}")
