@@ -184,12 +184,12 @@ class Config:
     STALE_DATA_HOURS: int = 24
     
     # Master Score 3.0 weights (total = 100%)
-    POSITION_WEIGHT: float = 0.32
-    VOLUME_WEIGHT: float = 0.22
-    MOMENTUM_WEIGHT: float = 0.18
-    ACCELERATION_WEIGHT: float = 0.03
-    BREAKOUT_WEIGHT: float = 0.18
-    RVOL_WEIGHT: float = 0.07
+    POSITION_WEIGHT: float = 0.30
+    VOLUME_WEIGHT: float = 0.25
+    MOMENTUM_WEIGHT: float = 0.15
+    ACCELERATION_WEIGHT: float = 0.10
+    BREAKOUT_WEIGHT: float = 0.10
+    RVOL_WEIGHT: float = 0.10
     
     # Display settings
     DEFAULT_TOP_N: int = 50
@@ -1642,32 +1642,32 @@ class RankingEngine:
             'primary': {
                 'position_score': {
                     'func': RankingEngine._calculate_position_score,
-                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.32),
+                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
                     'required': True
                 },
                 'volume_score': {
                     'func': RankingEngine._calculate_volume_score,
-                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.22),
+                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
                     'required': True
                 },
                 'momentum_score': {
                     'func': RankingEngine._calculate_momentum_score,
-                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.18),
+                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
                     'required': True
                 },
                 'acceleration_score': {
                     'func': RankingEngine._calculate_acceleration_score,
-                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.03),
+                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
                     'required': True
                 },
                 'breakout_score': {
                     'func': RankingEngine._calculate_breakout_score,
-                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.18),
+                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
                     'required': True
                 },
                 'rvol_score': {
                     'func': RankingEngine._calculate_rvol_score,
-                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.07),
+                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.10),
                     'required': True
                 }
             },
@@ -2184,12 +2184,12 @@ class RankingEngine:
         """
         # Get available score columns and their weights
         score_cols = {
-            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.32),
-            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.22),
-            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.18),
-            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.03),
-            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.18),
-            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.07)
+            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
+            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
+            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
+            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
+            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
+            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.10)
         }
         
         # Initialize new master scores
@@ -7136,6 +7136,7 @@ class FilterEngine:
                 'patterns': [],
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
+                'trend_custom_range': (0, 100),
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
@@ -7346,6 +7347,7 @@ class FilterEngine:
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            'trend_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -9515,6 +9517,7 @@ class SessionStateManager:
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            'trend_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -10195,6 +10198,12 @@ def main():
             st.session_state['quick_filter_applied'] = False
             st.rerun()
     
+    # Get ranked_df from session state
+    ranked_df = st.session_state.get('ranked_df')
+    if ranked_df is None:
+        st.error("No data available. Please check your data source configuration.")
+        st.stop()
+    
     if quick_filter:
         if quick_filter == 'top_gainers':
             ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80]
@@ -10341,13 +10350,19 @@ def main():
             if 'trend_selectbox' in st.session_state:
                 trend_options = {
                     "All Trends": (0, 100),
-                    "🔥 Strong Uptrend (80+)": (80, 100),
-                    "✅ Good Uptrend (60-79)": (60, 79),
-                    "➡️ Neutral Trend (40-59)": (40, 59),
-                    "⚠️ Weak/Downtrend (<40)": (0, 39)
+                    "🔥 Exceptional (85+)": (85, 100),
+                    "🚀 Strong (70-84)": (70, 84),
+                    "✅ Good (55-69)": (55, 69),
+                    "➡️ Neutral (40-54)": (40, 54),
+                    "⚠️ Weak (25-39)": (25, 39),
+                    "🔻 Poor (<25)": (0, 24),
+                    "🎯 Custom Range": None
                 }
-                st.session_state.filter_state['trend_filter'] = st.session_state.trend_selectbox
-                st.session_state.filter_state['trend_range'] = trend_options[st.session_state.trend_selectbox]
+                selected = st.session_state.trend_selectbox
+                st.session_state.filter_state['trend_filter'] = selected
+                
+                if selected != "🎯 Custom Range":
+                    st.session_state.filter_state['trend_range'] = trend_options[selected]
         
         def sync_market_states():
             if 'market_states_multiselect' in st.session_state:
@@ -10496,30 +10511,88 @@ def main():
             if selected_patterns:
                 filters['patterns'] = selected_patterns
         
-        # Trend filter with callback
+        # Trend filter with callback and custom range
         st.markdown("#### 📈 Trend Strength")
         trend_options = {
             "All Trends": (0, 100),
-            "🔥 Strong Uptrend (80+)": (80, 100),
-            "✅ Good Uptrend (60-79)": (60, 79),
-            "➡️ Neutral Trend (40-59)": (40, 59),
-            "⚠️ Weak/Downtrend (<40)": (0, 39)
+            "🔥 Exceptional (85+)": (85, 100),
+            "🚀 Strong (70-84)": (70, 84),
+            "✅ Good (55-69)": (55, 69),
+            "➡️ Neutral (40-54)": (40, 54),
+            "⚠️ Weak (25-39)": (25, 39),
+            "🔻 Poor (<25)": (0, 24),
+            "🎯 Custom Range": None  # Special option for custom range
         }
         
         current_trend = st.session_state.filter_state.get('trend_filter', "All Trends")
         if current_trend not in trend_options:
             current_trend = "All Trends"
         
+        # Custom sync function for trend with custom range support
+        def sync_trend_with_custom():
+            if 'trend_selectbox' in st.session_state:
+                selected = st.session_state.trend_selectbox
+                st.session_state.filter_state['trend_filter'] = selected
+                
+                if selected == "🎯 Custom Range":
+                    # Don't set range here, will be set by slider
+                    pass
+                else:
+                    st.session_state.filter_state['trend_range'] = trend_options[selected]
+        
+        def sync_trend_custom_slider():
+            if 'trend_custom_range_slider' in st.session_state:
+                st.session_state.filter_state['trend_custom_range'] = st.session_state.trend_custom_range_slider
+        
         selected_trend = st.selectbox(
             "Trend Quality",
             options=list(trend_options.keys()),
             index=list(trend_options.keys()).index(current_trend),
-            help="Filter stocks by trend strength based on SMA alignment",
+            help="Filter stocks by trend strength based on SMA alignment. Choose Custom Range for precise control.",
             key="trend_selectbox",
-            on_change=sync_trend  # SYNC ON CHANGE
+            on_change=sync_trend_with_custom
         )
         
-        if selected_trend != "All Trends":
+        # Show custom range slider when Custom Range is selected
+        if selected_trend == "🎯 Custom Range":
+            # Get current custom range from session state, default to (0, 100)
+            current_custom_range = st.session_state.filter_state.get('trend_custom_range', (0, 100))
+            
+            custom_range = st.slider(
+                "Custom Trend Quality Range",
+                min_value=0,
+                max_value=100,
+                value=current_custom_range,
+                step=1,
+                help="🔥 85+: Exceptional | 🚀 70-84: Strong | ✅ 55-69: Good | ➡️ 40-54: Neutral | ⚠️ 25-39: Weak | 🔻 <25: Poor",
+                key="trend_custom_range_slider",
+                on_change=sync_trend_custom_slider
+            )
+            
+            # Set the filter range to custom slider value
+            filters['trend_filter'] = selected_trend
+            filters['trend_range'] = custom_range
+            
+            # Show indicator for selected range
+            def get_trend_indicator_for_range(min_val, max_val):
+                """Get appropriate indicator for the selected range"""
+                if min_val >= 85:
+                    return "🔥"
+                elif min_val >= 70:
+                    return "🚀"
+                elif min_val >= 55:
+                    return "✅"
+                elif min_val >= 40:
+                    return "➡️"
+                elif min_val >= 25:
+                    return "⚠️"
+                else:
+                    return "🔻"
+            
+            range_indicator = get_trend_indicator_for_range(custom_range[0], custom_range[1])
+            st.caption(f"{range_indicator} **Selected Range**: {custom_range[0]}-{custom_range[1]} | Filtering stocks with trend quality in this range")
+            
+        elif selected_trend != "All Trends":
             filters['trend_filter'] = selected_trend
             filters['trend_range'] = trend_options[selected_trend]
         
