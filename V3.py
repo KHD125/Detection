@@ -9147,6 +9147,7 @@ class SessionStateManager:
             # Wave Radar specific filters
             'market_states_filter': [],
             'market_strength_range_slider': (0, 100),
+            'long_term_strength_range_slider': (0, 100),
             'show_sensitivity_details': False,
             'show_market_regime': True,
             'wave_timeframe_select': "All Waves",
@@ -16053,12 +16054,19 @@ def main():
                                 adv_data['Metric'].append('Money Flow')
                                 adv_data['Value'].append(f"₹{stock['money_flow_mm']:.1f}M")
                                 adv_data['Description'].append('Price × Volume × RVOL')
+
                             
                             # Overall Market Strength
                             if 'overall_market_strength' in stock.index and pd.notna(stock['overall_market_strength']):
                                 adv_data['Metric'].append('Market Strength')
-                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}%")
-                                adv_data['Description'].append('Composite market score')
+                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}")
+                                adv_data['Description'].append('Combined momentum, acceleration & breakout strength')
+
+                            # Long Term Strength
+                            if 'long_term_strength' in stock.index and pd.notna(stock['long_term_strength']):
+                                adv_data['Metric'].append('Long Term Strength')
+                                adv_data['Value'].append(f"{stock['long_term_strength']:.1f}")
+                                adv_data['Description'].append('Long-term trend consistency & momentum harmony')
                             
                             # Pattern Confidence
                             if 'pattern_confidence' in stock.index and pd.notna(stock['pattern_confidence']):
