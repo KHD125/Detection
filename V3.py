@@ -1174,18 +1174,22 @@ class AdvancedMetrics:
         # Market State Analysis
         df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
     
-        # Overall Market Strength (renamed from wave strength)
-        score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
-        if all(col in df.columns for col in score_cols):
-            # FIXED: Use 0 for missing scores instead of arbitrary 50
-            df['overall_market_strength'] = (
-                df['momentum_score'].fillna(0) * 0.3 +
-                df['acceleration_score'].fillna(0) * 0.3 +
-                df['rvol_score'].fillna(0) * 0.2 +
-                df['breakout_score'].fillna(0) * 0.2
-            )
+        # Overall Market Strength - FOUNDATION FOCUS  
+        # This measures "How solid is the setup?"
+        if all(col in df.columns for col in ['position_score', 'volume_score']):
+            if 'momentum_score' in df.columns:
+                df['overall_market_strength'] = (
+                    df['position_score'] * 0.40 +
+                    df['volume_score'] * 0.35 +
+                    df['momentum_score'] * 0.25
+                )
+            else:
+                df['overall_market_strength'] = (
+                    df['position_score'] * 0.55 +
+                    df['volume_score'] * 0.45
+                )
         else:
-            df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
+            df['overall_market_strength'] = np.nan
         
         # VMI and Momentum Harmony Tier Classifications
         def classify_advanced_tier(value: float, tier_config: tuple) -> str:
