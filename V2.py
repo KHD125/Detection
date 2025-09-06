@@ -1,19 +1,13 @@
 """
-Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
-==================================================================
-Professional Stock Ranking System with Advanced Market State Analytics
+Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+===============================================================
+Professional Stock Ranking System with Advanced Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
-Enhanced with intelligent market regime awareness and adaptive scoring
+Enhanced with all valuable features from previous versions
 
 Version: 3.1.0-PROFESSIONAL
-Last Updated: September 2025
-Status: PRODUCTION READY - Market State Integration Complete
-
-MARKET STATE SYSTEM:
-- Intelligent regime detection (8 states: STRONG_UPTREND, UPTREND, PULLBACK, etc.)
-- Dynamic component score adjustments based on market conditions
-- Smart bonuses for exceptional market state patterns
-- Comprehensive error handling and logging
+Last Updated: August 2025
+Status: PRODUCTION READY - All Issues Fixed
 """
 
 # ============================================
@@ -149,35 +143,6 @@ class Config:
         "vacuum": 85,
     })
     
-    # Market State Filtering Configuration
-    MARKET_STATE_FILTERS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        'MOMENTUM': {
-            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK'],
-            'description': 'Focus on stocks in uptrends and pullbacks - optimal for swing trading'
-        },
-        'AGGRESSIVE': {
-            'allowed_states': ['STRONG_UPTREND'],
-            'description': 'Only the strongest uptrending stocks - highest risk/reward'
-        },
-        'VALUE': {
-            'allowed_states': ['PULLBACK', 'BOUNCE', 'SIDEWAYS'],
-            'description': 'Stocks in correction or consolidation - value opportunities'
-        },
-        'DEFENSIVE': {
-            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
-            'description': 'Avoid strong downtrends - conservative risk management'
-        },
-        'ALL': {
-            'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
-                             'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'],
-            'description': 'No filtering - all market states included'
-        }
-    })
-    
-    # Default filter for swing/momentum trading
-    DEFAULT_MARKET_FILTER: str = 'MOMENTUM'
-    ENABLE_MARKET_STATE_FILTER: bool = True  # Can be toggled
-    
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
         'price': (0.01, 1_000_000),
@@ -270,21 +235,6 @@ class Config:
             "💥 Explosive Volume (RVOL >5x)": ("rvol", 5.0),
             "🌋 Volcanic Volume (RVOL >10x)": ("rvol", 10.0),
             "😴 Low Activity (RVOL <0.5x)": ("rvol", 0.5, "below")
-        },
-        "vmi_tiers": {
-            "🌙 Hibernating (VMI <0.3)": ("vmi", 0.3, "below"),
-            "😴 Sleepy (VMI 0.3-0.6)": ("vmi", 0.3, 0.6),
-            "🚶 Walking (VMI 0.6-1.0)": ("vmi", 0.6, 1.0),
-            "🏃 Running (VMI 1.0-1.5)": ("vmi", 1.0, 1.5),
-            "🚀 Flying (VMI 1.5-2.5)": ("vmi", 1.5, 2.5),
-            "🌋 Volcanic (VMI >2.5)": ("vmi", 2.5)
-        },
-        "momentum_harmony_tiers": {
-            "💔 Broken (Score 0)": ("momentum_harmony", 0, 0),
-            "🌧️ Conflicted (Score 1)": ("momentum_harmony", 1, 1),
-            "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
-            "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
-            "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         }
     })
     
@@ -293,18 +243,13 @@ class Config:
         'vmi': 'Volume Momentum Index: Weighted volume trend score (higher = stronger volume momentum)',
         'position_tension': 'Range position stress: Distance from 52W low + distance from 52W high',
         'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
-        'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
-        'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
+        'overall_wave_strength': 'Composite wave score: Combined momentum, acceleration, RVOL & breakout',
         'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
         'master_score': 'Overall ranking score (0-100) combining all factors',
         'acceleration_score': 'Rate of momentum change (0-100)',
         'breakout_score': 'Probability of price breakout (0-100)',
         'trend_quality': 'SMA alignment quality (0-100)',
-        'liquidity_score': 'Trading liquidity measure (0-100)',
-        'from_high_pct': 'Distance from 52-week high: 0% = at high, negative values = below high',
-        'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low',
-        'vmi_tier': 'Volume Momentum Index tier: Weighted volume trend classification',
-        'momentum_harmony_tier': 'Multi-timeframe momentum alignment tier: 0-4 consistency score'
+        'liquidity_score': 'Trading liquidity measure (0-100)'
     })
 
 # Global configuration instance
@@ -424,7 +369,7 @@ class DataValidator:
         Returns:
             Optional[float]: The cleaned float value, or np.nan if invalid.
         """
-        # ENHANCED INPUT VALIDATION
+        # FIX: Removed col_name parameter that was not used
         if pd.isna(value) or value == '' or value is None:
             return np.nan
         
@@ -432,14 +377,11 @@ class DataValidator:
             # Convert to string for cleaning
             cleaned = str(value).strip()
             
-            # COMPREHENSIVE invalid string detection
-            invalid_strings = ['', '-', 'N/A', 'NA', 'NAN', 'NONE', 'NULL', 'NIL', 
-                             '#VALUE!', '#ERROR!', '#DIV/0!', '#N/A', '#REF!', '#NAME?',
-                             'INF', '-INF', 'INFINITY', '-INFINITY', '∞', '-∞']
-            if cleaned.upper() in invalid_strings:
+            # Identify and handle invalid string representations
+            if cleaned.upper() in ['', '-', 'N/A', 'NA', 'NAN', 'NONE', '#VALUE!', '#ERROR!', '#DIV/0!', 'INF', '-INF']:
                 return np.nan
             
-            # Remove symbols and spaces - ENHANCED CLEANING
+            # Remove symbols and spaces
             cleaned = cleaned.replace('₹', '').replace('$', '').replace(',', '').replace(' ', '').replace('%', '')
             
             # Convert to float
@@ -592,8 +534,7 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                         df = pd.read_csv(file_data, low_memory=False, encoding=encoding)
                         metadata['warnings'].append(f"Used {encoding} encoding")
                         break
-                    except (UnicodeDecodeError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
-                        logger.warning(f"Failed to decode with {encoding}: {e}")
+                    except:
                         continue
                 else:
                     raise ValueError("Unable to decode CSV file")
@@ -647,14 +588,9 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         if not is_valid:
             raise ValueError(validation_msg)
         
-        # Store as last good data - MEMORY OPTIMIZED
-        # Only store essential columns to reduce memory footprint
+        # Store as last good data
         timestamp = datetime.now(timezone.utc)
-        essential_cols = ['ticker', 'company_name', 'price', 'master_score', 'market_state'] + \
-                        [col for col in df.columns if col.endswith(('_score', '_pct', 'ret_'))]
-        essential_cols = [col for col in essential_cols if col in df.columns]
-        st.session_state.last_good_data = (df[essential_cols].copy() if len(essential_cols) > 0 else df.copy(), 
-                                         timestamp, metadata)
+        st.session_state.last_good_data = (df.copy(), timestamp, metadata)
         
         # Record processing time
         processing_time = time.perf_counter() - start_time
@@ -770,11 +706,10 @@ class DataProcessor:
         """
         # Default for position metrics
         if 'from_low_pct' in df.columns:
-            df['from_low_pct'] = df['from_low_pct'].fillna(0)
+            df['from_low_pct'] = df['from_low_pct'].fillna(50)
         
         if 'from_high_pct' in df.columns:
-            # FIXED: When from_high_pct is NaN, it means stock is at its high (0% from high)
-            df['from_high_pct'] = df['from_high_pct'].fillna(0)
+            df['from_high_pct'] = df['from_high_pct'].fillna(-50)
         
         # Default for Relative Volume (RVOL)
         if 'rvol' in df.columns:
@@ -945,13 +880,8 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
         elif all(col in df.columns for col in ['price', 'low_52w', 'high_52w']):
-            # Calculate position percentage from price data with division by zero protection
-            range_52w = df['high_52w'] - df['low_52w']
-            df['position_pct'] = np.where(
-                range_52w > 0,
-                ((df['price'] - df['low_52w']) / range_52w * 100).clip(0, 100),
-                50  # Default to middle position when high equals low
-            )
+            # Calculate position percentage from price data
+            df['position_pct'] = ((df['price'] - df['low_52w']) / (df['high_52w'] - df['low_52w']) * 100).clip(0, 100)
             df['position_tier'] = df['position_pct'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
@@ -976,37 +906,24 @@ class AdvancedMetrics:
         Calculates a comprehensive set of advanced metrics for the DataFrame.
         All calculations are designed to be vectorized and handle missing data
         without raising errors.
-        FIXED: Money flow overflow prevention added.
-    
+
         Args:
             df (pd.DataFrame): The DataFrame with raw data and core scores.
-    
+
         Returns:
             pd.DataFrame: The DataFrame with all calculated advanced metrics added.
         """
         if df.empty:
             return df
         
-        # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
+        # Money Flow (in millions)
         if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
-            # Clip RVOL to prevent extreme multiplications
-            safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
-            
-            # Calculate money flow with overflow prevention
-            money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
-            
-            # Clip to prevent overflow (max 1 trillion)
-            df['money_flow'] = np.clip(money_flow_raw, 0, 1e12)
-            
-            # Convert to millions for display
+            df['money_flow'] = df['price'].fillna(0) * df['volume_1d'].fillna(0) * df['rvol'].fillna(1.0)
             df['money_flow_mm'] = df['money_flow'] / 1_000_000
-            
-            # Additional safety: clip the millions version too
-            df['money_flow_mm'] = df['money_flow_mm'].clip(0, 1e6)  # Max 1 million millions
         else:
             df['money_flow_mm'] = pd.Series(np.nan, index=df.index)
         
-        # Volume Momentum Index (VMI) - Already safe (dividing by constant 10)
+        # Volume Momentum Index (VMI)
         if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d']):
             df['vmi'] = (
                 df['vol_ratio_1d_90d'].fillna(1.0) * 4 +
@@ -1019,8 +936,7 @@ class AdvancedMetrics:
         
         # Position Tension
         if all(col in df.columns for col in ['from_low_pct', 'from_high_pct']):
-            # FIXED: NaN from_low_pct means at low (0%), NaN from_high_pct means at high (0%)
-            df['position_tension'] = df['from_low_pct'].fillna(0) + abs(df['from_high_pct'].fillna(0))
+            df['position_tension'] = df['from_low_pct'].fillna(50) + abs(df['from_high_pct'].fillna(-50))
         else:
             df['position_tension'] = pd.Series(np.nan, index=df.index)
         
@@ -1032,4183 +948,521 @@ class AdvancedMetrics:
         
         if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
             with np.errstate(divide='ignore', invalid='ignore'):
-                # ENHANCED NaN HANDLING with explicit checks
-                safe_ret_7d = df['ret_7d'].fillna(0)
-                safe_ret_30d = df['ret_30d'].fillna(0)
-                daily_ret_7d = np.where((safe_ret_7d != 0) & pd.notna(safe_ret_7d), safe_ret_7d / 7, 0)
+                daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
                 daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
-                daily_ret_30d = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
-                daily_ret_30d = pd.Series(daily_ret_30d, index=df.index)
-            df['momentum_harmony'] += ((daily_ret_7d > daily_ret_30d)).astype(int)
+                daily_ret_30d = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
+            df['momentum_harmony'] += ((daily_ret_7d.fillna(-np.inf) > daily_ret_30d.fillna(-np.inf))).astype(int)
         
         if all(col in df.columns for col in ['ret_30d', 'ret_3m']):
             with np.errstate(divide='ignore', invalid='ignore'):
-                # ENHANCED NaN HANDLING with explicit checks
-                safe_ret_30d = df['ret_30d'].fillna(0)
-                safe_ret_3m = df['ret_3m'].fillna(0)
-                daily_ret_30d_comp = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
-                daily_ret_30d_comp = pd.Series(daily_ret_30d_comp, index=df.index)
-                daily_ret_3m_comp = np.where((safe_ret_3m != 0) & pd.notna(safe_ret_3m), safe_ret_3m / 90, 0)
-                daily_ret_3m_comp = pd.Series(daily_ret_3m_comp, index=df.index)
+                daily_ret_30d_comp = pd.Series(np.where(df['ret_30d'].fillna(0) != 0, df['ret_30d'].fillna(0) / 30, np.nan), index=df.index)
+                daily_ret_3m_comp = pd.Series(np.where(df['ret_3m'].fillna(0) != 0, df['ret_3m'].fillna(0) / 90, np.nan), index=df.index)
             df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
         
         if 'ret_3m' in df.columns:
             df['momentum_harmony'] += (df['ret_3m'].fillna(0) > 0).astype(int)
         
-        # Market State Analysis
-        df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
-    
-        # Overall Market Strength (renamed from wave strength)
+        # Wave State
+        df['wave_state'] = df.apply(AdvancedMetrics._get_wave_state, axis=1)
+
+        # Overall Wave Strength
         score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
         if all(col in df.columns for col in score_cols):
-            # FIXED: Use 0 for missing scores instead of arbitrary 50
-            df['overall_market_strength'] = (
-                df['momentum_score'].fillna(0) * 0.3 +
-                df['acceleration_score'].fillna(0) * 0.3 +
-                df['rvol_score'].fillna(0) * 0.2 +
-                df['breakout_score'].fillna(0) * 0.2
+            df['overall_wave_strength'] = (
+                df['momentum_score'].fillna(50) * 0.3 +
+                df['acceleration_score'].fillna(50) * 0.3 +
+                df['rvol_score'].fillna(50) * 0.2 +
+                df['breakout_score'].fillna(50) * 0.2
             )
         else:
-            df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
-        
-        # VMI and Momentum Harmony Tier Classifications
-        def classify_advanced_tier(value: float, tier_config: tuple) -> str:
-            """Enhanced tier classifier for VMI and Momentum Harmony with range support."""
-            if pd.isna(value):
-                return "Unknown"
-            
-            if len(tier_config) == 2:
-                # Single threshold: ("column", threshold) - above threshold
-                _, threshold = tier_config
-                return "Above" if value > threshold else "Below"
-            elif len(tier_config) == 3:
-                if tier_config[2] == "below":
-                    # Below threshold: ("column", threshold, "below")
-                    _, threshold, _ = tier_config
-                    return "Below" if value < threshold else "Above"
-                else:
-                    # Range: ("column", min_val, max_val)
-                    _, min_val, max_val = tier_config
-                    return "InRange" if min_val <= value <= max_val else "OutOfRange"
-            
-            return "Unknown"
-        
-        # VMI Tier Classification
-        if 'vmi' in df.columns:
-            def classify_vmi_tier(value: float) -> str:
-                if pd.isna(value):
-                    return "Unknown"
-                if value < 0.3:
-                    return "🌙 Hibernating (VMI <0.3)"
-                elif 0.3 <= value < 0.6:
-                    return "😴 Sleepy (VMI 0.3-0.6)"
-                elif 0.6 <= value < 1.0:
-                    return "🚶 Walking (VMI 0.6-1.0)"
-                elif 1.0 <= value < 1.5:
-                    return "🏃 Running (VMI 1.0-1.5)"
-                elif 1.5 <= value < 2.5:
-                    return "🚀 Flying (VMI 1.5-2.5)"
-                else:  # value >= 2.5
-                    return "🌋 Volcanic (VMI >2.5)"
-            
-            df['vmi_tier'] = df['vmi'].apply(classify_vmi_tier)
-        else:
-            df['vmi_tier'] = pd.Series("Unknown", index=df.index)
-        
-        # Momentum Harmony Tier Classification
-        if 'momentum_harmony' in df.columns:
-            def classify_momentum_harmony_tier(value: int) -> str:
-                if pd.isna(value):
-                    return "Unknown"
-                harmony_map = {
-                    0: "💔 Broken (Score 0)",
-                    1: "🌧️ Conflicted (Score 1)", 
-                    2: "⛅ Mixed (Score 2)",
-                    3: "🌤️ Aligned (Score 3)",
-                    4: "☀️ Perfect Harmony (Score 4)"
-                }
-                return harmony_map.get(int(value), "Unknown")
-            
-            df['momentum_harmony_tier'] = df['momentum_harmony'].apply(classify_momentum_harmony_tier)
-        else:
-            df['momentum_harmony_tier'] = pd.Series("Unknown", index=df.index)
+            df['overall_wave_strength'] = pd.Series(np.nan, index=df.index)
         
         return df
     
     @staticmethod
-    def _get_market_state_from_row(row: pd.Series) -> str:
+    def _get_wave_state(row: pd.Series) -> str:
         """
-        Helper function to get market state from a pandas row.
-        Converts row data to returns dict and gets market state.
+        Determines the `wave_state` for a single stock based on a set of thresholds.
         """
-        returns_dict = {
-            '1d': row.get('ret_1d', 0),
-            '3d': row.get('ret_3d', 0),
-            '7d': row.get('ret_7d', 0),
-            '30d': row.get('ret_30d', 0),
-            '3m': row.get('ret_3m', 0),
-            '6m': row.get('ret_6m', 0)
-        }
+        signals = 0
         
-        market_state = AdvancedMetrics.get_market_state(returns_dict)
-        return market_state['state']
-
-    @staticmethod
-    def get_market_state(returns_dict: Dict[str, float]) -> Dict[str, Any]:
-        """
-        Classify current market momentum state based on multi-timeframe analysis.
-        FIXED: Honest momentum regime detection, not fake Elliott Waves.
+        if row.get('momentum_score', 0) > 70:
+            signals += 1
+        if row.get('volume_score', 0) > 70:
+            signals += 1
+        if row.get('acceleration_score', 0) > 70:
+            signals += 1
+        if row.get('rvol', 0) > 2:
+            signals += 1
         
-        Core Philosophy:
-        - Multi-timeframe momentum alignment
-        - Identify tradeable regimes
-        - Clear, actionable states
-        - No pretense of Elliott Wave complexity
-        
-        States:
-        - STRONG_UPTREND: All timeframes aligned up
-        - UPTREND: Generally up with minor pullbacks
-        - PULLBACK: Correction in uptrend
-        - ROTATION: Trend change in progress
-        - SIDEWAYS: No clear direction
-        - DOWNTREND: Generally down
-        - STRONG_DOWNTREND: All timeframes aligned down
-        - BOUNCE: Relief rally in downtrend
-        
-        Returns:
-            Dictionary with state, strength, and trading implications
-        """
-        state = {
-            'state': 'UNKNOWN',
-            'strength': 0,
-            'confidence': 0,
-            'trend_alignment': 0,
-            'momentum_score': 0,
-            'volatility': 'NORMAL',
-            'action_bias': 'NEUTRAL',
-            'description': ''
-        }
-        
-        # Extract returns with defaults
-        ret_1d = returns_dict.get('1d', 0)
-        ret_3d = returns_dict.get('3d', 0)
-        ret_7d = returns_dict.get('7d', 0)
-        ret_30d = returns_dict.get('30d', 0)
-        ret_90d = returns_dict.get('3m', 0)
-        ret_180d = returns_dict.get('6m', 0)
-        
-        # Calculate momentum at different scales
-        # Daily-equivalent rates for comparison
-        very_short = ret_1d  # 1-day momentum
-        # ENHANCED DIVISION PROTECTION with explicit zero checks
-        short = ret_7d / 7 if ret_7d != 0 and pd.notna(ret_7d) else 0  # Daily rate over week
-        medium = ret_30d / 30 if ret_30d != 0 and pd.notna(ret_30d) else 0  # Daily rate over month
-        long = ret_90d / 90 if ret_90d != 0 and pd.notna(ret_90d) else 0  # Daily rate over quarter
-        
-        # Count positive periods (direction consistency) - ENHANCED NULL HANDLING
-        periods = [ret_1d, ret_3d, ret_7d, ret_30d, ret_90d, ret_180d]
-        valid_periods = [r for r in periods if pd.notna(r)]
-        positive_count = sum(1 for r in valid_periods if r > 0)
-        negative_count = sum(1 for r in valid_periods if r < 0)
-        
-        # Trend alignment score (-100 to 100) - DIVISION BY ZERO PROTECTION
-        period_count = len(valid_periods) if valid_periods else 1  # Prevent division by zero
-        trend_alignment = ((positive_count - negative_count) / period_count) * 100
-        state['trend_alignment'] = trend_alignment
-        
-        # Overall momentum score
-        # Weighted average with recent periods more important
-        momentum_score = (
-            very_short * 0.3 +
-            short * 7 * 0.25 +  # Convert back to period return
-            medium * 30 * 0.25 +
-            long * 90 * 0.20
-        ) / 100 * 50 + 50  # Normalize to 0-100
-        
-        state['momentum_score'] = np.clip(momentum_score, 0, 100)
-        
-        # Volatility assessment
-        returns_std = np.std([very_short, short * 7, medium * 30])
-        if returns_std > 15:
-            state['volatility'] = 'HIGH'
-        elif returns_std > 7:
-            state['volatility'] = 'ELEVATED'
-        elif returns_std < 3:
-            state['volatility'] = 'LOW'
+        if signals >= 4:
+            return "🌊🌊🌊 CRESTING"
+        elif signals >= 3:
+            return "🌊🌊 BUILDING"
+        elif signals >= 1:
+            return "🌊 FORMING"
         else:
-            state['volatility'] = 'NORMAL'
-        
-        # STATE CLASSIFICATION LOGIC
-        
-        # 1. STRONG UPTREND
-        if (positive_count >= 5 and ret_30d > 15 and ret_7d > 3 and ret_1d > 0):
-            state['state'] = 'STRONG_UPTREND'
-            state['strength'] = min(100, 70 + ret_30d)
-            state['confidence'] = 85
-            state['action_bias'] = 'STRONG_BUY'
-            state['description'] = 'All timeframes aligned bullish. Momentum accelerating.'
-        
-        # 2. UPTREND
-        elif (positive_count >= 4 and ret_30d > 5):
-            state['state'] = 'UPTREND'
-            state['strength'] = min(100, 50 + ret_30d)
-            state['confidence'] = 70
-            state['action_bias'] = 'BUY'
-            state['description'] = 'Established uptrend. Minor corrections are buying opportunities.'
-        
-        # 3. PULLBACK IN UPTREND
-        elif (ret_30d > 10 and ret_90d > 15 and ret_7d < 0):
-            state['state'] = 'PULLBACK'
-            state['strength'] = 50 - abs(ret_7d)
-            state['confidence'] = 60
-            state['action_bias'] = 'BUY_DIP'
-            state['description'] = 'Healthy pullback in uptrend. Watch for support.'
-        
-        # 4. STRONG DOWNTREND
-        elif (negative_count >= 5 and ret_30d < -15 and ret_7d < -3 and ret_1d < 0):
-            state['state'] = 'STRONG_DOWNTREND'
-            state['strength'] = min(100, 70 + abs(ret_30d))
-            state['confidence'] = 85
-            state['action_bias'] = 'STRONG_SELL'
-            state['description'] = 'All timeframes aligned bearish. Avoid catching falling knife.'
-        
-        # 5. DOWNTREND
-        elif (negative_count >= 4 and ret_30d < -5):
-            state['state'] = 'DOWNTREND'
-            state['strength'] = min(100, 50 + abs(ret_30d))
-            state['confidence'] = 70
-            state['action_bias'] = 'SELL'
-            state['description'] = 'Established downtrend. Rallies are selling opportunities.'
-        
-        # 6. BOUNCE IN DOWNTREND
-        elif (ret_30d < -10 and ret_90d < -15 and ret_7d > 0):
-            state['state'] = 'BOUNCE'
-            state['strength'] = 50 - abs(ret_30d - ret_7d)
-            state['confidence'] = 50
-            state['action_bias'] = 'CAUTIOUS'
-            state['description'] = 'Relief rally in downtrend. Could be dead cat bounce.'
-        
-        # 7. ROTATION/TRANSITION
-        elif (abs(ret_30d - ret_90d/3) > 10 or 
-              (positive_count == 3 and negative_count == 3)):
-            state['state'] = 'ROTATION'
-            state['strength'] = 50
-            state['confidence'] = 40
-            state['action_bias'] = 'WAIT'
-            state['description'] = 'Trend transition in progress. Wait for clarity.'
-        
-        # 8. SIDEWAYS/RANGE-BOUND
-        else:
-            state['state'] = 'SIDEWAYS'
-            state['strength'] = 30
-            state['confidence'] = 50
-            state['action_bias'] = 'NEUTRAL'
-            state['description'] = 'No clear trend. Range-trading environment.'
-        
-        # ADDITIONAL CONTEXT FLAGS
-        
-        # Momentum divergence detection
-        if ret_30d > 10 and ret_7d < -5:
-            state['warning'] = 'NEGATIVE_DIVERGENCE'
-        elif ret_30d < -10 and ret_7d > 5:
-            state['warning'] = 'POSITIVE_DIVERGENCE'
-        
-        # Extreme conditions
-        if ret_30d > 50:
-            state['extreme'] = 'OVERBOUGHT_MONTHLY'
-        elif ret_30d < -30:
-            state['extreme'] = 'OVERSOLD_MONTHLY'
-        
-        if ret_7d > 20:
-            state['extreme_short'] = 'OVERBOUGHT_WEEKLY'
-        elif ret_7d < -15:
-            state['extreme_short'] = 'OVERSOLD_WEEKLY'
-        
-        # Acceleration/Deceleration
-        if short > medium and medium > long:
-            state['momentum_phase'] = 'ACCELERATING'
-        elif short < medium and medium < long:
-            state['momentum_phase'] = 'DECELERATING'
-        else:
-            state['momentum_phase'] = 'STEADY'
-        
-        # TRADING RECOMMENDATIONS
-        
-        recommendations = []
-        
-        if state['state'] == 'STRONG_UPTREND':
-            recommendations.append('Hold longs, add on dips')
-            recommendations.append('Use trailing stops')
-        elif state['state'] == 'PULLBACK':
-            recommendations.append('Look for support levels')
-            recommendations.append('Prepare to buy')
-        elif state['state'] == 'STRONG_DOWNTREND':
-            recommendations.append('Avoid longs')
-            recommendations.append('Consider shorts or stay out')
-        elif state['state'] == 'BOUNCE':
-            recommendations.append('Take quick profits')
-            recommendations.append('Don\'t chase')
-        elif state['state'] == 'SIDEWAYS':
-            recommendations.append('Range trade')
-            recommendations.append('Buy support, sell resistance')
-        elif state['state'] == 'ROTATION':
-            recommendations.append('Reduce position size')
-            recommendations.append('Wait for trend confirmation')
-        
-        state['recommendations'] = recommendations
-        
-        # CONFIDENCE ADJUSTMENTS
-        
-        # Higher confidence if volatility is normal
-        if state['volatility'] == 'LOW':
-            state['confidence'] *= 1.1
-        elif state['volatility'] == 'HIGH':
-            state['confidence'] *= 0.8
-        
-        # Ensure confidence is 0-100
-        state['confidence'] = np.clip(state['confidence'], 0, 100)
-        
-        # FINAL SCORING
-        
-        # Overall state score (0-100)
-        # Combines state strength with confidence
-        state['overall_score'] = (state['strength'] * 0.7 + state['confidence'] * 0.3)
-        
-        return state
-
-    @staticmethod
-    def get_market_regime_summary(df: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Analyze overall market regime from multiple stocks.
-        
-        Args:
-            df: DataFrame with return columns
-        
-        Returns:
-            Market regime summary
-        """
-        if df.empty or 'ret_30d' not in df.columns:
-            return {'regime': 'UNKNOWN', 'confidence': 0}
-        
-        # Get valid stocks - ENHANCED VALIDATION
-        valid_mask = df['ret_30d'].notna()
-        if not valid_mask.any():
-            return {'regime': 'UNKNOWN', 'confidence': 0, 'description': 'No valid data available'}
-        
-        valid_df = df[valid_mask]
-        valid_count = len(valid_df)
-        
-        # Prevent division by zero
-        if valid_count == 0:
-            return {'regime': 'UNKNOWN', 'confidence': 0, 'description': 'No valid stocks found'}
-        
-        # Calculate market statistics
-        median_return_30d = valid_df['ret_30d'].median()
-        mean_return_30d = valid_df['ret_30d'].mean()
-        
-        # Percentage of stocks in different states - DIVISION PROTECTED
-        strong_up = (valid_df['ret_30d'] > 20).sum() / valid_count * 100
-        up = (valid_df['ret_30d'] > 5).sum() / valid_count * 100
-        down = (valid_df['ret_30d'] < -5).sum() / valid_count * 100
-        strong_down = (valid_df['ret_30d'] < -20).sum() / valid_count * 100
-        
-        # Determine regime
-        regime = {
-            'regime': 'UNKNOWN',
-            'strength': 0,
-            'breadth': up - down,
-            'median_return': median_return_30d,
-            'mean_return': mean_return_30d,
-            'confidence': 0,
-            'description': ''
-        }
-        
-        # Classification logic
-        if up > 70 and median_return_30d > 10:
-            regime['regime'] = 'BULL_MARKET'
-            regime['strength'] = min(100, up)
-            regime['confidence'] = 85
-            regime['description'] = f'{up:.0f}% of stocks in uptrend. Strong bull market.'
-        
-        elif up > 55 and median_return_30d > 5:
-            regime['regime'] = 'MILD_BULL'
-            regime['strength'] = 60 + (up - 55)
-            regime['confidence'] = 70
-            regime['description'] = f'{up:.0f}% of stocks up. Moderate bullish bias.'
-        
-        elif down > 70 and median_return_30d < -10:
-            regime['regime'] = 'BEAR_MARKET'
-            regime['strength'] = min(100, down)
-            regime['confidence'] = 85
-            regime['description'] = f'{down:.0f}% of stocks in downtrend. Bear market conditions.'
-        
-        elif down > 55 and median_return_30d < -5:
-            regime['regime'] = 'MILD_BEAR'
-            regime['strength'] = 60 + (down - 55)
-            regime['confidence'] = 70
-            regime['description'] = f'{down:.0f}% of stocks down. Moderate bearish bias.'
-        
-        elif abs(median_return_30d) < 5 and abs(up - down) < 20:
-            regime['regime'] = 'SIDEWAYS'
-            regime['strength'] = 50
-            regime['confidence'] = 60
-            regime['description'] = 'Market range-bound. No clear direction.'
-        
-        else:
-            regime['regime'] = 'MIXED'
-            regime['strength'] = 50
-            regime['confidence'] = 40
-            regime['description'] = 'Mixed signals. Market in transition.'
-        
-        # Add distribution details
-        regime['distribution'] = {
-            'strong_up_pct': strong_up,
-            'up_pct': up,
-            'down_pct': down,
-            'strong_down_pct': strong_down,
-            'sideways_pct': 100 - up - down
-        }
-        
-        return regime
+            return "💥 BREAKING"
         
 # ============================================
-# RANKING ENGINE
-# Only 3 critical improvements to your already perfect system
+# RANKING ENGINE - OPTIMIZED
 # ============================================
 
 class RankingEngine:
     """
     Core ranking calculations using a multi-factor model.
-    FIXED VERSION: Smoothed acceleration, better thresholds, distribution detection.
-    Maintains all your original genius logic and weights.
+    This class is highly optimized with vectorized NumPy operations
+    for speed and designed to be resilient to missing data.
     """
 
     @staticmethod
     @PerformanceMonitor.timer(target_time=0.5)
     def calculate_all_scores(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Master orchestration function for all score calculations.
-        BULLETPROOF: Guaranteed to complete and return valid DataFrame.
-        
-        Architecture:
-        - Modular score calculation with error recovery
-        - Dynamic weight normalization (no fake values)
-        - Comprehensive data quality tracking
-        - Full market context analysis
-        - Performance optimized with vectorization
-        
-        Guarantees:
-        - Always returns DataFrame with all expected columns
-        - Never crashes (full error handling)
-        - Preserves original data integrity
-        - Complete audit trail via logging
-        """
-        # CRITICAL: Work on copy to preserve original
-        df = df.copy()
-        
-        if df.empty:
-            logger.warning("Empty dataframe provided to calculate_all_scores")
-            return df
-        
-        # Initialize tracking
-        start_time = time.time()
-        timing_breakdown = {}
-        calculation_metadata = {
-            'start_time': start_time,
-            'initial_rows': len(df),
-            'initial_columns': len(df.columns)
-        }
-        
-        logger.info(f"="*60)
-        logger.info(f"Starting comprehensive ranking for {len(df)} stocks")
-        logger.info(f"="*60)
-        
-        # ============================================================
-        # PHASE 1: COMPONENT SCORE CALCULATION
-        # ============================================================
-        component_start = time.time()
-        
-        # Define all score calculators with metadata
-        score_definitions = {
-            'primary': {
-                'position_score': {
-                    'func': RankingEngine._calculate_position_score,
-                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
-                    'required': True
-                },
-                'volume_score': {
-                    'func': RankingEngine._calculate_volume_score,
-                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
-                    'required': True
-                },
-                'momentum_score': {
-                    'func': RankingEngine._calculate_momentum_score,
-                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
-                    'required': True
-                },
-                'acceleration_score': {
-                    'func': RankingEngine._calculate_acceleration_score,
-                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
-                    'required': True
-                },
-                'breakout_score': {
-                    'func': RankingEngine._calculate_breakout_score,
-                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
-                    'required': True
-                },
-                'rvol_score': {
-                    'func': RankingEngine._calculate_rvol_score,
-                    'weight': getattr(CONFIG, 'RVOL_WEIGHT', 0.10),
-                    'required': True
-                }
-            },
-            'auxiliary': {
-                'trend_quality': {
-                    'func': RankingEngine._calculate_trend_quality,
-                    'required': False
-                },
-                'long_term_strength': {
-                    'func': RankingEngine._calculate_long_term_strength,
-                    'required': False
-                },
-                'liquidity_score': {
-                    'func': RankingEngine._calculate_liquidity_score,
-                    'required': False
-                }
-            }
-        }
-        
-        # Calculate all scores with error handling
-        calculation_results = {}
-        
-        for score_type, scores in score_definitions.items():
-            for score_name, score_config in scores.items():
-                try:
-                    # Execute score calculation
-                    result = score_config['func'](df)
-                    
-                    # Validate result
-                    if result is None:
-                        logger.warning(f"{score_name}: Returned None, creating NaN column")
-                        df[score_name] = np.nan
-                        calculation_results[score_name] = 'failed_none'
-                        
-                    elif not isinstance(result, pd.Series):
-                        logger.warning(f"{score_name}: Invalid type {type(result)}, creating NaN column")
-                        df[score_name] = np.nan
-                        calculation_results[score_name] = 'failed_type'
-                        
-                    elif len(result) != len(df):
-                        logger.warning(f"{score_name}: Length mismatch ({len(result)} vs {len(df)})")
-                        df[score_name] = np.nan
-                        calculation_results[score_name] = 'failed_length'
-                        
-                    else:
-                        # Valid result
-                        df[score_name] = result
-                        valid_count = result.notna().sum()
-                        calculation_results[score_name] = f'success_{valid_count}/{len(df)}'
-                        
-                except Exception as e:
-                    logger.error(f"{score_name}: Exception - {str(e)[:100]}")
-                    df[score_name] = np.nan
-                    calculation_results[score_name] = f'exception_{type(e).__name__}'
-        
-        timing_breakdown['component_calculation'] = time.time() - component_start
-        
-        # ============================================================
-        # PHASE 2: DATA QUALITY ASSESSMENT
-        # ============================================================
-        quality_start = time.time()
-        
-        # Extract primary scores and weights
-        primary_score_names = list(score_definitions['primary'].keys())
-        primary_weights = np.array([score_definitions['primary'][s]['weight'] for s in primary_score_names])
-        
-        # Ensure weights sum to 1
-        if primary_weights.sum() != 1.0:
-            logger.warning(f"Weights sum to {primary_weights.sum():.3f}, normalizing...")
-            primary_weights = primary_weights / primary_weights.sum()
-        
-        # Calculate data availability matrix
-        scores_matrix = df[primary_score_names].values
-        data_available = ~np.isnan(scores_matrix)
-        components_per_stock = data_available.sum(axis=1)
-        
-        # Data quality metrics
-        df['components_available'] = components_per_stock
-        df['data_completeness'] = (components_per_stock / len(primary_score_names)) * 100
-        df['has_minimum_data'] = components_per_stock >= 4  # Minimum threshold
-        
-        # Quality categories
-        df['data_quality_category'] = pd.cut(
-            df['components_available'],
-            bins=[-0.1, 2.5, 3.5, 4.5, 5.5, 6.1],
-            labels=['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']
-        )
-        
-        timing_breakdown['quality_assessment'] = time.time() - quality_start
-        
-        # ============================================================
-        # PHASE 3: MASTER SCORE CALCULATION
-        # ============================================================
-        calculation_start = time.time()
-        
-        # Constants
-        MIN_REQUIRED_COMPONENTS = 4
-        
-        # Initialize master scores
-        master_scores = np.full(len(df), np.nan, dtype=float)
-        weights_used = np.full((len(df), len(primary_score_names)), np.nan, dtype=float)
-        
-        # Vectorized calculation for all stocks at once
-        for idx in range(len(df)):
-            if components_per_stock[idx] >= MIN_REQUIRED_COMPONENTS:
-                # Get valid components for this stock
-                valid_mask = data_available[idx]
-                
-                if valid_mask.any():
-                    # Extract valid scores and weights
-                    valid_scores = scores_matrix[idx][valid_mask]
-                    valid_weights = primary_weights[valid_mask]
-                    
-                    # Normalize weights
-                    if valid_weights.sum() > 0:
-                        normalized_weights = valid_weights / valid_weights.sum()
-                        # Calculate weighted average
-                        master_scores[idx] = np.dot(valid_scores, normalized_weights)
-                        # Store weights for transparency
-                        weights_used[idx][valid_mask] = normalized_weights
-        
-        # Assign raw scores
-        df['master_score_raw'] = master_scores
-        
-        # Calculate quality multiplier (no linear penalty, use curve)
-        # 6/6 = 1.00, 5/6 = 0.88, 4/6 = 0.72
-        df['quality_multiplier'] = np.where(
-            df['components_available'] < MIN_REQUIRED_COMPONENTS,
-            np.nan,  # No score if insufficient data
-            0.5 + 0.5 * (df['components_available'] / 6) ** 1.5  # Exponential curve
-        )
-        
-        # Apply quality adjustment
-        df['master_score_before_bonus'] = df['master_score_raw'] * df['quality_multiplier']
-        df['master_score'] = df['master_score_before_bonus'].clip(0, 100)
-        
-        timing_breakdown['master_calculation'] = time.time() - calculation_start
-        
-        # ============================================================
-        # PHASE 3.5: MARKET REGIME ADJUSTMENTS
-        # ============================================================
-        regime_start = time.time()
-        
-        # Detect overall market regime and apply adjustments
-        try:
-            # Get market regime summary
-            market_regime = AdvancedMetrics.get_market_regime_summary(df)
-            logger.info(f"Market regime detected: {market_regime['regime']} "
-                       f"(confidence: {market_regime['confidence']:.0f}%)")
-            logger.info(f"Market regime description: {market_regime['description']}")
-            
-            # Apply regime-based score adjustments
-            valid_scores = df['master_score'].notna()
-            adjustments_applied = 0
-            
-            if valid_scores.any():
-                # BULL MARKET: Boost momentum and breakout scores by 5%
-                if market_regime['regime'] in ['BULL_MARKET', 'MILD_BULL']:
-                    bull_boost_mask = valid_scores & (
-                        (df['momentum_score'].fillna(0) > 50) | 
-                        (df['breakout_score'].fillna(0) > 50)
-                    )
-                    if bull_boost_mask.any():
-                        # Boost component scores as specified, not master score
-                        if 'momentum_score' in df.columns:
-                            df.loc[bull_boost_mask, 'momentum_score'] *= 1.05
-                        if 'breakout_score' in df.columns:
-                            df.loc[bull_boost_mask, 'breakout_score'] *= 1.05
-                        # Clip to ensure scores stay within bounds
-                        if 'momentum_score' in df.columns:
-                            df['momentum_score'] = df['momentum_score'].clip(0, 100)
-                        if 'breakout_score' in df.columns:
-                            df['breakout_score'] = df['breakout_score'].clip(0, 100)
-                        adjustments_applied += bull_boost_mask.sum()
-                        logger.info(f"Applied bull market component score boost to {bull_boost_mask.sum()} stocks")
-                
-                # BEAR MARKET: Boost position scores for stocks near 52w lows by 10%
-                elif market_regime['regime'] in ['BEAR_MARKET', 'MILD_BEAR']:
-                    if 'from_low_pct' in df.columns and 'position_score' in df.columns:
-                        # FIXED: Use 999 to exclude NaN values from boost (they're at the low)
-                        bear_boost_mask = valid_scores & (df['from_low_pct'].fillna(999) < 20)
-                        if bear_boost_mask.any():
-                            # Boost position score as specified, not master score
-                            df.loc[bear_boost_mask, 'position_score'] *= 1.10
-                            df['position_score'] = df['position_score'].clip(0, 100)
-                            adjustments_applied += bear_boost_mask.sum()
-                            logger.info(f"Applied bear market position score boost to {bear_boost_mask.sum()} stocks")
-                
-                # SIDEWAYS: No adjustments (as specified)
-                elif market_regime['regime'] == 'SIDEWAYS':
-                    logger.info("Sideways market detected - no regime adjustments applied")
-            
-            # Store regime info for later use
-            df.attrs['market_regime'] = market_regime
-            
-            if adjustments_applied > 0:
-                logger.info(f"Market regime adjustments applied to {adjustments_applied} stocks")
-                # Recalculate master score since component scores changed
-                logger.info("Recalculating master scores after regime adjustments...")
-                df = RankingEngine._recalculate_master_score_after_adjustments(df)
-            else:
-                logger.info("No market regime adjustments applied")
-                
-        except Exception as e:
-            logger.error(f"Market regime detection failed: {e}")
-            df.attrs['market_regime'] = {'regime': 'UNKNOWN', 'confidence': 0}
-        
-        # Ensure master score stays in bounds after regime adjustments
-        df['master_score'] = df['master_score'].clip(0, 100)
-        
-        timing_breakdown['regime_adjustments'] = time.time() - regime_start
-        
-        # ============================================================
-        # PHASE 3.6: MARKET STATE FILTERING
-        # ============================================================
-        filter_start = time.time()
-        
-        try:
-            # Apply market state filtering based on trading strategy
-            if getattr(CONFIG, 'ENABLE_MARKET_STATE_FILTER', True):
-                filter_name = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', 'MOMENTUM')
-                logger.info(f"Applying {filter_name} market state filter...")
-                df = RankingEngine.apply_market_state_filter(df, filter_name)
-            else:
-                logger.info("Market state filtering disabled - keeping all stocks")
-                
-        except Exception as e:
-            logger.error(f"Market state filtering failed: {e}")
-            logger.error("Continuing with unfiltered dataset")
-        
-        timing_breakdown['market_state_filtering'] = time.time() - filter_start
-        
-        # ============================================================
-        # PHASE 4: SMART BONUSES
-        # ============================================================
-        bonus_start = time.time()
-        
-        try:
-            df = RankingEngine._apply_smart_bonuses(df)
-            df['bonuses_applied'] = True
-        except Exception as e:
-            logger.error(f"Smart bonuses failed: {e}")
-            df['bonuses_applied'] = False
-            df['bonus_points'] = 0
-            df['bonus_reasons'] = ''
-        
-        # Ensure master score stays in bounds
-        df['master_score'] = df['master_score'].clip(0, 100)
-        
-        timing_breakdown['bonuses'] = time.time() - bonus_start
-        
-        # ============================================================
-        # PHASE 5: RANKING CALCULATIONS
-        # ============================================================
-        ranking_start = time.time()
-        
-        # Overall rankings
-        valid_scores_exist = df['master_score'].notna().any()
-        
-        if valid_scores_exist:
-            # Standard rankings
-            df['rank'] = df['master_score'].rank(
-                method='first', 
-                ascending=False, 
-                na_option='bottom'
-            )
-            
-            df['percentile'] = df['master_score'].rank(
-                method='average',
-                ascending=True,
-                pct=True,
-                na_option='bottom'
-            ) * 100
-            
-            # Decile groups
-            df['decile'] = pd.qcut(
-                df['master_score'].dropna(),
-                q=10,
-                labels=range(10, 0, -1),
-                duplicates='drop'
-            ).reindex(df.index)
-            
-        else:
-            df['rank'] = np.nan
-            df['percentile'] = 0
-            df['decile'] = np.nan
-        
-        # Fill NaN ranks
-        df['rank'] = df['rank'].fillna(len(df) + 1)
-        df['percentile'] = df['percentile'].fillna(0)
-        
-        # Score grades
-        if valid_scores_exist:
-            df['score_grade'] = pd.cut(
-                df['master_score'],
-                bins=[0, 25, 40, 50, 60, 70, 80, 90, 100],
-                labels=['F', 'E', 'D', 'C', 'B', 'A', 'AA', 'AAA']
-            )
-        else:
-            df['score_grade'] = pd.Categorical([np.nan] * len(df))
-        
-        # Category rankings
-        try:
-            df = RankingEngine._calculate_category_ranks(df)
-        except Exception as e:
-            logger.error(f"Category ranking failed: {e}")
-            df['category_rank'] = np.nan
-            df['category_percentile'] = np.nan
-        
-        timing_breakdown['rankings'] = time.time() - ranking_start
-        
-        # ============================================================
-        # PHASE 6: CONFIDENCE METRICS
-        # ============================================================
-        confidence_start = time.time()
-        
-        # Multi-factor confidence score
-        df['confidence_score'] = np.where(
-            df['has_minimum_data'],
-            (
-                df['data_completeness'] * 0.40 +  # Data availability
-                np.minimum(df['liquidity_score'].fillna(0), 100) * 0.30 +  # FIXED: Use 0 for missing liquidity
-                (100 - np.abs(df['percentile'] - 50)) * 0.30  # Rank stability
-            ) / 100,
-            0
-        ).clip(0, 100)
-        
-        # Confidence categories
-        df['confidence_level'] = pd.cut(
-            df['confidence_score'],
-            bins=[0, 30, 50, 70, 85, 100],
-            labels=['Very Low', 'Low', 'Medium', 'High', 'Very High']
-        )
-        
-        timing_breakdown['confidence'] = time.time() - confidence_start
-        
-        # ============================================================
-        # PHASE 7: MARKET CONTEXT
-        # ============================================================
-        context_start = time.time()
-        
-        # Calculate market statistics
-        scored_stocks = df[df['master_score'].notna()]
-        
-        market_stats = {
-            'total_stocks': len(df),
-            'scored_stocks': len(scored_stocks),
-            'coverage_pct': (len(scored_stocks) / len(df) * 100) if len(df) > 0 else 0
-        }
-        
-        if len(scored_stocks) > 0:
-            # Score statistics
-            market_stats.update({
-                'mean_score': scored_stocks['master_score'].mean(),
-                'median_score': scored_stocks['master_score'].median(),
-                'std_score': scored_stocks['master_score'].std(),
-                'q1_score': scored_stocks['master_score'].quantile(0.25),
-                'q3_score': scored_stocks['master_score'].quantile(0.75)
-            })
-            
-            # Component statistics
-            for component in primary_score_names:
-                if component in df.columns:
-                    market_stats[f'mean_{component}'] = df[component].mean()
-            
-            # Market regime
-            momentum_avg = df['momentum_score'].mean() if 'momentum_score' in df.columns else np.nan
-            if pd.notna(momentum_avg):
-                if momentum_avg > 65:
-                    market_regime = 'strong_bull'
-                elif momentum_avg > 55:
-                    market_regime = 'bull'
-                elif momentum_avg > 45:
-                    market_regime = 'neutral'
-                elif momentum_avg > 35:
-                    market_regime = 'bear'
-                else:
-                    market_regime = 'strong_bear'
-            else:
-                market_regime = 'unknown'
-            
-            # Z-scores
-            if market_stats['std_score'] > 0:
-                df['z_score'] = (
-                    (df['master_score'] - market_stats['mean_score']) / 
-                    market_stats['std_score']
-                ).clip(-3, 3)
-            else:
-                df['z_score'] = 0
-                
-        else:
-            market_stats.update({
-                'mean_score': np.nan,
-                'median_score': np.nan,
-                'std_score': np.nan,
-                'q1_score': np.nan,
-                'q3_score': np.nan
-            })
-            market_regime = 'no_data'
-            df['z_score'] = np.nan
-        
-        df['market_regime'] = market_regime
-        
-        timing_breakdown['context'] = time.time() - context_start
-        
-        # ============================================================
-        # PHASE 8: FINAL VALIDATION
-        # ============================================================
-        validation_start = time.time()
-        
-        # Ensure all expected columns exist
-        required_columns = {
-            # Scores
-            **{name: np.nan for name in primary_score_names},
-            **{name: np.nan for name in score_definitions['auxiliary'].keys()},
-            # Master scores
-            'master_score': np.nan,
-            'master_score_raw': np.nan,
-            'master_score_before_bonus': np.nan,
-            'quality_multiplier': np.nan,
-            # Rankings
-            'rank': len(df) + 1,
-            'percentile': 0,
-            'decile': np.nan,
-            'score_grade': np.nan,
-            # Quality metrics
-            'components_available': 0,
-            'data_completeness': 0,
-            'has_minimum_data': False,
-            'data_quality_category': 'Unknown',
-            # Confidence
-            'confidence_score': 0,
-            'confidence_level': 'Unknown',
-            # Market context
-            'market_regime': 'unknown',
-            'z_score': 0,
-            # Bonuses
-            'bonus_points': 0,
-            'bonus_reasons': '',
-            'bonuses_applied': False
-        }
-        
-        for col, default_value in required_columns.items():
-            if col not in df.columns:
-                logger.debug(f"Adding missing column: {col}")
-                df[col] = default_value
-        
-        timing_breakdown['validation'] = time.time() - validation_start
-        
-        # ============================================================
-        # FINAL REPORTING
-        # ============================================================
-        total_time = time.time() - start_time
-        
-        # Comprehensive logging
-        logger.info("="*60)
-        logger.info("RANKING CALCULATION COMPLETE")
-        logger.info("="*60)
-        logger.info(f"Total execution time: {total_time:.3f}s")
-        logger.info(f"Stocks processed: {market_stats['scored_stocks']}/{market_stats['total_stocks']} "
-                   f"({market_stats['coverage_pct']:.1f}% coverage)")
-        
-        if market_stats['scored_stocks'] > 0:
-            logger.info(f"Score distribution: Mean={market_stats['mean_score']:.1f}, "
-                       f"Median={market_stats['median_score']:.1f}, "
-                       f"Std={market_stats['std_score']:.1f}")
-            logger.info(f"Market regime: {market_regime.upper()}")
-        
-        # Performance breakdown
-        logger.info("Performance breakdown:")
-        for phase, duration in timing_breakdown.items():
-            pct = (duration / total_time * 100) if total_time > 0 else 0
-            status = "⚠️" if duration > 0.1 else "✓"
-            logger.info(f"  {status} {phase}: {duration:.3f}s ({pct:.1f}%)")
-        
-        # Data quality report
-        quality_dist = df['data_quality_category'].value_counts()
-        if len(quality_dist) > 0:
-            logger.info("Data quality distribution:")
-            for category, count in quality_dist.items():
-                logger.info(f"  {category}: {count} stocks")
-        
-        # Top performers
-        if 'ticker' in df.columns and market_stats['scored_stocks'] >= 5:
-            top_5 = df.nlargest(5, 'master_score')
-            logger.info("Top 5 stocks:")
-            for rank, (_, row) in enumerate(top_5.iterrows(), 1):
-                logger.info(f"  {rank}. {row['ticker']}: {row['master_score']:.1f} "
-                           f"({row['components_available']}/6 components)")
-        
-        # Warnings
-        if total_time > 0.5:
-            logger.warning(f"⚠️ Exceeded target time of 0.5s by {total_time - 0.5:.3f}s")
-        
-        if market_stats['coverage_pct'] < 50:
-            logger.warning(f"⚠️ Low data coverage: {market_stats['coverage_pct']:.1f}%")
-        
-        # Component calculation summary
-        logger.debug("Component calculation results:")
-        for component, status in calculation_results.items():
-            logger.debug(f"  {component}: {status}")
-        
-        logger.info("="*60)
-        
-        # GUARANTEE: Return valid DataFrame
-        return df
-        
-    @staticmethod
-    def _recalculate_master_score_after_adjustments(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Recalculate master score after regime adjustments to component scores.
-        This ensures the master score reflects the adjusted component scores.
-        """
-        # Get available score columns and their weights
-        score_cols = {
-            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
-            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
-            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
-            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
-            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
-            'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.10)
-        }
-        
-        # Initialize new master scores
-        new_master_scores = pd.Series(np.nan, index=df.index)
-        
-        for idx in df.index:
-            row = df.loc[idx]
-            
-            # Get available scores
-            available_scores = []
-            available_weights = []
-            
-            for col, weight in score_cols.items():
-                if col in df.columns and pd.notna(row[col]):
-                    available_scores.append(row[col])
-                    available_weights.append(weight)
-            
-            # Calculate weighted score if we have minimum components
-            if len(available_scores) >= 3:  # Minimum required components
-                # Normalize weights to sum to 1
-                available_weights = np.array(available_weights)
-                available_weights = available_weights / available_weights.sum()
-                
-                # Calculate weighted score
-                weighted_score = np.dot(available_scores, available_weights)
-                new_master_scores[idx] = weighted_score
-        
-        # Update master score with new calculation
-        # Apply the same quality multiplier that was used before
-        df['master_score_raw'] = new_master_scores
-        df['master_score_before_bonus'] = df['master_score_raw'] * df['quality_multiplier']
-        df['master_score'] = df['master_score_before_bonus'].clip(0, 100)
-        
-        return df
-        
-    @staticmethod
-    def apply_market_state_filter(df: pd.DataFrame, filter_name: str = None) -> pd.DataFrame:
-        """
-        Apply market state filtering based on trading strategy preferences.
-        
+        Calculates all component scores, a composite master score, and ranks the stocks.
+
         Args:
-            df: DataFrame with stocks and their market states
-            filter_name: Filter to apply (MOMENTUM, AGGRESSIVE, VALUE, DEFENSIVE, ALL)
-                        If None, uses CONFIG.DEFAULT_MARKET_FILTER
-        
+            df (pd.DataFrame): The DataFrame containing processed stock data.
+
         Returns:
-            Filtered DataFrame optimized for the specified trading strategy
+            pd.DataFrame: The DataFrame with all scores and ranks added.
         """
-        # Check if filtering is enabled
-        if not getattr(CONFIG, 'ENABLE_MARKET_STATE_FILTER', True):
-            logger.info("Market state filtering is disabled in configuration")
+        if df.empty:
             return df
         
-        # Use default filter if none specified
-        if filter_name is None:
-            filter_name = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', 'MOMENTUM')
-        
-        # Get the filter configuration
-        filter_config = getattr(CONFIG, 'MARKET_STATE_FILTERS', {}).get(filter_name)
-        if not filter_config:
-            logger.warning(f"Unknown market state filter: {filter_name}, using ALL")
-            filter_name = 'ALL'
-            filter_config = getattr(CONFIG, 'MARKET_STATE_FILTERS', {}).get('ALL', {
-                'allowed_states': ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
-                                 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'],
-                'description': 'No filtering - all market states included'
-            })
-        
-        # MEMORY OPTIMIZATION: Work on view first, only copy if changes needed
-        original_count = len(df)
-        
-        logger.info(f"="*50)
-        logger.info(f"Applying {filter_name} market state filter")
-        logger.info(f"Original dataset: {original_count} stocks")
-        
-        # Check if we have market state data
-        if 'market_state' not in df.columns:
-            logger.warning("No market_state column found - filter cannot be applied")
-            logger.info(f"="*50)
-            return df
-        
-        # Get allowed states for this filter
-        allowed_states = filter_config.get('allowed_states', [])
-        if not allowed_states:
-            logger.warning(f"No allowed states defined for {filter_name} filter")
-            logger.info(f"="*50)
-            return df
-        
-        # Apply the filter
-        try:
-            # Create filter mask
-            state_mask = df['market_state'].isin(allowed_states)
-            
-            # MEMORY OPTIMIZATION: Only copy if filtering is actually needed
-            if state_mask.all():
-                # No filtering needed, return original
-                filtered_df = df
-                logger.info("No filtering applied - all stocks match criteria")
-            else:
-                filtered_df = df[state_mask].copy()
-            
-            # Log filtering results
-            filtered_count = len(filtered_df)
-            filtered_pct = (filtered_count / original_count * 100) if original_count > 0 else 0
-            
-            logger.info(f"Filter allowed states: {', '.join(allowed_states)}")
-            logger.info(f"Filtered dataset: {filtered_count} stocks ({filtered_pct:.1f}% retained)")
-            
-            # Show state breakdown before filtering - DIVISION PROTECTED
-            state_counts = df['market_state'].value_counts()
-            logger.info("Market state distribution before filtering:")
-            for state, count in state_counts.items():
-                pct = (count / original_count * 100) if original_count > 0 else 0
-                status = "✓ ALLOWED" if state in allowed_states else "✗ FILTERED"
-                logger.info(f"  {state}: {count} stocks ({pct:.1f}%) - {status}")
-            
-            # Store filter information for reference
-            filtered_df.attrs['market_filter_applied'] = filter_name
-            filtered_df.attrs['market_filter_allowed_states'] = allowed_states
-            filtered_df.attrs['original_count'] = original_count
-            filtered_df.attrs['filtered_count'] = filtered_count
-            filtered_df.attrs['filter_retention_pct'] = filtered_pct
-            
-            # Emergency backup: If filter is too aggressive (less than 5% retention), keep top stocks
-            if filtered_count < max(1, original_count * 0.05):
-                logger.warning(f"Filter too aggressive ({filtered_pct:.1f}% retention)")
-                logger.warning("Falling back to top 20% of stocks by master_score")
-                
-                # Sort by master_score and keep top 20%
-                if 'master_score' in df.columns:
-                    df_sorted = df.dropna(subset=['master_score']).sort_values('master_score', ascending=False)
-                    backup_count = max(1, int(len(df_sorted) * 0.20))
-                    backup_df = df_sorted.head(backup_count).copy()
-                    
-                    backup_df.attrs['market_filter_applied'] = f"{filter_name}_BACKUP"
-                    backup_df.attrs['backup_reason'] = "Filter too aggressive"
-                    backup_df.attrs['backup_retention_pct'] = (backup_count / original_count * 100)
-                    
-                    logger.info(f"Backup filter: keeping top {backup_count} stocks ({backup_df.attrs['backup_retention_pct']:.1f}%)")
-                    logger.info(f"="*50)
-                    
-                    return backup_df
-            
-            logger.info(f"Market state filtering completed successfully")
-            logger.info(f"="*50)
-            
-            return filtered_df
-            
-        except Exception as e:
-            logger.error(f"Market state filtering failed: {e}")
-            logger.error("Returning unfiltered dataset")
-            logger.info(f"="*50)
-            return df
-    
-    @staticmethod
-    def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate position score based on actual market dynamics.
-        FIXED: No arbitrary sweet spots, clear breakout/reversal logic.
-        
-        Core Philosophy:
-        - Extremes matter, middle doesn't
-        - Near 52w high = Breakout potential (momentum play)
-        - Near 52w low = Reversal potential (value play)
-        - Middle range = Dead zone (no edge)
-        
-        Scoring Strategy:
-        - This implementation favors MOMENTUM (high position = high score)
-        - For value strategy, simply invert the final score
-        
-        Score Range:
-        - 85-100: Breaking out or above 52w high
-        - 70-85: Near 52w high (strength zone)
-        - 30-70: Middle range (neutral/dead zone)
-        - 15-30: Near 52w low (weakness)
-        - 0-15: At/below 52w low (extreme weakness)
-        """
-        # Initialize with NaN
-        position_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check required data
-        if 'from_low_pct' not in df.columns or 'from_high_pct' not in df.columns:
-            logger.warning("Missing position data (from_low_pct/from_high_pct)")
-            return position_score
-        
-        from_low = df['from_low_pct']
-        from_high = df['from_high_pct']
-        
-        # Only calculate where both values exist
-        valid_mask = from_low.notna() & from_high.notna()
-        
-        if not valid_mask.any():
-            logger.warning("No valid position data available")
-            return position_score
-        
-        # CORE CALCULATION: Simple position in range
-        # This is the true position (0-100% of 52w range)
-        position_in_range = pd.Series(np.nan, index=df.index)
-        
-        # For stocks below 52w high (normal case)
-        below_high = valid_mask & (from_high <= 0)
-        if below_high.any():
-            # Direct position calculation
-            position_in_range[below_high] = from_low[below_high].clip(0, 100)
-        
-        # For stocks above 52w high (breakout)
-        above_high = valid_mask & (from_high > 0)
-        if above_high.any():
-            # Above high = 100+ (can go to 110 for 10% above high)
-            position_in_range[above_high] = 100 + from_high[above_high].clip(0, 20)
-        
-        # SCORING PHILOSOPHY: Favor extremes, penalize middle
-        # Research shows stocks at extremes have edge, middle range doesn't
-        
-        if valid_mask.any():
-            # Non-linear scoring that emphasizes extremes
-            for idx in df[valid_mask].index:
-                pos = position_in_range[idx]
-                
-                if pd.isna(pos):
-                    continue
-                    
-                # BREAKOUT ZONE (>90%): High scores
-                if pos >= 90:
-                    if pos > 100:  # Above 52w high
-                        # Diminishing returns above high
-                        position_score[idx] = 90 + np.minimum(10, (pos - 100) * 0.5)
-                    else:  # 90-100%
-                        position_score[idx] = 80 + (pos - 90) * 1.0
-                
-                # STRENGTH ZONE (70-90%): Good scores
-                elif pos >= 70:
-                    position_score[idx] = 60 + (pos - 70) * 1.0
-                
-                # DEAD ZONE (30-70%): Reduced scores
-                # This is where your "sweet spot" was, but it's actually dead money
-                elif pos >= 30:
-                    position_score[idx] = 30 + (pos - 30) * 0.75  # Compressed scoring
-                
-                # VALUE ZONE (10-30%): Lower scores (but valuable for mean reversion)
-                elif pos >= 10:
-                    position_score[idx] = 15 + (pos - 10) * 0.75
-                
-                # EXTREME LOW (<10%): Minimum scores
-                else:
-                    position_score[idx] = pos * 1.5
-        
-        # CONTEXT ADJUSTMENTS
-        
-        # 1. MOMENTUM CONFIRMATION
-        # High position needs momentum to confirm
-        if 'ret_30d' in df.columns and position_score.notna().any():
-            ret_30d = df['ret_30d']
-            
-            # Breakout with momentum = confirmed
-            breakout_confirmed = (
-                (position_in_range > 85) & 
-                (ret_30d > 10) & 
-                position_score.notna()
-            )
-            if breakout_confirmed.any():
-                position_score[breakout_confirmed] = np.minimum(
-                    position_score[breakout_confirmed] * 1.1,
-                    100
-                )
-            
-            # High position but negative momentum = false breakout
-            false_breakout = (
-                (position_in_range > 85) & 
-                (ret_30d < -5) & 
-                position_score.notna()
-            )
-            if false_breakout.any():
-                position_score[false_breakout] *= 0.8
-            
-            # Low position with positive momentum = potential reversal
-            reversal_starting = (
-                (position_in_range < 20) & 
-                (ret_30d > 5) & 
-                position_score.notna()
-            )
-            if reversal_starting.any():
-                position_score[reversal_starting] += 10
-        
-        # 2. VOLUME CONFIRMATION
-        # Breakouts need volume
-        if 'rvol' in df.columns and position_score.notna().any():
-            rvol = df['rvol']
-            
-            # High position with volume = strong
-            high_with_volume = (
-                (position_in_range > 80) & 
-                (rvol > 1.5) & 
-                position_score.notna()
-            )
-            if high_with_volume.any():
-                position_score[high_with_volume] = np.minimum(
-                    position_score[high_with_volume] + 5,
-                    100
-                )
-            
-            # High position without volume = weak
-            high_no_volume = (
-                (position_in_range > 80) & 
-                (rvol < 0.8) & 
-                position_score.notna()
-            )
-            if high_no_volume.any():
-                position_score[high_no_volume] -= 10
-        
-        # 3. TIME AT EXTREME
-        # How long has it been near high/low?
-        if 'sma_20d' in df.columns and 'price' in df.columns:
-            price = df['price']
-            sma_20 = df['sma_20d']
-            
-            valid_time = price.notna() & sma_20.notna() & position_score.notna()
-            
-            if valid_time.any():
-                # If near high and price > SMA20 = sustained strength
-                sustained_high = (
-                    valid_time & 
-                    (position_in_range > 80) & 
-                    (price > sma_20)
-                )
-                if sustained_high.any():
-                    position_score[sustained_high] += 3
-                
-                # If near low and price < SMA20 = sustained weakness
-                sustained_low = (
-                    valid_time & 
-                    (position_in_range < 20) & 
-                    (price < sma_20)
-                )
-                if sustained_low.any():
-                    position_score[sustained_low] -= 3
-        
-        # 4. MARKET CAP CONTEXT
-        if 'category' in df.columns and position_score.notna().any():
-            category = df['category']
-            
-            # Large caps at extremes are more significant
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_extreme = (
-                is_large & 
-                ((position_in_range > 90) | (position_in_range < 10)) & 
-                position_score.notna()
-            )
-            if large_extreme.any():
-                position_score[large_extreme] = (
-                    50 + (position_score[large_extreme] - 50) * 1.2
-                ).clip(0, 100)
-            
-            # Small caps above high need caution
-            is_small = category.isin(['Micro Cap', 'Small Cap'])
-            small_extended = (
-                is_small & 
-                (position_in_range > 110) & 
-                position_score.notna()
-            )
-            if small_extended.any():
-                position_score[small_extended] = np.minimum(
-                    position_score[small_extended],
-                    85
-                )
-        
-        # 5. MARKET REGIME
-        # In bull markets, high position better. In bear, low position better.
-        if position_score.notna().any() and len(df[valid_mask]) > 100:
-            # Calculate market regime from average position
-            avg_position = position_in_range[valid_mask].median()
-            
-            if pd.notna(avg_position):
-                if avg_position > 65:
-                    # Bull market: Boost high positions
-                    bull_high = (position_in_range > 70) & position_score.notna()
-                    if bull_high.any():
-                        position_score[bull_high] += 5
-                        
-                elif avg_position < 35:
-                    # Bear market: Value in low positions
-                    bear_low = (position_in_range < 30) & position_score.notna()
-                    if bear_low.any():
-                        position_score[bear_low] += 5
-        
-        # Final clipping
-        position_score = position_score.clip(0, 100)
-        
-        # NEVER FILL NaN!
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = position_score.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"Position scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = position_score[position_score.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Position distribution
-            if valid_mask.any():
-                pos_dist = position_in_range[valid_mask]
-                at_highs = (pos_dist > 90).sum()
-                at_lows = (pos_dist < 10).sum()
-                in_middle = ((pos_dist >= 30) & (pos_dist <= 70)).sum()
-                
-                logger.info(f"Position distribution: {at_highs} near highs, "
-                           f"{at_lows} near lows, {in_middle} in dead zone")
-                
-                if in_middle > len(pos_dist) * 0.5:
-                    logger.warning(f"Warning: {in_middle} stocks in dead zone (30-70%)")
-        
-        return position_score
-    
-    @staticmethod
-    def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate volume score focusing on what actually matters.
-        SIMPLIFIED: Volume confirms, doesn't predict. Focus on liquidity and relative volume.
-        
-        Core Philosophy:
-        - Volume is a CONFIRMING indicator, not predictive
-        - Relative volume matters more than absolute
-        - Liquidity (turnover) matters for tradability
-        - Extreme volume often signals problems
-        
-        Components:
-        - 50% Relative volume (vs historical average)
-        - 30% Liquidity (can you actually trade it?)
-        - 20% Price-volume harmony (does volume confirm price action?)
-        
-        Score Range:
-        - 70-100: High relative volume with price confirmation
-        - 50-70: Above average activity
-        - 30-50: Normal activity
-        - 10-30: Below average (concerning)
-        - 0-10: Dead (no liquidity)
-        """
-        # Initialize with NaN
-        volume_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check minimum data
-        has_rvol = 'rvol' in df.columns
-        has_volume = 'volume_1d' in df.columns
-        has_price = 'price' in df.columns
-        
-        if not has_rvol and not has_volume:
-            logger.warning("No volume data available")
-            return volume_score
-        
-        # COMPONENT 1: RELATIVE VOLUME (50% weight)
-        # This is the most important - is volume unusual today?
-        relative_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if has_rvol:
-            rvol = df['rvol']
-            valid_rvol = rvol.notna() & (rvol >= 0)
-            
-            if valid_rvol.any():
-                # Simple but effective scoring
-                # < 0.5x = dead (20)
-                # 0.5-1x = below normal (20-50)
-                # 1-2x = normal to elevated (50-70)
-                # 2-5x = high interest (70-85)
-                # > 5x = extreme (85-90, capped due to potential manipulation)
-                
-                relative_component[valid_rvol] = np.where(
-                    rvol[valid_rvol] < 0.5,
-                    rvol[valid_rvol] * 40,  # 0-20
-                    np.where(
-                        rvol[valid_rvol] < 1,
-                        20 + (rvol[valid_rvol] - 0.5) * 60,  # 20-50
-                        np.where(
-                            rvol[valid_rvol] < 2,
-                            50 + (rvol[valid_rvol] - 1) * 20,  # 50-70
-                            np.where(
-                                rvol[valid_rvol] < 5,
-                                70 + np.log(rvol[valid_rvol]) * 10,  # 70-85 (log scale)
-                                np.minimum(90, 85 + np.log(rvol[valid_rvol] / 5) * 5)  # 85-90 cap
-                            )
-                        )
-                    )
-                )
-        
-        # COMPONENT 2: LIQUIDITY (30% weight)
-        # Can you actually trade this stock?
-        liquidity_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if has_volume and has_price:
-            volume = df['volume_1d']
-            price = df['price']
-            
-            valid_liquidity = volume.notna() & price.notna() & (volume >= 0) & (price > 0)
-            
-            if valid_liquidity.any():
-                # Calculate turnover in lakhs (100,000s)
-                turnover_lakhs = (volume[valid_liquidity] * price[valid_liquidity]) / 100000
-                
-                # Scoring based on Indian market standards
-                # < 10 lakhs = illiquid (0-30)
-                # 10-100 lakhs = low liquidity (30-50)
-                # 100-1000 lakhs = decent (50-70)
-                # 1000-10000 lakhs = good (70-85)
-                # > 10000 lakhs = excellent (85-100)
-                
-                log_turnover = np.log10(turnover_lakhs + 1)  # Add 1 to handle zero
-                
-                liquidity_component[valid_liquidity] = np.where(
-                    log_turnover < 1,  # < 10 lakhs
-                    log_turnover * 30,
-                    np.where(
-                        log_turnover < 2,  # 10-100 lakhs
-                        30 + (log_turnover - 1) * 20,
-                        np.where(
-                            log_turnover < 3,  # 100-1000 lakhs
-                            50 + (log_turnover - 2) * 20,
-                            np.where(
-                                log_turnover < 4,  # 1000-10000 lakhs
-                                70 + (log_turnover - 3) * 15,
-                                np.minimum(100, 85 + (log_turnover - 4) * 10)
-                            )
-                        )
-                    )
-                )
-        
-        # COMPONENT 3: PRICE-VOLUME HARMONY (20% weight)
-        # Does volume confirm price action?
-        harmony_component = pd.Series(50, index=df.index, dtype=float)  # Default neutral
-        
-        if has_rvol and 'ret_1d' in df.columns:
-            rvol = df['rvol']
-            ret_1d = df['ret_1d']
-            
-            valid_harmony = rvol.notna() & ret_1d.notna()
-            
-            if valid_harmony.any():
-                # Best: High volume + strong price move (either direction)
-                strong_move_confirmed = valid_harmony & (rvol > 1.5) & (np.abs(ret_1d) > 3)
-                harmony_component[strong_move_confirmed] = 80
-                
-                # Good: Above average volume + price move
-                normal_confirmed = valid_harmony & (rvol > 1) & (np.abs(ret_1d) > 1)
-                harmony_component[normal_confirmed] = 65
-                
-                # Bad: High volume + no price move (distribution/accumulation)
-                high_vol_no_move = valid_harmony & (rvol > 2) & (np.abs(ret_1d) < 0.5)
-                harmony_component[high_vol_no_move] = 30
-                
-                # Suspicious: Big price move + no volume
-                move_no_volume = valid_harmony & (np.abs(ret_1d) > 5) & (rvol < 0.7)
-                harmony_component[move_no_volume] = 20
-                
-                # Neutral: Everything else stays at 50
-        
-        # COMBINE COMPONENTS
-        components = [
-            (relative_component, 0.50),
-            (liquidity_component, 0.30),
-            (harmony_component, 0.20)
-        ]
-        
-        for idx in df.index:
-            valid_components = []
-            valid_weights = []
-            
-            for component, weight in components:
-                if pd.notna(component[idx]):
-                    valid_components.append(component[idx])
-                    valid_weights.append(weight)
-            
-            if valid_components:
-                total_weight = sum(valid_weights)
-                if total_weight > 0:
-                    normalized_weights = [w/total_weight for w in valid_weights]
-                    volume_score[idx] = sum(c * w for c, w in zip(valid_components, normalized_weights))
-        
-        # CONTEXT ADJUSTMENTS (Simplified)
-        
-        # Market cap context
-        if 'category' in df.columns and volume_score.notna().any():
-            category = df['category']
-            
-            # Penny stocks: High volume more common, reduce score
-            is_penny = category.isin(['Micro Cap', 'Small Cap'])
-            if has_rvol:
-                rvol = df['rvol']
-                penny_high = is_penny & (rvol > 3) & volume_score.notna()
-                if penny_high.any():
-                    volume_score[penny_high] *= 0.85
-            
-            # Large caps: High volume more significant
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            if has_rvol:
-                large_high = is_large & (rvol > 2) & volume_score.notna()
-                if large_high.any():
-                    volume_score[large_high] = np.minimum(
-                        volume_score[large_high] * 1.1,
-                        100
-                    )
-        
-        # Extreme volume investigation
-        if has_rvol:
-            rvol = df['rvol']
-            
-            # Very extreme volume (>10x) is usually bad news
-            extreme = (rvol > 10) & volume_score.notna()
-            if extreme.any():
-                # Check if it's with bad price action
-                if 'ret_1d' in df.columns:
-                    ret_1d = df['ret_1d']
-                    extreme_negative = extreme & (ret_1d < -5)
-                    if extreme_negative.any():
-                        volume_score[extreme_negative] = np.minimum(volume_score[extreme_negative], 60)
-                        logger.warning(f"Extreme volume with negative price action in {extreme_negative.sum()} stocks")
-        
-        # Final clipping
-        volume_score = volume_score.clip(0, 100)
-        
-        # NEVER FILL NaN!
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = volume_score.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"Volume scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = volume_score[volume_score.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Volume categories
-            if has_rvol:
-                rvol = df['rvol']
-                dead = (rvol < 0.5).sum()
-                normal = ((rvol >= 0.5) & (rvol < 2)).sum()
-                elevated = ((rvol >= 2) & (rvol < 5)).sum()
-                extreme = (rvol >= 5).sum()
-                
-                logger.debug(f"Volume distribution: Dead={dead}, Normal={normal}, "
-                            f"Elevated={elevated}, Extreme={extreme}")
-        
-        return volume_score
-        
-    @staticmethod
-    def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate momentum score with refined scaling and true volatility adjustment.
-        REFINED: Better scaling calibration, proper volatility, cleaner logic.
-        
-        Core Philosophy:
-        - Momentum = Recent price performance with quality adjustments
-        - Scale based on actual market return distributions
-        - True volatility measurement when possible
-        - Multi-component for robustness
-        
-        Components:
-        - 60% Raw momentum (market-calibrated scaling)
-        - 20% Consistency (direction and magnitude)
-        - 20% Quality (true Sharpe-like ratio)
-        
-        Score Range:
-        - 80-100: Exceptional momentum
-        - 60-80: Strong momentum
-        - 40-60: Neutral momentum
-        - 20-40: Weak momentum
-        - 0-20: Severe negative momentum
-        """
-        # Initialize with NaN - NEVER fill with defaults
-        momentum_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check data availability
-        has_30d = 'ret_30d' in df.columns
-        has_7d = 'ret_7d' in df.columns
-        has_1d = 'ret_1d' in df.columns
-        
-        if not has_30d and not has_7d:
-            logger.warning("No return data for momentum calculation")
-            return momentum_score
-        
-        # COMPONENT 1: RAW MOMENTUM (60% weight)
-        # Calibrated based on actual market distributions
-        raw_momentum = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if has_30d:
-            ret_30d = df['ret_30d']
-            valid_30d = ret_30d.notna()
-            
-            if valid_30d.any():
-                # REFINED SCALING: Based on empirical market data
-                # Indian market monthly returns typically:
-                # 95th percentile: ~25%
-                # 75th percentile: ~10%
-                # Median: ~1%
-                # 25th percentile: ~-5%
-                # 5th percentile: ~-15%
-                
-                # Use sigmoid with market-calibrated center and scale
-                # Center at 1% (typical median), scale for proper spread
-                raw_momentum[valid_30d] = 50 / (1 + np.exp(-(ret_30d[valid_30d] - 1) / 10))
-                
-                # Enhance extremes (non-linear at tails)
-                very_strong = valid_30d & (ret_30d > 30)
-                if very_strong.any():
-                    raw_momentum[very_strong] = 90 + np.tanh((ret_30d[very_strong] - 30) / 20) * 10
-                
-                very_weak = valid_30d & (ret_30d < -20)
-                if very_weak.any():
-                    raw_momentum[very_weak] = 10 * (1 + ret_30d[very_weak] / 20)
-        
-        # Fallback to 7-day (properly scaled)
-        needs_7d = raw_momentum.isna() & has_7d
-        if needs_7d.any() and has_7d:
-            ret_7d = df['ret_7d']
-            valid_7d = ret_7d.notna() & needs_7d
-            
-            if valid_7d.any():
-                # Convert to monthly equivalent using compound rate
-                # (1 + r_monthly) = (1 + r_weekly)^4.3
-                monthly_equivalent = np.sign(ret_7d[valid_7d]) * (
-                    (np.abs(1 + ret_7d[valid_7d]/100) ** 4.3 - 1) * 100
-                )
-                
-                # Apply same sigmoid scaling
-                raw_momentum[valid_7d] = 50 / (1 + np.exp(-(monthly_equivalent - 1) / 10))
-        
-        # COMPONENT 2: CONSISTENCY FACTOR (20% weight)
-        # Improved measurement of momentum consistency
-        consistency_factor = pd.Series(50, index=df.index, dtype=float)
-        
-        if all([has_1d, has_7d, has_30d]):
-            ret_1d = df['ret_1d']
-            ret_7d = df['ret_7d']
-            ret_30d = df['ret_30d']
-            
-            valid_all = ret_1d.notna() & ret_7d.notna() & ret_30d.notna()
-            
-            if valid_all.any():
-                # Calculate momentum alignment score
-                # All positive with increasing strength = best
-                # Mixed signals = neutral
-                # All negative with worsening = worst
-                
-                # Sign alignment (direction consistency)
-                signs = np.sign(np.column_stack([ret_1d[valid_all], 
-                                                ret_7d[valid_all], 
-                                                ret_30d[valid_all]]))
-                sign_consistency = np.abs(signs.sum(axis=1)) / 3  # 0 to 1
-                
-                # Magnitude progression (is momentum building?)
-                daily_equiv_7d = ret_7d[valid_all] / 7
-                daily_equiv_30d = ret_30d[valid_all] / 30
-                
-                building = (ret_1d[valid_all] > daily_equiv_7d) & (daily_equiv_7d > daily_equiv_30d)
-                steady = np.abs(ret_1d[valid_all] - daily_equiv_7d) < 2
-                fading = (ret_1d[valid_all] < daily_equiv_7d) & (daily_equiv_7d < daily_equiv_30d)
-                
-                # Combine sign and magnitude
-                consistency_factor[valid_all] = 50  # Base
-                consistency_factor[valid_all] += sign_consistency * 20  # ±20 for direction
-                consistency_factor[building] += 20  # Bonus for building
-                consistency_factor[fading] -= 20  # Penalty for fading
-                consistency_factor[steady] += 10  # Small bonus for steady
-        
-        # COMPONENT 3: QUALITY FACTOR (20% weight)
-        # True Sharpe-like ratio using actual volatility
-        quality_factor = pd.Series(50, index=df.index, dtype=float)
-        
-        # Try to use actual daily data if available
-        if 'daily_returns' in df.columns:
-            # If we have actual daily returns series
-            daily_returns = df['daily_returns']
-            valid_daily = daily_returns.notna()
-            
-            if valid_daily.any():
-                # Calculate true volatility
-                volatility = daily_returns[valid_daily].apply(lambda x: np.std(x) if len(x) > 1 else np.nan)
-                returns = df.loc[valid_daily, 'ret_30d'] if has_30d else df.loc[valid_daily, 'ret_7d']
-                
-                # Sharpe-like ratio
-                sharpe = returns / (volatility * np.sqrt(30) + 1)  # Annualized
-                quality_factor[valid_daily] = 50 + np.tanh(sharpe / 2) * 30
-        else:
-            # Fallback: Estimate volatility from available returns
-            if has_30d and has_7d and has_1d:
-                ret_30d = df['ret_30d']
-                ret_7d = df['ret_7d']
-                ret_1d = df['ret_1d']
-                
-                valid_vol = ret_30d.notna() & ret_7d.notna() & ret_1d.notna()
-                
-                if valid_vol.any():
-                    # Estimate volatility from return dispersion
-                    # Better than std of averages
-                    expected_1d = ret_30d[valid_vol] / 30
-                    expected_7d = ret_30d[valid_vol] * 7 / 30
-                    
-                    deviation_1d = np.abs(ret_1d[valid_vol] - expected_1d)
-                    deviation_7d = np.abs(ret_7d[valid_vol] - expected_7d)
-                    
-                    # Average deviation as volatility proxy
-                    avg_deviation = (deviation_1d + deviation_7d / 7) / 2
-                    
-                    # Quality score based on return/risk
-                    risk_adjusted = ret_30d[valid_vol] / (avg_deviation + 1)
-                    quality_factor[valid_vol] = 50 + np.tanh(risk_adjusted / 10) * 30
-        
-        # COMBINE COMPONENTS
-        has_components = raw_momentum.notna()
-        
-        if has_components.any():
-            # Start with raw momentum
-            momentum_score[has_components] = raw_momentum[has_components] * 0.6
-            
-            # Add consistency if available
-            if consistency_factor.notna().any():
-                valid_both = has_components & consistency_factor.notna()
-                momentum_score[valid_both] += consistency_factor[valid_both] * 0.2
-            else:
-                # If no consistency data, give more weight to raw
-                momentum_score[has_components] = raw_momentum[has_components] * 0.8
-            
-            # Add quality if available
-            if quality_factor.notna().any():
-                valid_all = has_components & quality_factor.notna()
-                momentum_score[valid_all] += quality_factor[valid_all] * 0.2
-        
-        # CONTEXT ADJUSTMENTS
-        
-        # Market cap adjustments
-        if 'category' in df.columns and momentum_score.notna().any():
-            category = df['category']
-            
-            # Small cap pump & dump detection
-            is_small = category.isin(['Micro Cap', 'Small Cap'])
-            
-            if has_30d:
-                ret_30d = df['ret_30d']
-                
-                # Progressive penalty for extreme returns
-                extreme_small = is_small & momentum_score.notna() & (ret_30d > 50)
-                if extreme_small.any():
-                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 50) / 50)
-                    momentum_score[extreme_small] *= penalty_factor
-                    logger.debug(f"Applied pump penalty to {extreme_small.sum()} small caps")
-            
-            # Large cap momentum significance
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            strong_large = is_large & momentum_score.notna() & (momentum_score > 70)
-            if strong_large.any():
-                momentum_score[strong_large] = np.minimum(
-                    momentum_score[strong_large] * 1.08,
-                    100
-                )
-        
-        # Volume confirmation
-        if 'rvol' in df.columns and momentum_score.notna().any():
-            rvol = df['rvol']
-            
-            # Momentum-volume harmony
-            high_momentum = momentum_score > 70
-            
-            # Strong momentum with volume = confirmed
-            with_volume = high_momentum & (rvol > 1.5) & momentum_score.notna()
-            if with_volume.any():
-                momentum_score[with_volume] = np.minimum(
-                    momentum_score[with_volume] + 5,
-                    100
-                )
-            
-            # Strong momentum without volume = suspicious
-            no_volume = high_momentum & (rvol < 0.7) & momentum_score.notna()
-            if no_volume.any():
-                momentum_score[no_volume] -= 10
-        
-        # Final clipping
-        momentum_score = momentum_score.clip(0, 100)
-        
-        # NEVER FILL NaN!
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = momentum_score.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"Momentum scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = momentum_score[momentum_score.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Check market momentum
-            if score_dist.mean() > 65:
-                logger.info("Strong market-wide momentum detected")
-            elif score_dist.mean() < 35:
-                logger.warning("Weak market-wide momentum detected")
-        
-        return momentum_score
-        
-    @staticmethod
-    def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate momentum acceleration using proper rate of change analysis.
-        FIXED: Correct math, no division issues, clear scoring logic.
-        
-        Core Concept:
-        - Acceleration = Change in momentum over time
-        - Compare recent vs historical momentum rates
-        - Use log returns for proper compounding
-        - Smooth transitions, no arbitrary bins
-        
-        Method:
-        - Calculate momentum over different periods
-        - Compare short vs long momentum slopes
-        - Score based on momentum improvement/deterioration
-        
-        Score Range:
-        - 80-100: Strong positive acceleration (momentum building rapidly)
-        - 60-80: Moderate acceleration (steady improvement)
-        - 40-60: Neutral (constant momentum)
-        - 20-40: Deceleration (momentum fading)
-        - 0-20: Strong deceleration (momentum collapsing)
-        """
-        # Initialize with NaN
-        acceleration_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check minimum required columns
-        required_cols = ['ret_1d', 'ret_7d', 'ret_30d']
-        available_cols = [col for col in required_cols if col in df.columns]
-        
-        if len(available_cols) < 2:
-            logger.warning(f"Insufficient data for acceleration: only {len(available_cols)} return columns")
-            return acceleration_score
-        
-        # METHOD 1: Momentum Slope Comparison
-        # Calculate momentum at different time points and compare slopes
-        
-        momentum_scores = pd.DataFrame(index=df.index)
-        
-        # Current momentum (most recent)
-        if 'ret_7d' in df.columns:
-            # Weekly momentum as baseline
-            momentum_scores['current'] = df['ret_7d']
-        
-        # Historical momentum (for comparison)
-        if 'ret_30d' in df.columns:
-            # Monthly momentum
-            momentum_scores['historical'] = df['ret_30d']
-        
-        # Very short-term momentum
-        if 'ret_1d' in df.columns:
-            momentum_scores['immediate'] = df['ret_1d']
-        
-        # Calculate acceleration as momentum improvement
-        valid_data = pd.Series(False, index=df.index)
-        
-        # Primary calculation: 7d vs 30d momentum
-        if 'ret_7d' in df.columns and 'ret_30d' in df.columns:
-            ret_7d = df['ret_7d']
-            ret_30d = df['ret_30d']
-            
-            valid = ret_7d.notna() & ret_30d.notna()
-            valid_data |= valid
-            
-            if valid.any():
-                # Calculate average daily momentum for each period
-                # Use compound rate for accuracy: (1 + r)^(1/n) - 1
-                
-                # Safe calculation avoiding negative final values
-                safe_7d = np.where(ret_7d > -99, ret_7d, -99)
-                safe_30d = np.where(ret_30d > -99, ret_30d, -99)
-                
-                # Daily equivalent rates
-                daily_7d = np.sign(safe_7d) * (np.abs(1 + safe_7d/100) ** (1/7) - 1) * 100
-                daily_30d = np.sign(safe_30d) * (np.abs(1 + safe_30d/100) ** (1/30) - 1) * 100
-                
-                # Acceleration factor: recent momentum vs historical
-                # Positive = accelerating, Negative = decelerating
-                momentum_change = daily_7d - daily_30d
-                
-                # Convert to 0-100 score using sigmoid-like function
-                # Center at 0 (no acceleration) = 50 score
-                # Use tanh for smooth transitions
-                acceleration_score[valid] = 50 + 30 * np.tanh(momentum_change[valid] / 5)
-        
-        # Enhanced calculation with 1-day data
-        if 'ret_1d' in df.columns and 'ret_7d' in df.columns:
-            ret_1d = df['ret_1d']
-            ret_7d = df['ret_7d']
-            
-            valid_short = ret_1d.notna() & ret_7d.notna()
-            
-            if valid_short.any():
-                # Very short-term acceleration
-                daily_7d_rate = np.sign(ret_7d) * (np.abs(1 + ret_7d/100) ** (1/7) - 1) * 100
-                
-                # Compare today vs weekly average
-                short_acceleration = ret_1d - daily_7d_rate
-                
-                # Blend with main score if available
-                if acceleration_score.notna().any():
-                    valid_blend = valid_short & acceleration_score.notna()
-                    # 70% weight on primary, 30% on short-term
-                    acceleration_score[valid_blend] = (
-                        acceleration_score[valid_blend] * 0.7 +
-                        (50 + 30 * np.tanh(short_acceleration[valid_blend] / 3)) * 0.3
-                    )
-                else:
-                    # Use short-term as primary if no other data
-                    acceleration_score[valid_short] = 50 + 30 * np.tanh(short_acceleration[valid_short] / 3)
-                    valid_data |= valid_short
-        
-        # METHOD 2: Momentum Consistency Bonus
-        # Reward consistent acceleration across timeframes
-        if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-            ret_1d = df['ret_1d']
-            ret_7d = df['ret_7d']  
-            ret_30d = df['ret_30d']
-            
-            valid_all = ret_1d.notna() & ret_7d.notna() & ret_30d.notna() & acceleration_score.notna()
-            
-            if valid_all.any():
-                # Check for consistent improvement pattern
-                # Each period better than the longer one (normalized)
-                improving = (
-                    (ret_1d > ret_7d / 7) & 
-                    (ret_7d / 7 > ret_30d / 30) &
-                    (ret_1d > 0)
-                )
-                
-                # Add bonus for consistent acceleration
-                consistent_accel = valid_all & improving
-                if consistent_accel.any():
-                    acceleration_score[consistent_accel] = np.minimum(
-                        acceleration_score[consistent_accel] + 10,
-                        95
-                    )
-                
-                # Penalty for consistent deceleration
-                declining = (
-                    (ret_1d < ret_7d / 7) & 
-                    (ret_7d / 7 < ret_30d / 30) &
-                    (ret_1d < 0)
-                )
-                
-                consistent_decel = valid_all & declining
-                if consistent_decel.any():
-                    acceleration_score[consistent_decel] = np.maximum(
-                        acceleration_score[consistent_decel] - 10,
-                        5
-                    )
-        
-        # CONTEXT ADJUSTMENTS
-        
-        # Volume confirmation
-        if 'rvol' in df.columns and acceleration_score.notna().any():
-            rvol = df['rvol']
-            
-            # Strong acceleration needs volume
-            strong_accel = (acceleration_score > 70) & rvol.notna()
-            
-            # With volume = confirmed
-            with_volume = strong_accel & (rvol > 1.5)
-            if with_volume.any():
-                acceleration_score[with_volume] = np.minimum(
-                    acceleration_score[with_volume] * 1.05,
-                    100
-                )
-            
-            # Without volume = suspicious
-            no_volume = strong_accel & (rvol < 0.8)
-            if no_volume.any():
-                acceleration_score[no_volume] *= 0.90
-        
-        # Market cap adjustment
-        if 'category' in df.columns and acceleration_score.notna().any():
-            category = df['category']
-            
-            # Small caps: More volatile, normalize extremes
-            is_small = category.isin(['Micro Cap', 'Small Cap'])
-            small_mask = is_small & acceleration_score.notna()
-            
-            if small_mask.any():
-                # Pull extremes toward center
-                acceleration_score[small_mask] = 50 + (acceleration_score[small_mask] - 50) * 0.8
-            
-            # Large caps: Acceleration more significant
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_accel = is_large & (acceleration_score > 65) & acceleration_score.notna()
-            
-            if large_accel.any():
-                acceleration_score[large_accel] = np.minimum(
-                    acceleration_score[large_accel] * 1.05,
-                    100
-                )
-        
-        # Handle edge cases
-        # Extreme positive returns might break calculations
-        if 'ret_30d' in df.columns:
-            extreme_returns = (df['ret_30d'] > 200) & acceleration_score.notna()
-            if extreme_returns.any():
-                # Cap acceleration score for extreme movers
-                acceleration_score[extreme_returns] = np.minimum(
-                    acceleration_score[extreme_returns],
-                    85
-                )
-        
-        # Final clipping
-        acceleration_score = acceleration_score.clip(0, 100)
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = acceleration_score.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"Acceleration scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = acceleration_score[acceleration_score.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Categories
-            strong_accel = (acceleration_score > 80).sum()
-            moderate_accel = ((acceleration_score > 60) & (acceleration_score <= 80)).sum()
-            neutral = ((acceleration_score >= 40) & (acceleration_score <= 60)).sum()
-            moderate_decel = ((acceleration_score >= 20) & (acceleration_score < 40)).sum()
-            strong_decel = (acceleration_score < 20).sum()
-            
-            logger.debug(f"Acceleration breakdown: Strong Accel={strong_accel}, "
-                        f"Moderate Accel={moderate_accel}, Neutral={neutral}, "
-                        f"Moderate Decel={moderate_decel}, Strong Decel={strong_decel}")
-            
-            # Check for market-wide acceleration
-            if score_dist.mean() > 65:
-                logger.info("Market-wide positive acceleration detected")
-            elif score_dist.mean() < 35:
-                logger.warning("Market-wide deceleration detected")
-        
-        return acceleration_score
-        
-    @staticmethod
-    def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate breakout probability using FULLY VECTORIZED operations.
-        FIXED: No loops, consistent weighting, proper breakout patterns.
-        
-        Breakout Methodology:
-        - Distance from 52w high with exponential weighting
-        - Volume accumulation patterns (not just surge)
-        - Trend strength with proper SMA hierarchy
-        - Breakout pattern recognition (cup & handle, flag, consolidation)
-        - Volume-price confirmation
-        
-        Score Components:
-        - 35% Distance from high (exponential decay)
-        - 30% Volume pattern (accumulation vs distribution)
-        - 20% Trend alignment (SMA structure)
-        - 15% Price consolidation (volatility compression)
-        
-        Bonuses Applied:
-        - Cup & Handle: +15 points
-        - Flag Pattern: +12 points
-        - Ascending Triangle: +10 points
-        - Volume Dry-up: +8 points (pre-breakout signal)
-        """
-        breakout_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Component 1: DISTANCE FROM HIGH (35% weight)
-        # Uses exponential decay - being at high is exponentially better than being far
-        distance_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if 'from_high_pct' in df.columns:
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            valid_high = from_high.notna()
-            
-            if valid_high.any():
-                # from_high is negative (e.g., -5 means 5% below high)
-                # Convert to positive distance for calculation
-                distance = -from_high[valid_high]
-                
-                # Exponential scoring: Closer to high = exponentially better
-                # Using tanh for smooth S-curve that handles all ranges well
-                # Distance 0% = 100, 5% = 85, 10% = 70, 20% = 45, 50% = 10
-                distance_component[valid_high] = 100 * (1 - np.tanh(distance / 20))
-                
-                # Special handling for stocks ABOVE 52w high (breakout already happened)
-                above_high = valid_high & (from_high > 0)
-                if above_high.any():
-                    # Recent breakout (0-10% above) = Good
-                    recent_breakout = above_high & (from_high <= 10)
-                    distance_component[recent_breakout] = 90 - from_high[recent_breakout] * 2  # 90 to 70
-                    
-                    # Extended breakout (10-30% above) = Careful
-                    extended = above_high & (from_high > 10) & (from_high <= 30)
-                    distance_component[extended] = 70 - (from_high[extended] - 10) * 1.5  # 70 to 40
-                    
-                    # Overextended (>30% above) = Dangerous
-                    overextended = above_high & (from_high > 30)
-                    distance_component[overextended] = 30  # Flat low score
-        
-        # Component 2: VOLUME PATTERN (30% weight)
-        # Not just current volume, but pattern over time
-        volume_component = pd.Series(50, index=df.index, dtype=float)
-        
-        # Sub-component 2a: Volume trend (is volume building?)
-        if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
-            vol_1d = pd.Series(df['vol_ratio_1d_90d'].values, index=df.index)
-            vol_7d = pd.Series(df['vol_ratio_7d_90d'].values, index=df.index)
-            vol_30d = pd.Series(df['vol_ratio_30d_90d'].values, index=df.index)
-            
-            valid_vol = vol_1d.notna() & vol_7d.notna() & vol_30d.notna()
-            
-            if valid_vol.any():
-                # Calculate volume progression score
-                # Best: Steady increase (30d < 7d < 1d)
-                volume_progression = pd.Series(50, index=df.index, dtype=float)
-                
-                # Accumulation pattern: Volume building over time
-                accumulation = valid_vol & (vol_1d > vol_7d) & (vol_7d > vol_30d)
-                volume_progression[accumulation] = 70 + (vol_1d[accumulation] - 1) * 15  # 70-100
-                
-                # Steady volume: Consistent across timeframes
-                steady = valid_vol & (np.abs(vol_1d - vol_7d) < 0.3) & (np.abs(vol_7d - vol_30d) < 0.3)
-                volume_progression[steady] = 60
-                
-                # Distribution pattern: Volume decreasing (bearish for breakout)
-                distribution = valid_vol & (vol_1d < vol_7d) & (vol_7d < vol_30d)
-                volume_progression[distribution] = 30
-                
-                # Spike only: Just 1-day spike, no build-up (unreliable)
-                spike_only = valid_vol & (vol_1d > 2) & (vol_7d < 1.2) & (vol_30d < 1.1)
-                volume_progression[spike_only] = 40
-                
-                volume_component[valid_vol] = volume_progression[valid_vol]
-        
-        # Sub-component 2b: Volume dry-up detection (often precedes breakout)
-        if 'rvol' in df.columns and 'from_high_pct' in df.columns:
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Volume dry-up near resistance = spring loading
-            volume_dryup = (
-                rvol.notna() & 
-                from_high.notna() &
-                (rvol < 0.7) &  # Low current volume
-                (from_high > -10) & (from_high <= 0)  # Near high
-            )
-            if volume_dryup.any():
-                # This is actually bullish - like a coiled spring
-                volume_component[volume_dryup] = 65
-        
-        # Component 3: TREND ALIGNMENT (20% weight)
-        # SMA structure with proper weighting
-        trend_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if 'price' in df.columns:
-            price = pd.Series(df['price'].values, index=df.index)
-            price_valid = price.notna() & (price > 0)
-            
-            if price_valid.any():
-                trend_score = pd.Series(0, index=df.index, dtype=float)
-                max_possible = pd.Series(0, index=df.index, dtype=float)
-                
-                # SMA hierarchy: 200 > 50 > 20 in importance for breakouts
-                sma_weights = {
-                    'sma_200d': 50,  # Most important - long-term trend
-                    'sma_50d': 30,   # Medium-term trend
-                    'sma_20d': 20    # Short-term trend
-                }
-                
-                for sma_col, weight in sma_weights.items():
-                    if sma_col in df.columns:
-                        sma_values = pd.Series(df[sma_col].values, index=df.index)
-                        valid_sma = price_valid & sma_values.notna() & (sma_values > 0)
-                        
-                        # Price above SMA
-                        above_sma = valid_sma & (price > sma_values)
-                        trend_score[above_sma] += weight
-                        max_possible[valid_sma] += weight
-                
-                # Normalize to 0-100
-                has_sma = max_possible > 0
-                trend_component[has_sma] = (trend_score[has_sma] / max_possible[has_sma]) * 100
-                
-                # Golden alignment bonus: Price > SMA20 > SMA50 > SMA200
-                if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d']):
-                    sma_20 = pd.Series(df['sma_20d'].values, index=df.index)
-                    sma_50 = pd.Series(df['sma_50d'].values, index=df.index)
-                    sma_200 = pd.Series(df['sma_200d'].values, index=df.index)
-                    
-                    golden_alignment = (
-                        price_valid & 
-                        sma_20.notna() & sma_50.notna() & sma_200.notna() &
-                        (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
-                    )
-                    if golden_alignment.any():
-                        trend_component[golden_alignment] = 100  # Perfect score
-        
-        # Component 4: PRICE CONSOLIDATION (15% weight)
-        # Tight consolidation near high = higher breakout probability
-        consolidation_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'from_high_pct']):
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            valid_consol = ret_7d.notna() & ret_30d.notna() & from_high.notna()
-            
-            if valid_consol.any():
-                # Calculate volatility/range
-                volatility = np.abs(ret_7d)
-                
-                # Tight consolidation near high (best setup)
-                tight_consol = valid_consol & (volatility < 3) & (from_high > -10) & (from_high <= 0)
-                consolidation_component[tight_consol] = 85
-                
-                # Normal consolidation
-                normal_consol = valid_consol & (volatility >= 3) & (volatility < 7) & (from_high > -20)
-                consolidation_component[normal_consol] = 60
-                
-                # Wide/volatile consolidation (less reliable)
-                wide_consol = valid_consol & (volatility >= 7)
-                consolidation_component[wide_consol] = 35
-        
-        # COMBINE ALL COMPONENTS (with fixed weights)
-        # Calculate weighted average only where we have data
-        components = {
-            'distance': (distance_component, 0.35),
-            'volume': (volume_component, 0.30),
-            'trend': (trend_component, 0.20),
-            'consolidation': (consolidation_component, 0.15)
-        }
-        
-        # Vectorized combination
-        weighted_sum = pd.Series(0, index=df.index, dtype=float)
-        weight_sum = pd.Series(0, index=df.index, dtype=float)
-        
-        for name, (component, weight) in components.items():
-            valid = component.notna() & (component != 50)  # 50 is default, means no data
-            weighted_sum[valid] += component[valid] * weight
-            weight_sum[valid] += weight
-        
-        # Calculate final score
-        has_data = weight_sum > 0
-        breakout_score[has_data] = weighted_sum[has_data] / weight_sum[has_data]
-        
-        # PATTERN RECOGNITION BONUSES
-        # These are additive bonuses for specific bullish patterns
-        
-        # Pattern 1: Cup & Handle
-        if all(col in df.columns for col in ['ret_3m', 'ret_1y', 'ret_30d', 'from_high_pct']):
-            ret_3m = pd.Series(df['ret_3m'].values, index=df.index)
-            ret_1y = pd.Series(df['ret_1y'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            cup_handle = (
-                breakout_score.notna() &
-                ret_1y.notna() & ret_3m.notna() & ret_30d.notna() & from_high.notna() &
-                (ret_1y > 20) &  # Good yearly performance (left side of cup)
-                (ret_3m < 10) &  # Consolidation (bottom of cup)
-                (ret_30d > -5) & (ret_30d < 5) &  # Handle formation
-                (from_high > -15) & (from_high <= 0)  # Near resistance
-            )
-            if cup_handle.any():
-                breakout_score[cup_handle] += 15
-                logger.debug(f"Cup & Handle pattern detected in {cup_handle.sum()} stocks")
-        
-        # Pattern 2: Flag Pattern (consolidation after strong move)
-        if all(col in df.columns for col in ['ret_30d', 'ret_7d', 'from_high_pct', 'rvol']):
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            rvol = pd.Series(df['rvol'].values, index=df.index)
-            
-            flag_pattern = (
-                breakout_score.notna() &
-                ret_30d.notna() & ret_7d.notna() & from_high.notna() & rvol.notna() &
-                (ret_30d > 15) &  # Strong prior move (pole)
-                (ret_7d > -3) & (ret_7d < 3) &  # Tight consolidation (flag)
-                (from_high > -8) & (from_high <= 0) &  # Near high
-                (rvol < 1.5)  # Volume contraction during flag
-            )
-            if flag_pattern.any():
-                breakout_score[flag_pattern] += 12
-                logger.debug(f"Flag pattern detected in {flag_pattern.sum()} stocks")
-        
-        # Pattern 3: Ascending Triangle (higher lows, same highs)
-        if all(col in df.columns for col in ['low_52w', 'high_52w', 'price', 'from_high_pct']):
-            low_52w = pd.Series(df['low_52w'].values, index=df.index)
-            high_52w = pd.Series(df['high_52w'].values, index=df.index)
-            price = pd.Series(df['price'].values, index=df.index)
-            from_high = pd.Series(df['from_high_pct'].values, index=df.index)
-            
-            # Check if lows are rising while testing same high
-            valid_triangle = (
-                low_52w.notna() & high_52w.notna() & 
-                price.notna() & from_high.notna() & 
-                (low_52w > 0) & (high_52w > 0)
-            )
-            
-            if valid_triangle.any():
-                # Price well above 52w low but struggling at high
-                from_low_ratio = (price - low_52w) / low_52w * 100
-                ascending_triangle = (
-                    valid_triangle &
-                    (from_low_ratio > 30) &  # Well above low
-                    (from_high > -5) & (from_high <= 0) &  # Testing high repeatedly
-                    breakout_score.notna()
-                )
-                if ascending_triangle.any():
-                    breakout_score[ascending_triangle] += 10
-                    logger.debug(f"Ascending triangle detected in {ascending_triangle.sum()} stocks")
-        
-        # Pattern 4: Volatility Contraction Pattern (VCP)
-        if 'ret_3d' in df.columns and 'ret_7d' in df.columns and 'ret_30d' in df.columns:
-            ret_3d = pd.Series(df['ret_3d'].values, index=df.index)
-            ret_7d = pd.Series(df['ret_7d'].values, index=df.index)
-            ret_30d = pd.Series(df['ret_30d'].values, index=df.index)
-            
-            # Volatility decreasing over time
-            vol_3d = np.abs(ret_3d)
-            vol_7d = np.abs(ret_7d)
-            vol_30d = np.abs(ret_30d)
-            
-            vcp_pattern = (
-                breakout_score.notna() &
-                vol_3d.notna() & vol_7d.notna() & vol_30d.notna() &
-                (vol_3d < vol_7d * 0.7) &  # Recent volatility much lower
-                (vol_7d < vol_30d * 0.8) &  # Progressive contraction
-                (vol_3d < 3)  # Very tight recent range
-            )
-            if vcp_pattern.any():
-                breakout_score[vcp_pattern] += 8
-                logger.debug(f"VCP pattern detected in {vcp_pattern.sum()} stocks")
-        
-        # CONTEXT ADJUSTMENTS
-        
-        # Market cap adjustment
-        if 'category' in df.columns and breakout_score.notna().any():
-            category = pd.Series(df['category'].values, index=df.index)
-            
-            # Large cap breakouts are more reliable
-            large_cap = category.isin(['Large Cap', 'Mega Cap'])
-            large_breakout = large_cap & breakout_score.notna() & (breakout_score > 70)
-            if large_breakout.any():
-                breakout_score[large_breakout] *= 1.05
-                logger.debug(f"Large cap breakout bonus applied to {large_breakout.sum()} stocks")
-            
-            # Small cap breakouts need stronger confirmation
-            small_cap = category.isin(['Small Cap', 'Micro Cap'])
-            small_breakout = small_cap & breakout_score.notna() & (breakout_score > 60)
-            if small_breakout.any():
-                # Require volume confirmation for small caps
-                if 'rvol' in df.columns:
-                    rvol = pd.Series(df['rvol'].values, index=df.index)
-                    needs_volume = small_breakout & (rvol < 1.5)
-                    breakout_score[needs_volume] *= 0.85  # Penalty without volume
-        
-        # Sector momentum adjustment
-        if 'sector' in df.columns and 'ret_30d' in df.columns:
-            # If sector is strong, individual breakouts more likely
-            sector_returns = df.groupby('sector')['ret_30d'].transform('mean')
-            strong_sector = sector_returns > 10  # Sector up >10% in month
-            
-            sector_boost = strong_sector & breakout_score.notna() & (breakout_score > 60)
-            if sector_boost.any():
-                breakout_score[sector_boost] *= 1.03
-                logger.debug(f"Strong sector bonus applied to {sector_boost.sum()} stocks")
-        
-        # Final clipping
-        breakout_score = breakout_score.clip(0, 100)
-        
-        # Fill remaining NaN with default
-        still_nan = breakout_score.isna()
-        if still_nan.any():
-            # Check if they have any price data at all
-            has_price = 'price' in df.columns and df['price'].notna()
-            breakout_score[still_nan & has_price] = 40  # Below average default
-            breakout_score[still_nan & ~has_price] = np.nan  # Keep NaN if no data
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = breakout_score.notna().sum()
-        if valid_scores > 0:
-            logger.info(f"Breakout scores calculated: {valid_scores} valid out of {len(df)} stocks")
-            
-            # Distribution
-            score_dist = breakout_score[breakout_score.notna()]
-            logger.info(f"Score distribution - Min: {score_dist.min():.1f}, "
-                       f"Max: {score_dist.max():.1f}, "
-                       f"Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}")
-            
-            # Breakout categories
-            imminent = (breakout_score > 80).sum()
-            probable = ((breakout_score > 65) & (breakout_score <= 80)).sum()
-            possible = ((breakout_score > 50) & (breakout_score <= 65)).sum()
-            unlikely = (breakout_score <= 50).sum()
-            
-            logger.debug(f"Breakout probability: Imminent={imminent}, Probable={probable}, "
-                        f"Possible={possible}, Unlikely={unlikely}")
-            
-            # Pattern detection summary
-            if 'from_high_pct' in df.columns:
-                near_high = ((df['from_high_pct'] > -5) & (df['from_high_pct'] <= 0)).sum()
-                above_high = (df['from_high_pct'] > 0).sum()
-                logger.debug(f"Position: {near_high} near 52w high, {above_high} above high")
-        
-        return breakout_score
-    
-    @staticmethod
-    def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate RVOL score using smooth logarithmic scaling.
-        FIXED: No category overrides, proper logarithmic curve, context-aware.
-        
-        Core Philosophy:
-        - RVOL is exponential by nature - needs log scaling
-        - NO discrete categories that create jumps
-        - Higher volume should never score lower (no inversions!)
-        - Context determines if high volume is good or bad
-        
-        Score Formula:
-        - Below normal (0-1x): Linear scaling 0-50
-        - Above normal (1x+): Logarithmic scaling 50-100
-        - Context adjustments for price action and market cap
-        
-        Score Range:
-        - 85-100: Extreme volume (major event/news)
-        - 70-85: High volume (strong interest)
-        - 50-70: Elevated volume (above average)
-        - 30-50: Normal range (typical)
-        - 10-30: Low volume (lack of interest)
-        - 0-10: Dead volume (no activity)
-        """
-        # Initialize with NaN
-        rvol_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if 'rvol' not in df.columns:
-            logger.warning("RVOL data not available")
-            return rvol_score  # Return NaN, not default!
-        
-        rvol = df['rvol']
-        valid_rvol = rvol.notna() & (rvol >= 0)
-        
-        if not valid_rvol.any():
-            logger.warning("No valid RVOL data found")
-            return rvol_score
-        
-        # BASE SCORE: Smooth continuous function (NO CATEGORIES!)
-        
-        # Handle zero volume separately
-        zero_vol = valid_rvol & (rvol == 0)
-        if zero_vol.any():
-            rvol_score[zero_vol] = 0  # Dead stocks
-        
-        # Below normal volume (0 < RVOL < 1)
-        below_normal = valid_rvol & (rvol > 0) & (rvol < 1)
-        if below_normal.any():
-            # Linear scaling: 0.1x = 5, 0.5x = 25, 0.9x = 45
-            rvol_score[below_normal] = rvol[below_normal] * 50
-        
-        # Normal to elevated (RVOL >= 1)
-        above_normal = valid_rvol & (rvol >= 1)
-        if above_normal.any():
-            # Logarithmic scaling for smooth progression
-            # log(1) = 0 → 50
-            # log(2) = 0.69 → 65
-            # log(5) = 1.61 → 75
-            # log(10) = 2.30 → 82
-            # log(20) = 3.00 → 87
-            # log(50) = 3.91 → 92
-            
-            # Using natural log with adjusted multiplier
-            log_rvol = np.log(rvol[above_normal])
-            
-            # Smooth formula that never decreases
-            rvol_score[above_normal] = 50 + 30 * (1 - np.exp(-log_rvol * 0.7))
-            
-            # Cap at 95 for extreme values
-            rvol_score[above_normal] = rvol_score[above_normal].clip(50, 95)
-        
-        # CONTEXT LAYER 1: Price Action Harmony
-        # Volume means different things with different price action
-        if 'ret_1d' in df.columns and rvol_score.notna().any():
-            ret_1d = df['ret_1d']
-            valid_context = valid_rvol & ret_1d.notna() & rvol_score.notna()
-            
-            if valid_context.any():
-                # High volume + big move = confirmation (good)
-                strong_move = valid_context & (rvol > 2) & (ret_1d.abs() > 5)
-                if strong_move.any():
-                    rvol_score[strong_move] = np.minimum(rvol_score[strong_move] * 1.1, 100)
-                
-                # High volume + no move = distribution (bad)
-                no_move = valid_context & (rvol > 2) & (ret_1d.abs() < 1)
-                if no_move.any():
-                    rvol_score[no_move] *= 0.8
-                
-                # Low volume + big move = suspicious
-                suspicious = valid_context & (rvol < 0.5) & (ret_1d.abs() > 10)
-                if suspicious.any():
-                    rvol_score[suspicious] *= 0.7
-        
-        # CONTEXT LAYER 2: Sustained vs Spike
-        if all(col in df.columns for col in ['vol_ratio_7d_90d', 'vol_ratio_30d_90d']):
-            vol_7d = df['vol_ratio_7d_90d']
-            vol_30d = df['vol_ratio_30d_90d']
-            
-            valid_sustain = valid_rvol & vol_7d.notna() & vol_30d.notna() & rvol_score.notna()
-            
-            if valid_sustain.any():
-                # Sustained elevation (building volume) = better
-                sustained = valid_sustain & (rvol > 2) & (vol_7d > 1.5) & (vol_30d > 1.2)
-                if sustained.any():
-                    rvol_score[sustained] = np.minimum(rvol_score[sustained] * 1.05, 100)
-                    logger.debug(f"Sustained volume bonus for {sustained.sum()} stocks")
-                
-                # Spike only (no build-up) = suspicious
-                spike_only = valid_sustain & (rvol > 3) & (vol_7d < 1.2) & (vol_30d < 1.1)
-                if spike_only.any():
-                    rvol_score[spike_only] *= 0.85
-                    logger.debug(f"Spike-only penalty for {spike_only.sum()} stocks")
-        
-        # CONTEXT LAYER 3: Market Cap Adjustments
-        if 'category' in df.columns and rvol_score.notna().any():
-            category = df['category']
-            
-            # Small/Micro caps: High RVOL is more common
-            is_penny = category.isin(['Micro Cap', 'Small Cap'])
-            penny_valid = is_penny & valid_rvol & rvol_score.notna()
-            
-            if penny_valid.any():
-                # Progressive adjustment based on RVOL level
-                # 2-3x is normal for penny stocks
-                penny_moderate = penny_valid & (rvol > 2) & (rvol <= 3)
-                if penny_moderate.any():
-                    rvol_score[penny_moderate] *= 0.9
-                
-                # 3-5x is elevated but not unusual
-                penny_elevated = penny_valid & (rvol > 3) & (rvol <= 5)
-                if penny_elevated.any():
-                    rvol_score[penny_elevated] *= 0.85
-                
-                # 5-10x needs scrutiny
-                penny_high = penny_valid & (rvol > 5) & (rvol <= 10)
-                if penny_high.any():
-                    rvol_score[penny_high] *= 0.75
-                
-                # >10x is likely manipulation
-                penny_extreme = penny_valid & (rvol > 10)
-                if penny_extreme.any():
-                    rvol_score[penny_extreme] = np.minimum(rvol_score[penny_extreme] * 0.6, 70)
-                    logger.warning(f"Extreme RVOL in {penny_extreme.sum()} penny stocks")
-            
-            # Large/Mega caps: High RVOL is more significant
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_valid = is_large & valid_rvol & rvol_score.notna()
-            
-            if large_valid.any():
-                # Even moderate elevation is significant
-                large_elevated = large_valid & (rvol > 1.5)
-                if large_elevated.any():
-                    rvol_score[large_elevated] = np.minimum(rvol_score[large_elevated] * 1.1, 100)
-                
-                # High RVOL in large caps = major event
-                large_high = large_valid & (rvol > 3)
-                if large_high.any():
-                    rvol_score[large_high] = np.minimum(rvol_score[large_high] * 1.15, 100)
-                    logger.info(f"Significant RVOL in {large_high.sum()} large cap stocks")
-        
-        # CONTEXT LAYER 4: Position in Range
-        # Volume at extremes has different meaning
-        if 'from_high_pct' in df.columns and rvol_score.notna().any():
-            from_high = df['from_high_pct']
-            valid_position = valid_rvol & from_high.notna() & rvol_score.notna()
-            
-            if valid_position.any():
-                # High volume near 52w high = breakout attempt
-                near_high = valid_position & (from_high > -5) & (from_high <= 0) & (rvol > 2)
-                if near_high.any():
-                    rvol_score[near_high] = np.minimum(rvol_score[near_high] + 5, 100)
-                
-                # High volume near 52w low = potential reversal
-                if 'from_low_pct' in df.columns:
-                    from_low = df['from_low_pct']
-                    near_low = valid_position & from_low.notna() & (from_low < 10) & (rvol > 2)
-                    if near_low.any():
-                        rvol_score[near_low] = np.minimum(rvol_score[near_low] + 3, 100)
-        
-        # Final clipping
-        rvol_score = rvol_score.clip(0, 100)
-        
-        # DO NOT FILL NaN!
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = rvol_score.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"RVOL scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = rvol_score[rvol_score.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # RVOL distribution
-            if valid_rvol.any():
-                rvol_values = rvol[valid_rvol]
-                dead = (rvol_values == 0).sum()
-                low = ((rvol_values > 0) & (rvol_values < 0.5)).sum()
-                below_avg = ((rvol_values >= 0.5) & (rvol_values < 1)).sum()
-                normal = ((rvol_values >= 1) & (rvol_values < 2)).sum()
-                elevated = ((rvol_values >= 2) & (rvol_values < 5)).sum()
-                high = ((rvol_values >= 5) & (rvol_values < 10)).sum()
-                extreme = (rvol_values >= 10).sum()
-                
-                logger.debug(f"RVOL ranges: Dead={dead}, Low={low}, Below={below_avg}, "
-                            f"Normal={normal}, Elevated={elevated}, High={high}, Extreme={extreme}")
-                
-                if rvol_values.median() > 1.5:
-                    logger.info(f"Market-wide elevated volume (median RVOL: {rvol_values.median():.2f})")
-        
-        return rvol_score
-        
-    @staticmethod
-    def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate trend quality based on proper SMA hierarchy and alignment.
-        FIXED: Correct SMA weights, no overrides, proper cross detection.
-        
-        Core Philosophy:
-        - SMA200 > SMA50 > SMA20 in importance (not reversed!)
-        - Trend quality = alignment + consistency + strength
-        - No arbitrary overrides that defeat calculations
-        - Golden/Death cross needs actual crossover, not just proximity
-        
-        Components:
-        - 50% SMA Alignment (200=50%, 50=30%, 20=20% of this)
-        - 25% Trend Consistency (how well SMAs are ordered)
-        - 15% Trend Strength (separation between SMAs)
-        - 10% Special Patterns (golden cross, squeeze, etc.)
-        
-        Score Range:
-        - 85-100: Perfect bullish alignment
-        - 70-85: Strong bullish trend
-        - 50-70: Mild bullish/neutral
-        - 30-50: Weak/mixed trend
-        - 15-30: Bearish trend
-        - 0-15: Strong bearish alignment
-        """
-        # Initialize with NaN
-        trend_quality = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Check minimum requirements
-        if 'price' not in df.columns:
-            logger.warning("No price data for trend quality calculation")
-            return trend_quality  # Return NaN, not default!
-        
-        price = df['price']
-        price_valid = price.notna() & (price > 0)
-        
-        if not price_valid.any():
-            logger.warning("No valid price data for trend quality")
-            return trend_quality
-        
-        # COMPONENT 1: SMA ALIGNMENT (50% weight)
-        # FIXED: Proper hierarchy - SMA200 most important!
-        alignment_score = pd.Series(0, index=df.index, dtype=float)
-        alignment_max = pd.Series(0, index=df.index, dtype=float)
-        
-        # SMA200 - PRIMARY TREND (50% of alignment score)
-        if 'sma_200d' in df.columns:
-            sma_200 = df['sma_200d']
-            valid_200 = price_valid & sma_200.notna() & (sma_200 > 0)
-            
-            if valid_200.any():
-                # Above SMA200 = bullish primary trend
-                above_200 = valid_200 & (price > sma_200)
-                alignment_score[above_200] += 50
-                alignment_max[valid_200] += 50
-                
-                # Distance bonus/penalty (up to ±10 points)
-                distance_200 = ((price - sma_200) / sma_200 * 100).clip(-20, 20)
-                alignment_score[valid_200] += distance_200[valid_200] * 0.5
-        
-        # SMA50 - SECONDARY TREND (30% of alignment score)
-        if 'sma_50d' in df.columns:
-            sma_50 = df['sma_50d']
-            valid_50 = price_valid & sma_50.notna() & (sma_50 > 0)
-            
-            if valid_50.any():
-                above_50 = valid_50 & (price > sma_50)
-                alignment_score[above_50] += 30
-                alignment_max[valid_50] += 30
-                
-                # Distance bonus/penalty
-                distance_50 = ((price - sma_50) / sma_50 * 100).clip(-15, 15)
-                alignment_score[valid_50] += distance_50[valid_50] * 0.3
-        
-        # SMA20 - MINOR TREND (20% of alignment score)
-        if 'sma_20d' in df.columns:
-            sma_20 = df['sma_20d']
-            valid_20 = price_valid & sma_20.notna() & (sma_20 > 0)
-            
-            if valid_20.any():
-                above_20 = valid_20 & (price > sma_20)
-                alignment_score[above_20] += 20
-                alignment_max[valid_20] += 20
-                
-                # Distance bonus/penalty
-                distance_20 = ((price - sma_20) / sma_20 * 100).clip(-10, 10)
-                alignment_score[valid_20] += distance_20[valid_20] * 0.2
-        
-        # Normalize alignment score
-        has_alignment = alignment_max > 0
-        alignment_component = pd.Series(50, index=df.index, dtype=float)
-        if has_alignment.any():
-            # Convert to 0-100 scale
-            alignment_component[has_alignment] = (
-                (alignment_score[has_alignment] / alignment_max[has_alignment]) * 100
-            ).clip(0, 100)
-        
-        # COMPONENT 2: TREND CONSISTENCY (25% weight)
-        # How well are SMAs ordered?
-        consistency_component = pd.Series(50, index=df.index, dtype=float)
-        
-        # Check if we have multiple SMAs
-        sma_count = sum([
-            'sma_20d' in df.columns,
-            'sma_50d' in df.columns,
-            'sma_200d' in df.columns
+        logger.info("Starting optimized ranking calculations...")
+
+        # Calculate component scores
+        df['position_score'] = RankingEngine._calculate_position_score(df)
+        df['volume_score'] = RankingEngine._calculate_volume_score(df)
+        df['momentum_score'] = RankingEngine._calculate_momentum_score(df)
+        df['acceleration_score'] = RankingEngine._calculate_acceleration_score(df)
+        df['breakout_score'] = RankingEngine._calculate_breakout_score(df)
+        df['rvol_score'] = RankingEngine._calculate_rvol_score(df)
+        
+        # Calculate auxiliary scores
+        df['trend_quality'] = RankingEngine._calculate_trend_quality(df)
+        df['long_term_strength'] = RankingEngine._calculate_long_term_strength(df)
+        df['liquidity_score'] = RankingEngine._calculate_liquidity_score(df)
+        
+        # Calculate master score using numpy (DO NOT MODIFY FORMULA)
+        # FIX: Use safer np.column_stack approach
+        scores_matrix = np.column_stack([
+            df['position_score'].fillna(50),
+            df['volume_score'].fillna(50),
+            df['momentum_score'].fillna(50),
+            df['acceleration_score'].fillna(50),
+            df['breakout_score'].fillna(50),
+            df['rvol_score'].fillna(50)
         ])
         
-        if sma_count >= 2:
-            # Perfect bullish: Price > SMA20 > SMA50 > SMA200
-            if all(col in df.columns for col in ['sma_20d', 'sma_50d', 'sma_200d']):
-                sma_20 = df['sma_20d']
-                sma_50 = df['sma_50d']
-                sma_200 = df['sma_200d']
-                
-                all_valid = (
-                    price_valid & 
-                    sma_20.notna() & sma_50.notna() & sma_200.notna() &
-                    (sma_20 > 0) & (sma_50 > 0) & (sma_200 > 0)
-                )
-                
-                if all_valid.any():
-                    # Perfect bullish alignment
-                    perfect_bull = all_valid & (price > sma_20) & (sma_20 > sma_50) & (sma_50 > sma_200)
-                    consistency_component[perfect_bull] = 100
-                    
-                    # Good bullish (price above all, but SMAs mixed)
-                    good_bull = all_valid & (price > sma_20) & (price > sma_50) & (price > sma_200) & ~perfect_bull
-                    consistency_component[good_bull] = 75
-                    
-                    # Mixed (price between SMAs)
-                    mixed = all_valid & ~perfect_bull & ~good_bull
-                    price_above_count = (
-                        (price > sma_20).astype(int) +
-                        (price > sma_50).astype(int) +
-                        (price > sma_200).astype(int)
-                    )
-                    consistency_component[mixed] = 25 + (price_above_count[mixed] * 16.67)
-                    
-                    # Perfect bearish alignment
-                    perfect_bear = all_valid & (price < sma_20) & (sma_20 < sma_50) & (sma_50 < sma_200)
-                    consistency_component[perfect_bear] = 0
-            
-            # Two SMAs available
-            elif sma_count == 2:
-                if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-                    sma_50 = df['sma_50d']
-                    sma_200 = df['sma_200d']
-                    
-                    valid_two = (
-                        price_valid & 
-                        sma_50.notna() & sma_200.notna() &
-                        (sma_50 > 0) & (sma_200 > 0)
-                    )
-                    
-                    if valid_two.any():
-                        bullish_two = valid_two & (price > sma_50) & (sma_50 > sma_200)
-                        consistency_component[bullish_two] = 80
-                        
-                        bearish_two = valid_two & (price < sma_50) & (sma_50 < sma_200)
-                        consistency_component[bearish_two] = 20
-        
-        # COMPONENT 3: TREND STRENGTH (15% weight)
-        # Separation between SMAs indicates trend strength
-        strength_component = pd.Series(50, index=df.index, dtype=float)
-        
-        if sma_count >= 2:
-            separation_scores = []
-            
-            if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-                sma_50 = df['sma_50d']
-                sma_200 = df['sma_200d']
-                
-                valid = sma_50.notna() & sma_200.notna() & (sma_200 > 0)
-                if valid.any():
-                    # Calculate % separation
-                    separation = ((sma_50 - sma_200) / sma_200 * 100).clip(-30, 30)
-                    
-                    # Positive separation (50 > 200) = bullish strength
-                    # Negative separation (50 < 200) = bearish strength
-                    # Convert to 0-100 score
-                    sep_score = pd.Series(50, index=df.index)
-                    sep_score[valid] = 50 + separation[valid] * 1.67
-                    separation_scores.append(sep_score)
-            
-            if separation_scores:
-                strength_component = pd.concat(separation_scores, axis=1).mean(axis=1)
-        
-        # COMPONENT 4: SPECIAL PATTERNS (10% weight)
-        pattern_component = pd.Series(50, index=df.index, dtype=float)
-        
-        # Golden/Death Cross Detection (FIXED)
-        if 'sma_50d' in df.columns and 'sma_200d' in df.columns:
-            sma_50 = df['sma_50d']
-            sma_200 = df['sma_200d']
-            
-            valid_cross = sma_50.notna() & sma_200.notna() & (sma_50 > 0) & (sma_200 > 0)
-            
-            if valid_cross.any():
-                # Golden cross: SMA50 above SMA200 and close together (recent cross)
-                sma_50_above = sma_50 > sma_200
-                proximity = (np.abs(sma_50 - sma_200) / sma_200) < 0.03  # Within 3%
-                
-                # Need momentum confirmation for actual cross
-                if 'ret_30d' in df.columns:
-                    ret_30d = df['ret_30d']
-                    
-                    # Golden cross: 50 > 200, close together, positive momentum
-                    golden_cross = valid_cross & sma_50_above & proximity & (ret_30d > 5)
-                    pattern_component[golden_cross] = 80
-                    
-                    # Death cross: 50 < 200, close together, negative momentum
-                    death_cross = valid_cross & ~sma_50_above & proximity & (ret_30d < -5)
-                    pattern_component[death_cross] = 20
-                else:
-                    # Without momentum, just use position
-                    potential_golden = valid_cross & sma_50_above & proximity
-                    pattern_component[potential_golden] = 70
-                    
-                    potential_death = valid_cross & ~sma_50_above & proximity
-                    pattern_component[potential_death] = 30
-        
-        # SMA Squeeze Pattern (volatility contraction)
-        if all(col in df.columns for col in ['sma_20d', 'sma_50d']):
-            sma_20 = df['sma_20d']
-            sma_50 = df['sma_50d']
-            
-            valid_squeeze = sma_20.notna() & sma_50.notna() & (sma_50 > 0)
-            if valid_squeeze.any():
-                # SMAs converging = potential breakout
-                convergence = (np.abs(sma_20 - sma_50) / sma_50) < 0.02  # Within 2%
-                pattern_component[convergence] = 60  # Neutral with potential
-        
-        # COMBINE COMPONENTS
-        components = [
-            (alignment_component, 0.50),
-            (consistency_component, 0.25),
-            (strength_component, 0.15),
-            (pattern_component, 0.10)
-        ]
-        
-        # Calculate weighted average
-        for idx in df.index:
-            valid_components = []
-            valid_weights = []
-            
-            for component, weight in components:
-                if pd.notna(component[idx]) and component[idx] != 50:  # 50 is default
-                    valid_components.append(component[idx])
-                    valid_weights.append(weight)
-            
-            if valid_components:
-                total_weight = sum(valid_weights)
-                if total_weight > 0:
-                    normalized_weights = [w/total_weight for w in valid_weights]
-                    trend_quality[idx] = sum(c * w for c, w in zip(valid_components, normalized_weights))
-        
-        # NO OVERRIDES! Let the calculation stand
-        
-        # Final clipping
-        trend_quality = trend_quality.clip(0, 100)
-        
-        # COMPREHENSIVE LOGGING
-        valid_scores = trend_quality.notna().sum()
-        total_stocks = len(df)
-        
-        logger.info(f"Trend quality scores: {valid_scores}/{total_stocks} calculated")
-        
-        if valid_scores > 0:
-            score_dist = trend_quality[trend_quality.notna()]
-            logger.info(f"Distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Trend categories
-            strong_bull = (trend_quality > 85).sum()
-            bull = ((trend_quality > 70) & (trend_quality <= 85)).sum()
-            neutral = ((trend_quality >= 30) & (trend_quality <= 70)).sum()
-            bear = ((trend_quality >= 15) & (trend_quality < 30)).sum()
-            strong_bear = (trend_quality < 15).sum()
-            
-            logger.debug(f"Trend breakdown: Strong Bull={strong_bull}, Bull={bull}, "
-                        f"Neutral={neutral}, Bear={bear}, Strong Bear={strong_bear}")
-        
-        return trend_quality
-    
-    @staticmethod
-    def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate long-term strength based on multi-year performance.
-        GUARANTEED to return a Series of same length as input DataFrame.
-        
-        Core Philosophy:
-        - ALWAYS returns pd.Series with same index as df
-        - Fully vectorized (no loops)
-        - Only scores what can be measured (NaN for insufficient data)
-        - Long-term = 1y, 3y, 5y ONLY
-        - No penalties, just honest assessment
-        
-        Score Components:
-        - 1-year: 20% weight (when available)
-        - 3-year: 35% weight (when available)
-        - 5-year: 45% weight (when available)
-        - Weights auto-normalize based on available data
-        """
-        # CRITICAL: Initialize with correct index and length
-        long_term_strength = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Early return if empty DataFrame
-        if df.empty:
-            logger.warning("Empty DataFrame provided to calculate_long_term_strength")
-            return long_term_strength
-        
-        # Define periods and weights
-        periods = {
-            'ret_1y': 0.20,
-            'ret_3y': 0.35,
-            'ret_5y': 0.45
-        }
-        
-        # Check which columns exist
-        available_periods = {}
-        for period, weight in periods.items():
-            if period in df.columns:
-                available_periods[period] = weight
-        
-        # If no long-term data columns exist at all
-        if not available_periods:
-            logger.warning("No long-term return columns (ret_1y, ret_3y, ret_5y) found in DataFrame")
-            # Return Series of NaN (not error, just no data)
-            return long_term_strength
-        
-        # VECTORIZED CALCULATION
-        # Collect scores for each period
-        period_scores = pd.DataFrame(index=df.index)
-        period_weights = pd.DataFrame(index=df.index)
-        
-        for period, base_weight in available_periods.items():
-            # Get return data
-            returns = pd.Series(df[period].values, index=df.index)
-            valid = returns.notna()
-            
-            if not valid.any():
-                continue
-            
-            # Calculate annualized return based on period
-            years = float(period.replace('ret_', '').replace('y', ''))
-            
-            # Initialize score for this period
-            score = pd.Series(np.nan, index=df.index)
-            
-            # Calculate CAGR for valid returns
-            # Handle negative returns properly
-            positive_final = valid & (returns > -100)
-            if positive_final.any():
-                # CAGR = ((1 + return/100)^(1/years) - 1) * 100
-                cagr = ((1 + returns[positive_final]/100) ** (1/years) - 1) * 100
-                
-                # Convert CAGR to score (0-100)
-                # Indian market context:
-                # <0% → 20-50
-                # 0-15% → 50-70  
-                # 15-25% → 70-85
-                # >25% → 85-100
-                score[positive_final] = np.where(
-                    cagr < 0,
-                    np.maximum(20, 50 + cagr * 1.5),  # Negative: scale from 20 to 50
-                    np.where(
-                        cagr <= 15,
-                        50 + (cagr / 15) * 20,  # 0-15%: scale from 50 to 70
-                        np.where(
-                            cagr <= 25,
-                            70 + ((cagr - 15) / 10) * 15,  # 15-25%: scale from 70 to 85
-                            np.minimum(100, 85 + (cagr - 25) * 0.5)  # >25%: scale from 85 to 100
-                        )
-                    )
-                )
-            
-            # Handle total loss cases
-            total_loss = valid & (returns <= -100)
-            if total_loss.any():
-                score[total_loss] = 0
-            
-            # Store score and weight for this period
-            period_scores[period] = score
-            period_weights[period] = pd.Series(
-                np.where(score.notna(), base_weight, 0),
-                index=df.index
-            )
-        
-        # Calculate weighted average where we have data
-        if not period_scores.empty:
-            # Sum weighted scores
-            weighted_sum = pd.Series(0, index=df.index, dtype=float)
-            weight_sum = pd.Series(0, index=df.index, dtype=float)
-            
-            for period in period_scores.columns:
-                valid = period_scores[period].notna()
-                weighted_sum[valid] += period_scores[period][valid] * period_weights[period][valid]
-                weight_sum[valid] += period_weights[period][valid]
-            
-            # Calculate final score where weights > 0
-            has_score = weight_sum > 0
-            long_term_strength[has_score] = weighted_sum[has_score] / weight_sum[has_score]
-        
-        # ADD CONSISTENCY BONUS (if multiple periods available)
-        if len(period_scores.columns) >= 2:
-            # Check for consistency across periods
-            scores_array = period_scores.values
-            valid_rows = ~np.isnan(scores_array).all(axis=1)
-            
-            if valid_rows.any():
-                # Count how many periods have data for each stock
-                periods_with_data = (~np.isnan(scores_array)).sum(axis=1)
-                
-                # Calculate standard deviation across periods
-                score_std = np.nanstd(scores_array, axis=1)
-                score_mean = np.nanmean(scores_array, axis=1)
-                
-                # Low std relative to mean = consistent
-                # Add small bonus for consistency
-                consistent = valid_rows & (periods_with_data >= 2) & (score_std < 10) & (score_mean > 50)
-                if consistent.any():
-                    long_term_strength[consistent] = np.minimum(
-                        long_term_strength[consistent] * 1.05, 
-                        100
-                    )
-                
-                # High std = inconsistent (volatile performance)
-                inconsistent = valid_rows & (periods_with_data >= 2) & (score_std > 20)
-                if inconsistent.any():
-                    long_term_strength[inconsistent] *= 0.95
-        
-        # SPECIAL CASES
-        # Check for improvement pattern if all 3 periods available
-        if all(period in period_scores.columns for period in ['ret_1y', 'ret_3y', 'ret_5y']):
-            ret_1y = pd.Series(df['ret_1y'].values, index=df.index)
-            ret_3y = pd.Series(df['ret_3y'].values, index=df.index)
-            ret_5y = pd.Series(df['ret_5y'].values, index=df.index)
-            
-            all_valid = ret_1y.notna() & ret_3y.notna() & ret_5y.notna()
-            
-            if all_valid.any():
-                # Annualized returns
-                ann_1y = ret_1y[all_valid]
-                ann_3y = ret_3y[all_valid] / 3
-                ann_5y = ret_5y[all_valid] / 5
-                
-                # Accelerating growth pattern
-                accelerating = all_valid & (ann_1y > ann_3y * 1.1) & (ann_3y > ann_5y * 1.1)
-                if accelerating.any():
-                    long_term_strength[accelerating] = np.minimum(
-                        long_term_strength[accelerating] + 5, 
-                        100
-                    )
-                
-                # Decelerating pattern
-                decelerating = all_valid & (ann_1y < ann_3y * 0.9) & (ann_3y < ann_5y * 0.9)
-                if decelerating.any():
-                    long_term_strength[decelerating] = np.maximum(
-                        long_term_strength[decelerating] - 5,
-                        0
-                    )
-        
-        # MINIMUM DATA REQUIREMENT
-        # Require at least 1 period with data for a score
-        # This is already handled by the weight_sum > 0 check above
-        
-        # Final clipping to ensure valid range
-        long_term_strength = long_term_strength.clip(0, 100)
-        
-        # DO NOT FILL NaN!
-        # Stocks without sufficient data remain NaN
-        # This is intentional and correct
-        
-        # VERIFICATION - Critical for debugging
-        assert len(long_term_strength) == len(df), f"Length mismatch: {len(long_term_strength)} vs {len(df)}"
-        assert long_term_strength.index.equals(df.index), "Index mismatch!"
-        
-        # LOGGING
-        total_stocks = len(df)
-        scored_stocks = long_term_strength.notna().sum()
-        
-        logger.info(f"Long-term strength: {scored_stocks}/{total_stocks} stocks scored")
-        
-        if scored_stocks > 0:
-            score_dist = long_term_strength[long_term_strength.notna()]
-            logger.info(f"Score distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Check data availability
-            for period in ['ret_1y', 'ret_3y', 'ret_5y']:
-                if period in df.columns:
-                    available = df[period].notna().sum()
-                    pct = (available / total_stocks) * 100
-                    logger.debug(f"{period}: {available}/{total_stocks} ({pct:.1f}%) stocks have data")
-            
-            # Distribution categories
-            excellent = (long_term_strength > 80).sum()
-            good = ((long_term_strength > 65) & (long_term_strength <= 80)).sum()
-            average = ((long_term_strength > 50) & (long_term_strength <= 65)).sum()
-            poor = (long_term_strength <= 50).sum()
-            
-            if excellent > 0 or poor > 0:
-                logger.debug(f"Performance breakdown: Excellent={excellent}, Good={good}, "
-                            f"Average={average}, Poor={poor}")
-        else:
-            logger.warning("No stocks had sufficient data for long-term strength scoring")
-        
-        # GUARANTEED RETURN
-        # Always return Series of same length as input
-        return long_term_strength
-    
-    @staticmethod
-    def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
-        """
-        Calculate true liquidity score based on turnover value and tradability.
-        FIXED: Uses turnover (volume × price), float ratios, proper scaling.
-        
-        Liquidity Philosophy:
-        - Liquidity = Ability to trade without impacting price
-        - Turnover value matters more than share volume
-        - Consistency across timeframes is crucial
-        - Float-adjusted metrics show true liquidity
-        - Market cap relative thresholds
-        
-        Score Components:
-        - 40% Turnover value (volume × price)
-        - 25% Turnover ratio (turnover / market cap)
-        - 20% Volume consistency
-        - 15% Trading frequency (active days)
-        
-        Score Interpretation:
-        - 85-100: Highly liquid (institutional grade)
-        - 70-85: Good liquidity (easily tradable)
-        - 50-70: Moderate liquidity (retail friendly)
-        - 30-50: Low liquidity (caution needed)
-        - 0-30: Illiquid (difficult to trade)
-        """
-        liquidity_score = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        # Component 1: TURNOVER VALUE (40% weight)
-        # Actual money traded, not just shares
-        turnover_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if 'volume_1d' in df.columns and 'price' in df.columns:
-            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            price = pd.Series(df['price'].values, index=df.index)
-            
-            valid_turnover = volume_1d.notna() & price.notna() & (volume_1d >= 0) & (price > 0)
-            
-            if valid_turnover.any():
-                # Calculate daily turnover in currency (millions for scaling)
-                # Assuming price is in rupees and volume in shares
-                turnover = (volume_1d[valid_turnover] * price[valid_turnover]) / 1_000_000  # In millions
-                
-                # Log scale for turnover (spans many orders of magnitude)
-                # Avoid log(0) with small addition
-                log_turnover = np.log10(turnover + 0.001)
-                
-                # Dynamic scaling based on actual data range
-                # Don't assume arbitrary ranges
-                log_min = log_turnover.min()
-                log_max = log_turnover.max()
-                log_range = log_max - log_min
-                
-                if log_range > 0:
-                    # Normalize to 0-100 based on actual range
-                    turnover_component[valid_turnover] = ((log_turnover - log_min) / log_range) * 100
-                else:
-                    # All same value
-                    turnover_component[valid_turnover] = 50
-                
-                # Apply market context thresholds
-                # Indian market context (in millions INR daily turnover)
-                # <0.1M = 20, 0.1-1M = 20-40, 1-10M = 40-60, 10-100M = 60-80, >100M = 80-100
-                turnover_component[valid_turnover] = np.where(
-                    turnover < 0.1, 20,
-                    np.where(
-                        turnover < 1, 20 + (np.log10(turnover + 0.1) + 1) * 20,
-                        np.where(
-                            turnover < 10, 40 + np.log10(turnover) * 20,
-                            np.where(
-                                turnover < 100, 60 + np.log10(turnover/10) * 20,
-                                np.where(
-                                    turnover < 1000, 80 + np.log10(turnover/100) * 10,
-                                    95  # Cap very high turnover
-                                )
-                            )
-                        )
-                    )
-                )
-        
-        # Component 2: TURNOVER RATIO (25% weight)
-        # Turnover as % of market cap (velocity)
-        velocity_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if all(col in df.columns for col in ['volume_1d', 'price', 'market_cap']):
-            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            price = pd.Series(df['price'].values, index=df.index)
-            market_cap = pd.Series(df['market_cap'].values, index=df.index)
-            
-            # Parse market cap (could be string like "1.5B")
-            market_cap_numeric = pd.Series(np.nan, index=df.index)
-            for idx in df.index:
-                mc_val = market_cap[idx]
-                if pd.notna(mc_val):
-                    if isinstance(mc_val, str):
-                        # Parse strings like "1.5B", "500M", "75K"
-                        try:
-                            if 'T' in str(mc_val):
-                                market_cap_numeric[idx] = float(mc_val.replace('T', '').replace(',', '')) * 1_000_000
-                            elif 'B' in str(mc_val):
-                                market_cap_numeric[idx] = float(mc_val.replace('B', '').replace(',', '')) * 1_000
-                            elif 'M' in str(mc_val):
-                                market_cap_numeric[idx] = float(mc_val.replace('M', '').replace(',', ''))
-                            elif 'K' in str(mc_val):
-                                market_cap_numeric[idx] = float(mc_val.replace('K', '').replace(',', '')) / 1_000
-                            else:
-                                market_cap_numeric[idx] = float(str(mc_val).replace(',', ''))
-                        except (ValueError, TypeError, AttributeError) as e:
-                            logger.debug(f"Failed to parse market cap value {mc_val}: {e}")
-                            market_cap_numeric[idx] = np.nan
-                    else:
-                        market_cap_numeric[idx] = float(mc_val)
-            
-            valid_velocity = (
-                volume_1d.notna() & price.notna() & market_cap_numeric.notna() &
-                (volume_1d >= 0) & (price > 0) & (market_cap_numeric > 0)
-            )
-            
-            if valid_velocity.any():
-                # Daily turnover as % of market cap
-                daily_turnover = (volume_1d[valid_velocity] * price[valid_velocity]) / 1_000_000
-                turnover_ratio = (daily_turnover / market_cap_numeric[valid_velocity]) * 100
-                
-                # Score based on turnover ratio
-                # 0-0.1% = 30, 0.1-0.5% = 30-60, 0.5-2% = 60-80, >2% = 80-100
-                velocity_component[valid_velocity] = np.where(
-                    turnover_ratio < 0.1, 30 + turnover_ratio * 300,
-                    np.where(
-                        turnover_ratio < 0.5, 30 + (turnover_ratio - 0.1) * 75,
-                        np.where(
-                            turnover_ratio < 2, 60 + (turnover_ratio - 0.5) * 13.33,
-                            np.where(
-                                turnover_ratio < 5, 80 + (turnover_ratio - 2) * 5,
-                                95  # Cap at very high ratios (might be manipulation)
-                            )
-                        )
-                    )
-                )
-        
-        # Component 3: VOLUME CONSISTENCY (20% weight)
-        # How stable is the liquidity across time
-        consistency_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        vol_columns = ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']
-        available_vols = [col for col in vol_columns if col in df.columns]
-        
-        if len(available_vols) >= 2:
-            # Collect volume data
-            vol_data = pd.DataFrame()
-            for col in available_vols:
-                vol_data[col] = pd.Series(df[col].values, index=df.index)
-            
-            # Calculate coefficient of variation for each stock
-            valid_rows = vol_data.notna().all(axis=1)
-            
-            if valid_rows.any():
-                # Normalize by average to get daily equivalents
-                vol_normalized = vol_data.copy()
-                if 'volume_7d' in vol_normalized.columns:
-                    vol_normalized['volume_7d'] = vol_normalized['volume_7d'] / 7
-                if 'volume_30d' in vol_normalized.columns:
-                    vol_normalized['volume_30d'] = vol_normalized['volume_30d'] / 30
-                if 'volume_90d' in vol_normalized.columns:
-                    vol_normalized['volume_90d'] = vol_normalized['volume_90d'] / 90
-                
-                # Calculate consistency
-                vol_mean = vol_normalized[valid_rows].mean(axis=1)
-                vol_std = vol_normalized[valid_rows].std(axis=1)
-                
-                # Avoid division by zero
-                vol_cv = pd.Series(np.nan, index=df.index)
-                non_zero = valid_rows & (vol_mean > 0)
-                vol_cv[non_zero] = vol_std[non_zero] / vol_mean[non_zero]
-                
-                # Score based on consistency (lower CV = higher score)
-                # CV < 0.3 = 80, 0.3-0.6 = 60-80, 0.6-1.0 = 40-60, >1.0 = 20-40
-                consistency_component[non_zero] = np.where(
-                    vol_cv[non_zero] < 0.3, 80,
-                    np.where(
-                        vol_cv[non_zero] < 0.6, 80 - (vol_cv[non_zero] - 0.3) * 66.67,
-                        np.where(
-                            vol_cv[non_zero] < 1.0, 60 - (vol_cv[non_zero] - 0.6) * 50,
-                            np.maximum(20, 40 - (vol_cv[non_zero] - 1.0) * 10)
-                        )
-                    )
-                )
-        
-        # Component 4: TRADING FREQUENCY (15% weight)
-        # How often does it trade (vs halted/inactive days)
-        frequency_component = pd.Series(np.nan, index=df.index, dtype=float)
-        
-        if 'volume_30d' in df.columns and 'volume_1d' in df.columns:
-            volume_30d = pd.Series(df['volume_30d'].values, index=df.index)
-            volume_1d = pd.Series(df['volume_1d'].values, index=df.index)
-            
-            valid_freq = volume_30d.notna() & volume_1d.notna() & (volume_30d >= 0)
-            
-            if valid_freq.any():
-                # Estimate active trading days
-                # If daily average equals total/30, then trades every day
-                # If daily volume >> average, then sporadic trading
-                avg_daily = volume_30d[valid_freq] / 30
-                
-                # Avoid division by zero
-                safe_avg = avg_daily.copy()
-                safe_avg[safe_avg == 0] = 1
-                
-                # Ratio indicates consistency
-                ratio = volume_1d[valid_freq] / safe_avg
-                
-                # Score based on trading regularity
-                # Ratio near 1 = regular (good)
-                # Ratio >> 1 = sporadic (bad)
-                # Ratio << 1 = declining (bad)
-                frequency_component[valid_freq] = np.where(
-                    ratio < 0.5, 40,  # Much lower than average
-                    np.where(
-                        ratio < 0.8, 50,  # Somewhat lower
-                        np.where(
-                            ratio < 1.5, 70,  # Normal range
-                            np.where(
-                                ratio < 3, 60,  # Somewhat sporadic
-                                40  # Very sporadic
-                            )
-                        )
-                    )
-                )
-                
-                # Bonus for very consistent trading
-                very_consistent = valid_freq & (ratio > 0.8) & (ratio < 1.2)
-                frequency_component[very_consistent] = 85
-        
-        # COMBINE COMPONENTS
-        components = {
-            'turnover': (turnover_component, 0.40),
-            'velocity': (velocity_component, 0.25),
-            'consistency': (consistency_component, 0.20),
-            'frequency': (frequency_component, 0.15)
-        }
-        
-        # Calculate weighted average
-        for idx in df.index:
-            component_scores = []
-            component_weights = []
-            
-            for name, (score_series, weight) in components.items():
-                if pd.notna(score_series[idx]):
-                    component_scores.append(score_series[idx])
-                    component_weights.append(weight)
-            
-            if component_scores:
-                # Normalize weights
-                total_weight = sum(component_weights)
-                normalized_weights = [w/total_weight for w in component_weights]
-                
-                # Calculate weighted score
-                liquidity_score[idx] = sum(
-                    score * weight 
-                    for score, weight in zip(component_scores, normalized_weights)
-                )
-        
-        # MARKET CAP ADJUSTMENTS
-        # Different liquidity expectations for different caps
-        if 'category' in df.columns and liquidity_score.notna().any():
-            category = pd.Series(df['category'].values, index=df.index)
-            
-            # Large/Mega caps
-            is_large = category.isin(['Large Cap', 'Mega Cap'])
-            large_mask = is_large & liquidity_score.notna()
-            
-            if large_mask.any():
-                # Large caps should have high liquidity
-                # Penalize if low, bonus if high
-                liquidity_score[large_mask] = np.where(
-                    liquidity_score[large_mask] < 50,
-                    liquidity_score[large_mask] * 0.8,  # Penalty for illiquid large cap
-                    np.minimum(liquidity_score[large_mask] * 1.1, 100)  # Bonus for liquid
-                )
-            
-            # Small/Micro caps
-            is_small = category.isin(['Small Cap', 'Micro Cap'])
-            small_mask = is_small & liquidity_score.notna()
-            
-            if small_mask.any():
-                # Small caps naturally less liquid - adjust expectations
-                # Boost scores slightly to normalize
-                liquidity_score[small_mask] = np.minimum(
-                    liquidity_score[small_mask] + 10, 
-                    100
-                )
-        
-        # Clip final scores
-        liquidity_score = liquidity_score.clip(0, 100)
-        
-        # NO DEFAULT FILLING
-        # Stocks without data remain NaN
-        
-        # LOGGING
-        valid_scores = liquidity_score.notna().sum()
-        if valid_scores > 0:
-            logger.info(f"Liquidity scores calculated: {valid_scores}/{len(df)} stocks")
-            
-            score_dist = liquidity_score[liquidity_score.notna()]
-            logger.info(f"Liquidity distribution - Mean: {score_dist.mean():.1f}, "
-                       f"Median: {score_dist.median():.1f}, "
-                       f"Std: {score_dist.std():.1f}")
-            
-            # Liquidity categories
-            highly_liquid = (liquidity_score > 85).sum()
-            good_liquid = ((liquidity_score > 70) & (liquidity_score <= 85)).sum()
-            moderate = ((liquidity_score > 50) & (liquidity_score <= 70)).sum()
-            low = ((liquidity_score > 30) & (liquidity_score <= 50)).sum()
-            illiquid = (liquidity_score <= 30).sum()
-            
-            logger.debug(f"Liquidity breakdown: Highly={highly_liquid}, Good={good_liquid}, "
-                        f"Moderate={moderate}, Low={low}, Illiquid={illiquid}")
-            
-            # Check if turnover data was available
-            if turnover_component.notna().any():
-                logger.debug(f"Turnover data available for {turnover_component.notna().sum()} stocks")
-            else:
-                logger.warning("No turnover data available - liquidity scores may be incomplete")
-        
-        return liquidity_score
-        
-    @staticmethod
-    def _apply_smart_bonuses(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply smart bonuses based on confirmed exceptional patterns.
-        FIXED: All additive, order-independent, transparent tracking, justified amounts.
-        
-        Bonus Philosophy:
-        - Only reward EXCEPTIONAL patterns (top 5% cases)
-        - All bonuses are ADDITIVE (no multiplicative chaos)
-        - Maximum total bonus capped at 10 points
-        - Each bonus requires multiple confirmations
-        - Full transparency with bonus tracking
-        - Never modify NaN scores
-        
-        Bonus Categories:
-        1. Perfect Alignment (max 4 points)
-        2. Momentum Confirmation (max 3 points)
-        3. Breakout Validation (max 3 points)
-        4. Volume Surge Quality (max 2 points)
-        5. Recovery Pattern (max 2 points)
-        
-        Maximum cumulative bonus: 10 points (prevents score inflation)
-        """
-        # Don't modify original
-        df = df.copy()
-        
-        # Initialize bonus tracking
-        df['bonus_points'] = 0.0
-        df['bonus_reasons'] = ''
-        
-        # Only apply bonuses to stocks with valid master scores
-        valid_scores = df['master_score'].notna()
-        
-        if not valid_scores.any():
-            logger.info("No valid master scores for bonus application")
-            return df
-        
-        # Track individual bonuses for transparency
-        perfect_alignment_bonus = pd.Series(0, index=df.index, dtype=float)
-        momentum_bonus = pd.Series(0, index=df.index, dtype=float)
-        breakout_bonus = pd.Series(0, index=df.index, dtype=float)
-        volume_bonus = pd.Series(0, index=df.index, dtype=float)
-        recovery_bonus = pd.Series(0, index=df.index, dtype=float)
-        
-        # BONUS 1: PERFECT ALIGNMENT (max 4 points)
-        # All technical indicators aligned perfectly
-        if all(col in df.columns for col in ['position_score', 'momentum_score', 'trend_quality', 'volume_score']):
-            perfect_alignment = (
-                valid_scores &
-                (df['position_score'] > 80) &
-                (df['momentum_score'] > 70) &
-                (df['trend_quality'] > 80) &
-                (df['volume_score'] > 70)
-            )
-            
-            if perfect_alignment.any():
-                perfect_alignment_bonus[perfect_alignment] = 4
-                df.loc[perfect_alignment, 'bonus_reasons'] += 'PerfectAlign(+4) '
-                logger.debug(f"Perfect alignment bonus applied to {perfect_alignment.sum()} stocks")
-        
-        # BONUS 2: MOMENTUM CONFIRMATION (max 3 points)
-        # Strong momentum with acceleration and volume
-        if all(col in df.columns for col in ['momentum_score', 'acceleration_score', 'rvol_score']):
-            # Check for confirmed momentum
-            momentum_confirmed = (
-                valid_scores &
-                (df['momentum_score'] > 75) &
-                (df['acceleration_score'] > 70) &
-                (df['rvol_score'] > 60)
-            )
-            
-            if momentum_confirmed.any():
-                # Graduated bonus based on strength
-                super_momentum = momentum_confirmed & (df['momentum_score'] > 85)
-                regular_momentum = momentum_confirmed & ~super_momentum
-                
-                momentum_bonus[super_momentum] = 3
-                momentum_bonus[regular_momentum] = 2
-                
-                df.loc[super_momentum, 'bonus_reasons'] += 'SuperMomentum(+3) '
-                df.loc[regular_momentum, 'bonus_reasons'] += 'Momentum(+2) '
-                logger.debug(f"Momentum bonus applied to {momentum_confirmed.sum()} stocks")
-        
-        # BONUS 3: BREAKOUT VALIDATION (max 3 points)
-        # Confirmed breakout with volume
-        if all(col in df.columns for col in ['breakout_score', 'position_score', 'rvol_score']):
-            breakout_confirmed = (
-                valid_scores &
-                (df['breakout_score'] > 75) &
-                (df['position_score'] > 70) &  # Near highs
-                (df['rvol_score'] > 65)  # With volume
-            )
-            
-            if breakout_confirmed.any():
-                # Extra bonus for extreme breakout scores
-                extreme_breakout = breakout_confirmed & (df['breakout_score'] > 90)
-                regular_breakout = breakout_confirmed & ~extreme_breakout
-                
-                breakout_bonus[extreme_breakout] = 3
-                breakout_bonus[regular_breakout] = 2
-                
-                df.loc[extreme_breakout, 'bonus_reasons'] += 'ExtremeBreakout(+3) '
-                df.loc[regular_breakout, 'bonus_reasons'] += 'Breakout(+2) '
-                logger.debug(f"Breakout bonus applied to {breakout_confirmed.sum()} stocks")
-        
-        # BONUS 4: VOLUME SURGE QUALITY (max 2 points)
-        # Exceptional volume with price confirmation
-        if all(col in df.columns for col in ['volume_score', 'rvol_score', 'momentum_score']):
-            volume_surge = (
-                valid_scores &
-                (df['volume_score'] > 80) &
-                (df['rvol_score'] > 75) &
-                (df['momentum_score'] > 50)  # Positive momentum
-            )
-            
-            if volume_surge.any():
-                volume_bonus[volume_surge] = 2
-                df.loc[volume_surge, 'bonus_reasons'] += 'VolumeSurge(+2) '
-                logger.debug(f"Volume surge bonus applied to {volume_surge.sum()} stocks")
-        
-        # BONUS 5: RECOVERY PATTERN (max 2 points)
-        # Strong recovery from oversold
-        if all(col in df.columns for col in ['position_score', 'momentum_score', 'acceleration_score']):
-            recovery_pattern = (
-                valid_scores &
-                (df['position_score'] < 40) &  # Still relatively low
-                (df['momentum_score'] > 60) &  # But strong momentum
-                (df['acceleration_score'] > 70)  # And accelerating
-            )
-            
-            if recovery_pattern.any():
-                recovery_bonus[recovery_pattern] = 2
-                df.loc[recovery_pattern, 'bonus_reasons'] += 'Recovery(+2) '
-                logger.debug(f"Recovery bonus applied to {recovery_pattern.sum()} stocks")
-        
-        # BONUS 6: MARKET STATE MOMENTUM (max 3 points)
-        # Individual stock in STRONG_UPTREND with high momentum
-        market_state_bonus = pd.Series(0, index=df.index, dtype=float)
-        if 'market_state' in df.columns and 'momentum_score' in df.columns:
-            strong_uptrend_momentum = (
-                valid_scores &
-                (df['market_state'] == 'STRONG_UPTREND') &
-                (df['momentum_score'] > 70)
-            )
-            
-            if strong_uptrend_momentum.any():
-                market_state_bonus[strong_uptrend_momentum] = 3
-                df.loc[strong_uptrend_momentum, 'bonus_reasons'] += 'StrongMomentum(+3) '
-                logger.debug(f"Strong uptrend momentum bonus applied to {strong_uptrend_momentum.sum()} stocks")
-        
-        # BONUS 7: MARKET STATE VALUE OPPORTUNITY (max 2 points)
-        # Stock in PULLBACK state with low position score (value opportunity)
-        if 'market_state' in df.columns and 'position_score' in df.columns:
-            pullback_value = (
-                valid_scores &
-                (df['market_state'] == 'PULLBACK') &
-                (df['position_score'] < 30)
-            )
-            
-            if pullback_value.any():
-                market_state_bonus[pullback_value] = 2
-                df.loc[pullback_value, 'bonus_reasons'] += 'PullbackValue(+2) '
-                logger.debug(f"Pullback value opportunity bonus applied to {pullback_value.sum()} stocks")
-        
-        # PENALTY PATTERNS (negative bonuses)
-        penalty = pd.Series(0, index=df.index, dtype=float)
-        
-        # Penalty 1: Divergence (high score components but low others)
-        if all(col in df.columns for col in ['momentum_score', 'volume_score']):
-            divergence = (
-                valid_scores &
-                ((df['momentum_score'] > 80) & (df['volume_score'] < 30)) |
-                ((df['momentum_score'] < 30) & (df['volume_score'] > 80))
-            )
-            
-            if divergence.any():
-                penalty[divergence] = -2
-                df.loc[divergence, 'bonus_reasons'] += 'Divergence(-2) '
-                logger.debug(f"Divergence penalty applied to {divergence.sum()} stocks")
-        
-        # Penalty 2: Low confidence scores
-        if 'confidence_score' in df.columns:
-            low_confidence = (
-                valid_scores &
-                (df['confidence_score'] < 30) &
-                (df['master_score'] > 70)  # High score but low confidence
-            )
-            
-            if low_confidence.any():
-                penalty[low_confidence] = -3
-                df.loc[low_confidence, 'bonus_reasons'] += 'LowConfidence(-3) '
-                logger.debug(f"Low confidence penalty applied to {low_confidence.sum()} stocks")
-        
-        # CALCULATE TOTAL BONUS
-        # Sum all bonuses (including negative)
-        total_bonus = (
-            perfect_alignment_bonus +
-            momentum_bonus +
-            breakout_bonus +
-            volume_bonus +
-            recovery_bonus +
-            market_state_bonus +
-            penalty
-        )
-        
-        # Cap total bonus to prevent score inflation
-        MAX_POSITIVE_BONUS = 10
-        MAX_NEGATIVE_PENALTY = -5
-        
-        total_bonus = total_bonus.clip(MAX_NEGATIVE_PENALTY, MAX_POSITIVE_BONUS)
-        
-        # Apply bonuses only to valid scores
-        df.loc[valid_scores, 'bonus_points'] = total_bonus[valid_scores]
-        
-        # Calculate final score with bonuses
-        df['master_score_before_bonus'] = df['master_score'].copy()
-        df.loc[valid_scores, 'master_score'] = (
-            df.loc[valid_scores, 'master_score'] + total_bonus[valid_scores]
-        ).clip(0, 100)
-        
-        # SPECIAL ADJUSTMENTS (applied after bonuses)
-        # Market cap adjustments
-        if 'category' in df.columns:
-            # Mega caps with high scores get stability bonus
-            mega_caps = df['category'] == 'Mega Cap'
-            mega_high = mega_caps & valid_scores & (df['master_score'] > 80)
-            if mega_high.any():
-                df.loc[mega_high, 'master_score'] = np.minimum(
-                    df.loc[mega_high, 'master_score'] + 2, 
-                    100
-                )
-                df.loc[mega_high, 'bonus_reasons'] += 'MegaCap(+2) '
-            
-            # Penny stocks with extreme scores get capped
-            penny_stocks = df['category'].isin(['Micro Cap', 'Small Cap'])
-            penny_extreme = penny_stocks & valid_scores & (df['master_score'] > 90)
-            if penny_extreme.any():
-                df.loc[penny_extreme, 'master_score'] = np.minimum(
-                    df.loc[penny_extreme, 'master_score'],
-                    88  # Cap at 88
-                )
-                df.loc[penny_extreme, 'bonus_reasons'] += 'PennyCap(capped) '
-        
-        # COMPREHENSIVE LOGGING
-        bonuses_applied = (df['bonus_points'] != 0).sum()
-        
-        if bonuses_applied > 0:
-            logger.info(f"Smart bonuses applied to {bonuses_applied} stocks")
-            
-            # Bonus distribution
-            positive_bonuses = (df['bonus_points'] > 0).sum()
-            negative_penalties = (df['bonus_points'] < 0).sum()
-            
-            logger.info(f"Bonus distribution: {positive_bonuses} bonuses, {negative_penalties} penalties")
-            
-            # Average bonus impact
-            avg_bonus = df.loc[df['bonus_points'] != 0, 'bonus_points'].mean()
-            max_bonus = df['bonus_points'].max()
-            min_bonus = df['bonus_points'].min()
-            
-            logger.debug(f"Bonus impact - Avg: {avg_bonus:.1f}, Max: {max_bonus:.1f}, Min: {min_bonus:.1f}")
-            
-            # Score changes
-            score_changes = df.loc[valid_scores, 'master_score'] - df.loc[valid_scores, 'master_score_before_bonus']
-            if (score_changes != 0).any():
-                avg_change = score_changes[score_changes != 0].mean()
-                logger.debug(f"Average score change from bonuses: {avg_change:.1f} points")
-            
-            # Top bonus recipients
-            if 'ticker' in df.columns:
-                top_bonus = df.nlargest(3, 'bonus_points')
-                if len(top_bonus) > 0:
-                    logger.debug("Top bonus recipients:")
-                    for _, row in top_bonus.iterrows():
-                        if row['bonus_points'] > 0:
-                            logger.debug(f"  {row['ticker']}: +{row['bonus_points']:.1f} ({row['bonus_reasons'].strip()})")
-        else:
-            logger.info("No stocks qualified for smart bonuses")
-        
-        # Verify score integrity
-        if (df['master_score'] > 100).any():
-            over_100 = (df['master_score'] > 100).sum()
-            logger.error(f"ERROR: {over_100} stocks have scores > 100 after bonuses!")
-            df['master_score'] = df['master_score'].clip(0, 100)
-        
-        if (df['master_score'] < 0).any():
-            below_0 = (df['master_score'] < 0).sum()
-            logger.error(f"ERROR: {below_0} stocks have scores < 0 after bonuses!")
-            df['master_score'] = df['master_score'].clip(0, 100)
+        weights = np.array([
+            CONFIG.POSITION_WEIGHT,
+            CONFIG.VOLUME_WEIGHT,
+            CONFIG.MOMENTUM_WEIGHT,
+            CONFIG.ACCELERATION_WEIGHT,
+            CONFIG.BREAKOUT_WEIGHT,
+            CONFIG.RVOL_WEIGHT
+        ])
+        
+        df['master_score'] = np.dot(scores_matrix, weights).clip(0, 100)
+        
+        # Calculate ranks
+        df['rank'] = df['master_score'].rank(method='first', ascending=False, na_option='bottom')
+        df['rank'] = df['rank'].fillna(len(df) + 1).astype(int)
+        
+        df['percentile'] = df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
+        df['percentile'] = df['percentile'].fillna(0)
+        
+        # Calculate category-specific ranks
+        df = RankingEngine._calculate_category_ranks(df)
+        
+        logger.info(f"Ranking complete: {len(df)} stocks processed")
         
         return df
 
     @staticmethod
-    def _calculate_category_ranks(df: pd.DataFrame) -> pd.DataFrame:
+    def _safe_rank(series: pd.Series, pct: bool = True, ascending: bool = True) -> pd.Series:
         """
-        Calculate comprehensive category-based rankings with full error handling.
-        FIXED: Fully vectorized, handles all edge cases, provides multiple metrics.
+        Safely ranks a series, handling NaNs and infinite values to prevent errors.
         
-        Category Ranking Philosophy:
-        - Ranks within peer groups (Large Cap, Mid Cap, etc.)
-        - Provides both rank and percentile
-        - Handles small categories intelligently
-        - Adds category statistics for context
-        - Size-adjusted rankings for fairness
-        - Completely vectorized (no loops)
-        
-        Outputs:
-        - category_rank: Rank within category (1 = best)
-        - category_percentile: Percentile within category (100 = best)
-        - category_size: Number of stocks in category
-        - category_decile: Which decile within category (1-10)
-        - category_relative_score: Score vs category average
-        - peer_group_rank: Rank within similar-sized categories
+        Args:
+            series (pd.Series): The series to rank.
+            pct (bool): If True, returns percentile ranks (0-100).
+            ascending (bool): The order for ranking.
+            
+        Returns:
+            pd.Series: A new series with the calculated ranks.
         """
-        # Don't modify original
-        df = df.copy()
+        # FIX: Return proper defaults instead of NaN series
+        if series is None or series.empty:
+            return pd.Series(dtype=float)
         
-        # Initialize all category columns with NaN
-        category_columns = [
-            'category_rank',
-            'category_percentile', 
-            'category_size',
-            'category_decile',
-            'category_relative_score',
-            'peer_group_rank',
-            'category_avg_score',
-            'category_median_score',
-            'category_std_score'
+        # Replace inf values with NaN
+        series = series.replace([np.inf, -np.inf], np.nan)
+        
+        # Count valid values
+        valid_count = series.notna().sum()
+        if valid_count == 0:
+            return pd.Series(50, index=series.index)  # FIX: Return 50 default
+        
+        # Rank with proper parameters
+        if pct:
+            ranks = series.rank(pct=True, ascending=ascending, na_option='bottom') * 100
+            ranks = ranks.fillna(0 if ascending else 100)
+        else:
+            ranks = series.rank(ascending=ascending, method='min', na_option='bottom')
+            ranks = ranks.fillna(valid_count + 1)
+        
+        return ranks
+
+    @staticmethod
+    def _calculate_position_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate position score from 52-week range (DO NOT MODIFY LOGIC)"""
+        # FIX: Initialize with neutral score 50, not NaN
+        position_score = pd.Series(50, index=df.index, dtype=float)
+        
+        # Check required columns
+        has_from_low = 'from_low_pct' in df.columns and df['from_low_pct'].notna().any()
+        has_from_high = 'from_high_pct' in df.columns and df['from_high_pct'].notna().any()
+        
+        if not has_from_low and not has_from_high:
+            logger.warning("No position data available, using neutral position scores")
+            return position_score
+        
+        # Get data with defaults
+        from_low = df['from_low_pct'].fillna(50) if has_from_low else pd.Series(50, index=df.index)
+        from_high = df['from_high_pct'].fillna(-50) if has_from_high else pd.Series(-50, index=df.index)
+        
+        # Rank components
+        if has_from_low:
+            rank_from_low = RankingEngine._safe_rank(from_low, pct=True, ascending=True)
+        else:
+            rank_from_low = pd.Series(50, index=df.index)
+        
+        if has_from_high:
+            # from_high is negative, less negative = closer to high = better
+            rank_from_high = RankingEngine._safe_rank(from_high, pct=True, ascending=False)
+        else:
+            rank_from_high = pd.Series(50, index=df.index)
+        
+        # Combined position score (DO NOT MODIFY WEIGHTS)
+        position_score = (rank_from_low * 0.6 + rank_from_high * 0.4)
+        
+        return position_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate comprehensive volume score"""
+        # FIX: Start with default 50, not NaN
+        volume_score = pd.Series(50, index=df.index, dtype=float)
+        
+        # Volume ratio columns with weights
+        vol_cols = [
+            ('vol_ratio_1d_90d', 0.20),
+            ('vol_ratio_7d_90d', 0.20),
+            ('vol_ratio_30d_90d', 0.20),
+            ('vol_ratio_30d_180d', 0.15),
+            ('vol_ratio_90d_180d', 0.25)
         ]
         
-        for col in category_columns:
-            df[col] = np.nan
+        # Calculate weighted score
+        total_weight = 0
+        weighted_score = pd.Series(0, index=df.index, dtype=float)
         
-        # Check if category column exists
-        if 'category' not in df.columns:
-            logger.warning("No 'category' column found, skipping category rankings")
-            return df
+        for col, weight in vol_cols:
+            if col in df.columns and df[col].notna().any():
+                col_rank = RankingEngine._safe_rank(df[col], pct=True, ascending=True)
+                weighted_score += col_rank * weight
+                total_weight += weight
         
-        # Check if master_score exists
-        if 'master_score' not in df.columns:
-            logger.warning("No 'master_score' column found, skipping category rankings")
-            return df
+        if total_weight > 0:
+            volume_score = weighted_score / total_weight
+        else:
+            logger.warning("No volume ratio data available, using neutral scores")
+        
+        # FIX: Don't set to NaN, keep default 50
+        # Removed the aggressive NaN masking logic from V2
+        
+        return volume_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_momentum_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate momentum score based on returns"""
+        # FIX: Start with default 50
+        momentum_score = pd.Series(50, index=df.index, dtype=float)
+        
+        if 'ret_30d' not in df.columns or df['ret_30d'].notna().sum() == 0:
+            # Fallback to 7-day returns
+            if 'ret_7d' in df.columns and df['ret_7d'].notna().any():
+                ret_7d = df['ret_7d'].fillna(0)
+                momentum_score = RankingEngine._safe_rank(ret_7d, pct=True, ascending=True)
+                logger.info("Using 7-day returns for momentum score")
+            else:
+                logger.warning("No return data available for momentum calculation")
+            
+            return momentum_score.clip(0, 100)
+        
+        # Primary: 30-day returns
+        ret_30d = df['ret_30d'].fillna(0)
+        momentum_score = RankingEngine._safe_rank(ret_30d, pct=True, ascending=True)
+        
+        # Add consistency bonus
+        if all(col in df.columns for col in ['ret_7d', 'ret_30d']):
+            consistency_bonus = pd.Series(0, index=df.index, dtype=float)
+            
+            # Both positive
+            all_positive = (df['ret_7d'] > 0) & (df['ret_30d'] > 0)
+            consistency_bonus[all_positive] = 5
+            
+            # Accelerating returns
+            with np.errstate(divide='ignore', invalid='ignore'):
+                daily_ret_7d = np.where(df['ret_7d'] != 0, df['ret_7d'] / 7, 0)
+                daily_ret_30d = np.where(df['ret_30d'] != 0, df['ret_30d'] / 30, 0)
+            
+            accelerating = all_positive & (daily_ret_7d > daily_ret_30d)
+            consistency_bonus[accelerating] = 10
+            
+            # FIX: Use simpler approach, no complex masking
+            momentum_score = (momentum_score + consistency_bonus).clip(0, 100)
+        
+        return momentum_score
+
+    @staticmethod
+    def _calculate_acceleration_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate if momentum is accelerating with proper division handling"""
+        # FIX: Start with default 50, not NaN
+        acceleration_score = pd.Series(50, index=df.index, dtype=float)
+        
+        req_cols = ['ret_1d', 'ret_7d', 'ret_30d']
+        available_cols = [col for col in req_cols if col in df.columns]
+        
+        if len(available_cols) < 2:
+            logger.warning("Insufficient return data for acceleration calculation")
+            return acceleration_score
+        
+        # Get return data with defaults
+        ret_1d = df['ret_1d'].fillna(0) if 'ret_1d' in df.columns else pd.Series(0, index=df.index)
+        ret_7d = df['ret_7d'].fillna(0) if 'ret_7d' in df.columns else pd.Series(0, index=df.index)
+        ret_30d = df['ret_30d'].fillna(0) if 'ret_30d' in df.columns else pd.Series(0, index=df.index)
+        
+        # Calculate daily averages with safe division
+        with np.errstate(divide='ignore', invalid='ignore'):
+            avg_daily_1d = ret_1d  # Already daily
+            avg_daily_7d = np.where(ret_7d != 0, ret_7d / 7, 0)
+            avg_daily_30d = np.where(ret_30d != 0, ret_30d / 30, 0)
+        
+        if all(col in df.columns for col in req_cols):
+            # Perfect acceleration
+            perfect = (avg_daily_1d > avg_daily_7d) & (avg_daily_7d > avg_daily_30d) & (ret_1d > 0)
+            acceleration_score[perfect] = 100
+            
+            # Good acceleration
+            good = (~perfect) & (avg_daily_1d > avg_daily_7d) & (ret_1d > 0)
+            acceleration_score[good] = 80
+            
+            # Moderate
+            moderate = (~perfect) & (~good) & (ret_1d > 0)
+            acceleration_score[moderate] = 60
+            
+            # Deceleration
+            slight_decel = (ret_1d <= 0) & (ret_7d > 0)
+            acceleration_score[slight_decel] = 40
+            
+            strong_decel = (ret_1d <= 0) & (ret_7d <= 0)
+            acceleration_score[strong_decel] = 20
+        
+        return acceleration_score
+
+    @staticmethod
+    def _calculate_breakout_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate breakout probability"""
+        # FIX: Start with default 50
+        breakout_score = pd.Series(50, index=df.index, dtype=float)
+        
+        # Factor 1: Distance from high (40% weight)
+        if 'from_high_pct' in df.columns:
+            # from_high_pct is negative, closer to 0 = closer to high
+            distance_from_high = -df['from_high_pct'].fillna(-50)
+            distance_factor = (100 - distance_from_high).clip(0, 100)
+        else:
+            distance_factor = pd.Series(50, index=df.index)
+        
+        # Factor 2: Volume surge (40% weight)
+        volume_factor = pd.Series(50, index=df.index)
+        if 'vol_ratio_7d_90d' in df.columns:
+            vol_ratio = df['vol_ratio_7d_90d'].fillna(1.0)
+            volume_factor = ((vol_ratio - 1) * 100).clip(0, 100)
+        
+        # Factor 3: Trend support (20% weight)
+        trend_factor = pd.Series(0, index=df.index, dtype=float)
+        
+        if 'price' in df.columns:
+            current_price = df['price']
+            trend_count = 0
+            
+            for sma_col, points in [('sma_20d', 33.33), ('sma_50d', 33.33), ('sma_200d', 33.34)]:
+                if sma_col in df.columns:
+                    above_sma = (current_price > df[sma_col]).fillna(False)
+                    trend_factor += above_sma.astype(float) * points
+                    trend_count += 1
+            
+            if trend_count > 0 and trend_count < 3:
+                trend_factor = trend_factor * (3 / trend_count)
+        
+        trend_factor = trend_factor.clip(0, 100)
+        
+        # FIX: Simple combination without complex NaN masking
+        breakout_score = (
+            distance_factor * 0.4 +
+            volume_factor * 0.4 +
+            trend_factor * 0.2
+        )
+        
+        return breakout_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_rvol_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate RVOL-based score"""
+        if 'rvol' not in df.columns:
+            return pd.Series(50, index=df.index)
+        
+        rvol = df['rvol'].fillna(1.0)
+        rvol_score = pd.Series(50, index=df.index, dtype=float)
+        
+        # Score based on RVOL ranges
+        rvol_score[rvol > 10] = 95
+        rvol_score[(rvol > 5) & (rvol <= 10)] = 90
+        rvol_score[(rvol > 3) & (rvol <= 5)] = 85
+        rvol_score[(rvol > 2) & (rvol <= 3)] = 80
+        rvol_score[(rvol > 1.5) & (rvol <= 2)] = 70
+        rvol_score[(rvol > 1.2) & (rvol <= 1.5)] = 60
+        rvol_score[(rvol > 0.8) & (rvol <= 1.2)] = 50
+        rvol_score[(rvol > 0.5) & (rvol <= 0.8)] = 40
+        rvol_score[(rvol > 0.3) & (rvol <= 0.5)] = 30
+        rvol_score[rvol <= 0.3] = 20
+        
+        return rvol_score
+
+    @staticmethod
+    def _calculate_trend_quality(df: pd.DataFrame) -> pd.Series:
+        """Calculate trend quality based on SMA alignment"""
+        trend_quality = pd.Series(50, index=df.index, dtype=float)
+        
+        if 'price' not in df.columns:
+            return trend_quality
+        
+        current_price = df['price']
+        sma_cols = ['sma_20d', 'sma_50d', 'sma_200d']
+        available_smas = [col for col in sma_cols if col in df.columns]
+        
+        if not available_smas:
+            return trend_quality
+        
+        # Check alignment
+        conditions = pd.DataFrame(index=df.index)
+        
+        for sma_col in available_smas:
+            conditions[f'above_{sma_col}'] = (current_price > df[sma_col]).fillna(False)
+        
+        # Calculate score based on alignment
+        total_conditions = len(available_smas)
+        
+        if total_conditions == 3:
+            # All SMAs available
+            all_above = conditions.all(axis=1)
+            all_below = (~conditions).all(axis=1)
+            
+            # Perfect uptrend: price > 20 > 50 > 200
+            if 'sma_20d' in df.columns and 'sma_50d' in df.columns and 'sma_200d' in df.columns:
+                perfect_uptrend = (
+                    (current_price > df['sma_20d']) &
+                    (df['sma_20d'] > df['sma_50d']) &
+                    (df['sma_50d'] > df['sma_200d'])
+                )
+                trend_quality[perfect_uptrend] = 100
+            
+            trend_quality[all_above & ~perfect_uptrend] = 85
+            trend_quality[conditions.sum(axis=1) == 2] = 70
+            trend_quality[conditions.sum(axis=1) == 1] = 55
+            trend_quality[all_below] = 20
+        else:
+            # Partial SMAs available
+            proportion_above = conditions.sum(axis=1) / total_conditions
+            trend_quality = (proportion_above * 80 + 20).round()
+        
+        return trend_quality.clip(0, 100)
+
+    @staticmethod
+    def _calculate_long_term_strength(df: pd.DataFrame) -> pd.Series:
+        """Calculate long-term strength based on multiple timeframe returns"""
+        strength_score = pd.Series(50, index=df.index, dtype=float)
+        
+        # Get available return columns
+        return_cols = ['ret_3m', 'ret_6m', 'ret_1y']
+        available_returns = [col for col in return_cols if col in df.columns]
+        
+        if not available_returns:
+            return strength_score
+        
+        # Calculate average return
+        returns_df = df[available_returns].fillna(0)
+        avg_return = returns_df.mean(axis=1)
+        
+        # Score based on average return
+        strength_score[avg_return > 50] = 90
+        strength_score[(avg_return > 30) & (avg_return <= 50)] = 80
+        strength_score[(avg_return > 15) & (avg_return <= 30)] = 70
+        strength_score[(avg_return > 5) & (avg_return <= 15)] = 60
+        strength_score[(avg_return > 0) & (avg_return <= 5)] = 50
+        strength_score[(avg_return > -10) & (avg_return <= 0)] = 40
+        strength_score[(avg_return > -25) & (avg_return <= -10)] = 30
+        strength_score[avg_return <= -25] = 20
+        
+        return strength_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
+        """Calculate liquidity score based on trading volume"""
+        liquidity_score = pd.Series(50, index=df.index, dtype=float)
+        
+        if 'volume_30d' in df.columns and 'price' in df.columns:
+            # Calculate dollar volume
+            dollar_volume = df['volume_30d'].fillna(0) * df['price'].fillna(0)
+            
+            # Rank based on dollar volume
+            liquidity_score = RankingEngine._safe_rank(dollar_volume, pct=True, ascending=True)
+        
+        return liquidity_score.clip(0, 100)
+
+    @staticmethod
+    def _calculate_category_ranks(df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate percentile ranks within each category"""
+        # FIX: Initialize with proper defaults, not NaN
+        df['category_rank'] = 9999
+        df['category_percentile'] = 0.0
         
         # Get unique categories
-        categories = df['category'].unique()
-        valid_categories = [c for c in categories if pd.notna(c)]
-        
-        if len(valid_categories) == 0:
-            logger.warning("No valid categories found")
-            return df
-        
-        logger.info(f"Calculating category ranks for {len(valid_categories)} categories")
-        
-        # VECTORIZED CATEGORY RANKING - No loops!
-        # Use groupby for all operations at once
-        
-        # 1. Basic category rankings
-        category_groups = df.groupby('category')['master_score']
-        
-        # Rank within category (1 = best)
-        df['category_rank'] = category_groups.rank(
-            method='first',  # First occurrence wins ties
-            ascending=False,  # Higher score = better rank
-            na_option='bottom'  # NaN scores go to bottom
-        )
-        
-        # Percentile within category (100 = best)
-        df['category_percentile'] = category_groups.rank(
-            method='average',  # Average for ties
-            ascending=True,  # Lower score = lower percentile
-            pct=True,  # Return as percentile
-            na_option='bottom'
-        ) * 100
-        
-        # 2. Category size (for context)
-        category_sizes = df.groupby('category').size()
-        df['category_size'] = df['category'].map(category_sizes)
-        
-        # 3. Category statistics
-        category_stats = df.groupby('category')['master_score'].agg([
-            ('category_avg_score', 'mean'),
-            ('category_median_score', 'median'),
-            ('category_std_score', 'std'),
-            ('category_min_score', 'min'),
-            ('category_max_score', 'max'),
-            ('category_valid_count', 'count')
-        ])
-        
-        # Map statistics back to dataframe
-        for stat_col in category_stats.columns:
-            df[stat_col] = df['category'].map(category_stats[stat_col])
-        
-        # 4. Relative score vs category average
-        df['category_relative_score'] = np.where(
-            df['category_std_score'] > 0,
-            (df['master_score'] - df['category_avg_score']) / df['category_std_score'],
-            0
-        )
-        
-        # 5. Decile within category (1-10, 1 = best)
-        df['category_decile'] = pd.cut(
-            df['category_percentile'],
-            bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-            labels=[10, 9, 8, 7, 6, 5, 4, 3, 2, 1],  # Reverse order (1 = best)
-            include_lowest=True
-        )
-        
-        # 6. Handle small categories (less than 10 stocks)
-        small_categories = df['category_size'] < 10
-        if small_categories.any():
-            # Mark small category ranks as less reliable
-            df.loc[small_categories, 'category_rank_reliability'] = 'Low'
-            logger.info(f"{small_categories.sum()} stocks in small categories (<10 stocks)")
-        else:
-            df['category_rank_reliability'] = 'Normal'
-        
-        # Very small categories (less than 3 stocks)
-        tiny_categories = df['category_size'] < 3
-        if tiny_categories.any():
-            # Don't rank if category too small
-            df.loc[tiny_categories, 'category_rank_reliability'] = 'Insufficient'
-            logger.warning(f"{tiny_categories.sum()} stocks in tiny categories (<3 stocks)")
-        
-        # 7. Peer group ranking (compare similar market cap categories)
-        # Define peer groups
-        peer_groups = {
-            'Large_Mega': ['Large Cap', 'Mega Cap'],
-            'Mid': ['Mid Cap'],
-            'Small_Micro': ['Small Cap', 'Micro Cap']
-        }
-        
-        df['peer_group'] = 'Other'  # Default
-        for group_name, categories_in_group in peer_groups.items():
-            mask = df['category'].isin(categories_in_group)
-            df.loc[mask, 'peer_group'] = group_name
-        
-        # Rank within peer groups
-        peer_groups_data = df.groupby('peer_group')['master_score']
-        df['peer_group_rank'] = peer_groups_data.rank(
-            method='first',
-            ascending=False,
-            na_option='bottom'
-        )
-        
-        df['peer_group_size'] = df.groupby('peer_group')['peer_group'].transform('size')
-        
-        df['peer_group_percentile'] = peer_groups_data.rank(
-            method='average',
-            ascending=True,
-            pct=True,
-            na_option='bottom'
-        ) * 100
-        
-        # 8. Category performance tiers
-        # Classify categories by average score
-        category_performance = category_stats['category_avg_score'].to_dict()
-        
-        def classify_category_performance(cat):
-            if cat not in category_performance or pd.isna(category_performance[cat]):
-                return 'Unknown'
-            avg_score = category_performance[cat]
-            if avg_score >= 70:
-                return 'Strong'
-            elif avg_score >= 50:
-                return 'Average'
-            elif avg_score >= 30:
-                return 'Weak'
-            else:
-                return 'Very Weak'
-        
-        df['category_performance'] = df['category'].apply(classify_category_performance)
-        
-        # 9. Best in category flags
-        # Mark top stocks in each category
-        df['is_category_leader'] = df['category_rank'] == 1
-        df['is_category_top5'] = df['category_rank'] <= 5
-        df['is_category_top10'] = df['category_rank'] <= 10
-        df['is_category_top_decile'] = df['category_decile'] == 1
-        
-        # 10. Category momentum (if historical data available)
-        if 'momentum_score' in df.columns:
-            category_momentum = df.groupby('category')['momentum_score'].mean()
-            df['category_momentum'] = df['category'].map(category_momentum)
+        if 'category' in df.columns:
+            categories = df['category'].unique()
             
-            # Flag if stock momentum better than category
-            df['beats_category_momentum'] = df['momentum_score'] > df['category_momentum']
-        
-        # COMPREHENSIVE LOGGING
-        for category in valid_categories:
-            cat_data = df[df['category'] == category]
-            valid_scores = cat_data['master_score'].notna().sum()
-            
-            if valid_scores > 0:
-                avg_score = cat_data['master_score'].mean()
-                median_score = cat_data['master_score'].median()
-                
-                logger.debug(f"{category}: {valid_scores} stocks, "
-                            f"Avg: {avg_score:.1f}, Median: {median_score:.1f}")
-        
-        # Log category distribution
-        category_dist = df['category'].value_counts()
-        logger.info("Category distribution:")
-        for cat, count in category_dist.head().items():
-            logger.info(f"  {cat}: {count} stocks")
-        
-        # Find category leaders
-        if 'ticker' in df.columns:
-            leaders = df[df['is_category_leader'] == True]
-            if len(leaders) > 0:
-                logger.info(f"Category leaders identified: {len(leaders)}")
-                for _, leader in leaders.head(5).iterrows():
-                    if pd.notna(leader['master_score']):
-                        logger.debug(f"  {leader['category']}: {leader['ticker']} "
-                                   f"(Score: {leader['master_score']:.1f})")
-        
-        # Verify rankings integrity
-        for category in valid_categories:
-            cat_mask = df['category'] == category
-            cat_ranks = df.loc[cat_mask, 'category_rank']
-            
-            if cat_ranks.notna().any():
-                # Check for duplicate ranks
-                rank_counts = cat_ranks.value_counts()
-                duplicates = rank_counts[rank_counts > 1]
-                if len(duplicates) > 0:
-                    logger.error(f"Duplicate ranks in {category}: {duplicates.to_dict()}")
-                
-                # Check for gaps in ranking
-                valid_ranks = cat_ranks.dropna().sort_values()
-                expected_ranks = range(1, len(valid_ranks) + 1)
-                if not all(r in valid_ranks.values for r in expected_ranks):
-                    logger.warning(f"Ranking gaps detected in {category}")
-        
-        # Performance statistics
-        logger.info("Category ranking summary:")
-        logger.info(f"  Categories processed: {len(valid_categories)}")
-        logger.info(f"  Stocks with category ranks: {df['category_rank'].notna().sum()}")
-        logger.info(f"  Category leaders: {df['is_category_leader'].sum()}")
-        logger.info(f"  Top decile stocks: {df['is_category_top_decile'].sum()}")
-        
-        # Small category warning
-        small_cat_count = (df['category_size'] < 10).sum()
-        if small_cat_count > 0:
-            small_cat_pct = (small_cat_count / len(df)) * 100
-            logger.warning(f"{small_cat_count} stocks ({small_cat_pct:.1f}%) in small categories")
-        
-        # Cross-category comparison
-        if len(valid_categories) > 1:
-            best_category = df.groupby('category')['master_score'].mean().idxmax()
-            worst_category = df.groupby('category')['master_score'].mean().idxmin()
-            
-            if pd.notna(best_category) and pd.notna(worst_category):
-                logger.info(f"Best performing category: {best_category}")
-                logger.info(f"Worst performing category: {worst_category}")
+            # Rank within each category
+            for category in categories:
+                if category != 'Unknown':
+                    mask = df['category'] == category
+                    cat_df = df[mask]
+                    
+                    if len(cat_df) > 0:
+                        # Calculate ranks
+                        cat_ranks = cat_df['master_score'].rank(method='first', ascending=False, na_option='bottom')
+                        df.loc[mask, 'category_rank'] = cat_ranks.astype(int)
+                        
+                        # Calculate percentiles
+                        cat_percentiles = cat_df['master_score'].rank(pct=True, ascending=True, na_option='bottom') * 100
+                        df.loc[mask, 'category_percentile'] = cat_percentiles
         
         return df
+
 # ============================================
 # PATTERN DETECTION ENGINE - FULLY OPTIMIZED & FIXED
 # ============================================
@@ -5404,7 +1658,6 @@ class PatternDetector:
     def _get_all_pattern_definitions(df: pd.DataFrame) -> List[Tuple[str, pd.Series]]:
         """
         Defines all 41 patterns using vectorized boolean masks.
-        FIXED: Uses raw data instead of scores that don't exist yet.
         Returns list of (pattern_name, mask) tuples.
         """
         patterns = []
@@ -5423,217 +1676,143 @@ class PatternDetector:
                 return pd.Series(mask, index=df.index)
             else:
                 return pd.Series(mask, index=df.index)
-    
+
         # ========== MOMENTUM & LEADERSHIP PATTERNS (1-11) ==========
         
-        # 1. Category Leader - FIXED: category_percentile might not exist yet
-        # The column exists, but we'll validate the threshold is working
-        cat_percentile = get_col_safe('category_percentile', 0)
-        threshold = CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90)
-        
-        # Create mask
-        mask = ensure_series(cat_percentile >= threshold)
-        
-        # Log for debugging (optional - remove in production)
-        leaders_count = mask.sum()
-        if leaders_count > 0:
-            logger.debug(f"CAT LEADER: Found {leaders_count} category leaders (threshold: {threshold})")
-        
+        # 1. Category Leader - Top in its market cap category
+        mask = ensure_series(get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('category_leader', 90))
         patterns.append(('🐱 CAT LEADER', mask))
         
-        # 2. Hidden Gem - FIXED: percentile might not exist yet
-        mask = ensure_series(
+        # 2. Hidden Gem - High category rank but low overall rank
+        mask = ensure_series((
             (get_col_safe('category_percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('hidden_gem', 80)) & 
             (get_col_safe('percentile', 100) < 70)
-        )
+        ))
         patterns.append(('💎 HIDDEN GEM', mask))
         
-        # 3. Institutional - FIXED: Use raw volume ratios
+        # 3. Institutional - Smart money accumulation detection
         if all(col in df.columns for col in ['vol_ratio_90d_180d', 'vol_ratio_30d_90d', 'ret_3m', 'from_low_pct', 'from_high_pct']):
             mask = (
-                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &
-                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &
-                (get_col_safe('ret_3m', 0).between(5, 25)) &
-                (get_col_safe('from_low_pct', 0) > 30) &
-                (get_col_safe('from_high_pct', -100) > -30)
+                (get_col_safe('vol_ratio_90d_180d', 1) > 1.2) &                # Long-term volume increase
+                (get_col_safe('vol_ratio_30d_90d', 1).between(0.9, 1.1)) &     # Steady, not spiky
+                (get_col_safe('ret_3m', 0).between(5, 25)) &                   # Gradual appreciation
+                (get_col_safe('from_low_pct', 0) > 30) &                       # Off lows
+                (get_col_safe('from_high_pct', -100) > -30)                    # Not extended
             )
         else:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🏦 INSTITUTIONAL', mask))
         
-        # 4. Volume Explosion - Works with raw data
+        # 4. Volume Explosion - Extreme volume surge
         mask = get_col_safe('rvol', 0) > 3
         patterns.append(('⚡ VOL EXPLOSION', mask))
         
-        # 5. Market Leader - FIXED: percentile might not exist
-        if 'percentile' in df.columns:
-            mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
-        else:
-            mask = pd.Series(False, index=df.index)
+        # 5. Market Leader - Top overall percentile
+        mask = get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('market_leader', 95)
         patterns.append(('👑 MARKET LEADER', mask))
         
-        # 6. Momentum Wave - FIXED: Use return data directly
-        if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'rvol']):
-            ret_7d = get_col_safe('ret_7d', 0)
-            ret_30d = get_col_safe('ret_30d', 0)
-            
-            # Calculate acceleration
-            with np.errstate(divide='ignore', invalid='ignore'):
-                daily_7d = ret_7d / 7
-                daily_30d = ret_30d / 30
-                accelerating = (daily_7d > daily_30d * 1.2)  # 20% faster pace
-            
-            mask = (
-                (ret_30d >= 15) &  # Strong 30-day momentum
-                (ret_7d >= 5) &    # Good 7-day momentum
-                accelerating &      # Acceleration confirmed
-                (get_col_safe('rvol', 1) > 1.5)  # Volume confirmation
-            )
-        else:
-            mask = pd.Series(False, index=df.index)
+        # 6. Momentum Wave - Combined momentum and acceleration
+        mask = (
+            (get_col_safe('momentum_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('momentum_wave', 75)) & 
+            (get_col_safe('acceleration_score', 0) >= 70)
+        )
         patterns.append(('🌊 MOMENTUM WAVE', mask))
         
-        # 7. Liquid Leader - FIXED: Check if liquidity_score exists
-        if 'liquidity_score' in df.columns and 'percentile' in df.columns:
-            mask = (
-                (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
-                (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
-            )
-        else:
-            # Use volume as proxy for liquidity
-            mask = (
-                (get_col_safe('volume_1d', 0) > df['volume_1d'].median() * 2) &
-                (get_col_safe('rvol', 1) > 1.5)
-            )
+        # 7. Liquid Leader - High liquidity and performance
+        mask = (
+            (get_col_safe('liquidity_score', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80)) & 
+            (get_col_safe('percentile', 0) >= CONFIG.PATTERN_THRESHOLDS.get('liquid_leader', 80))
+        )
         patterns.append(('💰 LIQUID LEADER', mask))
         
-        # 8. Premium Momentum Grade - FIXED: Use master_score if available
+        # 8. Premium Momentum Grade - Genetic momentum pattern
         try:
-            ret_1d = get_col_safe('ret_1d', 0)
-            ret_7d = get_col_safe('ret_7d', 0)
-            ret_30d = get_col_safe('ret_30d', 0)
+            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
             
-            # Build momentum DNA without master_score
+            # Genetic momentum template (successful pattern DNA)
             momentum_dna_score = (
+                # Gene 1: Acceleration consistency (25 points)
                 np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
+                
+                # Gene 2: Progressive strength (30 points) 
                 np.where(ret_7d > (ret_30d / 4), 30, 0) +
+                
+                # Gene 3: Volume confirmation (20 points)
                 np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
-                np.where(ret_30d > 20, 25, 0)  # Use return instead of score
+                
+                # Gene 4: Quality foundation (25 points)
+                np.where(get_col_safe('master_score', 0) >= 70, 25, 0)
             )
             
+            # Genetic pattern strength threshold
             mask = (
-                (momentum_dna_score >= 75) &
-                (get_col_safe('from_low_pct', 0) > 15) &
-                (get_col_safe('from_high_pct', 0) > -15) &
-                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)
+                (momentum_dna_score >= 75) &                     # Strong genetic match
+                (get_col_safe('from_low_pct', 0) > 15) &        # Not at bottom
+                (get_col_safe('from_high_pct', 0) > -15) &      # Room to run
+                (get_col_safe('vol_ratio_7d_90d', 1) > 1.1)     # Volume increasing
             )
-        except Exception:
+        except Exception as e:
             mask = pd.Series(False, index=df.index)
         patterns.append(('🔥 PREMIUM MOMENTUM', mask))
-
-        # 9. Entropy Compression - Volatility breakout prediction using information theory
-        # FIXED: Properly implements entropy compression detection with actual data structure
-        try:
-            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d', 'volume_1d', 'volume_30d', 'volume_90d', 'rvol']):
-                ret_1d = get_col_safe('ret_1d', 0)
-                ret_7d = get_col_safe('ret_7d', 0)
-                ret_30d = get_col_safe('ret_30d', 0)
-                
-                # FIXED: Calculate volatility compression (not rolling - we have point-in-time data)
-                # Entropy Metric 1: Return volatility compression
-                # Compare short-term vs long-term volatility using actual returns
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Daily equivalent volatility
-                    daily_vol_7d = np.abs(ret_7d / 7)    # Average daily volatility over 7 days
-                    daily_vol_30d = np.abs(ret_30d / 30)  # Average daily volatility over 30 days
-                    
-                    # Volatility compression: short-term vol < long-term vol (tightening range)
-                    volatility_compressed = (
-                        (daily_vol_7d < daily_vol_30d * 0.7) &  # 7-day vol is 30% lower than 30-day
-                        (daily_vol_7d < 2)  # And absolute volatility is low (< 2% daily)
-                    )
-                
-                # Entropy Metric 2: Volume stability (low entropy in volume)
-                volume_1d = get_col_safe('volume_1d', 0)
-                volume_30d = get_col_safe('volume_30d', 0)
-                volume_90d = get_col_safe('volume_90d', 0)
-                
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Volume consistency check
-                    vol_ratio_1d_30d = np.where(volume_30d > 0, volume_1d / volume_30d, 1)
-                    vol_ratio_30d_90d = np.where(volume_90d > 0, volume_30d / volume_90d, 1)
-                    
-                    # Stable volume = ratios close to 1 (low entropy)
-                    volume_stable = (
-                        (vol_ratio_1d_30d > 0.7) & (vol_ratio_1d_30d < 1.5) &  # Daily volume within normal range
-                        (vol_ratio_30d_90d > 0.8) & (vol_ratio_30d_90d < 1.2)   # Monthly volume stable
-                    )
-                
-                # Entropy Metric 3: Price range compression
-                high_52w = get_col_safe('high_52w', 0)
-                low_52w = get_col_safe('low_52w', 0)
-                price = get_col_safe('price', 0)
-                from_low_pct = get_col_safe('from_low_pct', 0)
-                
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    # Calculate 52-week range as percentage
-                    range_pct = np.where(low_52w > 0, ((high_52w - low_52w) / low_52w) * 100, 100)
-                    
-                    # Price compression: tight range + middle position
-                    price_compressed = (
-                        (range_pct < 50) &  # Less than 50% range in 52 weeks
-                        (from_low_pct > 30) & (from_low_pct < 70)  # In middle 40% of range
-                    )
-                
-                # Entropy Metric 4: Technical structure alignment (order from chaos)
-                sma_20d = get_col_safe('sma_20d', 0)
-                sma_50d = get_col_safe('sma_50d', 0)
-                sma_200d = get_col_safe('sma_200d', 0)
-                
-                # Price structure shows order (bullish alignment)
-                price_structure_aligned = (
-                    (price > sma_20d) &
-                    (sma_20d > sma_50d) &
-                    (sma_50d > sma_200d)
-                )
-                
-                # Catalyst Detection: Signs of energy building
-                rvol = get_col_safe('rvol', 1)
-                eps_change_pct = get_col_safe('eps_change_pct', 0)
-                vol_ratio_7d_90d = get_col_safe('vol_ratio_7d_90d', 1)
-                
-                # Calculate catalyst score (energy building up)
-                catalyst_indicators = (
-                    np.where(rvol > 1.2, 1, 0) +  # Volume picking up
-                    np.where(eps_change_pct > 10, 1, 0) +  # Earnings momentum
-                    np.where(vol_ratio_7d_90d > 1.1, 1, 0) +  # Recent volume trend
-                    np.where(ret_7d > 0, 1, 0)  # Positive recent momentum
-                )
-                
-                # FINAL ENTROPY COMPRESSION DETECTION
-                # Low entropy (compressed state) + energy building = potential breakout
-                mask = ensure_series(
-                    volatility_compressed &  # Volatility is compressed
-                    volume_stable &  # Volume patterns are stable
-                    price_compressed &  # Price range is tight
-                    price_structure_aligned &  # Technical structure is ordered
-                    (catalyst_indicators >= 2)  # At least 2 catalyst signals
-                )
-                
-                # Log detection stats for debugging
-                compression_count = mask.sum() if hasattr(mask, 'sum') else 0
-                if compression_count > 0:
-                    logger.debug(f"ENTROPY COMPRESSION: {compression_count} stocks detected")
-                    
-            else:
-                # Missing required columns
-                logger.warning("ENTROPY COMPRESSION: Missing required columns")
-                mask = pd.Series(False, index=df.index)
-                
-        except Exception as e:
-            logger.error(f"Error in ENTROPY COMPRESSION pattern: {str(e)}")
-            mask = pd.Series(False, index=df.index)
         
+        # 9. Entropy Compression - Volatility breakout prediction using information theory
+        try:
+            ret_1d, ret_7d, ret_30d = get_col_safe('ret_1d', 0), get_col_safe('ret_7d', 0), get_col_safe('ret_30d', 0)
+            
+            # Calculate information entropy metrics using Shannon entropy principles
+            with np.errstate(divide='ignore', invalid='ignore'):
+                # Price entropy (volatility normalized across timeframes)
+                daily_returns = np.array([
+                    np.abs(ret_1d),           # 1-day absolute return
+                    np.abs(ret_7d / 7),       # Daily pace over 7 days
+                    np.abs(ret_30d / 30)      # Daily pace over 30 days
+                ])
+                price_entropy = np.mean(daily_returns, axis=0)
+                
+                # Volume consistency entropy using standard deviation
+                vol_ratios = np.array([
+                    get_col_safe('vol_ratio_1d_90d', 1),
+                    get_col_safe('vol_ratio_7d_90d', 1), 
+                    get_col_safe('vol_ratio_30d_90d', 1)
+                ])
+                volume_entropy = np.std(vol_ratios, axis=0)
+                
+                # Combined entropy state
+                total_entropy = price_entropy + volume_entropy * 0.5
+            
+            # Entropy compression signature (low entropy = high order = breakout potential)
+            entropy_compression = (
+                (price_entropy < 1.2) &                          # Low price volatility state
+                (volume_entropy < 0.25) &                        # Consistent volume pattern
+                (total_entropy < 1.5) &                          # Combined low entropy
+                (get_col_safe('from_high_pct', 0) > -20) &       # Not collapsed from highs
+                (get_col_safe('from_low_pct', 0) > 25)           # Not at the bottom
+            )
+            
+            # Price structure order parameters (mathematical stability check)
+            price_structure_order = (
+                (get_col_safe('price', 0) > get_col_safe('sma_20d', 0) * 0.98) &
+                (get_col_safe('price', 0) < get_col_safe('sma_20d', 0) * 1.04) &  # Tight to 20-day trend
+                (get_col_safe('sma_20d', 0) > get_col_safe('sma_50d', 0)) &      # Trend alignment
+                (np.abs(get_col_safe('from_low_pct', 0) - 50) < 25)              # Middle range position
+            )
+            
+            # Catalyst potential scoring (100-point system)
+            catalyst_potential = (
+                np.where(get_col_safe('rvol', 1) > 1.1, 25, 0) +                # Volume activity (25 pts)
+                np.where(get_col_safe('eps_change_pct', 0) > 5, 30, 0) +         # EPS growth (30 pts)
+                np.where(ret_7d > 0, 25, 0) +                                    # Recent momentum (25 pts)
+                np.where(get_col_safe('vol_ratio_7d_90d', 1) > 1.15, 20, 0)     # Volume trend (20 pts)
+            )
+            
+            # Final entropy compression detection
+            mask = (
+                entropy_compression &                             # Low entropy state detected
+                price_structure_order &                          # Stable price structure
+                (catalyst_potential >= 50)                       # Sufficient breakout catalysts
+            )
+        except Exception as e:
+            mask = pd.Series(False, index=df.index)
         patterns.append(('🧩 ENTROPY COMPRESSION', mask))
         
         # 10. Velocity Breakout - Multi-timeframe momentum acceleration
@@ -5694,29 +1873,15 @@ class PatternDetector:
         patterns.append(('🌋 INSTITUTIONAL TSUNAMI', mask))
 
         # ========== FUNDAMENTAL PATTERNS (12-16) ==========
-    
-        # 12. Value Momentum - FIXED: Check master_score existence
+        
+        # 12. Value Momentum - Low PE with high score
         pe = get_col_safe('pe')
-        if 'master_score' in df.columns:
-            mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
-        else:
-            # Use returns as proxy for score
-            mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('ret_30d', 0) > 20)
+        mask = pe.notna() & (pe > 0) & (pe < 15) & (get_col_safe('master_score', 0) >= 70)
         patterns.append(('📈 VALUE MOMENTUM', mask))
         
-        # 13. Earnings Rocket - FIXED: acceleration_score doesn't exist
+        # 13. Earnings Rocket - High EPS growth with acceleration
         eps_change_pct = get_col_safe('eps_change_pct')
-        if 'acceleration_score' in df.columns:
-            mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
-        else:
-            # Calculate acceleration directly
-            if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'ret_30d']):
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    accel = (get_col_safe('ret_1d', 0) > get_col_safe('ret_7d', 0)/7) & \
-                           (get_col_safe('ret_7d', 0)/7 > get_col_safe('ret_30d', 0)/30)
-                mask = eps_change_pct.notna() & (eps_change_pct > 50) & accel
-            else:
-                mask = eps_change_pct.notna() & (eps_change_pct > 50)
+        mask = eps_change_pct.notna() & (eps_change_pct > 50) & (get_col_safe('acceleration_score', 0) >= 70)
         patterns.append(('🎯 EARNINGS ROCKET', mask))
 
         # 14. Quality Leader - Good PE, EPS growth, and percentile
@@ -5833,8 +1998,7 @@ class PatternDetector:
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
             mask = (
                 (get_col_safe('momentum_harmony', 0) == 4) & 
-                (get_col_safe('ret_30d', 0) > 20) &  # Use return data instead
-                (get_col_safe('rvol', 0) > 2)  # Add volume confirmation
+                (get_col_safe('master_score', 0) > 80)
             )
             patterns.append(('⛈️ PERFECT STORM', mask))
 
@@ -6202,7 +2366,7 @@ class PatternDetector:
         except Exception as e:
             logger.warning(f"Error in OVERSOLD QUALITY pattern: {e}")
             patterns.append(('💳 OVERSOLD QUALITY', pd.Series(False, index=df.index)))
-        
+
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
         
@@ -6568,18 +2732,17 @@ class LeadershipDensityEngine:
 # ============================================
 
 class MarketIntelligence:
-    """Professional market regime detection and sector analysis"""
+    """Advanced market analysis and regime detection"""
     
     @staticmethod
     def detect_market_regime(df: pd.DataFrame) -> Tuple[str, Dict[str, Any]]:
         """Detect current market regime with supporting data"""
         
         if df.empty:
-            return "NO DATA", {}
+            return "😴 NO DATA", {}
         
         metrics = {}
         
-        # Calculate category-based metrics
         if 'category' in df.columns and 'master_score' in df.columns:
             category_scores = df.groupby('category')['master_score'].mean()
             
@@ -6594,7 +2757,6 @@ class MarketIntelligence:
             metrics['large_mega_avg'] = 50
             metrics['category_spread'] = 0
         
-        # Calculate market breadth
         if 'ret_30d' in df.columns:
             breadth = len(df[df['ret_30d'] > 0]) / len(df) if len(df) > 0 else 0.5
             metrics['breadth'] = breadth
@@ -6602,20 +2764,19 @@ class MarketIntelligence:
             breadth = 0.5
             metrics['breadth'] = breadth
         
-        # Calculate volatility metrics
         if 'rvol' in df.columns:
             avg_rvol = df['rvol'].median()
             metrics['avg_rvol'] = avg_rvol if pd.notna(avg_rvol) else 1.0
         else:
             metrics['avg_rvol'] = 1.0
         
-        # Determine market regime professionally
+        # Determine regime
         if metrics['micro_small_avg'] > metrics['large_mega_avg'] + 10 and breadth > 0.6:
             regime = "🔥 RISK-ON BULL"
         elif metrics['large_mega_avg'] > metrics['micro_small_avg'] + 10 and breadth < 0.4:
             regime = "🛡️ RISK-OFF DEFENSIVE"
         elif metrics['avg_rvol'] > 1.5 and breadth > 0.5:
-            regime = "⚡VOLATILE OPPORTUNITY"
+            regime = "⚡ VOLATILE OPPORTUNITY"
         else:
             regime = "😴 RANGE-BOUND"
         
@@ -6627,170 +2788,127 @@ class MarketIntelligence:
     def calculate_advance_decline_ratio(df: pd.DataFrame) -> Dict[str, Any]:
         """Calculate advance/decline ratio and related metrics"""
         
-        if 'ret_1d' not in df.columns or df.empty:
-            return {'advancing': 0, 'declining': 0, 'unchanged': 0, 'ad_ratio': 1.0, 'ad_line': 0, 'breadth_pct': 0}
+        ad_metrics = {}
         
-        advancing = len(df[df['ret_1d'] > 0])
-        declining = len(df[df['ret_1d'] < 0])
-        unchanged = len(df[df['ret_1d'] == 0])
-        
-        ad_metrics = {
-            'advancing': advancing,
-            'declining': declining,
-            'unchanged': unchanged,
-            'ad_ratio': advancing / declining if declining > 0 else (float('inf') if advancing > 0 else 1.0),
-            'ad_line': advancing - declining,
-            'breadth_pct': (advancing / len(df)) * 100 if len(df) > 0 else 0
-        }
+        if 'ret_1d' in df.columns:
+            advancing = len(df[df['ret_1d'] > 0])
+            declining = len(df[df['ret_1d'] < 0])
+            unchanged = len(df[df['ret_1d'] == 0])
+            
+            ad_metrics['advancing'] = advancing
+            ad_metrics['declining'] = declining
+            ad_metrics['unchanged'] = unchanged
+            
+            if declining > 0:
+                ad_metrics['ad_ratio'] = advancing / declining
+            else:
+                ad_metrics['ad_ratio'] = float('inf') if advancing > 0 else 1.0
+            
+            ad_metrics['ad_line'] = advancing - declining
+            ad_metrics['breadth_pct'] = (advancing / len(df)) * 100 if len(df) > 0 else 0
+        else:
+            ad_metrics = {'advancing': 0, 'declining': 0, 'unchanged': 0, 'ad_ratio': 1.0, 'ad_line': 0, 'breadth_pct': 0}
         
         return ad_metrics
     
     @staticmethod
-    def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """Enhanced sector rotation detection using Leadership Density Index"""
-        
-        if df.empty or 'sector' not in df.columns:
-            return pd.DataFrame()
-        
-        try:
-            # Primary approach: Use LDI for accurate analysis
-            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
-            
-            if ldi_df.empty:
-                return pd.DataFrame()
-            
-            # Calculate enhanced flow score
-            ldi_df['flow_score'] = (
-                ldi_df['ldi_score'] * 0.4 +
-                ldi_df['avg_score'] * 0.3 +
-                ldi_df['avg_momentum'] * 0.15 +
-                ldi_df['avg_volume'] * 0.15
-            )
-            
-            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
-            
-            # Ensure compatibility with existing UI
-            display_df = ldi_df.rename(columns={
-                'leader_count': 'analyzed_stocks'
-            }).copy()
-            
-            display_df['sampling_pct'] = 100.0
-            
-            # Professional quality indicators
-            display_df['ldi_quality'] = display_df['ldi_score'].apply(
-                lambda x: 'Elite' if x >= 20 else 
-                         'Strong' if x >= 10 else 
-                         'Moderate' if x >= 5 else 
-                         'Weak'
-            )
-            
-            return display_df.sort_values('flow_score', ascending=False)
-            
-        except Exception as e:
-            logger.error(f"Error in LDI sector rotation: {str(e)}")
-            # Fallback to traditional method
-            return MarketIntelligence._calculate_traditional_sectors(df)
-    
-    @staticmethod
-    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
-        """Enhanced industry rotation detection using Leadership Density Index"""
-        
-        if df.empty or 'industry' not in df.columns:
-            return pd.DataFrame()
-        
-        try:
-            # Primary approach: Use LDI for accurate analysis
-            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
-            
-            if ldi_df.empty:
-                return pd.DataFrame()
-            
-            # Calculate enhanced flow score
-            ldi_df['flow_score'] = (
-                ldi_df['ldi_score'] * 0.4 +
-                ldi_df['avg_score'] * 0.3 +
-                ldi_df['avg_momentum'] * 0.15 +
-                ldi_df['avg_volume'] * 0.15
-            )
-            
-            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
-            
-            # Ensure compatibility with existing UI
-            display_df = ldi_df.rename(columns={
-                'leader_count': 'analyzed_stocks'
-            }).copy()
-            
-            display_df['sampling_pct'] = 100.0
-            
-            return display_df.sort_values('flow_score', ascending=False)
-            
-        except Exception as e:
-            logger.error(f"Error in LDI industry rotation: {str(e)}")
-            # Fallback to traditional method
-            return MarketIntelligence._calculate_traditional_industries(df)
-    
-    @staticmethod
-    @st.cache_data(ttl=300, show_spinner=False)
-    def _calculate_traditional_sectors(df: pd.DataFrame) -> pd.DataFrame:
-        """Fallback traditional sector analysis with optimized sampling"""
+    @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
+    def _detect_sector_rotation_cached(df_json: str) -> pd.DataFrame:
+        """Cached internal implementation of sector rotation detection"""
+        # Convert JSON back to DataFrame
+        df = pd.read_json(df_json)
         
         if 'sector' not in df.columns or df.empty:
             return pd.DataFrame()
         
-        sector_data = []
+        sector_dfs = []
         
         for sector in df['sector'].unique():
-            if sector == 'Unknown':
-                continue
+            if sector != 'Unknown':
+                sector_df = df[df['sector'] == sector].copy()
+                sector_size = len(sector_df)
                 
-            sector_df = df[df['sector'] == sector].copy()
-            total_count = len(sector_df)
-            
-            if total_count == 0:
-                continue
-            
-            # Simplified sampling logic
-            if total_count <= 10:
-                sample_count = total_count
-            elif total_count <= 50:
-                sample_count = max(8, int(total_count * 0.6))
-            else:
-                sample_count = min(30, int(total_count * 0.3))
-            
-            # Take top performers
-            sampled_df = sector_df.nlargest(sample_count, 'master_score')
-            sector_data.append(sampled_df)
+                if sector_size == 0:
+                    continue
+                
+                # Dynamic sampling
+                if 1 <= sector_size <= 5:
+                    sample_count = sector_size
+                elif 6 <= sector_size <= 20:
+                    sample_count = max(1, int(sector_size * 0.80))
+                elif 21 <= sector_size <= 50:
+                    sample_count = max(1, int(sector_size * 0.60))
+                elif 51 <= sector_size <= 100:
+                    sample_count = max(1, int(sector_size * 0.40))
+                else:
+                    sample_count = min(50, int(sector_size * 0.25))
+                
+                if sample_count > 0:
+                    sector_df = sector_df.nlargest(min(sample_count, len(sector_df)), 'master_score')
+                    
+                    if not sector_df.empty:
+                        sector_dfs.append(sector_df)
         
-        if not sector_data:
+        if not sector_dfs:
             return pd.DataFrame()
         
-        combined_df = pd.concat(sector_data, ignore_index=True)
+        normalized_df = pd.concat(sector_dfs, ignore_index=True)
         
-        # Calculate aggregated metrics
-        sector_metrics = combined_df.groupby('sector').agg({
-            'master_score': ['mean', 'median', 'count'],
+        # Calculate metrics
+        agg_dict = {
+            'master_score': ['mean', 'median', 'std', 'count'],
             'momentum_score': 'mean',
             'volume_score': 'mean',
             'rvol': 'mean',
-            'ret_30d': 'mean',
-            'money_flow_mm': 'sum' if 'money_flow_mm' in combined_df.columns else lambda x: 0
-        }).round(2)
+            'ret_30d': 'mean'
+        }
         
-        # Flatten column names
-        sector_metrics.columns = [
-            'avg_score', 'median_score', 'analyzed_stocks',
-            'avg_momentum', 'avg_volume', 'avg_rvol', 'avg_ret_30d', 'total_money_flow'
-        ]
+        if 'money_flow_mm' in normalized_df.columns:
+            agg_dict['money_flow_mm'] = 'sum'
         
-        # Add total stock counts and sampling percentage
-        total_counts = df.groupby('sector').size().rename('total_stocks')
-        sector_metrics = sector_metrics.join(total_counts, how='left')
-        sector_metrics['sampling_pct'] = (sector_metrics['analyzed_stocks'] / sector_metrics['total_stocks'] * 100).round(1)
+        sector_metrics = normalized_df.groupby('sector').agg(agg_dict).round(2)
+        
+        # Flatten columns
+        new_cols = []
+        for col in sector_metrics.columns:
+            if isinstance(col, tuple):
+                new_cols.append(f"{col[0]}_{col[1]}" if col[1] != 'mean' else col[0])
+            else:
+                new_cols.append(col)
+        
+        sector_metrics.columns = new_cols
+        
+        # Rename for clarity
+        rename_dict = {
+            'master_score': 'avg_score',
+            'master_score_median': 'median_score',
+            'master_score_std': 'std_score',
+            'master_score_count': 'count',
+            'momentum_score': 'avg_momentum',
+            'volume_score': 'avg_volume',
+            'rvol': 'avg_rvol',
+            'ret_30d': 'avg_ret_30d'
+        }
+        
+        if 'money_flow_mm' in sector_metrics.columns:
+            rename_dict['money_flow_mm'] = 'total_money_flow'
+        
+        sector_metrics.rename(columns=rename_dict, inplace=True)
+        
+        # Add original counts
+        original_counts = df.groupby('sector').size().rename('total_stocks')
+        sector_metrics = sector_metrics.join(original_counts, how='left')
+        sector_metrics['analyzed_stocks'] = sector_metrics['count']
+        
+        # Calculate sampling percentage
+        with np.errstate(divide='ignore', invalid='ignore'):
+            sector_metrics['sampling_pct'] = (sector_metrics['analyzed_stocks'] / sector_metrics['total_stocks'] * 100)
+            sector_metrics['sampling_pct'] = sector_metrics['sampling_pct'].replace([np.inf, -np.inf], 100).fillna(100).round(1)
         
         # Calculate flow score
         sector_metrics['flow_score'] = (
             sector_metrics['avg_score'] * 0.3 +
-            sector_metrics['median_score'] * 0.2 +
+            sector_metrics.get('median_score', 50) * 0.2 +
             sector_metrics['avg_momentum'] * 0.25 +
             sector_metrics['avg_volume'] * 0.25
         )
@@ -6800,69 +2918,225 @@ class MarketIntelligence:
         return sector_metrics.sort_values('flow_score', ascending=False)
     
     @staticmethod
-    @st.cache_data(ttl=300, show_spinner=False)
-    def _calculate_traditional_industries(df: pd.DataFrame) -> pd.DataFrame:
-        """Fallback traditional industry analysis with optimized sampling"""
+    def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Enhanced sector rotation detection using Leadership Density Index (LDI).
+        
+        This revolutionary approach measures sector strength through leadership density
+        rather than sampling bias, providing more accurate sector performance assessment.
+        """
+        if df.empty or 'sector' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate LDI-based sector analysis
+            ldi_df = LeadershipDensityEngine.calculate_sector_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Add traditional flow score for backward compatibility
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
+            
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks',
+                'avg_rvol': 'avg_rvol',
+                'total_money_flow': 'total_money_flow'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            # Add quality indicators based on LDI
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: '🔥 Elite' if x >= 20 else 
+                         '⭐ Strong' if x >= 10 else 
+                         '📈 Moderate' if x >= 5 else 
+                         '📉 Weak'
+            )
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI sector rotation: {str(e)}")
+            # Fallback to original method
+            return MarketIntelligence._detect_sector_rotation_fallback(df)
+    
+    @staticmethod
+    def _detect_sector_rotation_fallback(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback to original sector rotation method if LDI fails"""
+        # This is the original implementation as backup
+        return MarketIntelligence._detect_sector_rotation_cached(df.to_json())
+    
+    @staticmethod
+    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Enhanced industry rotation detection using Leadership Density Index (LDI).
+        
+        Provides more accurate industry performance assessment through leadership density analysis.
+        """
+        if df.empty or 'industry' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Calculate LDI-based industry analysis
+            ldi_df = LeadershipDensityEngine.calculate_industry_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Enhanced flow score combines LDI with traditional metrics
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +          # 40% LDI (leadership density)
+                ldi_df['avg_score'] * 0.3 +          # 30% average score  
+                ldi_df['avg_momentum'] * 0.15 +      # 15% momentum
+                ldi_df['avg_volume'] * 0.15          # 15% volume
+            )
+            
+            # Add rank based on flow score
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Rename columns for UI compatibility
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            # Add sampling percentage (always 100% for LDI approach)
+            display_df['sampling_pct'] = 100.0
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI industry rotation: {str(e)}")
+            # Fallback to original method
+            try:
+                return MarketIntelligence._detect_industry_rotation_cached(df.to_json())
+            except Exception as fallback_error:
+                logger.error(f"Fallback industry rotation also failed: {str(fallback_error)}")
+                # Return empty DataFrame as last resort
+                return pd.DataFrame()
+    
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)  # 5 minute cache - ADDED CACHING
+    def _detect_industry_rotation_cached(df_json: str) -> pd.DataFrame:
+        """Cached internal implementation of industry rotation detection"""
+        # Convert JSON back to DataFrame
+        df = pd.read_json(df_json)
         
         if 'industry' not in df.columns or df.empty:
             return pd.DataFrame()
         
-        industry_data = []
+        industry_dfs = []
         
         for industry in df['industry'].unique():
-            if industry == 'Unknown':
-                continue
+            if industry != 'Unknown':
+                industry_df = df[df['industry'] == industry].copy()
+                industry_size = len(industry_df)
                 
-            industry_df = df[df['industry'] == industry].copy()
-            total_count = len(industry_df)
-            
-            if total_count == 0:
-                continue
-            
-            # Simplified sampling logic for industries
-            if total_count <= 5:
-                sample_count = total_count
-            elif total_count <= 25:
-                sample_count = max(5, int(total_count * 0.7))
-            elif total_count <= 100:
-                sample_count = max(10, int(total_count * 0.4))
-            else:
-                sample_count = min(40, int(total_count * 0.2))
-            
-            # Take top performers
-            sampled_df = industry_df.nlargest(sample_count, 'master_score')
-            industry_data.append(sampled_df)
+                if industry_size == 0:
+                    continue
+                
+                # Smart Dynamic Sampling
+                if industry_size == 1:
+                    sample_count = 1
+                elif 2 <= industry_size <= 5:
+                    sample_count = industry_size
+                elif 6 <= industry_size <= 10:
+                    sample_count = max(3, int(industry_size * 0.80))
+                elif 11 <= industry_size <= 25:
+                    sample_count = max(5, int(industry_size * 0.60))
+                elif 26 <= industry_size <= 50:
+                    sample_count = max(10, int(industry_size * 0.40))
+                elif 51 <= industry_size <= 100:
+                    sample_count = max(15, int(industry_size * 0.30))
+                elif 101 <= industry_size <= 250:
+                    sample_count = max(25, int(industry_size * 0.20))
+                elif 251 <= industry_size <= 550:
+                    sample_count = max(40, int(industry_size * 0.15))
+                else:
+                    sample_count = min(75, int(industry_size * 0.10))
+                
+                if sample_count > 0:
+                    industry_df = industry_df.nlargest(min(sample_count, len(industry_df)), 'master_score')
+                    
+                    if not industry_df.empty:
+                        industry_dfs.append(industry_df)
         
-        if not industry_data:
+        if not industry_dfs:
             return pd.DataFrame()
         
-        combined_df = pd.concat(industry_data, ignore_index=True)
+        normalized_df = pd.concat(industry_dfs, ignore_index=True)
         
-        # Calculate aggregated metrics
-        industry_metrics = combined_df.groupby('industry').agg({
-            'master_score': ['mean', 'median', 'count'],
+        # Calculate metrics
+        agg_dict = {
+            'master_score': ['mean', 'median', 'std', 'count'],
             'momentum_score': 'mean',
             'volume_score': 'mean',
             'rvol': 'mean',
-            'ret_30d': 'mean',
-            'money_flow_mm': 'sum' if 'money_flow_mm' in combined_df.columns else lambda x: 0
-        }).round(2)
+            'ret_30d': 'mean'
+        }
         
-        # Flatten column names
-        industry_metrics.columns = [
-            'avg_score', 'median_score', 'analyzed_stocks',
-            'avg_momentum', 'avg_volume', 'avg_rvol', 'avg_ret_30d', 'total_money_flow'
-        ]
+        if 'money_flow_mm' in normalized_df.columns:
+            agg_dict['money_flow_mm'] = 'sum'
         
-        # Add total stock counts and sampling percentage
-        total_counts = df.groupby('industry').size().rename('total_stocks')
-        industry_metrics = industry_metrics.join(total_counts, how='left')
-        industry_metrics['sampling_pct'] = (industry_metrics['analyzed_stocks'] / industry_metrics['total_stocks'] * 100).round(1)
+        industry_metrics = normalized_df.groupby('industry').agg(agg_dict).round(2)
+        
+        # Flatten columns
+        new_cols = []
+        for col in industry_metrics.columns:
+            if isinstance(col, tuple):
+                new_cols.append(f"{col[0]}_{col[1]}" if col[1] != 'mean' else col[0])
+            else:
+                new_cols.append(col)
+        
+        industry_metrics.columns = new_cols
+        
+        # Rename for clarity
+        rename_dict = {
+            'master_score': 'avg_score',
+            'master_score_median': 'median_score',
+            'master_score_std': 'std_score',
+            'master_score_count': 'count',
+            'momentum_score': 'avg_momentum',
+            'volume_score': 'avg_volume',
+            'rvol': 'avg_rvol',
+            'ret_30d': 'avg_ret_30d'
+        }
+        
+        if 'money_flow_mm' in industry_metrics.columns:
+            rename_dict['money_flow_mm'] = 'total_money_flow'
+        
+        industry_metrics.rename(columns=rename_dict, inplace=True)
+        
+        # Add original counts
+        original_counts = df.groupby('industry').size().rename('total_stocks')
+        industry_metrics = industry_metrics.join(original_counts, how='left')
+        industry_metrics['analyzed_stocks'] = industry_metrics['count']
+        
+        # Calculate sampling percentage
+        with np.errstate(divide='ignore', invalid='ignore'):
+            industry_metrics['sampling_pct'] = (industry_metrics['analyzed_stocks'] / industry_metrics['total_stocks'] * 100)
+            industry_metrics['sampling_pct'] = industry_metrics['sampling_pct'].replace([np.inf, -np.inf], 100).fillna(100).round(1)
+        
+        # Add sampling quality warning
+        industry_metrics['quality_flag'] = ''
+        industry_metrics.loc[industry_metrics['sampling_pct'] < 10, 'quality_flag'] = '⚠️ Low Sample'
+        industry_metrics.loc[industry_metrics['analyzed_stocks'] < 5, 'quality_flag'] = '⚠️ Few Stocks'
         
         # Calculate flow score
         industry_metrics['flow_score'] = (
             industry_metrics['avg_score'] * 0.3 +
-            industry_metrics['median_score'] * 0.2 +
+            industry_metrics.get('median_score', 50) * 0.2 +
             industry_metrics['avg_momentum'] * 0.25 +
             industry_metrics['avg_volume'] * 0.25
         )
@@ -7046,8 +3320,8 @@ class FilterEngine:
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
+                'wave_states': [],
+                'wave_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -7061,22 +3335,7 @@ class FilterEngine:
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
                 'quick_filter': None,
-                'quick_filter_applied': False,
-                'volume_tiers': [],
-                'rvol_range': (0.1, 20.0),
-                'vmi_tiers': [],
-                'custom_vmi_range': (0.5, 3.0),
-                'momentum_harmony_tiers': [],
-                # Performance filter selections
-                'ret_1d_selection': "All Returns",
-                'ret_3d_selection': "All Returns", 
-                'ret_7d_selection': "All Returns",
-                'ret_30d_selection': "All Returns",
-                'ret_3m_selection': "All Returns",
-                'ret_6m_selection': "All Returns",
-                'ret_1y_selection': "All Returns",
-                'ret_3y_selection': "All Returns",
-                'ret_5y_selection': "All Returns"
+                'quick_filter_applied': False
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -7137,14 +3396,11 @@ class FilterEngine:
         if filters.get('min_pe') is not None: count += 1
         if filters.get('max_pe') is not None: count += 1
         if filters.get('require_fundamental_data'): count += 1
-        if filters.get('market_states'): count += 1
-        if filters.get('market_strength_range') != (0, 100): count += 1
+        if filters.get('wave_states'): count += 1
+        if filters.get('wave_strength_range') != (0, 100): count += 1
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
-        if filters.get('vmi_tiers'): count += 1
-        if filters.get('momentum_harmony_tiers'): count += 1
-        if filters.get('custom_vmi_range') and filters.get('custom_vmi_range') != (0.5, 3.0): count += 1
         if filters.get('position_score_range') != (0, 100): count += 1
         if filters.get('volume_score_range') != (0, 100): count += 1
         if filters.get('momentum_score_range') != (0, 100): count += 1
@@ -7176,8 +3432,8 @@ class FilterEngine:
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
-            'market_states': [],
-            'market_strength_range': (0, 100),
+            'wave_states': [],
+            'wave_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False,
             'performance_tiers': [],
@@ -7195,9 +3451,6 @@ class FilterEngine:
             'position_range': (0, 100),
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
-            'vmi_tiers': [],
-            'custom_vmi_range': (0.5, 3.0),
-            'momentum_harmony_tiers': [],
             'position_score_range': (0, 100),
             'volume_score_range': (0, 100),
             'momentum_score_range': (0, 100),
@@ -7209,17 +3462,7 @@ class FilterEngine:
             'momentum_score_selection': "All Scores",
             'acceleration_score_selection': "All Scores",
             'breakout_score_selection': "All Scores",
-            'rvol_score_selection': "All Scores",
-            # Performance filter selections
-            'ret_1d_selection': "All Returns",
-            'ret_3d_selection': "All Returns", 
-            'ret_7d_selection': "All Returns",
-            'ret_30d_selection': "All Returns",
-            'ret_3m_selection': "All Returns",
-            'ret_6m_selection': "All Returns",
-            'ret_1y_selection': "All Returns",
-            'ret_3y_selection': "All Returns",
-            'ret_5y_selection': "All Returns"
+            'rvol_score_selection': "All Scores"
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -7227,7 +3470,7 @@ class FilterEngine:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
-            'patterns_multiselect', 'market_states_multiselect',
+            'patterns_multiselect', 'wave_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
@@ -7235,7 +3478,7 @@ class FilterEngine:
             'position_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -7245,10 +3488,6 @@ class FilterEngine:
             # Score dropdown widgets
             'position_score_dropdown', 'volume_score_dropdown', 'momentum_score_dropdown',
             'acceleration_score_dropdown', 'breakout_score_dropdown', 'rvol_score_dropdown',
-            
-            # Performance dropdown widgets
-            'ret_1d_dropdown', 'ret_3d_dropdown', 'ret_7d_dropdown', 'ret_30d_dropdown',
-            'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
             
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select',
@@ -7328,8 +3567,8 @@ class FilterEngine:
             'min_score', 'patterns', 'trend_filter',
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
-            'require_fundamental_data', 'market_states_filter',
-            'market_strength_range_slider'
+            'require_fundamental_data', 'wave_states_filter',
+            'wave_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -7344,7 +3583,7 @@ class FilterEngine:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'market_strength_range_slider':
+                    if key == 'wave_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -7367,7 +3606,7 @@ class FilterEngine:
         
         # Clean up any cached data related to filters
         cache_keys_to_clear = []
-        for key in list(st.session_state.keys()):
+        for key in st.session_state.keys():
             if key.startswith('filter_cache_') or key.startswith('filtered_'):
                 cache_keys_to_clear.append(key)
         
@@ -7418,10 +3657,10 @@ class FilterEngine:
             filters['max_pe'] = state['max_pe']
         if state.get('require_fundamental_data'):
             filters['require_fundamental_data'] = True
-        if state.get('market_states'):
-            filters['market_states'] = state['market_states']
-        if state.get('market_strength_range') != (0, 100):
-            filters['market_strength_range'] = state['market_strength_range']
+        if state.get('wave_states'):
+            filters['wave_states'] = state['wave_states']
+        if state.get('wave_strength_range') != (0, 100):
+            filters['wave_strength_range'] = state['wave_strength_range']
             
         return filters
     
@@ -7453,19 +3692,11 @@ class FilterEngine:
         
         # 1. Category filters
         if 'categories' in filters:
-            mask = create_mask_from_isin('category', filters['categories'])
-            if mask is not None:
-                masks.append(mask)
-
+            masks.append(create_mask_from_isin('category', filters['categories']))
         if 'sectors' in filters:
-            mask = create_mask_from_isin('sector', filters['sectors'])
-            if mask is not None:
-                masks.append(mask)
-
+            masks.append(create_mask_from_isin('sector', filters['sectors']))
         if 'industries' in filters:
-            mask = create_mask_from_isin('industry', filters['industries'])
-            if mask is not None:
-                masks.append(mask)
+            masks.append(create_mask_from_isin('industry', filters['industries']))
         
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
@@ -7653,28 +3884,6 @@ class FilterEngine:
                         combined_mask = combined_mask | mask
                     masks.append(combined_mask)
         
-        # 5.6.1. NEW Individual Performance Period Filters (V9 Enhancement)
-        # Handle individual return period filters from the new Performance Filter UI
-        individual_performance_ranges = {
-            'ret_1d_range': 'ret_1d',
-            'ret_3d_range': 'ret_3d', 
-            'ret_7d_range': 'ret_7d',
-            'ret_30d_range': 'ret_30d',
-            'ret_3m_range': 'ret_3m',
-            'ret_6m_range': 'ret_6m',
-            'ret_1y_range': 'ret_1y',
-            'ret_3y_range': 'ret_3y',
-            'ret_5y_range': 'ret_5y'
-        }
-        
-        for range_key, column_name in individual_performance_ranges.items():
-            if range_key in filters and column_name in df.columns:
-                range_val = filters[range_key]
-                if isinstance(range_val, tuple) and len(range_val) == 2:
-                    min_val, max_val = range_val
-                    masks.append(df[column_name].between(min_val, max_val, inclusive='both'))
-                    logger.info(f"Applied {range_key} filter: {range_val} on column {column_name}")
-        
         # 5.7. Volume Intelligence filters
         if 'volume_tiers' in filters:
             selected_tiers = filters['volume_tiers']
@@ -7686,24 +3895,6 @@ class FilterEngine:
             if 'rvol_range' in filters and 'rvol' in df.columns:
                 rvol_range_val = filters['rvol_range']
                 masks.append(df['rvol'].between(rvol_range_val[0], rvol_range_val[1], inclusive='both'))
-        
-        # 5.8. VMI (Volume Momentum Index) filters
-        if 'vmi_tiers' in filters:
-            selected_tiers = filters['vmi_tiers']
-            if selected_tiers and "🎯 Custom VMI Range" not in selected_tiers:
-                masks.append(create_mask_from_isin('vmi_tier', selected_tiers))
-        
-        # Custom VMI range filter (only if "🎯 Custom VMI Range" is selected)
-        if 'vmi_tiers' in filters and "🎯 Custom VMI Range" in filters['vmi_tiers']:
-            if 'custom_vmi_range' in filters and 'vmi' in df.columns:
-                vmi_range_val = filters['custom_vmi_range']
-                masks.append(df['vmi'].between(vmi_range_val[0], vmi_range_val[1], inclusive='both'))
-        
-        # 5.9. Momentum Harmony filters
-        if 'momentum_harmony_tiers' in filters:
-            selected_tiers = filters['momentum_harmony_tiers']
-            if selected_tiers:
-                masks.append(create_mask_from_isin('momentum_harmony_tier', selected_tiers))
         
         # 6. PE filters
         if filters.get('min_pe') is not None and 'pe' in df.columns:
@@ -7725,77 +3916,19 @@ class FilterEngine:
             if all(col in df.columns for col in ['pe', 'eps_change_pct']):
                 masks.append(df['pe'].notna() & (df['pe'] > 0) & df['eps_change_pct'].notna())
         
-        # 9. Market State filters
-        if 'market_states' in filters:
-            selected_states = filters['market_states']
-            if selected_states:
-                # Handle preset filters
-                preset_mapping = {
-                    "🎯 MOMENTUM (Default)": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK'],
-                    "⚡ AGGRESSIVE": ['STRONG_UPTREND'],
-                    "💎 VALUE": ['PULLBACK', 'BOUNCE', 'SIDEWAYS'],
-                    "🛡️ DEFENSIVE": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
-                    "🌍 ALL": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
-                }
-                
-                # Valid individual market states
-                valid_market_states = {'STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE'}
-                
-                # Collect all allowed states from presets and custom selections
-                allowed_states = []
-                custom_selection_active = "📊 Custom Selection" in selected_states
-                
-                for state in selected_states:
-                    if state in preset_mapping:
-                        # Handle preset selection
-                        allowed_states.extend(preset_mapping[state])
-                    elif state in valid_market_states:
-                        # Handle individual state selection (always include individual states if selected)
-                        if custom_selection_active:
-                            allowed_states.append(state)
-                        else:
-                            # If custom selection is not active, but individual states are selected,
-                            # this might be a legacy case - still include them
-                            allowed_states.append(state)
-                    # Skip "📊 Custom Selection" itself as it's just an enabler
-                
-                # Debug logging for troubleshooting
-                if custom_selection_active:
-                    individual_states = [s for s in selected_states if s in valid_market_states]
-                    logger.info(f"Market State Filter Debug:")
-                    logger.info(f"  - Selected states: {selected_states}")
-                    logger.info(f"  - Individual states: {individual_states}")
-                    logger.info(f"  - Final allowed states: {allowed_states}")
-                    
-                    # Additional debug: check if market_state column exists and has expected values
-                    if 'market_state' in df.columns:
-                        unique_values = df['market_state'].value_counts().head(10)
-                        logger.info(f"  - Market state values in data: {unique_values.to_dict()}")
-                
-                # Remove duplicates and apply filter - but only if we have allowed states
-                if allowed_states:
-                    unique_states = list(set(allowed_states))
-                    logger.info(f"  - Applying filter for states: {unique_states}")
-                    mask = create_mask_from_isin('market_state', unique_states)
-                    if mask is not None:
-                        masks.append(mask)
-                        logger.info(f"  - Filter mask created successfully, {mask.sum()} stocks match")
-                    else:
-                        logger.warning("  - Failed to create market state filter mask")
-                elif custom_selection_active:
-                    # User selected "📊 Custom Selection" but no individual states
-                    logger.info("  - Custom selection active but no individual states selected, skipping filter")
-                else:
-                    logger.warning(f"  - No allowed states found for selection: {selected_states}")
+        # 9. Wave filters
+        if 'wave_states' in filters:
+            selected_states = filters['wave_states']
+            if selected_states and "🎯 Custom Range" not in selected_states:
+                masks.append(create_mask_from_isin('wave_state', selected_states))
         
-        # Market Strength Filter - Professional Implementation
-        if 'market_strength_range' in filters and 'overall_market_strength' in df.columns:
-            strength_range = filters['market_strength_range']
-            if strength_range != (0, 100):
-                min_strength, max_strength = strength_range
-                strength_mask = (df['overall_market_strength'] >= min_strength) & (df['overall_market_strength'] <= max_strength)
-                masks.append(strength_mask)
-                logger.info(f"Applied Market Strength filter: {strength_range}, {strength_mask.sum()} stocks match")
+        # Custom wave strength range filter (only if "🎯 Custom Range" is selected)
+        if 'wave_states' in filters and "🎯 Custom Range" in filters['wave_states']:
+            wave_strength_range = filters.get('wave_strength_range')
+            if wave_strength_range and wave_strength_range != (0, 100) and 'overall_wave_strength' in df.columns:
+                min_ws, max_ws = wave_strength_range
+                masks.append((df['overall_wave_strength'] >= min_ws) & 
+                            (df['overall_wave_strength'] <= max_ws))
         
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
@@ -7814,7 +3947,7 @@ class FilterEngine:
     def get_filter_options(df: pd.DataFrame, column: str, current_filters: Optional[Dict[str, Any]] = None) -> List[str]:
         """
         Get available options for a filter based on other active filters.
-        This creates BIDIRECTIONAL SMART INTERCONNECTED filters for Category/Sector/Industry.
+        This creates interconnected filters.
         """
         if df.empty or column not in df.columns:
             return []
@@ -7823,44 +3956,28 @@ class FilterEngine:
         if current_filters is None:
             current_filters = FilterEngine.build_filter_dict()
         
-        # BIDIRECTIONAL SMART INTERCONNECTION LOGIC
+        # Create temp filters without the current column
         temp_filters = current_filters.copy()
         
-        # For Category/Sector/Industry interconnection - BIDIRECTIONAL FILTERING
-        if column == 'category':
-            # For categories, apply sector AND industry filters to show only relevant categories
-            temp_filters.pop('categories', None)  # Don't apply category filter when getting categories
-            # Keep sectors and industries filters to show only categories that have those sectors/industries
-        elif column == 'sector':
-            # For sectors, apply category AND industry filters to show only relevant sectors
-            temp_filters.pop('sectors', None)  # Don't apply sector filter when getting sectors  
-            # Keep categories and industries filters to show only sectors that have those categories/industries
-        elif column == 'industry':
-            # For industries, apply category AND sector filters to show only relevant industries
-            temp_filters.pop('industries', None)  # Don't apply industry filter when getting industries
-            # Keep categories and sectors filters to show only industries that have those categories/sectors
-        else:
-            # For non-interconnected filters, remove only the current filter
-            filter_key_map = {
-                'eps_tier': 'eps_tiers',
-                'pe_tier': 'pe_tiers',
-                'price_tier': 'price_tiers',
-                'eps_change_tier': 'eps_change_tiers',
-                'market_state': 'market_states',
-                'position_tier': 'position_tiers',
-                'volume_tier': 'volume_tiers',
-                'performance_tier': 'performance_tiers',
-                'vmi_tier': 'vmi_tiers',
-                'momentum_harmony_tier': 'momentum_harmony_tiers'
-            }
-            
-            if column in filter_key_map:
-                temp_filters.pop(filter_key_map[column], None)
+        # Map column to filter key
+        filter_key_map = {
+            'category': 'categories',
+            'sector': 'sectors',
+            'industry': 'industries',
+            'eps_tier': 'eps_tiers',
+            'pe_tier': 'pe_tiers',
+            'price_tier': 'price_tiers',
+            'eps_change_tier': 'eps_change_tiers',
+            'wave_state': 'wave_states'
+        }
         
-        # Apply remaining filters to get the filtered dataset
+        if column in filter_key_map:
+            temp_filters.pop(filter_key_map[column], None)
+        
+        # Apply remaining filters
         filtered_df = FilterEngine.apply_filters(df, temp_filters)
         
-        # Get unique values from the filtered dataset
+        # Get unique values
         values = filtered_df[column].dropna().unique()
         
         # Filter out invalid values
@@ -7895,8 +4012,8 @@ class FilterEngine:
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
-            'market_states': [],
-            'market_strength_range': (0, 100),
+            'wave_states': [],
+            'wave_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False
         }
@@ -8026,7 +4143,7 @@ class ExportEngine:
             'day_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'rvol', 
                            'momentum_score', 'acceleration_score', 'ret_1d', 'ret_7d', 
-                           'volume_score', 'vmi', 'market_state', 'patterns', 'category', 'industry'],
+                           'volume_score', 'vmi', 'wave_state', 'patterns', 'category', 'industry'],
                 'focus': 'Intraday momentum and volume'
             },
             'swing_trader': {
@@ -8132,7 +4249,7 @@ class ExportEngine:
                 if len(wave_signals) > 0:
                     wave_cols = ['ticker', 'company_name', 'master_score', 
                                 'momentum_score', 'acceleration_score', 'rvol',
-                                'market_state', 'patterns', 'category', 'industry']
+                                'wave_state', 'patterns', 'category', 'industry']
                     available_wave_cols = [col for col in wave_cols if col in wave_signals.columns]
                     
                     wave_signals[available_wave_cols].to_excel(
@@ -8174,8 +4291,8 @@ class ExportEngine:
             'from_low_pct', 'from_high_pct',
             'ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y',
             'rvol', 'vmi', 'money_flow_mm', 'position_tension',
-            'momentum_harmony', 'market_state', 'patterns', 
-            'category', 'sector', 'industry', 'eps_tier', 'pe_tier', 'overall_market_strength'
+            'momentum_harmony', 'wave_state', 'patterns', 
+            'category', 'sector', 'industry', 'eps_tier', 'pe_tier', 'overall_wave_strength'
         ]
         
         available_cols = [col for col in export_cols if col in df.columns]
@@ -8524,13 +4641,13 @@ class SessionStateManager:
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'min_eps_change': "",
-            'min_pe': None,
-            'max_pe': None,
+            'min_pe': "",
+            'max_pe': "",
             'require_fundamental_data': False,
             
             # Wave Radar specific filters
-            'market_states_filter': [],
-            'market_strength_range_slider': (0, 100),
+            'wave_states_filter': [],
+            'wave_strength_range_slider': (0, 100),
             'show_sensitivity_details': False,
             'show_market_regime': True,
             'wave_timeframe_select': "All Waves",
@@ -8566,24 +4683,12 @@ class SessionStateManager:
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
                 'rvol_range': (0.1, 20.0),
-                'vmi_tiers': [],
-                'custom_vmi_range': (0.5, 3.0),
-                'momentum_harmony_tiers': [],
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0),
                 'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
+                'wave_states': [],
+                'wave_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8596,15 +4701,6 @@ class SessionStateManager:
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
-                'ret_1d_selection': "All Returns",
-                'ret_3d_selection': "All Returns",
-                'ret_7d_selection': "All Returns",
-                'ret_30d_selection': "All Returns",
-                'ret_3m_selection': "All Returns",
-                'ret_6m_selection': "All Returns",
-                'ret_1y_selection': "All Returns",
-                'ret_3y_selection': "All Returns",
-                'ret_5y_selection': "All Returns",
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -8683,22 +4779,16 @@ class SessionStateManager:
                 filters['max_pe'] = state['max_pe']
             if state.get('require_fundamental_data'):
                 filters['require_fundamental_data'] = True
-            if state.get('market_states'):
-                filters['market_states'] = state['market_states']
-            if state.get('market_strength_range') != (0, 100):
-                filters['market_strength_range'] = state['market_strength_range']
+            if state.get('wave_states'):
+                filters['wave_states'] = state['wave_states']
+            if state.get('wave_strength_range') != (0, 100):
+                filters['wave_strength_range'] = state['wave_strength_range']
             if state.get('performance_tiers'):
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
                 filters['position_tiers'] = state['position_tiers']
             if state.get('volume_tiers'):
                 filters['volume_tiers'] = state['volume_tiers']
-            if state.get('vmi_tiers'):
-                filters['vmi_tiers'] = state['vmi_tiers']
-            if state.get('momentum_harmony_tiers'):
-                filters['momentum_harmony_tiers'] = state['momentum_harmony_tiers']
-            if state.get('custom_vmi_range') != (0.5, 3.0):
-                filters['custom_vmi_range'] = state['custom_vmi_range']
             if state.get('position_score_range') != (0, 100):
                 filters['position_score_range'] = state['position_score_range']
             if state.get('volume_score_range') != (0, 100):
@@ -8711,26 +4801,6 @@ class SessionStateManager:
                 filters['breakout_score_range'] = state['breakout_score_range']
             if state.get('rvol_score_range') != (0, 100):
                 filters['rvol_score_range'] = state['rvol_score_range']
-            
-            # Individual Performance Return Period Filters
-            # Define default ranges to compare against
-            default_ranges = {
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0)
-            }
-            
-            # Add individual return period filters if they differ from defaults
-            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
-                range_key = f'{ret_col}_range'
-                if state.get(range_key) and state[range_key] != default_ranges.get(range_key):
-                    filters[range_key] = state[range_key]
                 
         else:
             # Fallback to legacy individual keys
@@ -8793,12 +4863,12 @@ class SessionStateManager:
                 filters['trend_filter'] = st.session_state['trend_filter']
                 filters['trend_range'] = trend_options.get(st.session_state['trend_filter'], (0, 100))
             
-            # Market filters
-            if st.session_state.get('market_strength_range_slider') != (0, 100):
-                filters['market_strength_range'] = st.session_state['market_strength_range_slider']
+            # Wave filters
+            if st.session_state.get('wave_strength_range_slider') != (0, 100):
+                filters['wave_strength_range'] = st.session_state['wave_strength_range_slider']
             
-            if st.session_state.get('market_states_filter') and st.session_state['market_states_filter']:
-                filters['market_states'] = st.session_state['market_states_filter']
+            if st.session_state.get('wave_states_filter') and st.session_state['wave_states_filter']:
+                filters['wave_states'] = st.session_state['wave_states_filter']
             
             # Checkbox filters
             if st.session_state.get('require_fundamental_data', False):
@@ -8837,8 +4907,8 @@ class SessionStateManager:
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
+                'wave_states': [],
+                'wave_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -8851,26 +4921,6 @@ class SessionStateManager:
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
-                # Performance filter selections
-                'ret_1d_selection': "All Returns",
-                'ret_3d_selection': "All Returns", 
-                'ret_7d_selection': "All Returns",
-                'ret_30d_selection': "All Returns",
-                'ret_3m_selection': "All Returns",
-                'ret_6m_selection': "All Returns",
-                'ret_1y_selection': "All Returns",
-                'ret_3y_selection': "All Returns",
-                'ret_5y_selection': "All Returns",
-                # Performance filter ranges
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0),
                 'quick_filter': None,
                 'quick_filter_applied': False
             }
@@ -8880,8 +4930,8 @@ class SessionStateManager:
             'category_filter', 'sector_filter', 'industry_filter', 'eps_tier_filter',
             'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
             'min_pe', 'max_pe', 'require_fundamental_data',
-            'quick_filter', 'quick_filter_applied', 'market_states_filter',
-            'market_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
+            'quick_filter', 'quick_filter_applied', 'wave_states_filter',
+            'wave_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
         ]
         
@@ -8901,7 +4951,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'market_strength_range_slider':
+                    if key == 'wave_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -8915,7 +4965,7 @@ class SessionStateManager:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
-            'patterns_multiselect', 'market_states_multiselect',
+            'patterns_multiselect', 'wave_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
@@ -8923,7 +4973,7 @@ class SessionStateManager:
             'position_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            'min_score_slider', 'wave_strength_slider', 'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -8969,7 +5019,7 @@ class SessionStateManager:
         # Collect keys to delete (can't modify dict during iteration)
         dynamic_keys_to_delete = []
         
-        for key in list(st.session_state.keys()):
+        for key in st.session_state.keys():
             # Check if this key ends with any widget pattern
             for pattern in all_widget_patterns:
                 if pattern in key and key not in widget_keys_to_delete:
@@ -9003,8 +5053,8 @@ class SessionStateManager:
             'min_score', 'patterns', 'trend_filter',
             'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
             'min_eps_change', 'min_pe', 'max_pe',
-            'require_fundamental_data', 'market_states_filter',
-            'market_strength_range_slider'
+            'require_fundamental_data', 'wave_states_filter',
+            'wave_strength_range_slider'
         ]
         
         for key in legacy_keys:
@@ -9019,7 +5069,7 @@ class SessionStateManager:
                     else:
                         st.session_state[key] = ""
                 elif isinstance(st.session_state[key], tuple):
-                    if key == 'market_strength_range_slider':
+                    if key == 'wave_strength_range_slider':
                         st.session_state[key] = (0, 100)
                 elif isinstance(st.session_state[key], (int, float)):
                     if key == 'min_score':
@@ -9068,8 +5118,8 @@ class SessionStateManager:
             ('min_pe', 'min_pe'),
             ('max_pe', 'max_pe'),
             ('require_fundamental_data', 'require_fundamental_data'),
-            ('market_states', 'market_states_filter'),
-            ('market_strength_range', 'market_strength_range_slider'),
+            ('wave_states', 'wave_states_filter'),
+            ('wave_strength_range', 'wave_strength_range_slider'),
         ]
         
         for state_key, session_key in mappings:
@@ -9102,8 +5152,8 @@ class SessionStateManager:
             if state.get('min_pe') is not None: count += 1
             if state.get('max_pe') is not None: count += 1
             if state.get('require_fundamental_data'): count += 1
-            if state.get('market_states'): count += 1
-            if state.get('market_strength_range') != (0, 100): count += 1
+            if state.get('wave_states'): count += 1
+            if state.get('wave_strength_range') != (0, 100): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -9120,8 +5170,8 @@ class SessionStateManager:
                 ('min_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
-                ('market_states_filter', lambda x: x and len(x) > 0),
-                ('market_strength_range_slider', lambda x: x != (0, 100))
+                ('wave_states_filter', lambda x: x and len(x) > 0),
+                ('wave_strength_range_slider', lambda x: x != (0, 100))
             ]
             
             for key, check_func in filter_checks:
@@ -9168,80 +5218,6 @@ class SessionStateManager:
             st.session_state.filter_state['quick_filter'] = None
             st.session_state.filter_state['quick_filter_applied'] = False
         
-# ============================================
-# MARKET STATE FILTER VALIDATION
-# ============================================
-
-def validate_market_state_filters():
-    """
-    Quick validation test for all market state filter presets.
-    Ensures configuration is properly set up and filters work correctly.
-    """
-    try:
-        logger.info("="*60)
-        logger.info("VALIDATING MARKET STATE FILTERS")
-        logger.info("="*60)
-        
-        # Check configuration exists
-        if not hasattr(CONFIG, 'MARKET_STATE_FILTERS'):
-            logger.error("MARKET_STATE_FILTERS not found in CONFIG")
-            return False
-        
-        # Check default filter
-        default_filter = getattr(CONFIG, 'DEFAULT_MARKET_FILTER', None)
-        if not default_filter:
-            logger.error("DEFAULT_MARKET_FILTER not set in CONFIG")
-            return False
-        
-        # Test each filter preset
-        filters = CONFIG.MARKET_STATE_FILTERS
-        all_states = ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 
-                     'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
-        
-        for filter_name, filter_config in filters.items():
-            logger.info(f"Testing {filter_name} filter...")
-            
-            # Check allowed_states exists and is valid
-            allowed_states = filter_config.get('allowed_states', [])
-            if not allowed_states:
-                logger.error(f"  ✗ {filter_name}: No allowed_states defined")
-                return False
-            
-            # Check all states are valid
-            invalid_states = [s for s in allowed_states if s not in all_states]
-            if invalid_states:
-                logger.error(f"  ✗ {filter_name}: Invalid states: {invalid_states}")
-                return False
-            
-            # Check description exists
-            description = filter_config.get('description', '')
-            if not description:
-                logger.warning(f"  ⚠ {filter_name}: No description provided")
-            
-            # Test strategy focus
-            state_count = len(allowed_states)
-            if filter_name == 'MOMENTUM' and state_count < 2:
-                logger.warning(f"  ⚠ {filter_name}: May be too restrictive ({state_count} states)")
-            elif filter_name == 'ALL' and state_count != len(all_states):
-                logger.warning(f"  ⚠ {filter_name}: Should include all states ({state_count}/{len(all_states)})")
-            
-            logger.info(f"  ✓ {filter_name}: {state_count} allowed states - {', '.join(allowed_states)}")
-        
-        # Test default filter exists
-        if default_filter not in filters:
-            logger.error(f"DEFAULT_MARKET_FILTER '{default_filter}' not found in MARKET_STATE_FILTERS")
-            return False
-        
-        logger.info(f"✓ Default filter: {default_filter}")
-        logger.info(f"✓ All {len(filters)} filter presets validated successfully")
-        logger.info("="*60)
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Market state filter validation failed: {e}")
-        return False
-
 # ============================================
 # MAIN APPLICATION
 # ============================================
@@ -9319,7 +5295,7 @@ def main():
     ">
         <h1 style="margin: 0; font-size: 2.5rem;">🌊 Wave Detection Ultimate 3.0</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">
-            Professional Stock Ranking System
+            Professional Stock Ranking System • Final Perfected Production Version
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -9489,8 +5465,8 @@ def main():
             ('min_pe', lambda x: x is not None and str(x).strip() != ''),
             ('max_pe', lambda x: x is not None and str(x).strip() != ''),
             ('require_fundamental_data', lambda x: x),
-            ('market_states_filter', lambda x: x and len(x) > 0),
-            ('market_strength_range_slider', lambda x: x != (0, 100))
+            ('wave_states_filter', lambda x: x and len(x) > 0),
+            ('wave_strength_range_slider', lambda x: x != (0, 100))
         ]
         
         for key, check_func in filter_checks:
@@ -9630,31 +5606,16 @@ def main():
         
         # Display Mode
         st.markdown("### 📊 Display Mode")
-        
-        # Ensure user_preferences exists and safe access to display_mode with fallback
-        if 'user_preferences' not in st.session_state:
-            st.session_state.user_preferences = {'display_mode': 'Hybrid (Technical + Fundamentals)'}
-        current_display_mode = st.session_state.user_preferences.get('display_mode', 'Hybrid (Technical + Fundamentals)')
-        
         display_mode = st.radio(
             "Choose your view:",
             options=["Technical", "Hybrid (Technical + Fundamentals)"],
-            index=0 if current_display_mode == 'Technical' else 1,
+            index=0 if st.session_state.user_preferences['display_mode'] == 'Technical' else 1,
             help="Technical: Pure momentum analysis | Hybrid: Adds PE & EPS data",
             key="display_mode_toggle"
         )
         
         st.session_state.user_preferences['display_mode'] = display_mode
         show_fundamentals = (display_mode == "Hybrid (Technical + Fundamentals)")
-        
-        # DEBUG: Show available columns when in Hybrid mode
-        if show_fundamentals and 'ranked_df' in st.session_state:
-            available_fund_cols = [col for col in ['pe', 'eps_current', 'eps_change_pct'] 
-                                 if col in st.session_state.ranked_df.columns]
-            if available_fund_cols:
-                st.sidebar.success(f"✅ Fundamental data available: {', '.join(available_fund_cols)}")
-            else:
-                st.sidebar.warning("⚠️ No fundamental data found in current dataset")
         
         st.markdown("---")
         
@@ -9715,32 +5676,9 @@ def main():
             if 'volume_tier_multiselect_intelligence' in st.session_state:
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
         
-        def sync_vmi_tier():
-            if 'vmi_tier_multiselect_intelligence' in st.session_state:
-                st.session_state.filter_state['vmi_tiers'] = st.session_state.vmi_tier_multiselect_intelligence
-        
-        def sync_momentum_harmony_tier():
-            if 'momentum_harmony_tier_multiselect_intelligence' in st.session_state:
-                st.session_state.filter_state['momentum_harmony_tiers'] = st.session_state.momentum_harmony_tier_multiselect_intelligence
-        
         def sync_rvol_range():
             if 'rvol_range_slider' in st.session_state:
                 st.session_state.filter_state['rvol_range'] = st.session_state.rvol_range_slider
-        
-        # Performance Filter Sync Functions
-        def sync_performance_dropdowns():
-            # Sync all performance dropdown selections
-            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
-                dropdown_key = f'{ret_col}_dropdown'
-                if dropdown_key in st.session_state:
-                    st.session_state.filter_state[f'{ret_col}_selection'] = st.session_state[dropdown_key]
-        
-        def sync_performance_sliders():
-            # Sync all performance range sliders
-            for ret_col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y']:
-                slider_key = f'{ret_col}_range_slider'
-                if slider_key in st.session_state:
-                    st.session_state.filter_state[f'{ret_col}_range'] = st.session_state[slider_key]
         
         def sync_patterns():
             if 'patterns_multiselect' in st.session_state:
@@ -9758,9 +5696,13 @@ def main():
                 st.session_state.filter_state['trend_filter'] = st.session_state.trend_selectbox
                 st.session_state.filter_state['trend_range'] = trend_options[st.session_state.trend_selectbox]
         
-        def sync_market_states():
-            if 'market_states_multiselect' in st.session_state:
-                st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
+        def sync_wave_states():
+            if 'wave_states_multiselect' in st.session_state:
+                st.session_state.filter_state['wave_states'] = st.session_state.wave_states_multiselect
+        
+        def sync_wave_strength():
+            if 'wave_strength_slider' in st.session_state:
+                st.session_state.filter_state['wave_strength_range'] = st.session_state.wave_strength_slider
         
         # Intelligence Score Dropdown and Slider Sync Functions
         def sync_position_score_dropdown():
@@ -9778,10 +5720,6 @@ def main():
         def sync_volume_score_slider():
             if 'volume_score_slider' in st.session_state:
                 st.session_state.filter_state['volume_score_range'] = st.session_state.volume_score_slider
-        
-        def sync_market_strength():
-            if 'market_strength_slider' in st.session_state:
-                st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
         
         def sync_momentum_score_dropdown():
             if 'momentum_score_dropdown' in st.session_state:
@@ -9815,23 +5753,15 @@ def main():
             if 'rvol_score_slider' in st.session_state:
                 st.session_state.filter_state['rvol_score_range'] = st.session_state.rvol_score_slider
         
-        # BIDIRECTIONAL SMART INTERCONNECTED FILTERS: Category ↔ Sector ↔ Industry
-        # Any selection affects the other two filters bidirectionally
-        st.markdown("#### 🏢 Company Classification")
-        
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
         
-        # Clean default values to only include available options (INTERCONNECTION FIX)
-        stored_categories = st.session_state.filter_state.get('categories', [])
-        valid_category_defaults = [cat for cat in stored_categories if cat in categories]
-        
         selected_categories = st.multiselect(
-            f"Market Cap Category ({len(categories)} available)",
+            "Market Cap Category",
             options=categories,
-            default=valid_category_defaults,
+            default=st.session_state.filter_state.get('categories', []),
             placeholder="Select categories (empty = All)",
-            help="📊 Filter by market cap category. Updates based on selected sectors and industries.",
+            help="Filter by market capitalization category",
             key="category_multiselect",
             on_change=sync_categories  # SYNC ON CHANGE
         )
@@ -9842,16 +5772,12 @@ def main():
         # Sector filter with callback
         sectors = FilterEngine.get_filter_options(ranked_df_display, 'sector', filters)
         
-        # Clean default values to only include available options (INTERCONNECTION FIX)
-        stored_sectors = st.session_state.filter_state.get('sectors', [])
-        valid_sector_defaults = [sec for sec in stored_sectors if sec in sectors]
-        
         selected_sectors = st.multiselect(
-            f"Sector ({len(sectors)} available)",
+            "Sector",
             options=sectors,
-            default=valid_sector_defaults,
+            default=st.session_state.filter_state.get('sectors', []),
             placeholder="Select sectors (empty = All)",
-            help="🏭 Filter by business sector. Updates based on selected categories and industries.",
+            help="Filter by business sector",
             key="sector_multiselect",
             on_change=sync_sectors  # SYNC ON CHANGE
         )
@@ -9862,24 +5788,18 @@ def main():
         # Industry filter with callback
         industries = FilterEngine.get_filter_options(ranked_df_display, 'industry', filters)
         
-        # Clean default values to only include available options (INTERCONNECTION FIX)
-        stored_industries = st.session_state.filter_state.get('industries', [])
-        valid_industry_defaults = [ind for ind in stored_industries if ind in industries]
-        
         selected_industries = st.multiselect(
-            f"Industry ({len(industries)} available)",
+            "Industry",
             options=industries,
-            default=valid_industry_defaults,
+            default=st.session_state.filter_state.get('industries', []),
             placeholder="Select industries (empty = All)",
-            help="🏢 Filter by specific industry. Updates categories and sectors to show only relevant options.",
+            help="Filter by specific industry",
             key="industry_multiselect",
             on_change=sync_industries  # SYNC ON CHANGE
         )
         
         if selected_industries:
             filters['industries'] = selected_industries
-
-        st.markdown("#### ✨ Pattern Detector")
         
         # Pattern filter with callback
         all_patterns = set()
@@ -9888,14 +5808,10 @@ def main():
                 all_patterns.update(patterns.split(' | '))
         
         if all_patterns:
-            # Clean default values to only include available options (INTERCONNECTION FIX)
-            stored_patterns = st.session_state.filter_state.get('patterns', [])
-            valid_pattern_defaults = [pat for pat in stored_patterns if pat in sorted(all_patterns)]
-            
             selected_patterns = st.multiselect(
                 "Patterns",
                 options=sorted(all_patterns),
-                default=valid_pattern_defaults,
+                default=st.session_state.filter_state.get('patterns', []),
                 placeholder="Select patterns (empty = All)",
                 help="Filter by specific patterns",
                 key="patterns_multiselect",
@@ -9932,84 +5848,61 @@ def main():
             filters['trend_filter'] = selected_trend
             filters['trend_range'] = trend_options[selected_trend]
         
-        # Market State filters with callbacks
-        st.markdown("#### 📈 Market State Filters")
+        # Wave filters with callbacks
+        st.markdown("#### 🌊 Wave Filters")
+        wave_states_options = FilterEngine.get_filter_options(ranked_df_display, 'wave_state', filters)
         
-        # Add filter presets and custom selection option (no individual states in main multiselect)
-        preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡️ DEFENSIVE", "🌍 ALL"]
-        market_state_with_presets = preset_options + ["📊 Custom Selection"]
+        # Add custom range option to wave states
+        wave_states_with_custom = wave_states_options + ["🎯 Custom Range"]
         
-        selected_market_states = st.multiselect(
-            "Market State",
-            options=market_state_with_presets,
-            default=st.session_state.filter_state.get('market_states', []),
-            placeholder="Select market states or use preset strategy",
-            help="Filter by market momentum state. Use presets for different trading strategies or select Custom Selection for individual states",
-            key="market_states_multiselect",
-            on_change=sync_market_states  # SYNC ON CHANGE
+        selected_wave_states = st.multiselect(
+            "Wave State",
+            options=wave_states_with_custom,
+            default=st.session_state.filter_state.get('wave_states', []),
+            placeholder="Select wave states (empty = All)",
+            help="Filter by the detected 'Wave State' or use custom range",
+            key="wave_states_multiselect",
+            on_change=sync_wave_states  # SYNC ON CHANGE
         )
         
-        # Show custom market states dropdown when Custom Selection is active
-        custom_selection_active = "📊 Custom Selection" in selected_market_states
-        custom_states_selection = []
+        if selected_wave_states:
+            filters['wave_states'] = selected_wave_states
         
-        if custom_selection_active:
-            # Define the 8 specific market states for custom selection
-            custom_market_states = [
-                "BOUNCE",
-                "DOWNTREND", 
-                "PULLBACK",
-                "ROTATION",
-                "SIDEWAYS",
-                "STRONG_DOWNTREND",
-                "STRONG_UPTREND",
-                "UPTREND"
-            ]
+        # Show Overall Wave Strength slider only when "🎯 Custom Range" is selected
+        custom_wave_range_selected = any("Custom Range" in state for state in selected_wave_states)
+        if custom_wave_range_selected and 'overall_wave_strength' in ranked_df_display.columns:
+            st.write("📊 **Custom Wave Strength Range Filter**")
             
-            # Add sync function for custom states
-            def sync_custom_market_states():
-                if 'custom_market_states_multiselect' in st.session_state:
-                    st.session_state.filter_state['custom_market_states'] = st.session_state.custom_market_states_multiselect
+            min_strength = float(ranked_df_display['overall_wave_strength'].min())
+            max_strength = float(ranked_df_display['overall_wave_strength'].max())
             
-            custom_states_selection = st.multiselect(
-                "Select Individual Market States",
-                options=custom_market_states,
-                default=st.session_state.filter_state.get('custom_market_states', []),
-                placeholder="Choose specific market states to filter",
-                help="Select one or more market states to include in your filter",
-                key="custom_market_states_multiselect",
-                on_change=sync_custom_market_states
-            )
+            slider_min_val = 0
+            slider_max_val = 100
             
-            # Market Strength Slider - Professional Implementation
-            st.markdown("**📊 Market Strength Filter**")
-            market_strength_range = st.slider(
-                "Market Strength Range",
-                min_value=0,
-                max_value=100,
-                value=st.session_state.filter_state.get('market_strength_range', (0, 100)),
-                step=5,
-                help="Filter by overall market strength score (0-100). Higher values indicate stronger market conditions with better momentum, acceleration, and volume characteristics.",
-                key="market_strength_slider",
-                on_change=sync_market_strength
-            )
-            
-            # Combine selections for filtering
-            if custom_states_selection:
-                # Use custom states selection when available
-                filters['market_states'] = ["📊 Custom Selection"] + custom_states_selection
+            if pd.notna(min_strength) and pd.notna(max_strength) and min_strength <= max_strength:
+                default_range_value = (int(min_strength), int(max_strength))
             else:
-                # Just custom selection flag without individual states
-                filters['market_states'] = selected_market_states
-        else:
-            # Regular preset selection
-            if selected_market_states:
-                filters['market_states'] = selected_market_states
-        
-        # Add Market Strength filter when Custom Selection is active
-        if custom_selection_active:
-            if st.session_state.filter_state.get('market_strength_range', (0, 100)) != (0, 100):
-                filters['market_strength_range'] = st.session_state.filter_state['market_strength_range']
+                default_range_value = (0, 100)
+            
+            current_wave_range = st.session_state.filter_state.get('wave_strength_range', default_range_value)
+            current_wave_range = (
+                max(slider_min_val, min(slider_max_val, current_wave_range[0])),
+                max(slider_min_val, min(slider_max_val, current_wave_range[1]))
+            )
+            
+            wave_strength_range = st.slider(
+                "🎯 Overall Wave Strength Range",
+                min_value=slider_min_val,
+                max_value=slider_max_val,
+                value=current_wave_range,
+                step=1,
+                help="Filter by the calculated 'Overall Wave Strength' score (0-100)",
+                key="wave_strength_slider",
+                on_change=sync_wave_strength  # SYNC ON CHANGE
+            )
+            
+            if wave_strength_range != (0, 100):
+                filters['wave_strength_range'] = wave_strength_range
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
@@ -10329,270 +6222,193 @@ def main():
                     elif rvol_score_selection == "🔴 Weak (< 40)":
                         filters['rvol_score_range'] = (0, 39)
         
-        # 📈 Performance Filter - Professional Expandable Section
-        with st.expander("📈 Performance Filter", expanded=False):
-            
-            # Check for available return columns
-            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
-            
-            if available_return_cols:
-                # Individual Return Period Filters
-                st.markdown("**📊 Individual Return Period Filters**")
-                
-                # Define performance configuration with your exact specifications
-                performance_config = {
-                    'ret_1d': {
-                        'name': '1 Day Return',
-                        'presets': [
-                            {'label': '💥 Explosive', 'min': 10, 'max': None, 'description': '>10% 1D'},
-                            {'label': '🚀 Strong Rise', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
-                            {'label': '📈 Positive', 'min': 2, 'max': 5, 'description': '2-5% 1D'},
-                            {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
-                            {'label': '📉 Negative', 'min': -5, 'max': -2, 'description': '-5% to -2% 1D'},
-                            {'label': '💣 Crash', 'min': None, 'max': -5, 'description': '<-5% 1D'}
-                        ],
-                        'slider_range': (-50, 50),
-                        'slider_step': 0.5,
-                        'default_min': -50,
-                        'default_max': 50
-                    },
-                    'ret_3d': {
-                        'name': '3 Day Return',
-                        'presets': [
-                            {'label': '🌟 3-Day Surge', 'min': 15, 'max': None, 'description': '>15% 3D'},
-                            {'label': '⚡ Strong Momentum', 'min': 8, 'max': 15, 'description': '8-15% 3D'},
-                            {'label': '📊 Steady Rise', 'min': 3, 'max': 8, 'description': '3-8% 3D'},
-                            {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
-                            {'label': '⚠️ Weakening', 'min': -8, 'max': -3, 'description': '-8% to -3% 3D'},
-                            {'label': '🔻 Sharp Decline', 'min': None, 'max': -8, 'description': '<-8% 3D'}
-                        ],
-                        'slider_range': (-75, 75),
-                        'slider_step': 1,
-                        'default_min': -75,
-                        'default_max': 75
-                    },
-                    'ret_7d': {
-                        'name': 'Weekly Return',
-                        'presets': [
-                            {'label': '📈 Weekly Winners', 'min': 20, 'max': None, 'description': '>20% 7D'},
-                            {'label': '💪 Strong Week', 'min': 12, 'max': 20, 'description': '12-20% 7D'},
-                            {'label': '✅ Good Week', 'min': 5, 'max': 12, 'description': '5-12% 7D'},
-                            {'label': '😐 Flat Week', 'min': -5, 'max': 5, 'description': '-5% to 5% 7D'},
-                            {'label': '😟 Bad Week', 'min': -12, 'max': -5, 'description': '-12% to -5% 7D'},
-                            {'label': '💔 Terrible Week', 'min': None, 'max': -12, 'description': '<-12% 7D'}
-                        ],
-                        'slider_range': (-100, 100),
-                        'slider_step': 1,
-                        'default_min': -100,
-                        'default_max': 100
-                    },
-                    'ret_30d': {
-                        'name': 'Monthly Return',
-                        'presets': [
-                            {'label': '🏆 Monthly Champions', 'min': 30, 'max': None, 'description': '>30% 30D'},
-                            {'label': '🎯 Top Performers', 'min': 20, 'max': 30, 'description': '20-30% 30D'},
-                            {'label': '📈 Outperformers', 'min': 10, 'max': 20, 'description': '10-20% 30D'},
-                            {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
-                            {'label': '📉 Underperformers', 'min': -20, 'max': -10, 'description': '-20% to -10% 30D'},
-                            {'label': '☠️ Monthly Losers', 'min': None, 'max': -20, 'description': '<-20% 30D'}
-                        ],
-                        'slider_range': (-100, 200),
-                        'slider_step': 2,
-                        'default_min': -100,
-                        'default_max': 200
-                    },
-                    'ret_3m': {
-                        'name': '3 Month Return',
-                        'presets': [
-                            {'label': '🎯 Quarterly Stars', 'min': 50, 'max': None, 'description': '>50% 3M'},
-                            {'label': '⭐ Strong Quarter', 'min': 30, 'max': 50, 'description': '30-50% 3M'},
-                            {'label': '👍 Good Quarter', 'min': 15, 'max': 30, 'description': '15-30% 3M'},
-                            {'label': '➖ Flat Quarter', 'min': -15, 'max': 15, 'description': '-15% to 15% 3M'},
-                            {'label': '👎 Weak Quarter', 'min': -30, 'max': -15, 'description': '-30% to -15% 3M'},
-                            {'label': '🚨 Quarterly Disaster', 'min': None, 'max': -30, 'description': '<-30% 3M'}
-                        ],
-                        'slider_range': (-100, 300),
-                        'slider_step': 5,
-                        'default_min': -100,
-                        'default_max': 300
-                    },
-                    'ret_6m': {
-                        'name': '6 Month Return',
-                        'presets': [
-                            {'label': '💎 Half-Year Heroes', 'min': 80, 'max': None, 'description': '>80% 6M'},
-                            {'label': '🌟 Semi-Annual Stars', 'min': 60, 'max': 80, 'description': '60-80% 6M'},
-                            {'label': '📈 Strong Half', 'min': 30, 'max': 60, 'description': '30-60% 6M'},
-                            {'label': '〰️ Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
-                            {'label': '📉 Weak Half', 'min': -50, 'max': -20, 'description': '-50% to -20% 6M'},
-                            {'label': '💀 Half-Year Collapse', 'min': None, 'max': -50, 'description': '<-50% 6M'}
-                        ],
-                        'slider_range': (-100, 500),
-                        'slider_step': 10,
-                        'default_min': -100,
-                        'default_max': 500
-                    },
-                    'ret_1y': {
-                        'name': '1 Year Return',
-                        'presets': [
-                            {'label': '🌙 Annual Winners', 'min': 100, 'max': None, 'description': '>100% 1Y'},
-                            {'label': '🏅 Year Stars', 'min': 80, 'max': 100, 'description': '80-100% 1Y'},
-                            {'label': '💪 Strong Year', 'min': 50, 'max': 80, 'description': '50-80% 1Y'},
-                            {'label': '📊 Market Year', 'min': -30, 'max': 30, 'description': '-30% to 30% 1Y'},
-                            {'label': '😔 Disappointing Year', 'min': -60, 'max': -30, 'description': '-60% to -30% 1Y'},
-                            {'label': '🔴 Annual Disasters', 'min': None, 'max': -60, 'description': '<-60% 1Y'}
-                        ],
-                        'slider_range': (-100, 1000),
-                        'slider_step': 10,
-                        'default_min': -100,
-                        'default_max': 1000
-                    },
-                    'ret_3y': {
-                        'name': '3 Year Return',
-                        'presets': [
-                            {'label': '👑 Multi-Year Champions', 'min': 200, 'max': None, 'description': '>200% 3Y'},
-                            {'label': '🚀 3Y Rockets', 'min': 150, 'max': 200, 'description': '150-200% 3Y'},
-                            {'label': '⭐ 3Y Stars', 'min': 100, 'max': 150, 'description': '100-150% 3Y'},
-                            {'label': '📈 3Y Growth', 'min': 0, 'max': 50, 'description': '0-50% 3Y'},
-                            {'label': '📉 3Y Decline', 'min': -50, 'max': 0, 'description': '-50% to 0% 3Y'},
-                            {'label': '💣 3Y Destruction', 'min': None, 'max': -50, 'description': '<-50% 3Y'}
-                        ],
-                        'slider_range': (-100, 2000),
-                        'slider_step': 25,
-                        'default_min': -100,
-                        'default_max': 2000
-                    },
-                    'ret_5y': {
-                        'name': '5 Year Return',
-                        'presets': [
-                            {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
-                            {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
-                            {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
-                            {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
-                            {'label': '⚠️ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
-                            {'label': '☠️ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
-                        ],
-                        'slider_range': (-100, 5000),
-                        'slider_step': 50,
-                        'default_min': -100,
-                        'default_max': 5000
-                    }
-                }
-                
-                # Create single column layout for sequential order
-                # Process each available return column in proper time sequence
-                for ret_col in available_return_cols:
-                    if ret_col in performance_config:
-                        config = performance_config[ret_col]
-                        
-                        # Create preset options
-                        preset_options = ["All Returns"] + [preset['label'] for preset in config['presets']] + ["🎯 Custom Range"]
-                        
-                        # Get current selection
-                        current_selection = st.session_state.filter_state.get(f'{ret_col}_selection', "All Returns")
-                        if current_selection not in preset_options:
-                            current_selection = "All Returns"
-                        
-                        # Performance period dropdown
-                        selection = st.selectbox(
-                            config['name'],
-                            options=preset_options,
-                            index=preset_options.index(current_selection),
-                            help=f"Filter stocks by {config['name'].lower()}",
-                            key=f"{ret_col}_dropdown",
-                            on_change=sync_performance_dropdowns
-                        )
-                        
-                        # Update session state with current selection
-                        st.session_state.filter_state[f'{ret_col}_selection'] = selection
-                        
-                        # Handle custom range selection
-                        if selection == "🎯 Custom Range":
-                            # Ensure proper type conversion for slider value parameter
-                            default_value = (float(config['default_min']), float(config['default_max']))
-                            current_value = st.session_state.filter_state.get(f'{ret_col}_range', default_value)
-                            
-                            # Ensure current_value is also a tuple of floats
-                            if isinstance(current_value, tuple) and len(current_value) == 2:
-                                current_value = (float(current_value[0]), float(current_value[1]))
-                            else:
-                                current_value = default_value
-                            
-                            range_value = st.slider(
-                                f"{config['name']} Range (%)",
-                                min_value=float(config['slider_range'][0]),
-                                max_value=float(config['slider_range'][1]),
-                                value=current_value,
-                                step=float(config['slider_step']),
-                                help=f"Custom range for {config['name'].lower()}",
-                                key=f"{ret_col}_range_slider",
-                                on_change=sync_performance_sliders
-                            )
-                            filters[f'{ret_col}_range'] = range_value
-                        elif selection != "All Returns":
-                            # Handle preset selection
-                            for preset in config['presets']:
-                                if preset['label'] == selection:
-                                    min_val = preset['min'] if preset['min'] is not None else config['default_min']
-                                    max_val = preset['max'] if preset['max'] is not None else config['default_max']
-                                    filters[f'{ret_col}_range'] = (min_val, max_val)
-                                    break
-            else:
-                st.info("📊 No return data available for performance filtering")
-        
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
-            # VMI (Volume Momentum Index) Filter
-            if 'vmi_tier' in ranked_df_display.columns or 'vmi' in ranked_df_display.columns:
-                vmi_tier_options = list(CONFIG.TIERS['vmi_tiers'].keys()) + ["🎯 Custom VMI Range"]
-                vmi_tiers = st.multiselect(
-                    "VMI (Volume Momentum Index) Tiers",
-                    options=vmi_tier_options,
-                    default=st.session_state.filter_state.get('vmi_tiers', []),
-                    key='vmi_tier_multiselect_intelligence',
-                    on_change=sync_vmi_tier,
-                    help="Volume Momentum Index: Weighted volume trend score classification"
-                )
-                
-                if vmi_tiers:
-                    filters['vmi_tiers'] = vmi_tiers
-                
-                # Show custom VMI range slider when "🎯 Custom VMI Range" is selected
-                custom_vmi_range_selected = any("Custom VMI Range" in tier for tier in vmi_tiers) if vmi_tiers else False
-                if custom_vmi_range_selected:
-                    st.write("📊 **Custom VMI Range Filter**")
+            # 📈 Performance Intelligence
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
+            if available_return_cols:
+                st.write("**📈 Performance Intelligence**")
+                # PROFESSIONAL PERFORMANCE TIER OPTIONS WITH PRACTICAL THRESHOLDS
+                performance_options = [
+                    # Short-term momentum (Practical thresholds for Indian markets)
+                    "🚀 Strong Gainers (>3% 1D)",          # Reduced from 5% to 3% - more practical
+                    "⚡ Power Moves (>7% 1D)",             # Reduced from 10% to 7% - realistic
+                    "💥 Explosive (>15% 1D)",              # Reduced from 20% to 15% - achievable
+                    "🌟 3-Day Surge (>6% 3D)",            # Reduced from 8% to 6% - practical
+                    "📈 Weekly Winners (>12% 7D)",         # Reduced from 15% to 12% - realistic
                     
-                    vmi_range = st.slider(
-                        "VMI Range",
-                        min_value=0.0,
-                        max_value=5.0,
-                        value=(0.5, 3.0),
-                        step=0.1,
-                        key='custom_vmi_range_intelligence',
-                        help="VMI typically ranges from 0.1 (very low volume) to 3.0+ (very high volume)"
-                    )
-                    filters['custom_vmi_range'] = vmi_range
-            
-            # Momentum Harmony Filter  
-            if 'momentum_harmony_tier' in ranked_df_display.columns or 'momentum_harmony' in ranked_df_display.columns:
-                momentum_harmony_tier_options = list(CONFIG.TIERS['momentum_harmony_tiers'].keys())
-                momentum_harmony_tiers = st.multiselect(
-                    "Momentum Harmony Tiers",
-                    options=momentum_harmony_tier_options,
-                    default=st.session_state.filter_state.get('momentum_harmony_tiers', []),
-                    key='momentum_harmony_tier_multiselect_intelligence',
-                    on_change=sync_momentum_harmony_tier,
-                    help="Multi-timeframe momentum alignment: 0-4 score showing consistency across periods"
+                    # Medium-term growth (Adjusted for market reality)
+                    "🏆 Monthly Champions (>25% 30D)",     # Reduced from 30% to 25% - achievable
+                    "🎯 Quarterly Stars (>40% 3M)",        # Reduced from 50% to 40% - realistic
+                    "💎 Half-Year Heroes (>60% 6M)",       # Reduced from 75% to 60% - practical
+                    
+                    # Long-term performance (Fixed emoji + realistic thresholds)
+                    "🌙 Annual Winners (>80% 1Y)",         # FIXED: Added emoji, reduced from 100% to 80%
+                    "👑 Multi-Year Champions (>150% 3Y)",  # Reduced from 200% to 150% - achievable
+                    "🏛️ Long-Term Legends (>250% 5Y)",    # Reduced from 300% to 250% - realistic
+                    
+                    # Custom range option
+                    "🎯 Custom Range"
+                ]
+                
+                performance_tiers = st.multiselect(
+                    "📈 Performance Filter",
+                    options=performance_options,
+                    default=st.session_state.filter_state.get('performance_tiers', []),
+                    key='performance_tier_multiselect_intelligence',
+                    on_change=sync_performance_tier,
+                    help="Select performance categories or use Custom Range for precise control. Thresholds optimized for Indian markets."
                 )
                 
-                if momentum_harmony_tiers:
-                    filters['momentum_harmony_tiers'] = momentum_harmony_tiers
+                if performance_tiers:
+                    filters['performance_tiers'] = performance_tiers
+                
+                # Show custom range sliders when "🎯 Custom Range" is selected
+                custom_performance_range_selected = any("Custom Range" in tier for tier in performance_tiers) if performance_tiers else False
+                if custom_performance_range_selected:
+                    st.write("📊 **Custom Performance Range Filters**")
+                    
+                    # Short-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        ret_1d_range = st.slider(
+                            "1D Return Range (%)",
+                            min_value=0.0,
+                            max_value=50.0,
+                            value=st.session_state.filter_state.get('ret_1d_range', (2.0, 25.0)),
+                            step=0.5,
+                            help="Filter by 1-day return range (realistic: 0-50% for Indian markets)",
+                            key="ret_1d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1d_range != (2.0, 25.0):
+                            filters['ret_1d_range'] = ret_1d_range
+                    
+                    with col2:
+                        ret_3d_range = st.slider(
+                            "3D Return Range (%)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=st.session_state.filter_state.get('ret_3d_range', (3.0, 50.0)),
+                            step=1.0,
+                            help="Filter by 3-day return range (realistic: 0-100% for Indian markets)",
+                            key="ret_3d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3d_range != (3.0, 50.0):
+                            filters['ret_3d_range'] = ret_3d_range
+                    
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        ret_7d_range = st.slider(
+                            "7D Return Range (%)",
+                            min_value=0.0,
+                            max_value=150.0,
+                            value=st.session_state.filter_state.get('ret_7d_range', (5.0, 75.0)),
+                            step=1.0,
+                            help="Filter by 7-day return range (realistic: 0-150% for Indian markets)",
+                            key="ret_7d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_7d_range != (5.0, 75.0):
+                            filters['ret_7d_range'] = ret_7d_range
+                    
+                    with col4:
+                        ret_30d_range = st.slider(
+                            "30D Return Range (%)",
+                            min_value=0.0,
+                            max_value=300.0,
+                            value=st.session_state.filter_state.get('ret_30d_range', (10.0, 150.0)),
+                            step=5.0,
+                            help="Filter by 30-day return range (realistic: 0-300% for Indian markets)",
+                            key="ret_30d_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_30d_range != (10.0, 150.0):
+                            filters['ret_30d_range'] = ret_30d_range
+                    
+                    # Medium-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
+                    col5, col6 = st.columns(2)
+                    with col5:
+                        ret_3m_range = st.slider(
+                            "3M Return Range (%)",
+                            min_value=0.0,
+                            max_value=500.0,
+                            value=st.session_state.filter_state.get('ret_3m_range', (15.0, 200.0)),
+                            step=5.0,
+                            help="Filter by 3-month return range (realistic: 0-500% for Indian markets)",
+                            key="ret_3m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3m_range != (15.0, 200.0):
+                            filters['ret_3m_range'] = ret_3m_range
+                    
+                    with col6:
+                        ret_6m_range = st.slider(
+                            "6M Return Range (%)",
+                            min_value=0.0,
+                            max_value=1000.0,
+                            value=st.session_state.filter_state.get('ret_6m_range', (20.0, 500.0)),
+                            step=10.0,
+                            help="Filter by 6-month return range (realistic: 0-1000% for Indian markets)",
+                            key="ret_6m_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_6m_range != (20.0, 500.0):
+                            filters['ret_6m_range'] = ret_6m_range
+                    
+                    # Long-term performance ranges - REALISTIC INDIAN MARKET THRESHOLDS
+                    col7, col8 = st.columns(2)
+                    with col7:
+                        ret_1y_range = st.slider(
+                            "1Y Return Range (%)",
+                            min_value=0.0,
+                            max_value=2000.0,
+                            value=st.session_state.filter_state.get('ret_1y_range', (25.0, 1000.0)),
+                            step=25.0,
+                            help="Filter by 1-year return range (realistic: 0-2000% for Indian markets)",
+                            key="ret_1y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_1y_range != (25.0, 1000.0):
+                            filters['ret_1y_range'] = ret_1y_range
+                    
+                    with col8:
+                        ret_3y_range = st.slider(
+                            "3Y Return Range (%)",
+                            min_value=0.0,
+                            max_value=5000.0,
+                            value=st.session_state.filter_state.get('ret_3y_range', (50.0, 2000.0)),
+                            step=50.0,
+                            help="Filter by 3-year return range (realistic: 0-5000% for Indian markets)",
+                            key="ret_3y_range_slider",
+                            on_change=sync_performance_custom_range
+                        )
+                        if ret_3y_range != (50.0, 2000.0):
+                            filters['ret_3y_range'] = ret_3y_range
+                    
+                    # 5Y Return Range (full width) - REALISTIC INDIAN MARKET THRESHOLDS
+                    ret_5y_range = st.slider(
+                        "5Y Return Range (%)",
+                        min_value=0.0,
+                        max_value=10000.0,
+                        value=st.session_state.filter_state.get('ret_5y_range', (75.0, 5000.0)),
+                        step=100.0,
+                        help="Filter by 5-year return range (realistic: 0-10000% for Indian markets)",
+                        key="ret_5y_range_slider",
+                        on_change=sync_performance_custom_range
+                    )
+                    if ret_5y_range != (75.0, 5000.0):
+                        filters['ret_5y_range'] = ret_5y_range
             
-            #  Volume Intelligence
+            # 📊 Volume Intelligence
             if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
+                st.write("**📊 Volume Intelligence**")
+                st.write("🌊 Volume Activity Tiers")
                 # Volume tier multiselect with custom range option
                 volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
                 volume_tiers = st.multiselect(
-                    "Volume Activity Tiers",
+                    "🌊 Volume Activity Tiers",
                     options=volume_tier_options,
                     default=st.session_state.filter_state.get('volume_tiers', []),
                     key='volume_tier_multiselect_intelligence',
@@ -10623,10 +6439,12 @@ def main():
             
             # 🎯 Position Intelligence
             if 'position_tier' in ranked_df_display.columns:
+                st.write("**🎯 Position Intelligence**")
+                st.write("🌍 Position Tiers")
                 # Position tier multiselect with custom range option
                 position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Position Range"]
                 position_tiers = st.multiselect(
-                    "Position Tiers",
+                    "🌍 Position Tiers",
                     options=position_tier_options,
                     default=st.session_state.filter_state.get('position_tiers', []),
                     key='position_tier_multiselect_intelligence',
@@ -10845,21 +6663,22 @@ def main():
                         st.write(f"• {func}: {time_taken:.4f}s")
     
     active_filter_count = st.session_state.get('active_filter_count', 0)
-    if quick_filter:
+    if active_filter_count > 0 or quick_filter_applied:
         filter_status_col1, filter_status_col2 = st.columns([5, 1])
         with filter_status_col1:
-            quick_filter_names = {
-                'top_gainers': '📈 Top Gainers',
-                'volume_surges': '🔥 Volume Surges',
-                'velocity_breakout': '🚀 High Velocity',
-                'institutional_tsunami': '🌋 Tsunami'
-            }
-            filter_display = quick_filter_names.get(quick_filter, 'Filtered')
-            
-            if active_filter_count > 1:
-                st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
-            else:
-                st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
+            if quick_filter:
+                quick_filter_names = {
+                    'top_gainers': '📈 Top Gainers',
+                    'volume_surges': '🔥 Volume Surges',
+                    'velocity_breakout': '🚀 High Velocity',
+                    'institutional_tsunami': '🌋 Tsunami'
+                }
+                filter_display = quick_filter_names.get(quick_filter, 'Filtered')
+                
+                if active_filter_count > 1:
+                    st.info(f"**Viewing:** {filter_display} + {active_filter_count - 1} other filter{'s' if active_filter_count > 2 else ''} | **{len(filtered_df):,} stocks** shown")
+                else:
+                    st.info(f"**Viewing:** {filter_display} | **{len(filtered_df):,} stocks** shown")
         
         with filter_status_col2:
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
@@ -10966,7 +6785,7 @@ def main():
             UIComponents.render_metric_card("With Patterns", f"{with_patterns}")
     
     tabs = st.tabs([
-        "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
+        "📊 Summary", "🏆 Rankings", "🌊 Wave Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
     ])
     
     with tabs[0]:
@@ -11027,341 +6846,115 @@ def main():
         else:
             st.warning("No data available for summary. Please adjust filters.")
     
-    # Tab 1: Rankings - ALL TIME BEST PROFESSIONAL RANKING TAB
+    # Tab 1: Rankings
     with tabs[1]:
         st.markdown("### 🏆 Top Ranked Stocks")
-        st.markdown("*Complete analysis with all critical metrics for professional stock ranking*")
         
-        # Enhanced Control Panel
-        ranking_controls = st.columns([2, 2, 2, 2, 2])
-        
-        with ranking_controls[0]:
+        col1, col2, col3 = st.columns([2, 2, 6])
+        with col1:
             display_count = st.selectbox(
-                "🔢 Show Top",
+                "Show top",
                 options=CONFIG.AVAILABLE_TOP_N,
                 index=CONFIG.AVAILABLE_TOP_N.index(st.session_state.user_preferences['default_top_n']),
                 key="display_count_select"
             )
             st.session_state.user_preferences['default_top_n'] = display_count
         
-        with ranking_controls[1]:
-            sort_options = ['Master Score', 'Momentum Score', 'Volume Score', 'Position Score', 
-                          'Acceleration Score', 'Breakout Score', 'RVOL Score', 'Trend Quality',
-                          'Long Term Strength', 'Liquidity Score', 'Overall Market Strength']
+        with col2:
+            sort_options = ['Rank', 'Master Score', 'RVOL', 'Momentum', 'Money Flow']
+            if 'trend_quality' in filtered_df.columns:
+                sort_options.append('Trend')
             
             sort_by = st.selectbox(
-                "📊 Primary Sort",
+                "Sort by", 
                 options=sort_options, 
                 index=0,
                 key="sort_by_select"
             )
         
-        with ranking_controls[2]:
-            view_mode = st.selectbox(
-                "📋 View Mode",
-                options=["Essential", "Technical", "Complete", "Custom"],
-                index=0,
-                key="ranking_view_mode",
-                help="Essential: Core metrics | Technical: All scores | Complete: Everything"
-            )
+        display_df = filtered_df.head(display_count).copy()
         
-        with ranking_controls[3]:
-            performance_timeframe = st.selectbox(
-                "⏱️ Performance Period",
-                options=["1D", "3D", "7D", "30D", "All"],
-                index=3,
-                key="perf_timeframe",
-                help="Focus on specific performance timeframe"
-            )
-        
-        with ranking_controls[4]:
-            export_format = st.selectbox(
-                "💾 Export Format",
-                options=["None", "CSV", "Excel", "JSON"],
-                index=0,
-                key="export_format"
-            )
-        
-        # 🔧 PERFORMANCE PERIOD FILTERING IMPLEMENTATION
-        # Apply performance-based filtering before display
-        performance_filtered_df = filtered_df.copy()
-        
-        if performance_timeframe != "All":
-            # Map timeframe to return column
-            timeframe_mapping = {
-                "1D": "ret_1d",
-                "3D": "ret_3d", 
-                "7D": "ret_7d",
-                "30D": "ret_30d"
-            }
-            
-            primary_return_col = timeframe_mapping.get(performance_timeframe)
-            
-            if primary_return_col and primary_return_col in performance_filtered_df.columns:
-                # Adjust master score based on selected timeframe performance
-                # Give higher weight to the selected timeframe
-                valid_returns = performance_filtered_df[primary_return_col].notna()
-                
-                if valid_returns.any():
-                    # Create performance-adjusted score
-                    timeframe_multiplier = pd.Series(1.0, index=performance_filtered_df.index)
-                    
-                    # Boost scores for strong performers in selected timeframe
-                    strong_performers = (performance_filtered_df[primary_return_col] > 10) & valid_returns
-                    moderate_performers = (performance_filtered_df[primary_return_col] > 5) & (performance_filtered_df[primary_return_col] <= 10) & valid_returns
-                    weak_performers = (performance_filtered_df[primary_return_col] < -5) & valid_returns
-                    
-                    timeframe_multiplier[strong_performers] = 1.15  # 15% boost for strong performers
-                    timeframe_multiplier[moderate_performers] = 1.05  # 5% boost for moderate performers  
-                    timeframe_multiplier[weak_performers] = 0.95    # 5% penalty for weak performers
-                    
-                    # Apply timeframe adjustment to master score
-                    performance_filtered_df['master_score_adjusted'] = (
-                        performance_filtered_df['master_score'] * timeframe_multiplier
-                    ).clip(0, 100)
-                    
-                    # Resort by adjusted score for this timeframe
-                    performance_filtered_df = performance_filtered_df.sort_values('master_score_adjusted', ascending=False)
-                    
-                    logger.info(f"Applied {performance_timeframe} performance weighting: "
-                              f"{strong_performers.sum()} strong, {moderate_performers.sum()} moderate, "
-                              f"{weak_performers.sum()} weak performers")
-        
-        display_df = performance_filtered_df.head(display_count).copy()
-        
-        
-        # Enhanced sorting logic
-        sort_mapping = {
-            'Master Score': 'master_score',
-            'Momentum Score': 'momentum_score',
-            'Volume Score': 'volume_score', 
-            'Position Score': 'position_score',
-            'Acceleration Score': 'acceleration_score',
-            'Breakout Score': 'breakout_score',
-            'RVOL Score': 'rvol_score',
-            'Trend Quality': 'trend_quality',
-            'Long Term Strength': 'long_term_strength',
-            'Liquidity Score': 'liquidity_score',
-            'Overall Market Strength': 'overall_market_strength'
-        }
-        
-        if sort_by in sort_mapping and sort_mapping[sort_by] in display_df.columns:
-            display_df = display_df.sort_values(sort_mapping[sort_by], ascending=False)
-        else:
+        # Apply sorting
+        if sort_by == 'Master Score':
             display_df = display_df.sort_values('master_score', ascending=False)
+        elif sort_by == 'RVOL':
+            display_df = display_df.sort_values('rvol', ascending=False)
+        elif sort_by == 'Momentum':
+            display_df = display_df.sort_values('momentum_score', ascending=False)
+        elif sort_by == 'Money Flow' and 'money_flow_mm' in display_df.columns:
+            display_df = display_df.sort_values('money_flow_mm', ascending=False)
+        elif sort_by == 'Trend' and 'trend_quality' in display_df.columns:
+            display_df = display_df.sort_values('trend_quality', ascending=False)
         
         if not display_df.empty:
+            # Add trend indicator if available
+            if 'trend_quality' in display_df.columns:
+                def get_trend_indicator(score):
+                    if pd.isna(score):
+                        return "➖"
+                    elif score >= 80:
+                        return "🔥"
+                    elif score >= 60:
+                        return "✅"
+                    elif score >= 40:
+                        return "➡️"
+                    else:
+                        return "⚠️"
+                
+                display_df['trend_indicator'] = display_df['trend_quality'].apply(get_trend_indicator)
             
-            # PROFESSIONAL COLUMN CONFIGURATION BASED ON VIEW MODE
-            # Use adjusted score if performance timeframe filtering is applied
-            score_column = 'master_score_adjusted' if (performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns) else 'master_score'
-            score_label = f'{performance_timeframe} Score' if performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns else 'Score'
-            
-            if view_mode == "Essential":
-                # Core metrics every trader needs
-                display_cols = {
-                    'rank': 'Rank',
-                    'ticker': 'Ticker',
-                    'company_name': 'Company',
-                    score_column: score_label,
-                    'market_state': 'State',
-                    'price': 'Price',
-                    'from_low_pct': 'Low%',
-                    'from_high_pct': 'High%',
-                    'ret_1d': '1D%',
-                    'ret_7d': '7D%',
-                    'ret_30d': '30D%',
-                    'rvol': 'RVOL',
-                    'vmi': 'VMI',
-                    'volume_1d': 'Vol(Cr)',
-                    'patterns': 'Patterns',
-                    'category': 'Category'
-                }
-                
-                # Add fundamentals if in Hybrid mode
-                if show_fundamentals:
-                    display_cols.update({
-                        'pe': 'PE',
-                        'eps_current': 'EPS',
-                        'eps_change_pct': 'EPS Δ%'
-                    })
-                
-            elif view_mode == "Technical":
-                # All technical scores and indicators
-                display_cols = {
-                    'rank': 'Rank',
-                    'ticker': 'Ticker',
-                    'company_name': 'Company',
-                    score_column: 'Master' if performance_timeframe == "All" else f'{performance_timeframe} Master',
-                    'position_score': 'Position',
-                    'momentum_score': 'Momentum',
-                    'volume_score': 'Volume',
-                    'acceleration_score': 'Accel',
-                    'breakout_score': 'Breakout',
-                    'rvol_score': 'RVOL Scr',
-                    'trend_quality': 'Trend',
-                    'long_term_strength': 'LT Str',
-                    'liquidity_score': 'Liquid',
-                    'overall_market_strength': 'Mkt Str',
-                    'price': 'Price',
-                    'vmi': 'VMI',
-                    'patterns': 'Patterns'
-                }
-                
-                # Add fundamentals if in Hybrid mode
-                if show_fundamentals:
-                    display_cols.update({
-                        'pe': 'PE',
-                        'eps_current': 'EPS',
-                        'eps_change_pct': 'EPS Δ%'
-                    })
-                
-            elif view_mode == "Complete":
-                # Everything - ultimate professional view
-                display_cols = {
-                    'rank': 'Rank',
-                    'ticker': 'Ticker', 
-                    'company_name': 'Company',
-                    score_column: 'Master' if performance_timeframe == "All" else f'{performance_timeframe} Master',
-                    'position_score': 'Pos',
-                    'momentum_score': 'Mom',
-                    'volume_score': 'Vol',
-                    'acceleration_score': 'Acc',
-                    'breakout_score': 'Brk',
-                    'rvol_score': 'RVS',
-                    'trend_quality': 'Trd',
-                    'long_term_strength': 'LTS',
-                    'liquidity_score': 'Liq',
-                    'overall_market_strength': 'MktS',
-                    'market_state': 'State',
-                    'price': 'Price',
-                    'from_low_pct': 'Low%',
-                    'from_high_pct': 'High%',
-                    'ret_1d': '1D%',
-                    'ret_3d': '3D%',
-                    'ret_7d': '7D%',
-                    'ret_30d': '30D%',
-                    'rvol': 'RVOL',
-                    'vmi': 'VMI',
-                    'volume_1d': 'Vol(Cr)',
-                    'money_flow_mm': 'MF(MM)',
-                    'patterns': 'Patterns',
-                    'category': 'Category',
-                    'sector': 'Sector',
-                    'industry': 'Industry'
-                }
-                
-                # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY
-                if show_fundamentals:
-                    display_cols.update({
-                        'pe': 'PE',
-                        'eps_current': 'EPS',
-                        'eps_change_pct': 'EPS Δ%'
-                    })
-                    
-            else:  # Custom view
-                # Let user select what they want to see
-                st.markdown("#### 🛠️ Customize Your View")
-                
-                available_cols = [
-                    'rank', 'ticker', 'company_name', 'master_score', 'position_score', 'momentum_score',
-                    'volume_score', 'acceleration_score', 'breakout_score', 'rvol_score', 'trend_quality',
-                    'long_term_strength', 'liquidity_score', 'overall_market_strength', 'market_state',
-                    'price', 'from_low_pct', 'from_high_pct', 'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d',
-                    'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'patterns',
-                    'category', 'sector', 'industry'
-                ]
-                
-                # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY  
-                if show_fundamentals:
-                    available_cols.extend(['pe', 'eps_current', 'eps_change_pct'])
-                
-                # Filter to only available columns
-                available_cols = [col for col in available_cols if col in display_df.columns]
-                
-                # Smart default selection - only columns that exist
-                default_cols = ['rank', 'ticker', 'company_name', 'master_score', 'price']
-                if 'ret_30d' in available_cols:
-                    default_cols.append('ret_30d')
-                if 'rvol' in available_cols:
-                    default_cols.append('rvol')
-                if 'patterns' in available_cols:
-                    default_cols.append('patterns')
-                
-                custom_cols = st.multiselect(
-                    "Select columns to display:",
-                    options=available_cols,
-                    default=default_cols,
-                    key="custom_columns_select"
-                )
-                
-                # Create display_cols dict for custom selection
-                display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
-        
-            # ROBUST COLUMN FILTERING - Only include columns that actually exist
-            available_display_cols = [c for c in display_cols.keys() if c in display_df.columns]
-            final_display_cols = {k: display_cols[k] for k in available_display_cols}
-            
-            # Check if fundamental columns were requested but missing
-            if show_fundamentals:
-                requested_fund_cols = [c for c in ['pe', 'eps_current', 'eps_change_pct'] if c in display_cols.keys()]
-                missing_fund_cols = [c for c in requested_fund_cols if c not in display_df.columns]
-                
-                if missing_fund_cols:
-                    st.warning(f"⚠️ **Hybrid Mode**: Some fundamental data missing from dataset: {', '.join(missing_fund_cols)}")
-                    st.info("💡 **Tip**: Upload data with PE, EPS columns or switch to Technical mode for full experience")
-            
-            # SAFETY CHECK: Ensure no duplicate column names
-            column_names = list(final_display_cols.values())
-            if len(column_names) != len(set(column_names)):
-                st.error(f"🚨 **CRITICAL ERROR**: Duplicate column names detected: {column_names}")
-                st.error("This will cause the application to crash. Please report this bug.")
-                return
-            
-            # Create formatted dataframe for display - PERFORMANCE OPTIMIZED
-            # Only copy columns that will be displayed to reduce memory usage
-            display_cols_list = list(final_display_cols.keys())
-            display_df_formatted = display_df[display_cols_list].copy()
-            
-            # PROFESSIONAL FORMATTING RULES
-            format_rules = {
-                'master_score': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
-                'master_score_adjusted': lambda x: f"{x:.1f}" if pd.notna(x) else '-',  # Add adjusted score formatting
-                'position_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'momentum_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'volume_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'acceleration_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'breakout_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'rvol_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'trend_quality': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'long_term_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'liquidity_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
-                'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
-                'from_high_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
-                'ret_1d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                'ret_3d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                'ret_7d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                'ret_30d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
-                'rvol': lambda x: f"{x:.1f}x" if pd.notna(x) else '-',
-                'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-',
-                'volume_1d': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
-                'money_flow_mm': lambda x: f"₹{x:.0f}M" if pd.notna(x) else '-',
-                # Fundamental columns formatting
-                'pe': lambda x: f"{x:.1f}x" if pd.notna(x) and x > 0 else 'N/A',
-                'eps_current': lambda x: f"₹{x:.2f}" if pd.notna(x) else 'N/A',
-                'eps_change_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else 'N/A',
-                'market_cap_cr': lambda x: f"₹{x:.0f}Cr" if pd.notna(x) else '-'
+            # Prepare display columns
+            display_cols = {
+                'rank': 'Rank',
+                'ticker': 'Ticker',
+                'company_name': 'Company',
+                'master_score': 'Score',
+                'wave_state': 'Wave'
             }
             
-            # Apply formatting
+            if 'trend_indicator' in display_df.columns:
+                display_cols['trend_indicator'] = 'Trend'
+            
+            display_cols['price'] = 'Price'
+            
+            if show_fundamentals:
+                if 'pe' in display_df.columns:
+                    display_cols['pe'] = 'PE'
+                
+                if 'eps_change_pct' in display_df.columns:
+                    display_cols['eps_change_pct'] = 'EPS Δ%'
+            
+            display_cols.update({
+                'from_low_pct': 'From Low',
+                'ret_30d': '30D Ret',
+                'rvol': 'RVOL',
+                'vmi': 'VMI',
+                'patterns': 'Patterns',
+                'category': 'Category'
+            })
+            
+            if 'industry' in display_df.columns:
+                display_cols['industry'] = 'Industry'
+            
+            # Format data for display (keep original values for proper sorting)
+            display_df_formatted = display_df.copy()
+            
+            # Format numeric columns as strings for display
+            format_rules = {
+                'master_score': lambda x: f"{x:.1f}" if pd.notna(x) else '-',
+                'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
+                'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
+                'ret_30d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
+                'rvol': lambda x: f"{x:.1f}x" if pd.notna(x) else '-',
+                'vmi': lambda x: f"{x:.2f}" if pd.notna(x) else '-'
+            }
+            
             for col, formatter in format_rules.items():
                 if col in display_df_formatted.columns:
                     display_df_formatted[col] = display_df[col].apply(formatter)
             
-            # Format PE with professional logic
-            def format_pe_professional(value):
+            # Format PE column
+            def format_pe(value):
                 try:
                     if pd.isna(value) or value == 'N/A':
                         return '-'
@@ -11374,15 +6967,13 @@ def main():
                         return '>10K'
                     elif val > 1000:
                         return f"{val:.0f}"
-                    elif val > 100:
-                        return f"{val:.1f}"
                     else:
                         return f"{val:.1f}"
-                except (ValueError, TypeError, AttributeError):
+                except:
                     return '-'
             
-            # Format EPS Change with professional logic
-            def format_eps_change_professional(value):
+            # Format EPS change
+            def format_eps_change(value):
                 try:
                     if pd.isna(value):
                         return '-'
@@ -11395,546 +6986,415 @@ def main():
                         return f"{val:+.0f}%"
                     else:
                         return f"{val:+.1f}%"
-                except (ValueError, TypeError, AttributeError):
+                except:
                     return '-'
             
-            # Apply professional fundamental formatting - ONLY EXISTING COLUMNS
             if show_fundamentals:
                 if 'pe' in display_df_formatted.columns:
-                    display_df_formatted['pe'] = display_df['pe'].apply(format_pe_professional)
+                    display_df_formatted['pe'] = display_df['pe'].apply(format_pe)
                 
                 if 'eps_change_pct' in display_df_formatted.columns:
-                    display_df_formatted['eps_change_pct'] = display_df['eps_change_pct'].apply(format_eps_change_professional)
-                
-                # Format EPS current (earnings per share)
-                if 'eps_current' in display_df_formatted.columns:
-                    display_df_formatted['eps_current'] = display_df['eps_current'].apply(lambda x: f"₹{x:.1f}" if pd.notna(x) and x > 0 else '-')
+                    display_df_formatted['eps_change_pct'] = display_df['eps_change_pct'].apply(format_eps_change)
             
-            # Add trend indicators for better visualization
-            if 'trend_quality' in display_df.columns:
-                def get_trend_indicator_professional(score):
-                    if pd.isna(score):
-                        return "➖"
-                    elif score >= 85:
-                        return "🔥"  # Exceptional
-                    elif score >= 70:
-                        return "🚀"  # Strong
-                    elif score >= 55:
-                        return "✅"  # Good
-                    elif score >= 40:
-                        return "➡️"  # Neutral
-                    elif score >= 25:
-                        return "⚠️"  # Weak
-                    else:
-                        return "🔻"  # Poor
-                
-                display_df_formatted['trend_indicator'] = display_df['trend_quality'].apply(get_trend_indicator_professional)
-                if view_mode in ["Essential", "Complete"]:
-                    final_display_cols['trend_indicator'] = 'Trend'
+            # Select and rename columns
+            available_display_cols = [c for c in display_cols.keys() if c in display_df_formatted.columns]
+            final_display_df = display_df_formatted[available_display_cols]
+            final_display_df.columns = [display_cols[c] for c in available_display_cols]
             
-            # Add momentum strength indicators
-            if 'momentum_score' in display_df.columns:
-                def get_momentum_indicator(score):
-                    if pd.isna(score):
-                        return "➖"
-                    elif score >= 80:
-                        return "🎯"  # Excellent
-                    elif score >= 60:
-                        return "📈"  # Strong
-                    elif score >= 40:
-                        return "📊"  # Moderate
-                    else:
-                        return "📉"  # Weak
-                
-                display_df_formatted['momentum_indicator'] = display_df['momentum_score'].apply(get_momentum_indicator)
-                if view_mode == "Essential":
-                    final_display_cols['momentum_indicator'] = 'Mom'
-            
-            # Select and rename columns for final display
-            final_display_df = display_df_formatted[list(final_display_cols.keys())]
-            final_display_df.columns = list(final_display_cols.values())
-            
-            # PROFESSIONAL COLUMN CONFIGURATION FOR STREAMLIT
-            column_config = {}
-            
-            # Define comprehensive column configurations
-            config_map = {
-                "Rank": st.column_config.NumberColumn("Rank", help="Overall ranking position", format="%d", width="tiny"),
-                "Ticker": st.column_config.TextColumn("Ticker", help="Stock symbol", width="small"),
-                "Company": st.column_config.TextColumn("Company", help="Company name", width="medium", max_chars=40),
-                "Master": st.column_config.TextColumn("Master", help="Master Score (0-100)", width="small"),
-                "Score": st.column_config.TextColumn("Score", help="Master Score (0-100)", width="small"),
-                "Pos": st.column_config.TextColumn("Pos", help="Position Score", width="tiny"),
-                "Position": st.column_config.TextColumn("Position", help="Position Score", width="small"),
-                "Mom": st.column_config.TextColumn("Mom", help="Momentum Score", width="tiny"),
-                "Momentum": st.column_config.TextColumn("Momentum", help="Momentum Score", width="small"),
-                "Vol": st.column_config.TextColumn("Vol", help="Volume Score", width="tiny"),
-                "Volume": st.column_config.TextColumn("Volume", help="Volume Score", width="small"),
-                "Acc": st.column_config.TextColumn("Acc", help="Acceleration Score", width="tiny"),
-                "Accel": st.column_config.TextColumn("Accel", help="Acceleration Score", width="small"),
-                "Brk": st.column_config.TextColumn("Brk", help="Breakout Score", width="tiny"),
-                "Breakout": st.column_config.TextColumn("Breakout", help="Breakout Score", width="small"),
-                "RVS": st.column_config.TextColumn("RVS", help="RVOL Score", width="tiny"),
-                "RVOL Scr": st.column_config.TextColumn("RVOL Scr", help="RVOL Score (0-100)", width="small"),
-                "RVOL": st.column_config.TextColumn("RVOL", help="Relative Volume vs Avg", width="small"),
-                "Trd": st.column_config.TextColumn("Trd", help="Trend Quality Score", width="tiny"),
-                "Trend": st.column_config.TextColumn("Trend", help="Trend Quality Indicator", width="small"),
-                "LTS": st.column_config.TextColumn("LTS", help="Long Term Strength", width="tiny"),
-                "LT Str": st.column_config.TextColumn("LT Str", help="Long Term Strength", width="small"),
-                "Liq": st.column_config.TextColumn("Liq", help="Liquidity Score", width="tiny"),
-                "Liquid": st.column_config.TextColumn("Liquid", help="Liquidity Score", width="small"),
-                "MktS": st.column_config.TextColumn("MktS", help="Overall Market Strength", width="tiny"),
-                "Mkt Str": st.column_config.TextColumn("Mkt Str", help="Overall Market Strength", width="small"),
-                "State": st.column_config.TextColumn("State", help="Current Market State", width="medium"),
-                "Price": st.column_config.TextColumn("Price", help="Current stock price", width="small"),
-                "Low%": st.column_config.TextColumn("Low%", help="Distance from 52W low", width="small"),
-                "High%": st.column_config.TextColumn("High%", help="Distance from 52W high", width="small"),
-                "1D%": st.column_config.TextColumn("1D%", help="1-day return", width="small"),
-                "3D%": st.column_config.TextColumn("3D%", help="3-day return", width="small"),
-                "7D%": st.column_config.TextColumn("7D%", help="7-day return", width="small"),
-                "30D%": st.column_config.TextColumn("30D%", help="30-day return", width="small"),
-                "VMI": st.column_config.TextColumn("VMI", help="Volume Momentum Index", width="small"),
-                "Vol(Cr)": st.column_config.TextColumn("Vol(Cr)", help="Volume in Crores", width="small"),
-                "MF(MM)": st.column_config.TextColumn("MF(MM)", help="Money Flow in MM", width="small"),
-                "ATR%": st.column_config.TextColumn("ATR%", help="Average True Range %", width="small"),
-                "RSI": st.column_config.TextColumn("RSI", help="Relative Strength Index", width="small"),
-                "Patterns": st.column_config.TextColumn("Patterns", help="Technical Patterns", width="large", max_chars=80),
-                "Category": st.column_config.TextColumn("Category", help="Market Cap Category", width="medium"),
-                "Sector": st.column_config.TextColumn("Sector", help="Sector Classification", width="medium"),
-                "Industry": st.column_config.TextColumn("Industry", help="Industry Classification", width="medium", max_chars=40),
-                
-                # Fundamental columns - ONLY WHAT EXISTS IN V9.PY
-                "PE": st.column_config.TextColumn("PE", help="Price to Earnings Ratio", width="small"),
-                "EPS": st.column_config.TextColumn("EPS", help="Earnings Per Share (Current)", width="small"),
-                "EPS Δ%": st.column_config.TextColumn("EPS Δ%", help="EPS Change %", width="small"),
-                
-                # Indicator columns
-                "Mom": st.column_config.TextColumn("Mom", help="Momentum Indicator", width="tiny"),
+            # Create column configuration
+            column_config = {
+                "Rank": st.column_config.NumberColumn(
+                    "Rank",
+                    help="Overall ranking position",
+                    format="%d",
+                    width="small"
+                ),
+                "Ticker": st.column_config.TextColumn(
+                    "Ticker",
+                    help="Stock symbol",
+                    width="small"
+                ),
+                "Company": st.column_config.TextColumn(
+                    "Company",
+                    help="Company name",
+                    width="medium",
+                    max_chars=50
+                ),
+                "Score": st.column_config.TextColumn(
+                    "Score",
+                    help="Master Score (0-100)",
+                    width="small"
+                ),
+                "Wave": st.column_config.TextColumn(
+                    "Wave",
+                    help="Current wave state - momentum indicator",
+                    width="medium"
+                ),
+                "Price": st.column_config.TextColumn(
+                    "Price",
+                    help="Current stock price in INR",
+                    width="small"
+                ),
+                "From Low": st.column_config.TextColumn(
+                    "From Low",
+                    help="Distance from 52-week low (%)",
+                    width="small"
+                ),
+                "30D Ret": st.column_config.TextColumn(
+                    "30D Ret",
+                    help="30-day return percentage",
+                    width="small"
+                ),
+                "RVOL": st.column_config.TextColumn(
+                    "RVOL",
+                    help="Relative volume compared to average",
+                    width="small"
+                ),
+                "VMI": st.column_config.TextColumn(
+                    "VMI",
+                    help="Volume Momentum Index",
+                    width="small"
+                ),
+                "Patterns": st.column_config.TextColumn(
+                    "Patterns",
+                    help="Detected technical patterns",
+                    width="large",
+                    max_chars=100
+                ),
+                "Category": st.column_config.TextColumn(
+                    "Category",
+                    help="Market cap category",
+                    width="medium"
+                )
             }
             
-            # Apply configurations for columns that exist in our dataframe
-            for col_name in final_display_df.columns:
-                if col_name in config_map:
-                    column_config[col_name] = config_map[col_name]
-                else:
-                    # Default configuration for any missing columns
-                    column_config[col_name] = st.column_config.TextColumn(col_name, width="medium")
+            # Add Trend column config if available
+            if 'Trend' in final_display_df.columns:
+                column_config["Trend"] = st.column_config.TextColumn(
+                    "Trend",
+                    help="Trend quality indicator",
+                    width="small"
+                )
             
-            # ENHANCED MAIN DATAFRAME DISPLAY
-            st.markdown("#### 📊 Main Rankings Table")
+            # Add PE and EPS columns config if in hybrid mode
+            if show_fundamentals:
+                if 'PE' in final_display_df.columns:
+                    column_config["PE"] = st.column_config.TextColumn(
+                        "PE",
+                        help="Price to Earnings ratio",
+                        width="small"
+                    )
+                if 'EPS Δ%' in final_display_df.columns:
+                    column_config["EPS Δ%"] = st.column_config.TextColumn(
+                        "EPS Δ%",
+                        help="EPS change percentage",
+                        width="small"
+                    )
             
-            # Enhanced performance timeframe display with detailed info
-            if performance_timeframe != "All":
-                timeframe_info_cols = st.columns([3, 1])
-                
-                with timeframe_info_cols[0]:
-                    # Show performance impact details
-                    if 'master_score_adjusted' in display_df.columns:
-                        adjustment_stats = {
-                            'boosted': (display_df['master_score_adjusted'] > display_df['master_score']).sum(),
-                            'penalized': (display_df['master_score_adjusted'] < display_df['master_score']).sum(),
-                            'unchanged': (display_df['master_score_adjusted'] == display_df['master_score']).sum()
-                        }
-                        
-                        st.info(f"📅 **{performance_timeframe} Performance Focus Active** | "
-                               f"🚀 {adjustment_stats['boosted']} boosted • "
-                               f"⚠️ {adjustment_stats['penalized']} penalized • "
-                               f"➖ {adjustment_stats['unchanged']} unchanged")
-                    else:
-                        st.info(f"📅 **Performance Focus**: {performance_timeframe} timeframe analysis")
-                
-                with timeframe_info_cols[1]:
-                    if st.button("🔄 Reset to All", key="reset_timeframe", help="Show all timeframes"):
-                        st.rerun()
+            # Add Industry column config if present
+            if 'Industry' in final_display_df.columns:
+                column_config["Industry"] = st.column_config.TextColumn(
+                    "Industry",
+                    help="Industry classification",
+                    width="medium",
+                    max_chars=50
+                )
             
+            # Display the main dataframe with column configuration
             st.dataframe(
                 final_display_df,
-                use_container_width=True,
-                height=min(800, len(final_display_df) * 35 + 100),
+                width="stretch",
+                height=min(600, len(final_display_df) * 35 + 50),
                 hide_index=True,
                 column_config=column_config
             )
             
-            # PROFESSIONAL EXPORT FUNCTIONALITY
-            if export_format != "None":
-                st.markdown("---")
-                export_cols = st.columns([3, 1])
+            # Quick Statistics Section
+            with st.expander("📊 Quick Statistics", expanded=False):
+                stat_cols = st.columns(4)
                 
-                with export_cols[0]:
-                    st.markdown(f"#### 💾 Export Data ({export_format})")
-                    
-                with export_cols[1]:
-                    if export_format == "CSV":
-                        csv_data = ExportEngine.create_csv_export(display_df)
-                        st.download_button(
-                            label=f"📥 Download Top {display_count} ({export_format})",
-                            data=csv_data,
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
-                    elif export_format == "Excel":
-                        # Create Excel export with multiple sheets
-                        excel_buffer = BytesIO()
-                        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                            display_df.to_excel(writer, sheet_name='Rankings', index=False)
-                            
-                            # Add summary sheet - USING ACTUAL V9.PY COLUMNS
-                            summary_data = {
-                                'Metric': ['Total Stocks', 'Avg Master Score', 'Avg 30D Return', 'Top Category', 'Avg PE'],
-                                'Value': [
-                                    len(display_df),
-                                    f"{display_df['master_score'].mean():.1f}",
-                                    f"{display_df['ret_30d'].mean():.1f}%" if 'ret_30d' in display_df.columns else 'N/A',
-                                    display_df['category'].mode().iloc[0] if 'category' in display_df.columns else 'N/A',
-                                    f"{display_df['pe'].median():.1f}" if 'pe' in display_df.columns else 'N/A'
-                                ]
-                            }
-                            pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
-                        
-                        excel_buffer.seek(0)
-                        st.download_button(
-                            label=f"📥 Download Top {display_count} (Excel)",
-                            data=excel_buffer.getvalue(),
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    elif export_format == "JSON":
-                        json_data = display_df.to_json(orient='records', indent=2)
-                        st.download_button(
-                            label=f"📥 Download Top {display_count} (JSON)",
-                            data=json_data,
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
-                            mime="application/json"
-                        )
-            
-            
-            # PROFESSIONAL ANALYTICS SECTION - COMPREHENSIVE INSIGHTS
-            st.markdown("---")
-            st.markdown("### 📊 PROFESSIONAL ANALYTICS & INSIGHTS")
-            
-            # Create analytics tabs for better organization
-            analytics_tabs = st.tabs(["📈 Score Analysis", "💰 Performance Metrics", "🔍 Technical Analysis", "🏭 Sector Analysis", "⚡ Quick Stats"])
-            
-            with analytics_tabs[0]:  # Score Analysis
-                st.markdown("#### 📈 Score Distribution Analysis")
-                
-                score_cols = st.columns(4)
-                
-                with score_cols[0]:
-                    st.markdown("**🎯 Master Score Distribution**")
+                with stat_cols[0]:
+                    st.markdown("**📈 Score Distribution**")
                     if 'master_score' in display_df.columns:
                         score_stats = {
-                            'Elite (90+)': f"{(display_df['master_score'] >= 90).sum()}",
-                            'Excellent (80-89)': f"{((display_df['master_score'] >= 80) & (display_df['master_score'] < 90)).sum()}",
-                            'Good (70-79)': f"{((display_df['master_score'] >= 70) & (display_df['master_score'] < 80)).sum()}",
-                            'Average (60-69)': f"{((display_df['master_score'] >= 60) & (display_df['master_score'] < 70)).sum()}",
-                            'Below Avg (<60)': f"{(display_df['master_score'] < 60).sum()}",
-                            'Mean Score': f"{display_df['master_score'].mean():.1f}",
-                            'Median Score': f"{display_df['master_score'].median():.1f}"
+                            'Max': f"{display_df['master_score'].max():.1f}",
+                            'Q3': f"{display_df['master_score'].quantile(0.75):.1f}",
+                            'Median': f"{display_df['master_score'].median():.1f}",
+                            'Q1': f"{display_df['master_score'].quantile(0.25):.1f}",
+                            'Min': f"{display_df['master_score'].min():.1f}",
+                            'Mean': f"{display_df['master_score'].mean():.1f}",
+                            'Std Dev': f"{display_df['master_score'].std():.1f}"
                         }
                         
-                        score_df = pd.DataFrame(list(score_stats.items()), columns=['Range', 'Count'])
-                        st.dataframe(score_df, use_container_width=True, hide_index=True)
+                        stats_df = pd.DataFrame(
+                            list(score_stats.items()),
+                            columns=['Metric', 'Value']
+                        )
+                        
+                        st.dataframe(
+                            stats_df,
+                            width="stretch",
+                            hide_index=True,
+                            column_config={
+                                'Metric': st.column_config.TextColumn('Metric', width="small"),
+                                'Value': st.column_config.TextColumn('Value', width="small")
+                            }
+                        )
                 
-                with score_cols[1]:
-                    st.markdown("**🚀 Momentum Analysis**")
-                    if 'momentum_score' in display_df.columns:
-                        momentum_stats = {
-                            'Explosive (80+)': f"{(display_df['momentum_score'] >= 80).sum()}",
-                            'Strong (60-79)': f"{((display_df['momentum_score'] >= 60) & (display_df['momentum_score'] < 80)).sum()}",
-                            'Moderate (40-59)': f"{((display_df['momentum_score'] >= 40) & (display_df['momentum_score'] < 60)).sum()}",
-                            'Weak (<40)': f"{(display_df['momentum_score'] < 40).sum()}",
-                            'Avg Momentum': f"{display_df['momentum_score'].mean():.1f}",
-                            'Top 10 Avg': f"{display_df.head(10)['momentum_score'].mean():.1f}"
+                with stat_cols[1]:
+                    st.markdown("**💰 Returns (30D)**")
+                    if 'ret_30d' in display_df.columns:
+                        ret_stats = {
+                            'Max': f"{display_df['ret_30d'].max():.1f}%",
+                            'Min': f"{display_df['ret_30d'].min():.1f}%",
+                            'Avg': f"{display_df['ret_30d'].mean():.1f}%",
+                            'Positive': f"{(display_df['ret_30d'] > 0).sum()}",
+                            'Negative': f"{(display_df['ret_30d'] < 0).sum()}",
+                            'Win Rate': f"{(display_df['ret_30d'] > 0).sum() / len(display_df) * 100:.0f}%"
                         }
                         
-                        momentum_df = pd.DataFrame(list(momentum_stats.items()), columns=['Level', 'Value'])
-                        st.dataframe(momentum_df, use_container_width=True, hide_index=True)
-                
-                with score_cols[2]:
-                    st.markdown("**📊 Volume Analysis**") 
-                    if 'volume_score' in display_df.columns:
-                        volume_stats = {
-                            'Exceptional (80+)': f"{(display_df['volume_score'] >= 80).sum()}",
-                            'High (60-79)': f"{((display_df['volume_score'] >= 60) & (display_df['volume_score'] < 80)).sum()}",
-                            'Normal (40-59)': f"{((display_df['volume_score'] >= 40) & (display_df['volume_score'] < 60)).sum()}",
-                            'Low (<40)': f"{(display_df['volume_score'] < 40).sum()}",
-                            'Avg Vol Score': f"{display_df['volume_score'].mean():.1f}",
-                            'RVOL > 3x': f"{(display_df['rvol'] > 3).sum()}" if 'rvol' in display_df.columns else 'N/A'
-                        }
+                        ret_df = pd.DataFrame(
+                            list(ret_stats.items()),
+                            columns=['Metric', 'Value']
+                        )
                         
-                        volume_df = pd.DataFrame(list(volume_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(volume_df, use_container_width=True, hide_index=True)
-                
-                with score_cols[3]:
-                    st.markdown("**📍 Position Analysis**")
-                    if 'position_score' in display_df.columns:
-                        position_stats = {
-                            'Near Highs (80+)': f"{(display_df['position_score'] >= 80).sum()}",
-                            'Strong (60-79)': f"{((display_df['position_score'] >= 60) & (display_df['position_score'] < 80)).sum()}",
-                            'Mid Range (40-59)': f"{((display_df['position_score'] >= 40) & (display_df['position_score'] < 60)).sum()}",
-                            'Near Lows (<40)': f"{(display_df['position_score'] < 40).sum()}",
-                            'Avg Position': f"{display_df['position_score'].mean():.1f}",
-                            'From Low Avg': f"{display_df['from_low_pct'].mean():.0f}%" if 'from_low_pct' in display_df.columns else 'N/A'
-                        }
-                        
-                        position_df = pd.DataFrame(list(position_stats.items()), columns=['Range', 'Value'])
-                        st.dataframe(position_df, use_container_width=True, hide_index=True)
-            
-            with analytics_tabs[1]:  # Performance Metrics
-                st.markdown("#### 💰 Performance & Returns Analysis")
-                
-                perf_cols = st.columns(3)
-                
-                with perf_cols[0]:
-                    st.markdown("**📈 Returns Distribution**")
-                    return_stats = {}
-                    
-                    if performance_timeframe == "1D" and 'ret_1d' in display_df.columns:
-                        ret_col = 'ret_1d'
-                    elif performance_timeframe == "3D" and 'ret_3d' in display_df.columns:
-                        ret_col = 'ret_3d'
-                    elif performance_timeframe == "7D" and 'ret_7d' in display_df.columns:
-                        ret_col = 'ret_7d'
-                    elif 'ret_30d' in display_df.columns:
-                        ret_col = 'ret_30d'
+                        st.dataframe(
+                            ret_df,
+                            width="stretch",
+                            hide_index=True,
+                            column_config={
+                                'Metric': st.column_config.TextColumn('Metric', width="small"),
+                                'Value': st.column_config.TextColumn('Value', width="small")
+                            }
+                        )
                     else:
-                        ret_col = None
-                    
-                    if ret_col:
-                        return_stats = {
-                            'Best Performer': f"{display_df[ret_col].max():.1f}%",
-                            'Worst Performer': f"{display_df[ret_col].min():.1f}%",
-                            'Average Return': f"{display_df[ret_col].mean():.1f}%",
-                            'Median Return': f"{display_df[ret_col].median():.1f}%",
-                            'Positive Returns': f"{(display_df[ret_col] > 0).sum()}",
-                            'Negative Returns': f"{(display_df[ret_col] < 0).sum()}",
-                            'Win Rate': f"{(display_df[ret_col] > 0).sum() / len(display_df) * 100:.0f}%",
-                            'Strong Gains (>10%)': f"{(display_df[ret_col] > 10).sum()}",
-                            'Big Gains (>20%)': f"{(display_df[ret_col] > 20).sum()}"
-                        }
-                    else:
-                        return_stats = {'No Data': 'Returns data not available'}
-                    
-                    ret_df = pd.DataFrame(list(return_stats.items()), columns=['Metric', 'Value'])
-                    st.dataframe(ret_df, use_container_width=True, hide_index=True)
+                        st.text("No 30D return data available")
                 
-                with perf_cols[1]:
-                    st.markdown("**💎 Quality Metrics**")
+                with stat_cols[2]:
                     if show_fundamentals:
+                        st.markdown("**💎 Fundamentals**")
                         fund_stats = {}
                         
-                        # ONLY USE COLUMNS THAT EXIST IN V9.PY
                         if 'pe' in display_df.columns:
-                            valid_pe = display_df['pe'].notna() & (display_df['pe'] > 0) & (display_df['pe'] < 1000)
+                            valid_pe = display_df['pe'].notna() & (display_df['pe'] > 0) & (display_df['pe'] < 10000)
                             if valid_pe.any():
-                                fund_stats.update({
-                                    'Median PE': f"{display_df.loc[valid_pe, 'pe'].median():.1f}x",
-                                    'Value Stocks (PE<15)': f"{(display_df['pe'] < 15).sum()}",
-                                    'Growth Stocks (PE>30)': f"{(display_df['pe'] > 30).sum()}"
-                                })
+                                median_pe = display_df.loc[valid_pe, 'pe'].median()
+                                fund_stats['Median PE'] = f"{median_pe:.1f}x"
+                                fund_stats['PE < 15'] = f"{(display_df['pe'] < 15).sum()}"
+                                fund_stats['PE 15-30'] = f"{((display_df['pe'] >= 15) & (display_df['pe'] < 30)).sum()}"
+                                fund_stats['PE > 30'] = f"{(display_df['pe'] >= 30).sum()}"
                         
                         if 'eps_change_pct' in display_df.columns:
                             valid_eps = display_df['eps_change_pct'].notna()
                             if valid_eps.any():
-                                fund_stats.update({
-                                    'EPS Growth +ve': f"{(display_df['eps_change_pct'] > 0).sum()}",
-                                    'Strong Growth (>25%)': f"{(display_df['eps_change_pct'] > 25).sum()}",
-                                    'Avg EPS Growth': f"{display_df['eps_change_pct'].mean():.1f}%"
-                                })
-                        
-                        if 'eps_current' in display_df.columns:
-                            valid_eps_current = display_df['eps_current'].notna() & (display_df['eps_current'] > 0)
-                            if valid_eps_current.any():
-                                fund_stats.update({
-                                    'Profitable Stocks': f"{(display_df['eps_current'] > 0).sum()}",
-                                    'Avg EPS': f"₹{display_df.loc[valid_eps_current, 'eps_current'].mean():.1f}"
-                                })
+                                positive = (display_df['eps_change_pct'] > 0).sum()
+                                fund_stats['EPS Growth +ve'] = f"{positive}"
+                                fund_stats['EPS > 50%'] = f"{(display_df['eps_change_pct'] > 50).sum()}"
                         
                         if fund_stats:
-                            fund_df = pd.DataFrame(list(fund_stats.items()), columns=['Metric', 'Value'])
-                            st.dataframe(fund_df, use_container_width=True, hide_index=True)
+                            fund_df = pd.DataFrame(
+                                list(fund_stats.items()),
+                                columns=['Metric', 'Value']
+                            )
+                            
+                            st.dataframe(
+                                fund_df,
+                                width="stretch",
+                                hide_index=True,
+                                column_config={
+                                    'Metric': st.column_config.TextColumn('Metric', width="medium"),
+                                    'Value': st.column_config.TextColumn('Value', width="small")
+                                }
+                            )
                         else:
-                            st.info("No fundamental data available")
+                            st.text("No fundamental data")
                     else:
-                        liquidity_stats = {}
-                        if 'liquidity_score' in display_df.columns:
-                            liquidity_stats = {
-                                'High Liquidity (80+)': f"{(display_df['liquidity_score'] >= 80).sum()}",
-                                'Good Liquidity (60-79)': f"{((display_df['liquidity_score'] >= 60) & (display_df['liquidity_score'] < 80)).sum()}",
-                                'Average Liquidity': f"{display_df['liquidity_score'].mean():.1f}",
-                                'Top 10 Avg Liq': f"{display_df.head(10)['liquidity_score'].mean():.1f}"
+                        st.markdown("**🔊 Volume**")
+                        if 'rvol' in display_df.columns:
+                            vol_stats = {
+                                'Max RVOL': f"{display_df['rvol'].max():.1f}x",
+                                'Avg RVOL': f"{display_df['rvol'].mean():.1f}x",
+                                'RVOL > 3x': f"{(display_df['rvol'] > 3).sum()}",
+                                'RVOL > 2x': f"{(display_df['rvol'] > 2).sum()}",
+                                'RVOL > 1.5x': f"{(display_df['rvol'] > 1.5).sum()}"
                             }
+                            
+                            vol_df = pd.DataFrame(
+                                list(vol_stats.items()),
+                                columns=['Metric', 'Value']
+                            )
+                            
+                            st.dataframe(
+                                vol_df,
+                                width="stretch",
+                                hide_index=True,
+                                column_config={
+                                    'Metric': st.column_config.TextColumn('Metric', width="medium"),
+                                    'Value': st.column_config.TextColumn('Value', width="small")
+                                }
+                            )
+                
+                with stat_cols[3]:
+                    st.markdown("**📊 Trend Distribution**")
+                    if 'trend_quality' in display_df.columns:
+                        trend_stats = {
+                            'Avg Trend': f"{display_df['trend_quality'].mean():.1f}",
+                            'Strong (80+)': f"{(display_df['trend_quality'] >= 80).sum()}",
+                            'Good (60-79)': f"{((display_df['trend_quality'] >= 60) & (display_df['trend_quality'] < 80)).sum()}",
+                            'Neutral (40-59)': f"{((display_df['trend_quality'] >= 40) & (display_df['trend_quality'] < 60)).sum()}",
+                            'Weak (<40)': f"{(display_df['trend_quality'] < 40).sum()}"
+                        }
                         
-                        if 'volume_1d' in display_df.columns:
-                            liquidity_stats.update({
-                                'Avg Volume (Cr)': f"{display_df['volume_1d'].mean():.1f}",
-                                'Max Volume (Cr)': f"{display_df['volume_1d'].max():.1f}"
+                        trend_df = pd.DataFrame(
+                            list(trend_stats.items()),
+                            columns=['Metric', 'Value']
+                        )
+                        
+                        st.dataframe(
+                            trend_df,
+                            width="stretch",
+                            hide_index=True,
+                            column_config={
+                                'Metric': st.column_config.TextColumn('Metric', width="medium"),
+                                'Value': st.column_config.TextColumn('Value', width="small")
+                            }
+                        )
+                    else:
+                        st.text("No trend data available")
+            
+            # Top Patterns Section
+            with st.expander("🎯 Top Patterns Detected", expanded=False):
+                if 'patterns' in display_df.columns:
+                    pattern_counts = {}
+                    for patterns_str in display_df['patterns'].dropna():
+                        if patterns_str:
+                            for pattern in patterns_str.split(' | '):
+                                pattern = pattern.strip()
+                                if pattern:
+                                    pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
+                    
+                    if pattern_counts:
+                        # Sort patterns by count
+                        sorted_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                        
+                        pattern_data = []
+                        for pattern, count in sorted_patterns:
+                            # Get stocks with this pattern
+                            stocks_with_pattern = display_df[
+                                display_df['patterns'].str.contains(pattern, na=False, regex=False)
+                            ]['ticker'].head(5).tolist()
+                            
+                            pattern_data.append({
+                                'Pattern': pattern,
+                                'Count': count,
+                                'Top Stocks': ', '.join(stocks_with_pattern[:3]) + ('...' if len(stocks_with_pattern) > 3 else '')
                             })
                         
-                        liq_df = pd.DataFrame(list(liquidity_stats.items()), columns=['Metric', 'Value'])
-                        st.dataframe(liq_df, use_container_width=True, hide_index=True)
-                
-                with perf_cols[2]:
-                    st.markdown("**⚡ Risk & Volatility**")
-                    risk_stats = {}
+                        patterns_df = pd.DataFrame(pattern_data)
+                        
+                        st.dataframe(
+                            patterns_df,
+                            width="stretch",
+                            hide_index=True,
+                            column_config={
+                                'Pattern': st.column_config.TextColumn(
+                                    'Pattern',
+                                    help="Detected pattern name",
+                                    width="medium"
+                                ),
+                                'Count': st.column_config.NumberColumn(
+                                    'Count',
+                                    help="Number of stocks with this pattern",
+                                    format="%d",
+                                    width="small"
+                                ),
+                                'Top Stocks': st.column_config.TextColumn(
+                                    'Top Stocks',
+                                    help="Example stocks with this pattern",
+                                    width="large"
+                                )
+                            }
+                        )
+                    else:
+                        st.info("No patterns detected in current selection")
+                else:
+                    st.info("Pattern data not available")
+            
+            # Category Performance Section
+            with st.expander("📈 Category Performance", expanded=False):
+                if 'category' in display_df.columns:
+                    cat_performance = display_df.groupby('category').agg({
+                        'master_score': ['mean', 'count'],
+                        'ret_30d': 'mean' if 'ret_30d' in display_df.columns else lambda x: None,
+                        'rvol': 'mean' if 'rvol' in display_df.columns else lambda x: None
+                    }).round(2)
                     
-                    if 'from_high_pct' in display_df.columns:
-                        risk_stats.update({
-                            'Near Highs (>-5%)': f"{(display_df['from_high_pct'] > -5).sum()}",
-                            'Deep Correction (<-20%)': f"{(display_df['from_high_pct'] < -20).sum()}"
-                        })
+                    # Flatten columns
+                    cat_performance.columns = ['_'.join(col).strip() if col[1] else col[0] 
+                                              for col in cat_performance.columns.values]
                     
-                    if risk_stats:
-                        risk_df = pd.DataFrame(list(risk_stats.items()), columns=['Metric', 'Value'])
-                        st.dataframe(risk_df, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Risk metrics not available")
-            
-            with analytics_tabs[2]:  # Technical Analysis
-                st.markdown("#### 🔍 Advanced Technical Analysis")
-                
-                tech_cols = st.columns(3)
-                
-                with tech_cols[0]:
-                    st.markdown("**🎯 Pattern Analysis**")
-                    if 'patterns' in display_df.columns:
-                        # Count pattern occurrences
-                        pattern_counts = {}
-                        for patterns_str in display_df['patterns'].dropna():
-                            if patterns_str and patterns_str.strip():
-                                for pattern in patterns_str.split(' | '):
-                                    pattern = pattern.strip()
-                                    if pattern:
-                                        pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
-                        
-                        if pattern_counts:
-                            # Get top 8 patterns
-                            top_patterns = sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)[:8]
-                            pattern_data = [{'Pattern': p, 'Count': c} for p, c in top_patterns]
-                            patterns_df = pd.DataFrame(pattern_data)
-                            st.dataframe(patterns_df, use_container_width=True, hide_index=True)
-                        else:
-                            st.info("No patterns detected")
-                    else:
-                        st.info("Pattern data not available")
-                
-                with tech_cols[1]:
-                    st.markdown("**📊 Breakout Analysis**")
-                    if 'breakout_score' in display_df.columns:
-                        breakout_stats = {
-                            'Strong Breakouts (80+)': f"{(display_df['breakout_score'] >= 80).sum()}",
-                            'Potential Breakouts (60-79)': f"{((display_df['breakout_score'] >= 60) & (display_df['breakout_score'] < 80)).sum()}",
-                            'Building (40-59)': f"{((display_df['breakout_score'] >= 40) & (display_df['breakout_score'] < 60)).sum()}",
-                            'No Breakout (<40)': f"{(display_df['breakout_score'] < 40).sum()}",
-                            'Avg Breakout Score': f"{display_df['breakout_score'].mean():.1f}",
-                            'Top 10 Avg': f"{display_df.head(10)['breakout_score'].mean():.1f}"
+                    # Rename columns for clarity
+                    rename_dict = {
+                        'master_score_mean': 'Avg Score',
+                        'master_score_count': 'Count',
+                        'ret_30d_mean': 'Avg 30D Ret',
+                        'ret_30d_<lambda>': 'Avg 30D Ret',
+                        'rvol_mean': 'Avg RVOL',
+                        'rvol_<lambda>': 'Avg RVOL'
+                    }
+                    
+                    cat_performance.rename(columns=rename_dict, inplace=True)
+                    
+                    # Sort by average score
+                    cat_performance = cat_performance.sort_values('Avg Score', ascending=False)
+                    
+                    # Format values
+                    if 'Avg 30D Ret' in cat_performance.columns:
+                        cat_performance['Avg 30D Ret'] = cat_performance['Avg 30D Ret'].apply(
+                            lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
+                        )
+                    
+                    if 'Avg RVOL' in cat_performance.columns:
+                        cat_performance['Avg RVOL'] = cat_performance['Avg RVOL'].apply(
+                            lambda x: f"{x:.1f}x" if pd.notna(x) else '-'
+                        )
+                    
+                    st.dataframe(
+                        cat_performance,
+                        use_container_width=True,
+                        column_config={
+                            'Avg Score': st.column_config.NumberColumn(
+                                'Avg Score',
+                                help="Average master score in category",
+                                format="%.1f",
+                                width="small"
+                            ),
+                            'Count': st.column_config.NumberColumn(
+                                'Count',
+                                help="Number of stocks in category",
+                                format="%d",
+                                width="small"
+                            ),
+                            'Avg 30D Ret': st.column_config.TextColumn(
+                                'Avg 30D Ret',
+                                help="Average 30-day return",
+                                width="small"
+                            ),
+                            'Avg RVOL': st.column_config.TextColumn(
+                                'Avg RVOL',
+                                help="Average relative volume",
+                                width="small"
+                            )
                         }
-                        
-                        breakout_df = pd.DataFrame(list(breakout_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(breakout_df, use_container_width=True, hide_index=True)
-                
-                with tech_cols[2]:
-                    st.markdown("**⚡ Acceleration Signals**")
-                    if 'acceleration_score' in display_df.columns:
-                        accel_stats = {
-                            'High Acceleration (80+)': f"{(display_df['acceleration_score'] >= 80).sum()}",
-                            'Moderate (60-79)': f"{((display_df['acceleration_score'] >= 60) & (display_df['acceleration_score'] < 80)).sum()}",
-                            'Building (40-59)': f"{((display_df['acceleration_score'] >= 40) & (display_df['acceleration_score'] < 60)).sum()}",
-                            'Low (<40)': f"{(display_df['acceleration_score'] < 40).sum()}",
-                            'Avg Acceleration': f"{display_df['acceleration_score'].mean():.1f}",
-                            'Momentum Leaders': f"{((display_df['acceleration_score'] >= 80) & (display_df['momentum_score'] >= 80)).sum()}"
-                        }
-                        
-                        accel_df = pd.DataFrame(list(accel_stats.items()), columns=['Level', 'Count'])
-                        st.dataframe(accel_df, use_container_width=True, hide_index=True)
-            
-            with analytics_tabs[3]:  # Sector Analysis
-                st.markdown("#### 🏭 Sector & Category Performance")
-                
-                sector_cols = st.columns(2)
-                
-                with sector_cols[0]:
-                    st.markdown("**📈 Category Performance**")
-                    if 'category' in display_df.columns:
-                        cat_performance = display_df.groupby('category').agg({
-                            'master_score': ['mean', 'count'],
-                            'ret_30d': 'mean' if 'ret_30d' in display_df.columns else lambda x: 0,
-                            'rvol': 'mean' if 'rvol' in display_df.columns else lambda x: 0
-                        }).round(2)
-                        
-                        # Flatten column names
-                        cat_performance.columns = ['Avg Score', 'Count', 'Avg 30D Ret', 'Avg RVOL']
-                        cat_performance = cat_performance.sort_values('Avg Score', ascending=False)
-                        
-                        # Format the display
-                        cat_display = cat_performance.copy()
-                        if 'Avg 30D Ret' in cat_display.columns:
-                            cat_display['Avg 30D Ret'] = cat_display['Avg 30D Ret'].apply(lambda x: f"{x:.1f}%")
-                        if 'Avg RVOL' in cat_display.columns:
-                            cat_display['Avg RVOL'] = cat_display['Avg RVOL'].apply(lambda x: f"{x:.1f}x")
-                        
-                        st.dataframe(cat_display, use_container_width=True)
-                    else:
-                        st.info("Category data not available")
-                
-                with sector_cols[1]:
-                    st.markdown("**🏢 Sector Distribution**")
-                    if 'sector' in display_df.columns:
-                        sector_counts = display_df['sector'].value_counts().head(10)
-                        sector_df = pd.DataFrame({
-                            'Sector': sector_counts.index,
-                            'Count': sector_counts.values
-                        })
-                        st.dataframe(sector_df, use_container_width=True, hide_index=True)
-                    else:
-                        st.info("Sector data not available")
-            
-            with analytics_tabs[4]:  # Quick Stats
-                st.markdown("#### ⚡ Quick Professional Stats")
-                
-                quick_cols = st.columns(4)
-                
-                with quick_cols[0]:
-                    UIComponents.render_metric_card(
-                        "💎 Elite Stocks", 
-                        f"{(display_df['master_score'] >= 90).sum()}",
-                        f"{(display_df['master_score'] >= 90).sum()/len(display_df)*100:.0f}% of total"
                     )
-                
-                with quick_cols[1]:
-                    if 'patterns' in display_df.columns:
-                        with_patterns = (display_df['patterns'] != '').sum()
-                        UIComponents.render_metric_card(
-                            "🎯 With Patterns", 
-                            f"{with_patterns}",
-                            f"{with_patterns/len(display_df)*100:.0f}% have signals"
-                        )
-                
-                with quick_cols[2]:
-                    if 'rvol' in display_df.columns:
-                        high_volume = (display_df['rvol'] > 2).sum()
-                        UIComponents.render_metric_card(
-                            "🔊 High Volume", 
-                            f"{high_volume}",
-                            f"RVOL > 2x"
-                        )
-                
-                with quick_cols[3]:
-                    if 'ret_30d' in display_df.columns:
-                        positive_returns = (display_df['ret_30d'] > 0).sum()
-                        UIComponents.render_metric_card(
-                            "📈 Positive Returns", 
-                            f"{positive_returns}",
-                            f"{positive_returns/len(display_df)*100:.0f}% winners"
-                        )
+                else:
+                    st.info("Category data not available")
         
         else:
             st.warning("No stocks match the selected filters.")
             
             # Show filter summary
             st.markdown("#### Current Filters Applied:")
-            active_filter_count = FilterEngine.get_active_count()
             if active_filter_count > 0:
                 filter_summary = []
                 
@@ -11961,7 +7421,7 @@ def main():
         
     # Tab 2: Wave Radar
     with tabs[2]:
-        st.markdown("### 📈 Market Radar - Early Momentum Detection System")
+        st.markdown("### 🌊 Wave Radar - Early Momentum Detection System")
         st.markdown("*Catch waves as they form, not after they've peaked!*")
         
         radar_col1, radar_col2, radar_col3, radar_col4 = st.columns([2, 2, 2, 1])
@@ -12014,14 +7474,14 @@ def main():
         wave_filtered_df = filtered_df.copy()
         
         with radar_col4:
-            if not wave_filtered_df.empty and 'overall_market_strength' in wave_filtered_df.columns:
+            if not wave_filtered_df.empty and 'overall_wave_strength' in wave_filtered_df.columns:
                 try:
-                    market_strength_score = wave_filtered_df['overall_market_strength'].mean()
+                    wave_strength_score = wave_filtered_df['overall_wave_strength'].mean()
                     
-                    if market_strength_score > 70:
+                    if wave_strength_score > 70:
                         wave_emoji = "🌊🔥"
                         wave_color = "🟢"
-                    elif market_strength_score > 50:
+                    elif wave_strength_score > 50:
                         wave_emoji = "🌊"
                         wave_color = "🟡"
                     else:
@@ -12030,7 +7490,7 @@ def main():
                     
                     UIComponents.render_metric_card(
                         "Wave Strength",
-                        f"{wave_emoji} {market_strength_score:.0f}%",
+                        f"{wave_emoji} {wave_strength_score:.0f}%",
                         f"{wave_color} Market"
                     )
                 except Exception as e:
@@ -12152,7 +7612,7 @@ def main():
                 top_shifts = momentum_shifts.sort_values(['signal_count', 'shift_strength'], ascending=[False, False]).head(20)
                 
                 display_columns = ['ticker', 'company_name', 'master_score', 'momentum_score', 
-                                 'acceleration_score', 'rvol', 'signal_count', 'market_state']
+                                 'acceleration_score', 'rvol', 'signal_count', 'wave_state']
                 
                 if 'ret_7d' in top_shifts.columns:
                     display_columns.insert(-2, 'ret_7d')
@@ -12178,7 +7638,7 @@ def main():
                     'master_score': 'Score',
                     'momentum_score': 'Momentum',
                     'acceleration_score': 'Acceleration',
-                    'market_state': 'market_state',
+                    'wave_state': 'Wave',
                     'category': 'Category'
                 }
                 
@@ -12242,9 +7702,9 @@ def main():
                             help="7-day return percentage",
                             width="small"
                         ),
-                        'Market State': st.column_config.TextColumn(
-                            'Market State',
-                            help="Current market state",
+                        'Wave': st.column_config.TextColumn(
+                            'Wave',
+                            help="Current wave state",
                             width="medium"
                         ),
                         'Category': st.column_config.TextColumn(
@@ -12520,7 +7980,7 @@ def main():
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    display_cols = ['ticker', 'company_name', 'rvol', 'price', 'money_flow_mm', 'market_state', 'category']
+                    display_cols = ['ticker', 'company_name', 'rvol', 'price', 'money_flow_mm', 'wave_state', 'category']
                     
                     if 'ret_1d' in top_surges.columns:
                         display_cols.insert(3, 'ret_1d')
@@ -12546,7 +8006,7 @@ def main():
                         'rvol': 'RVOL',
                         'price': 'Price',
                         'money_flow_mm': 'Money Flow',
-                        'market_state': 'Market State',
+                        'wave_state': 'Wave',
                         'category': 'Category',
                         'ret_1d': '1D Ret'
                     }
@@ -12593,9 +8053,9 @@ def main():
                                 help="Money flow in millions",
                                 width="small"
                             ),
-                            'Market State': st.column_config.TextColumn(
-                                'Market State',
-                                help="Current market state",
+                            'Wave': st.column_config.TextColumn(
+                                'Wave',
+                                help="Current wave state",
                                 width="medium"
                             ),
                             'Category': st.column_config.TextColumn(
@@ -12778,7 +8238,7 @@ def main():
                             subset=gradient_cols,
                             cmap='RdYlGn'
                         ) if gradient_cols else industry_display,
-                        width="stretch",
+                        use_container_width=True,
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
@@ -12817,7 +8277,7 @@ def main():
                     
                     st.dataframe(
                         industry_display.style.background_gradient(subset=['Flow Score', 'Avg Score']),
-                        width="stretch"
+                        use_container_width=True
                     )
                     
                     st.info("📊 **Traditional Industry Analysis**: LDI analysis unavailable, showing traditional metrics.")
@@ -12863,7 +8323,7 @@ def main():
                             subset=['LDI Score', 'Avg Score'],
                             cmap='RdYlGn'
                         ),
-                        width="stretch",
+                        use_container_width=True,
                         column_config={
                             'LDI Score': st.column_config.NumberColumn(
                                 'LDI Score',
@@ -12906,7 +8366,7 @@ def main():
                     
                     st.dataframe(
                         category_df.style.background_gradient(subset=['Avg Score']),
-                        width="stretch"
+                        use_container_width=True
                     )
                     st.info("Using traditional category analysis (LDI calculation failed)")
             else:
@@ -12950,7 +8410,7 @@ def main():
                 
                 # Create summary dataframe for search results
                 summary_columns = ['ticker', 'company_name', 'rank', 'master_score', 'price', 
-                                  'ret_30d', 'rvol', 'market_state', 'category']
+                                  'ret_30d', 'rvol', 'wave_state', 'category']
                 
                 available_summary_cols = [col for col in summary_columns if col in search_results.columns]
                 search_summary = search_results[available_summary_cols].copy()
@@ -12983,7 +8443,7 @@ def main():
                     'price_display': 'Price',
                     'ret_30d_display': '30D Return',
                     'rvol_display': 'RVOL',
-                    'market_state': 'Market State',
+                    'wave_state': 'Wave State',
                     'category': 'Category'
                 }
                 
@@ -13035,9 +8495,9 @@ def main():
                             help="Relative Volume",
                             width="small"
                         ),
-                        'Market State': st.column_config.TextColumn(
-                            'Market State',
-                            help="Current momentum market state",
+                        'Wave State': st.column_config.TextColumn(
+                            'Wave State',
+                            help="Current momentum wave state",
                             width="medium"
                         ),
                         'Category': st.column_config.TextColumn(
@@ -13098,8 +8558,8 @@ def main():
                         
                         with metric_cols[5]:
                             UIComponents.render_metric_card(
-                                "Market State",
-                                stock.get('market_state', 'N/A'),
+                                "Wave State",
+                                stock.get('wave_state', 'N/A'),
                                 stock.get('category', 'N/A')
                             )
                         
@@ -13148,7 +8608,7 @@ def main():
                         # Display score breakdown with column_config
                         st.dataframe(
                             score_df,
-                            width="stretch",
+                            use_container_width=True,
                             hide_index=True,
                             column_config={
                                 'Component': st.column_config.TextColumn(
@@ -13193,7 +8653,7 @@ def main():
                                     st.info(pattern)
                         
                         # Additional details in organized tabs
-                        detail_tabs = st.tabs(["📊 Classification", "📈 Performance", "💰 Fundamentals", "🔍 Technicals", "📊 Volume", "🎯 Advanced"])
+                        detail_tabs = st.tabs(["📊 Classification", "📈 Performance", "💰 Fundamentals", "🔍 Technicals", "🎯 Advanced"])
                         
                         with detail_tabs[0]:  # Classification
                             class_col1, class_col2 = st.columns(2)
@@ -13212,7 +8672,7 @@ def main():
                                 class_df = pd.DataFrame(classification_data)
                                 st.dataframe(
                                     class_df,
-                                    width="stretch",
+                                    use_container_width=True,
                                     hide_index=True,
                                     column_config={
                                         'Attribute': st.column_config.TextColumn('Attribute', width="medium"),
@@ -13247,7 +8707,7 @@ def main():
                                     tier_df = pd.DataFrame(tier_data)
                                     st.dataframe(
                                         tier_df,
-                                        width="stretch",
+                                        use_container_width=True,
                                         hide_index=True,
                                         column_config={
                                             'Tier Type': st.column_config.TextColumn('Type', width="medium"),
@@ -13297,7 +8757,7 @@ def main():
                                 perf_df = pd.DataFrame(perf_data)
                                 st.dataframe(
                                     perf_df,
-                                    width="stretch",
+                                    use_container_width=True,
                                     hide_index=True,
                                     column_config={
                                         'Period': st.column_config.TextColumn('Period', width="medium"),
@@ -13370,7 +8830,7 @@ def main():
                                     fund_df = pd.DataFrame(fund_data)
                                     st.dataframe(
                                         fund_df,
-                                        width="stretch",
+                                        use_container_width=True,
                                         hide_index=True,
                                         column_config={
                                             'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -13415,7 +8875,7 @@ def main():
                                     range_df = pd.DataFrame(range_data)
                                     st.dataframe(
                                         range_df,
-                                        width="stretch",
+                                        use_container_width=True,
                                         hide_index=True,
                                         column_config={
                                             'Metric': st.column_config.TextColumn('Metric', width="medium"),
@@ -13450,7 +8910,7 @@ def main():
                                     sma_df = pd.DataFrame(sma_data)
                                     st.dataframe(
                                         sma_df,
-                                        width="stretch",
+                                        use_container_width=True,
                                         hide_index=True,
                                         column_config={
                                             'SMA': st.column_config.TextColumn('SMA', width="small"),
@@ -13477,213 +8937,7 @@ def main():
                                 
                                 getattr(st, trend_color)(f"**Trend Status:** {trend_status}")
                         
-                        with detail_tabs[4]:  # Volume Analysis
-                            st.markdown("**📊 Volume Analysis**")
-                            
-                            vol_col1, vol_col2 = st.columns(2)
-                            
-                            with vol_col1:
-                                st.markdown("**📈 Current Volume Metrics**")
-                                volume_data = {
-                                    'Metric': [],
-                                    'Value': []
-                                }
-                                
-                                # Current Volume
-                                if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
-                                    vol_val = stock['volume_1d']
-                                    if vol_val >= 1_000_000:
-                                        vol_str = f"{vol_val/1_000_000:.1f}M"
-                                    elif vol_val >= 1_000:
-                                        vol_str = f"{vol_val/1_000:.0f}K" 
-                                    else:
-                                        vol_str = f"{vol_val:.0f}"
-                                    volume_data['Metric'].append('Current Volume')
-                                    volume_data['Value'].append(vol_str)
-                                
-                                # Relative Volume (RVOL)
-                                if 'rvol' in stock.index and pd.notna(stock['rvol']):
-                                    rvol_val = stock['rvol']
-                                    volume_data['Metric'].append('Relative Volume')
-                                    volume_data['Value'].append(f"{rvol_val:.2f}x")
-                                    
-                                    # Volume interpretation
-                                    if rvol_val >= 10:
-                                        vol_status = "🌋 Volcanic Activity"
-                                        vol_color = "error"
-                                    elif rvol_val >= 5:
-                                        vol_status = "💥 Explosive Volume"
-                                        vol_color = "error" 
-                                    elif rvol_val >= 2:
-                                        vol_status = "🔥 High Activity"
-                                        vol_color = "warning"
-                                    elif rvol_val >= 1.5:
-                                        vol_status = "📈 Growing Interest"
-                                        vol_color = "success"
-                                    elif rvol_val >= 0.5:
-                                        vol_status = "➡️ Normal Activity"
-                                        vol_color = "info"
-                                    else:
-                                        vol_status = "😴 Low Activity"
-                                        vol_color = "warning"
-                                    
-                                    getattr(st, vol_color)(f"**Volume Status:** {vol_status}")
-                                
-                                # VMI (Volume Momentum Index)
-                                if 'vmi' in stock.index and pd.notna(stock['vmi']):
-                                    vmi_val = stock['vmi']
-                                    volume_data['Metric'].append('VMI')
-                                    volume_data['Value'].append(f"{vmi_val:.2f}")
-                                
-                                # Volume Tier
-                                if 'volume_tier' in stock.index and pd.notna(stock['volume_tier']):
-                                    volume_data['Metric'].append('Volume Tier')
-                                    volume_data['Value'].append(stock['volume_tier'])
-                                
-                                if volume_data['Metric']:
-                                    vol_df = pd.DataFrame(volume_data)
-                                    st.dataframe(
-                                        vol_df,
-                                        width="stretch",
-                                        use_container_width=True,
-                                        hide_index=True
-                                    )
-                                else:
-                                    st.info("No volume data available")
-                            
-                            with vol_col2:
-                                st.markdown("**📊 Volume Ratios & Trends**")
-                                
-                                ratio_data = {
-                                    'Period': [],
-                                    'Ratio': [],
-                                    'Status': []
-                                }
-                                
-                                # Volume ratios
-                                volume_ratios = [
-                                    ('vol_ratio_1d_90d', '1D vs 90D'),
-                                    ('vol_ratio_7d_90d', '7D vs 90D'),
-                                    ('vol_ratio_30d_90d', '30D vs 90D'),
-                                    ('vol_ratio_1d_180d', '1D vs 180D'),
-                                    ('vol_ratio_7d_180d', '7D vs 180D'),
-                                    ('vol_ratio_30d_180d', '30D vs 180D'),
-                                    ('vol_ratio_90d_180d', '90D vs 180D')
-                                ]
-                                
-                                for col_name, display_name in volume_ratios:
-                                    if col_name in stock.index and pd.notna(stock[col_name]):
-                                        ratio_val = stock[col_name]
-                                        ratio_data['Period'].append(display_name)
-                                        ratio_data['Ratio'].append(f"{ratio_val:.2f}")
-                                        
-                                        # Status interpretation
-                                        if ratio_val >= 2.0:
-                                            status = "🔥 Very High"
-                                        elif ratio_val >= 1.5:
-                                            status = "📈 High"
-                                        elif ratio_val >= 1.2:
-                                            status = "➕ Above Normal"
-                                        elif ratio_val >= 0.8:
-                                            status = "➡️ Normal"
-                                        elif ratio_val >= 0.5:
-                                            status = "➖ Below Normal"
-                                        else:
-                                            status = "📉 Low"
-                                        
-                                        ratio_data['Status'].append(status)
-                                
-                                if ratio_data['Period']:
-                                    ratio_df = pd.DataFrame(ratio_data)
-                                    st.dataframe(
-                                        ratio_df,
-                                        width="stretch",
-                                        use_container_width=True,
-                                        hide_index=True
-                                    )
-                                else:
-                                    st.info("No volume ratio data available")
-                            
-                            # Volume Score Section
-                            if 'volume_score' in stock.index and pd.notna(stock['volume_score']):
-                                st.markdown("---")
-                                st.markdown("**🎯 Volume Score Analysis**")
-                                
-                                vol_score = stock['volume_score']
-                                score_col1, score_col2, score_col3 = st.columns(3)
-                                
-                                with score_col1:
-                                    if vol_score >= 80:
-                                        score_status = "🔥 Excellent"
-                                        score_color = "success"
-                                    elif vol_score >= 60:
-                                        score_status = "✅ Good"
-                                        score_color = "success"
-                                    elif vol_score >= 40:
-                                        score_status = "⚠️ Average"
-                                        score_color = "warning"
-                                    else:
-                                        score_status = "❌ Poor"
-                                        score_color = "error"
-                                    
-                                    st.metric("Volume Score", f"{vol_score:.0f}/100")
-                                    getattr(st, score_color)(f"**Status:** {score_status}")
-                                
-                                with score_col2:
-                                    # VMI Tier Classification
-                                    if 'vmi_tier' in stock.index and pd.notna(stock['vmi_tier']):
-                                        st.markdown("**VMI Classification**")
-                                        st.info(f"📊 {stock['vmi_tier']}")
-                                
-                                with score_col3:
-                                    # Volume Activity Level
-                                    if 'rvol' in stock.index and pd.notna(stock['rvol']):
-                                        rvol_val = stock['rvol']
-                                        st.markdown("**Activity Level**")
-                                        
-                                        if rvol_val >= 2.0:
-                                            activity = "🔥 High Activity"
-                                        elif rvol_val >= 1.0:
-                                            activity = "📈 Normal+"
-                                        elif rvol_val >= 0.5:
-                                            activity = "➡️ Normal"
-                                        else:
-                                            activity = "😴 Low"
-                                        
-                                        st.info(f"📊 {activity}")
-                            
-                            # Liquidity Analysis
-                            if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
-                                st.markdown("---")
-                                st.markdown("**💧 Liquidity Analysis**")
-                                
-                                volume = stock['volume_1d']
-                                price = stock['price']
-                                turnover = volume * price
-                                
-                                liq_col1, liq_col2 = st.columns(2)
-                                
-                                with liq_col1:
-                                    st.metric("Daily Turnover", f"₹{turnover/10_000_000:.1f}Cr" if turnover >= 10_000_000 else f"₹{turnover/100_000:.1f}L")
-                                
-                                with liq_col2:
-                                    # Liquidity classification
-                                    if turnover >= 100_000_000:  # 10Cr+
-                                        liq_status = "🌊 Highly Liquid"
-                                        liq_color = "success"
-                                    elif turnover >= 10_000_000:  # 1Cr+
-                                        liq_status = "💧 Good Liquidity"
-                                        liq_color = "success"
-                                    elif turnover >= 1_000_000:  # 10L+
-                                        liq_status = "💦 Moderate Liquidity"
-                                        liq_color = "warning"
-                                    else:
-                                        liq_status = "🏜️ Low Liquidity"
-                                        liq_color = "error"
-                                    
-                                    getattr(st, liq_color)(f"**Liquidity:** {liq_status}")
-                        
-                        with detail_tabs[5]:  # Advanced Metrics
+                        with detail_tabs[4]:  # Advanced Metrics
                             st.markdown("**🎯 Advanced Metrics**")
                             
                             adv_data = {
@@ -13718,11 +8972,11 @@ def main():
                                 adv_data['Value'].append(f"₹{stock['money_flow_mm']:.1f}M")
                                 adv_data['Description'].append('Price × Volume × RVOL')
                             
-                            # Overall Market Strength
-                            if 'overall_market_strength' in stock.index and pd.notna(stock['overall_market_strength']):
-                                adv_data['Metric'].append('Market Strength')
-                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}%")
-                                adv_data['Description'].append('Composite market score')
+                            # Overall Wave Strength
+                            if 'overall_wave_strength' in stock.index and pd.notna(stock['overall_wave_strength']):
+                                adv_data['Metric'].append('Wave Strength')
+                                adv_data['Value'].append(f"{stock['overall_wave_strength']:.1f}%")
+                                adv_data['Description'].append('Composite wave score')
                             
                             # Pattern Confidence
                             if 'pattern_confidence' in stock.index and pd.notna(stock['pattern_confidence']):
@@ -13734,7 +8988,7 @@ def main():
                                 adv_df = pd.DataFrame(adv_data)
                                 st.dataframe(
                                     adv_df,
-                                    width="stretch",
+                                    use_container_width=True,
                                     hide_index=True,
                                     column_config={
                                         'Metric': st.column_config.TextColumn(
@@ -13793,7 +9047,7 @@ def main():
                 
                 st.dataframe(
                     suggestions_df,
-                    width="stretch",
+                    use_container_width=True,
                     hide_index=True,
                     column_config={
                         'Ticker': st.column_config.TextColumn('Ticker', width="small"),
@@ -13881,7 +9135,7 @@ def main():
                 "- All ranking scores\n"
                 "- Advanced metrics (VMI, Money Flow)\n"
                 "- Pattern detections\n"
-                "- Market states\n"
+                "- Wave states\n"
                 "- Category classifications\n"
                 "- Optimized for further analysis"
             )
@@ -13951,8 +9205,8 @@ def main():
             - **VMI (Volume Momentum Index)** - Weighted volume trend score
             - **Position Tension** - Range position stress indicator
             - **Momentum Harmony** - Multi-timeframe alignment (0-4)
-            - **Market State** - Real-time momentum classification
-            - **Overall Market Strength** - Composite score for market filter
+            - **Wave State** - Real-time momentum classification
+            - **Overall Wave Strength** - Composite score for wave filter
             
             **41 Pattern Detection** - Optimized Professional Set:
             - 7 Core Technical patterns (market leaders, volume dynamics, institutional flow)
@@ -14099,6 +9353,14 @@ def main():
             with sophisticated mathematical 
             patterns and reduced noise.
             
+            **Quality Enhancement**: August 2025
+            - Removed 6 redundant patterns
+            - Enhanced TURNAROUND with 5-factor confirmation
+            - Added ATOMIC DECAY MOMENTUM (physics-based)
+            - Improved signal-to-noise ratio
+            
+            ---
+            
             **Indian Market Optimized**
             - ₹ Currency formatting
             - IST timezone aware
@@ -14147,8 +9409,8 @@ def main():
     st.markdown(
         """
         <div style="text-align: center; color: #666; padding: 1rem;">
-            🌊 Wave Detection Ultimate 3.0<br>
-            <small>Professional Stock Ranking System</small>
+            🌊 Wave Detection Ultimate 3.0 - Final Production Version<br>
+            <small>Professional Stock Ranking System • All Features Complete • Performance Optimized • Permanently Locked</small>
         </div>
         """,
         unsafe_allow_html=True
