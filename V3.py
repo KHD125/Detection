@@ -233,33 +233,32 @@ class Config:
     
     # Pattern thresholds
     PATTERN_THRESHOLDS: Dict[str, float] = field(default_factory=lambda: {
-        "category_leader": 90,
+        "category_leader": 85,        # Reduced from 90 - more realistic for category leaders
         "hidden_gem": 80,
         "acceleration": 85,
         "institutional": 75,
-        "vol_explosion": 95,
-        "market_leader": 95,
+        "vol_explosion": 95,          # Keep high - explosive volume should be rare
+        "market_leader": 90,          # Reduced from 95 - top 10% is more realistic
         "momentum_wave": 75,
         "liquid_leader": 80,
         "long_strength": 80,
-        "52w_high_approach": 90,
+        "52w_high_approach": 85,      # Reduced from 90 - more opportunities near highs
         "52w_low_bounce": 85,
         "golden_zone": 85,
         "vol_accumulation": 80,
-        "momentum_diverge": 90,
+        "momentum_diverge": 85,       # Reduced from 90 - divergences are valuable signals
         "range_compress": 75,
         "stealth": 70,
-        "vampire": 85,
         "perfect_storm": 80,
-        "bull_trap": 90,           # High confidence for shorting
-        "capitulation": 95,        # Extreme events only
-        "runaway_gap": 85,         # Strong continuation
-        "rotation_leader": 80,     # Sector relative strength
-        "distribution_top": 85,    # High confidence tops
+        "bull_trap": 85,              # Reduced from 90 - more trap detection
+        "capitulation": 90,           # Reduced from 95 - still extreme but more realistic
+        "runaway_gap": 85,
+        "rotation_leader": 80,
+        "distribution_top": 85,
         "velocity_squeeze": 85,
-        "volume_divergence": 90,
-        "golden_cross": 80,
-        "exhaustion": 90,
+        "volume_divergence": 85,      # Reduced from 90 - important early warning signal
+        "golden_cross": 75,           # Reduced from 80 - classic technical pattern
+        "exhaustion": 85,             # Reduced from 90 - exhaustion patterns are valuable
         "pyramid": 75,
         "vacuum": 85,
     })
@@ -5940,7 +5939,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 22. Momentum Vampire
+        # 22. 🏎️ ACCELERATION - Momentum acceleration pattern
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
