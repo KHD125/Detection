@@ -17,6 +17,12 @@ MARKET STATE SYSTEM:
 """
 
 # ============================================
+# STREAMLIT CONFIGURATION - Prevent File Watcher Issues
+# ============================================
+import os
+os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'none'
+
+# ============================================
 # IMPORTS AND SETUP
 # ============================================
 
