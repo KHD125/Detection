@@ -7166,6 +7166,7 @@ class FilterEngine:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -7257,6 +7258,7 @@ class FilterEngine:
         if filters.get('require_fundamental_data'): count += 1
         if filters.get('market_states'): count += 1
         if filters.get('market_strength_range') != (0, 100): count += 1
+        if filters.get('long_term_strength_range') != (0, 100): count += 1
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
@@ -7297,6 +7299,7 @@ class FilterEngine:
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
+            'long_term_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False,
             'performance_tiers': [],
@@ -7542,6 +7545,8 @@ class FilterEngine:
             filters['market_states'] = state['market_states']
         if state.get('market_strength_range') != (0, 100):
             filters['market_strength_range'] = state['market_strength_range']
+        if state.get('long_term_strength_range') != (0, 100):
+            filters['long_term_strength_range'] = state['long_term_strength_range']
             
         return filters
     
@@ -7917,6 +7922,15 @@ class FilterEngine:
                 masks.append(strength_mask)
                 logger.info(f"Applied Market Strength filter: {strength_range}, {strength_mask.sum()} stocks match")
         
+        # Long Term Strength Filter - Professional Implementation
+        if 'long_term_strength_range' in filters and 'long_term_strength' in df.columns:
+            lts_range = filters['long_term_strength_range']
+            if lts_range != (0, 100):
+                min_lts, max_lts = lts_range
+                lts_mask = (df['long_term_strength'] >= min_lts) & (df['long_term_strength'] <= max_lts)
+                masks.append(lts_mask)
+                logger.info(f"Applied Long Term Strength filter: {lts_range}, {lts_mask.sum()} stocks match")
+        
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
         
@@ -8017,6 +8031,7 @@ class FilterEngine:
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
+            'long_term_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False
         }
@@ -9185,6 +9200,7 @@ class SessionStateManager:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -9288,6 +9304,8 @@ class SessionStateManager:
                 filters['market_states'] = state['market_states']
             if state.get('market_strength_range') != (0, 100):
                 filters['market_strength_range'] = state['market_strength_range']
+            if state.get('long_term_strength_range') != (0, 100):
+                filters['long_term_strength_range'] = state['long_term_strength_range']
             if state.get('performance_tiers'):
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
@@ -9400,6 +9418,9 @@ class SessionStateManager:
             if st.session_state.get('market_strength_range_slider') != (0, 100):
                 filters['market_strength_range'] = st.session_state['market_strength_range_slider']
             
+            if st.session_state.get('long_term_strength_range_slider') != (0, 100):
+                filters['long_term_strength_range'] = st.session_state['long_term_strength_range_slider']
+            
             if st.session_state.get('market_states_filter') and st.session_state['market_states_filter']:
                 filters['market_states'] = st.session_state['market_states_filter']
             
@@ -9443,6 +9464,7 @@ class SessionStateManager:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -9485,7 +9507,7 @@ class SessionStateManager:
             'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
             'min_pe', 'max_pe', 'require_fundamental_data',
             'quick_filter', 'quick_filter_applied', 'market_states_filter',
-            'market_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
+            'market_strength_range_slider', 'long_term_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
         ]
         
@@ -9709,6 +9731,7 @@ class SessionStateManager:
             if state.get('require_fundamental_data'): count += 1
             if state.get('market_states'): count += 1
             if state.get('market_strength_range') != (0, 100): count += 1
+            if state.get('long_term_strength_range') != (0, 100): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -9726,7 +9749,8 @@ class SessionStateManager:
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
                 ('market_states_filter', lambda x: x and len(x) > 0),
-                ('market_strength_range_slider', lambda x: x != (0, 100))
+                ('market_strength_range_slider', lambda x: x != (0, 100)),
+                ('long_term_strength_range_slider', lambda x: x != (0, 100))
             ]
             
             for key, check_func in filter_checks:
@@ -10095,7 +10119,8 @@ def main():
             ('max_pe', lambda x: x is not None and str(x).strip() != ''),
             ('require_fundamental_data', lambda x: x),
             ('market_states_filter', lambda x: x and len(x) > 0),
-            ('market_strength_range_slider', lambda x: x != (0, 100))
+            ('market_strength_range_slider', lambda x: x != (0, 100)),
+            ('long_term_strength_range_slider', lambda x: x != (0, 100))
         ]
         
         for key, check_func in filter_checks:
@@ -10382,6 +10407,10 @@ def main():
             if 'market_strength_slider' in st.session_state:
                 st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
         
+        def sync_long_term_strength():
+            if 'long_term_strength_slider' in st.session_state:
+                st.session_state.filter_state['long_term_strength_range'] = st.session_state.long_term_strength_slider
+        
         def sync_momentum_score_dropdown():
             if 'momentum_score_dropdown' in st.session_state:
                 st.session_state.filter_state['momentum_score_selection'] = st.session_state.momentum_score_dropdown
@@ -10640,6 +10669,19 @@ def main():
                 on_change=sync_custom_market_states
             )
             
+            # Long Term Strength Slider - Professional Implementation
+            st.markdown("**🏆 Long Term Strength Filter**")
+            long_term_strength_range = st.slider(
+                "Long Term Strength Range",
+                min_value=0,
+                max_value=100,
+                value=st.session_state.filter_state.get('long_term_strength_range', (0, 100)),
+                step=5,
+                help="Filter by long term strength score (0-100). Higher values indicate stronger long-term trend consistency, momentum harmony, and sustained performance characteristics.",
+                key="long_term_strength_slider",
+                on_change=sync_long_term_strength
+            )
+            
             # Market Strength Slider - Professional Implementation
             st.markdown("**📊 Market Strength Filter**")
             market_strength_range = st.slider(
@@ -10669,6 +10711,8 @@ def main():
         if custom_selection_active:
             if st.session_state.filter_state.get('market_strength_range', (0, 100)) != (0, 100):
                 filters['market_strength_range'] = st.session_state.filter_state['market_strength_range']
+            if st.session_state.filter_state.get('long_term_strength_range', (0, 100)) != (0, 100):
+                filters['long_term_strength_range'] = st.session_state.filter_state['long_term_strength_range']
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
