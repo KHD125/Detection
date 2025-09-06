@@ -368,15 +368,15 @@ class Config:
             "🌟 3-Day Surge (>6% 3D)": ("ret_3d", 6),
             "📈 Weekly Winners (>12% 7D)": ("ret_7d", 12),
             
-            # Medium-term growth (Realistic thresholds)
+            # Medium-term growth (More realistic thresholds)
             "🏆 Monthly Champions (>25% 30D)": ("ret_30d", 25),
-            "🎯 Quarterly Stars (>40% 3M)": ("ret_3m", 40),
-            "💎 Half-Year Heroes (>60% 6M)": ("ret_6m", 60),
+            "🎯 Quarterly Stars (>25% 3M)": ("ret_3m", 25),
+            "💎 Half-Year Heroes (>35% 6M)": ("ret_6m", 35),
             
-            # Long-term performance (Fixed emoji + practical thresholds)
-            "🌙 Annual Winners (>80% 1Y)": ("ret_1y", 80),
-            "👑 Multi-Year Champions (>150% 3Y)": ("ret_3y", 150),
-            "🏛️ Long-Term Legends (>250% 5Y)": ("ret_5y", 250)
+            # Long-term performance (More practical thresholds)
+            "🌙 Annual Winners (>50% 1Y)": ("ret_1y", 50),
+            "👑 Multi-Year Champions (>100% 3Y)": ("ret_3y", 100),
+            "🏛️ Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -1017,18 +1017,18 @@ class DataProcessor:
                     return "🏆 Monthly Champions (>25% 30D)"
                 
                 # Medium-term performance
-                elif 'ret_3m' in returns and returns['ret_3m'] > 40:
-                    return "🎯 Quarterly Stars (>40% 3M)"
-                elif 'ret_6m' in returns and returns['ret_6m'] > 60:
-                    return "💎 Half-Year Heroes (>60% 6M)"
+                elif 'ret_3m' in returns and returns['ret_3m'] > 25:
+                    return "🎯 Quarterly Stars (>25% 3M)"
+                elif 'ret_6m' in returns and returns['ret_6m'] > 35:
+                    return "💎 Half-Year Heroes (>35% 6M)"
                 
                 # Long-term performance
-                elif 'ret_1y' in returns and returns['ret_1y'] > 80:
-                    return "🌙 Annual Winners (>80% 1Y)"
-                elif 'ret_3y' in returns and returns['ret_3y'] > 150:
-                    return "👑 Multi-Year Champions (>150% 3Y)"
-                elif 'ret_5y' in returns and returns['ret_5y'] > 250:
-                    return "🏛️ Long-Term Legends (>250% 5Y)"
+                elif 'ret_1y' in returns and returns['ret_1y'] > 50:
+                    return "🌙 Annual Winners (>50% 1Y)"
+                elif 'ret_3y' in returns and returns['ret_3y'] > 100:
+                    return "👑 Multi-Year Champions (>100% 3Y)"
+                elif 'ret_5y' in returns and returns['ret_5y'] > 150:
+                    return "🏛️ Long-Term Legends (>150% 5Y)"
                 
                 else:
                     return "Standard"
@@ -1110,8 +1110,8 @@ class AdvancedMetrics:
         
         # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
         if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
-            # Clip RVOL to prevent extreme multiplications
-            safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
+            # Clip RVOL to prevent extreme multiplications - More realistic upper bound
+            safe_rvol = df['rvol'].fillna(1.0).clip(0, 50)  # Reduced from 100 to 50
             
             # Calculate money flow with overflow prevention
             money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
@@ -1439,9 +1439,9 @@ class AdvancedMetrics:
             state['warning'] = 'POSITIVE_DIVERGENCE'
         
         # Extreme conditions
-        if ret_30d > 50:
+        if ret_30d > 30:  # Reduced from 50% to 30%
             state['extreme'] = 'OVERBOUGHT_MONTHLY'
-        elif ret_30d < -30:
+        elif ret_30d < -25:  # Adjusted from -30% to -25%
             state['extreme'] = 'OVERSOLD_MONTHLY'
         
         if ret_7d > 20:
@@ -3049,10 +3049,10 @@ class RankingEngine:
             if has_30d:
                 ret_30d = df['ret_30d']
                 
-                # Progressive penalty for extreme returns
-                extreme_small = is_small & momentum_score.notna() & (ret_30d > 50)
+                # Progressive penalty for extreme returns - More realistic threshold
+                extreme_small = is_small & momentum_score.notna() & (ret_30d > 35)  # Reduced from 50%
                 if extreme_small.any():
-                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 50) / 50)
+                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 35) / 35)  # Adjusted calculation
                     momentum_score[extreme_small] *= penalty_factor
                     logger.debug(f"Applied pump penalty to {extreme_small.sum()} small caps")
             
@@ -6029,7 +6029,7 @@ class PatternDetector:
                 (get_col_safe('from_high_pct', -100) > -10) &    # Near highs
                 (get_col_safe('rvol', 0) > 2) &                  # High volume
                 (get_col_safe('ret_1d', 0) < 2) &                # Price not moving up
-                (get_col_safe('ret_30d', 0) > 50) &              # After big rally
+                (get_col_safe('ret_30d', 0) > 25) &              # After reasonable rally (reduced from 50%)
                 (get_col_safe('volume_7d', 0) > get_col_safe('volume_30d', 1) * 1.5)  # Volume spike
             )
             patterns.append(('📊 DISTRIBUTION', mask))
