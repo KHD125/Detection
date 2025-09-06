@@ -408,7 +408,7 @@ class Config:
         'position_tension': 'Range position stress: Distance from 52W low + distance from 52W high',
         'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
         'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
-        'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
+        'market_state': 'Market momentum regime: BULL_MARKET, MILD_BULL, BEAR_MARKET, MILD_BEAR, SIDEWAYS, MIXED',
         'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
         'master_score': 'Overall ranking score (0-100) combining all factors',
         'acceleration_score': 'Rate of momentum change (0-100)',
@@ -1548,50 +1548,78 @@ class AdvancedMetrics:
             'description': ''
         }
         
-        # Classification logic
-        if up > 70 and median_return_30d > 10:
+        # Enhanced Professional Classification Logic
+        # Get additional market health metrics
+        strong_up_pct = safe_percentage((valid_df['ret_30d'] > 15).sum(), valid_count, default=0.0)
+        moderate_up_pct = safe_percentage(((valid_df['ret_30d'] > 5) & (valid_df['ret_30d'] <= 15)).sum(), valid_count, default=0.0)
+        moderate_down_pct = safe_percentage(((valid_df['ret_30d'] < -5) & (valid_df['ret_30d'] >= -15)).sum(), valid_count, default=0.0)
+        strong_down_pct = safe_percentage((valid_df['ret_30d'] < -15).sum(), valid_count, default=0.0)
+        
+        # Calculate momentum persistence score
+        momentum_score = (strong_up_pct * 2 + up) - (strong_down_pct * 2 + down)
+        
+        # Volatility-adjusted return (if available)
+        vol_adj_return = median_return_30d
+        if 'ret_7d' in valid_df.columns and 'ret_30d' in valid_df.columns:
+            # Calculate return consistency
+            weekly_returns = valid_df['ret_7d'].dropna()
+            if len(weekly_returns) > 0:
+                return_consistency = 1 - (weekly_returns.std() / (abs(weekly_returns.mean()) + 0.1))
+                vol_adj_return = median_return_30d * max(0.5, return_consistency)
+        
+        # Professional regime classification with multiple factors
+        if up > 75 and strong_up_pct > 25 and median_return_30d > 12:
             regime['regime'] = 'BULL_MARKET'
-            regime['strength'] = min(100, up)
-            regime['confidence'] = 85
-            regime['description'] = f'{up:.0f}% of stocks in uptrend. Strong bull market.'
-        
-        elif up > 55 and median_return_30d > 5:
+            regime['strength'] = min(100, up + (strong_up_pct / 2))
+            regime['confidence'] = 90
+            regime['description'] = f'Strong Bull: {up:.0f}% advancing, {strong_up_pct:.0f}% strong gainers. Exceptional breadth.'
+            
+        elif up > 60 and median_return_30d > 6 and momentum_score > 30:
             regime['regime'] = 'MILD_BULL'
-            regime['strength'] = 60 + (up - 55)
-            regime['confidence'] = 70
-            regime['description'] = f'{up:.0f}% of stocks up. Moderate bullish bias.'
-        
-        elif down > 70 and median_return_30d < -10:
+            regime['strength'] = 60 + min(30, (up - 60) + momentum_score/10)
+            regime['confidence'] = 75
+            regime['description'] = f'Mild Bull: {up:.0f}% advancing. Solid momentum with {strong_up_pct:.0f}% strong performers.'
+            
+        elif down > 75 and strong_down_pct > 25 and median_return_30d < -12:
             regime['regime'] = 'BEAR_MARKET'
-            regime['strength'] = min(100, down)
-            regime['confidence'] = 85
-            regime['description'] = f'{down:.0f}% of stocks in downtrend. Bear market conditions.'
-        
-        elif down > 55 and median_return_30d < -5:
+            regime['strength'] = min(100, down + (strong_down_pct / 2))
+            regime['confidence'] = 90
+            regime['description'] = f'Bear Market: {down:.0f}% declining, {strong_down_pct:.0f}% severe losers. Widespread selling.'
+            
+        elif down > 60 and median_return_30d < -6 and momentum_score < -30:
             regime['regime'] = 'MILD_BEAR'
-            regime['strength'] = 60 + (down - 55)
-            regime['confidence'] = 70
-            regime['description'] = f'{down:.0f}% of stocks down. Moderate bearish bias.'
-        
-        elif abs(median_return_30d) < 5 and abs(up - down) < 20:
+            regime['strength'] = 60 + min(30, (down - 60) + abs(momentum_score)/10)
+            regime['confidence'] = 75
+            regime['description'] = f'Mild Bear: {down:.0f}% declining. Negative momentum with {strong_down_pct:.0f}% weak names.'
+            
+        elif abs(median_return_30d) < 6 and abs(up - down) < 25 and strong_up_pct < 20 and strong_down_pct < 20:
             regime['regime'] = 'SIDEWAYS'
-            regime['strength'] = 50
-            regime['confidence'] = 60
-            regime['description'] = 'Market range-bound. No clear direction.'
-        
+            regime['strength'] = 50 + (10 * (1 - abs(up - down) / 50))  # Higher strength for tighter range
+            regime['confidence'] = 70
+            regime['description'] = f'Sideways: {up:.0f}% up vs {down:.0f}% down. Range-bound with limited extremes.'
+            
         else:
+            # Mixed/Transitional regime
+            transition_strength = abs(momentum_score) / 2
             regime['regime'] = 'MIXED'
-            regime['strength'] = 50
-            regime['confidence'] = 40
-            regime['description'] = 'Mixed signals. Market in transition.'
+            regime['strength'] = 50 + min(25, transition_strength)
+            regime['confidence'] = max(30, 60 - abs(up - down))  # Lower confidence when more mixed
+            regime['description'] = f'Mixed Signals: {up:.0f}% up, {down:.0f}% down. Market in transition phase.'
         
-        # Add distribution details
+        # Add regime quality metrics
+        regime['momentum_score'] = momentum_score
+        regime['return_consistency'] = vol_adj_return / (median_return_30d + 0.001) if median_return_30d != 0 else 1.0
+        regime['extreme_participation'] = strong_up_pct + strong_down_pct  # Total extreme moves
+        
+        # Add distribution details  
         regime['distribution'] = {
-            'strong_up_pct': strong_up,
+            'strong_up_pct': strong_up_pct,
+            'moderate_up_pct': moderate_up_pct,
             'up_pct': up,
             'down_pct': down,
-            'strong_down_pct': strong_down,
-            'sideways_pct': 100 - up - down
+            'moderate_down_pct': moderate_down_pct,
+            'strong_down_pct': strong_down_pct,
+            'sideways_pct': max(0, 100 - up - down)
         }
         
         return regime
@@ -8930,16 +8958,156 @@ class UIComponents:
             st.write(f"{strength_meter}")
             st.write(f"**{strength_label}** ({strength_score:.0f}/100)")
             
-            # Action Items based on regime
-            st.markdown("**🎯 ACTION ITEMS**")
-            if regime in ['STRONG_UPTREND', 'UPTREND']:
-                st.info("• Focus on momentum leaders\n• Increase position sizes\n• Look for breakout patterns")
-            elif regime in ['PULLBACK']:
-                st.warning("• Prepare shopping lists\n• Watch for reversal patterns\n• Reduce position sizes")
-            elif regime in ['SIDEWAYS']:
-                st.info("• Trade range-bound setups\n• Focus on earnings plays\n• Neutral position sizing")
-            else:
-                st.error("• Defensive positioning\n• Cash preservation\n• Avoid new positions")
+            # Professional Action Items System
+            st.markdown("**🎯 STRATEGIC ACTION FRAMEWORK**")
+            
+            # Get regime-specific metrics for enhanced recommendations
+            regime_strength = regime_metrics.get('strength', 50)
+            regime_confidence = regime_metrics.get('confidence', 50)
+            breadth = regime_metrics.get('breadth', 0)
+            
+            if regime == 'BULL_MARKET':
+                st.success("**🚀 AGGRESSIVE BULL MARKET TACTICS**")
+                st.markdown(f"""
+                **📈 Position Management** (Strength: {regime_strength:.0f}%)
+                • **Increase position sizes** to 150-200% of normal
+                • **Add to winners** on strength - momentum persistence high
+                • **Use pullbacks** as strategic entry points (buy every dip)
+                
+                **🎯 Stock Selection Focus**
+                • **Momentum leaders** with relative strength >70
+                • **Growth stocks** outperforming value by wide margins  
+                • **Small/mid caps** leading large caps (risk-on behavior)
+                • **Breakout patterns** with volume confirmation
+                
+                **⚡ Execution Strategy**
+                • **Buy strength** - don't wait for weakness
+                • **Trail stops** loosely (15-20% below highs)
+                • **Sector rotation** into cyclicals and tech
+                • **Options strategies**: Long calls, bull spreads
+                """)
+                
+            elif regime == 'MILD_BULL':
+                st.info("**📊 MODERATE BULL MARKET APPROACH**")
+                st.markdown(f"""
+                **📈 Position Management** (Confidence: {regime_confidence:.0f}%)
+                • **Standard position sizes** with selective increases
+                • **Take partial profits** on extended moves (>25% gains)
+                • **Maintain 70-80% exposure** to equities
+                
+                **🎯 Stock Selection Focus**  
+                • **Quality growth** with earnings visibility
+                • **Dividend aristocrats** for stability + upside
+                • **Sector leaders** with strong fundamentals
+                • **Technically sound** bases and breakouts
+                
+                **⚡ Execution Strategy**
+                • **Buy quality dips** - be more selective
+                • **Tighter stops** (10-12% below entry)
+                • **Diversify sectors** - avoid concentration
+                • **Monitor breadth** indicators closely
+                """)
+                
+            elif regime == 'BEAR_MARKET':
+                st.error("**🛡️ DEFENSIVE BEAR MARKET PROTOCOL**")
+                st.markdown(f"""
+                **📉 Capital Preservation** (Strength: {regime_strength:.0f}%)
+                • **Reduce exposure** to 20-40% maximum
+                • **Raise significant cash** (40-60% portfolio)
+                • **Avoid new long positions** except extreme oversold
+                • **Consider short positions** in weak sectors
+                
+                **🎯 Defensive Stock Selection**
+                • **Utilities & Consumer Staples** only
+                • **High dividend yielders** with sustainable payouts
+                • **Cash-rich companies** with strong balance sheets
+                • **Avoid growth stocks** - earnings revision risk high
+                
+                **⚡ Execution Strategy** 
+                • **Tight stops** (5-8% maximum loss)
+                • **Short-term trading** only - no buy & hold
+                • **Hedge positions** with puts or inverse ETFs
+                • **Wait for capitulation** signals before major buying
+                """)
+                
+            elif regime == 'MILD_BEAR':  
+                st.warning("**⚠️ CAUTIOUS BEAR MARKET TACTICS**")
+                st.markdown(f"""
+                **📉 Risk Management** (Breadth: {breadth:.1f}%)
+                • **Reduce positions** to 40-60% normal size
+                • **Raise cash levels** to 30-50% of portfolio
+                • **Very selective** new positions only
+                • **Focus on shorts** in weakest sectors
+                
+                **🎯 Selective Opportunities**
+                • **Defensive sectors** - utilities, healthcare, staples
+                • **High-quality names** at technical support
+                • **Dividend stocks** with 4%+ yields
+                • **Oversold bounces** for quick trades only
+                
+                **⚡ Execution Strategy**
+                • **Tight risk controls** - 8-10% stop losses  
+                • **Quick profit taking** on any bounces
+                • **Avoid catching knives** - wait for stabilization
+                • **Prepare shopping lists** for eventual turn
+                """)
+                
+            elif regime == 'SIDEWAYS':
+                st.info("**⚖️ RANGE-BOUND MARKET STRATEGY**") 
+                st.markdown(f"""
+                **📊 Range Trading** (Confidence: {regime_confidence:.0f}%)
+                • **Neutral position sizing** - standard allocations
+                • **Trade the range** - buy support, sell resistance
+                • **Mean reversion** strategies work well
+                • **Earnings plays** can drive breakouts
+                
+                **🎯 Tactical Opportunities**
+                • **Support/resistance** levels clearly defined
+                • **Earnings momentum** stocks for breakout trades
+                • **Pairs trading** - long strong/short weak
+                • **Sector rotation** within established ranges
+                
+                **⚡ Execution Strategy**
+                • **Defined risk/reward** - target 2:1 minimum
+                • **Scale in/out** of positions methodically
+                • **Watch for breakout** signals to change regime
+                • **Stay nimble** - quick to adjust positioning
+                """)
+                
+            else:  # MIXED
+                st.warning("**🌀 TRANSITION PERIOD MANAGEMENT**")
+                st.markdown(f"""
+                **🔄 Adaptive Positioning** (Strength: {regime_strength:.0f}%)
+                • **Reduce overall exposure** to 50-70% normal
+                • **Wait for clarity** before major commitments
+                • **Focus on highest conviction** ideas only
+                • **Prepare for regime change** in either direction
+                
+                **🎯 Conservative Selection**
+                • **Quality large caps** with strong balance sheets
+                • **Market leaders** likely to outperform in any regime  
+                • **Defensive characteristics** with upside optionality
+                • **Low beta names** to reduce volatility
+                
+                **⚡ Execution Strategy**
+                • **Tight stops** and **quick pivots** as conditions change
+                • **Small position sizes** until trend clarifies
+                • **Monitor leadership** for regime change signals
+                • **Stay flexible** - ready to increase/decrease exposure rapidly
+                """)
+            
+            # Add regime-specific risk metrics
+            st.markdown("---")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                risk_level = "🔴 HIGH" if regime in ['BEAR_MARKET', 'MILD_BEAR'] else "🟡 MEDIUM" if regime == 'MIXED' else "🟢 LOW"
+                st.metric("Current Risk Level", risk_level)
+            with col2: 
+                max_position = "40%" if regime in ['BEAR_MARKET', 'MILD_BEAR'] else "60%" if regime == 'MIXED' else "100%"
+                st.metric("Max Position Size", max_position)
+            with col3:
+                cash_target = "50-70%" if regime in ['BEAR_MARKET', 'MILD_BEAR'] else "30-40%" if regime == 'MIXED' else "10-20%"
+                st.metric("Target Cash Level", cash_target)
 
         # ================================================================================================
         # PERFORMANCE ATTRIBUTION & ADVANCED METRICS
