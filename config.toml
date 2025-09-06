@@ -1,0 +1,11 @@
+[server]
+# Disable file watcher to prevent inotify limit issues
+fileWatcherType = "none"
+
+# Optional: Set other server configs
+port = 8501
+headless = true
+
+[browser]
+# Disable auto-opening browser
+gatherUsageStats = false
