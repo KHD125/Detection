@@ -190,11 +190,11 @@ class Config:
     STALE_DATA_HOURS: int = 24
     
     # Master Score 3.0 weights (total = 100%)
-    POSITION_WEIGHT: float = 0.28
+    POSITION_WEIGHT: float = 0.27
     VOLUME_WEIGHT: float = 0.20
     MOMENTUM_WEIGHT: float = 0.22
     ACCELERATION_WEIGHT: float = 0.02
-    BREAKOUT_WEIGHT: float = 0.20
+    BREAKOUT_WEIGHT: float = 0.21
     RVOL_WEIGHT: float = 0.08
     
     # Display settings
@@ -1658,7 +1658,7 @@ class RankingEngine:
             'primary': {
                 'position_score': {
                     'func': RankingEngine._calculate_position_score,
-                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.28),
+                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.27),
                     'required': True
                 },
                 'volume_score': {
@@ -1678,7 +1678,7 @@ class RankingEngine:
                 },
                 'breakout_score': {
                     'func': RankingEngine._calculate_breakout_score,
-                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.20),
+                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.21),
                     'required': True
                 },
                 'rvol_score': {
@@ -2200,11 +2200,11 @@ class RankingEngine:
         """
         # Get available score columns and their weights
         score_cols = {
-            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.28),
+            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.27),
             'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.20),
             'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.22),
             'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.02),
-            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.20),
+            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.21),
             'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.08)
         }
         
@@ -16292,12 +16292,12 @@ def main():
             #### 📊 Master Score 3.0 Algorithm
             Our proprietary ranking algorithm evaluates stocks across six key dimensions:
             
-            - **Position Analysis (30%)** - 52-week range positioning and momentum
-            - **Volume Dynamics (25%)** - Multi-timeframe volume pattern analysis  
-            - **Momentum Tracking (15%)** - 30-day price momentum measurement
-            - **Acceleration Detection (10%)** - Momentum acceleration signals
-            - **Breakout Probability (10%)** - Technical breakout readiness assessment
-            - **RVOL Integration (10%)** - Real-time relative volume analysis
+            - **Position Analysis (27%)** - 52-week range positioning and momentum
+            - **Volume Dynamics (20%)** - Multi-timeframe volume pattern analysis  
+            - **Momentum Tracking (22%)** - 30-day price momentum measurement
+            - **Acceleration Detection (2%)** - Momentum acceleration signals
+            - **Breakout Probability (21%)** - Technical breakout readiness assessment
+            - **RVOL Integration (8%)** - Real-time relative volume analysis
             
             #### 🔍 Pattern Detection System
             The system employs 41 sophisticated pattern detection algorithms organized into seven categories:
