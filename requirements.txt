@@ -1,42 +1,19 @@
 # ===================================
-# V9.PY MARKET RADAR - REQUIREMENTS
+# V9.PY OPTIMIZED REQUIREMENTS
 # ===================================
-# CURRENT STATUS: AI Pattern Recognition & Smart Alerts use rule-based algorithms
-# FUTURE READY: Dependencies below enable TRUE AI/ML capabilities when implemented
+# VERIFIED: Only dependencies actually used in v9.py code
+# PRODUCTION READY: Minimal, efficient, fast deployment
 
-# Core Streamlit Application
+# Core Streamlit Framework (ESSENTIAL)
 streamlit>=1.25.0
 
 # Data Processing & Analysis (CRITICAL)
 pandas>=1.5.3
 numpy>=1.24.2
 
-# Interactive Visualizations (ESSENTIAL)
+# Interactive Visualizations (ESSENTIAL - plotly.graph_objects used extensively)
 plotly>=5.15.0
 
-# Enhanced Data Processing
-pyarrow>=17.0.0  # For faster parquet operations and DataFrame performance
-
-# Visualization Enhancements
-matplotlib>=3.7.1
-
-# Data Export Functionality (CRITICAL for Excel export)
-xlsxwriter>=3.1.9  # Primary Excel engine used in V9.py
-openpyxl>=3.1.0    # Secondary Excel engine used in V9.py
-
-# Date/Time Processing Enhancements
-python-dateutil>=2.8.0  # Enhanced date/time handling
-
-# Performance Optimizations
-numexpr>=2.8.0     # Performance optimization for numerical expressions
-fastparquet>=0.8.3  # Faster parquet file operations (alternative to pyarrow)
-
-# Additional Streamlit Components (RECOMMENDED)
-streamlit-aggrid>=0.3.4  # Enhanced data grid display (optional but powerful)
-
-# Memory Management & Performance
-psutil>=5.9.0      # System and process utilities for memory monitoring
-
-
-# Development & Debugging
-watchdog>=3.0.0    # File system monitoring for auto-reload during development
+# Excel Export Functionality (CRITICAL for ExportEngine class)
+xlsxwriter>=3.1.9     # Primary Excel engine used in create_excel_report()
+openpyxl>=3.1.0       # Secondary Excel engine for multi-sheet exports
