@@ -233,13 +233,13 @@ class Config:
     
     # Pattern thresholds
     PATTERN_THRESHOLDS: Dict[str, float] = field(default_factory=lambda: {
-        "category_leader": 85,        # Reduced from 90 - more realistic for category leaders
-        "hidden_gem": 80,
-        "acceleration": 85,
-        "institutional": 75,
-        "vol_explosion": 95,          # Keep high - explosive volume should be rare
-        "market_leader": 90,          # Reduced from 95 - top 10% is more realistic
-        "momentum_wave": 75,
+        "category_leader": 80,        # Reduced from 90 - more realistic for category leaders
+        "hidden_gem": 75,
+        "acceleration": 80,
+        "institutional": 70,
+        "vol_explosion": 90,          # Keep high - explosive volume should be rare
+        "market_leader": 85,          # Reduced from 95 - top 10% is more realistic
+        "momentum_wave": 70,
         "liquid_leader": 80,
         "long_strength": 80,
         "52w_high_approach": 85,      # Reduced from 90 - more opportunities near highs
