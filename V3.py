@@ -5394,10 +5394,10 @@ class PatternDetector:
             '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
             '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
             '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'},
-            '🎯 ULTIMATE_WINNER': {'importance_weight': 30, 'category': 'ultimate'},
-            '💎 MEGA_DIVERGENCE': {'importance_weight': 25, 'category': 'divergence'},
-            '🏆 PERFECT_GOLDILOCKS': {'importance_weight': 20, 'category': 'goldilocks'},
-            '🚀 SMALL_CAP_ROCKET': {'importance_weight': 22, 'category': 'smallcap'}
+            '🧬 ULTIMATE WINNER': {'importance_weight': 30, 'category': 'ultimate'},
+            '🔍 MEGA DIVERGENCE': {'importance_weight': 25, 'category': 'divergence'},
+            '🌟 PERFECT GOLDILOCKS': {'importance_weight': 20, 'category': 'goldilocks'},
+            '🦅 SMALL CAP ROCKET': {'importance_weight': 22, 'category': 'smallcap'}
     }
 
     @staticmethod
@@ -6530,10 +6530,10 @@ class PatternDetector:
                 ultimate_scores.append(score >= CONFIG.PATTERN_THRESHOLDS.get('ultimate_winner', 75))
             
             mask = pd.Series(ultimate_scores, index=df.index)
-            patterns.append(('🎯 ULTIMATE_WINNER', ensure_series(mask)))
+            patterns.append(('🧬 ULTIMATE WINNER', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in ULTIMATE_WINNER pattern: {e}")
-            patterns.append(('🎯 ULTIMATE_WINNER', pd.Series(False, index=df.index)))
+            patterns.append(('🧬 ULTIMATE WINNER', pd.Series(False, index=df.index)))
 
         # 43. MEGA DIVERGENCE - Extreme volume-momentum gap
         try:
@@ -6542,10 +6542,10 @@ class PatternDetector:
             
             volume_momentum_gap = volume_score - momentum_score
             mask = volume_momentum_gap > 20
-            patterns.append(('💎 MEGA_DIVERGENCE', ensure_series(mask)))
+            patterns.append(('🔍 MEGA DIVERGENCE', ensure_series(mask)))
         except Exception as e:
-            logger.warning(f"Error in MEGA_DIVERGENCE pattern: {e}")
-            patterns.append(('💎 MEGA_DIVERGENCE', pd.Series(False, index=df.index)))
+            logger.warning(f"Error in MEGA DIVERGENCE pattern: {e}")
+            patterns.append(('🔍 MEGA DIVERGENCE', pd.Series(False, index=df.index)))
 
         # 44. PERFECT GOLDILOCKS - Ideal scoring range
         try:
@@ -6558,10 +6558,10 @@ class PatternDetector:
                 (volume_score > 60) &
                 (from_high_pct <= -25)
             )
-            patterns.append(('🏆 PERFECT_GOLDILOCKS', ensure_series(mask)))
+            patterns.append(('🌟 PERFECT GOLDILOCKS', ensure_series(mask)))
         except Exception as e:
-            logger.warning(f"Error in PERFECT_GOLDILOCKS pattern: {e}")
-            patterns.append(('🏆 PERFECT_GOLDILOCKS', pd.Series(False, index=df.index)))
+            logger.warning(f"Error in PERFECT GOLDILOCKS pattern: {e}")
+            patterns.append(('🌟 PERFECT GOLDILOCKS', pd.Series(False, index=df.index)))
 
         # 45. SMALL CAP ROCKET - Small cap explosive potential
         try:
@@ -6584,10 +6584,10 @@ class PatternDetector:
                 (momentum_harmony >= 2) &
                 ultimate_mask
             )
-            patterns.append(('🚀 SMALL_CAP_ROCKET', ensure_series(mask)))
+            patterns.append(('🦅 SMALL CAP ROCKET', ensure_series(mask)))
         except Exception as e:
-            logger.warning(f"Error in SMALL_CAP_ROCKET pattern: {e}")
-            patterns.append(('🚀 SMALL_CAP_ROCKET', pd.Series(False, index=df.index)))
+            logger.warning(f"Error in SMALL CAP ROCKET pattern: {e}")
+            patterns.append(('🦅 SMALL CAP ROCKET', pd.Series(False, index=df.index)))
         
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
