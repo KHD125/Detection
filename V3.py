@@ -265,12 +265,6 @@ class Config:
         "mega_divergence": 70,
         "perfect_goldilocks": 65,
         "small_cap_rocket": 70,
-        "vmi_explosion": 70,
-        "accumulation_layers": 75,
-        "failed_breakout_coil": 70,
-        "momentum_harmony_shift": 65,
-        "smart_money_signature": 70,
-        "multi_confirmation": 90,
     })
     
     # Market State Filtering Configuration
@@ -5400,15 +5394,10 @@ class PatternDetector:
             '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
             '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
             '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'},
-            '🧬 ULTIMATE WINNER': {'importance_weight': 30, 'category': 'ultimate'},
-            '🔍 MEGA DIVERGENCE': {'importance_weight': 25, 'category': 'divergence'},
-            '🌟 PERFECT GOLDILOCKS': {'importance_weight': 20, 'category': 'goldilocks'},
-            '🦅 SMALL CAP ROCKET': {'importance_weight': 22, 'category': 'smallcap'},
-            '💥 VMI EXPLOSION': {'importance_weight': 24, 'category': 'momentum'},
-            '📚 ACCUMULATION LAYERS': {'importance_weight': 26, 'category': 'accumulation'},
-            '🪀 FAILED BREAKOUT COIL': {'importance_weight': 23, 'category': 'reversal'},
-            '🎼 MOMENTUM HARMONY SHIFT': {'importance_weight': 21, 'category': 'harmony'},
-            '🏛️ SMART MONEY SIGNATURE': {'importance_weight': 28, 'category': 'institutional'}
+            '🎯 ULTIMATE_WINNER': {'importance_weight': 30, 'category': 'ultimate'},
+            '💎 MEGA_DIVERGENCE': {'importance_weight': 25, 'category': 'divergence'},
+            '🏆 PERFECT_GOLDILOCKS': {'importance_weight': 20, 'category': 'goldilocks'},
+            '🚀 SMALL_CAP_ROCKET': {'importance_weight': 22, 'category': 'smallcap'}
     }
 
     @staticmethod
@@ -5589,174 +5578,6 @@ class PatternDetector:
             strength = min(50, strength)
         
         return strength
-
-    @staticmethod
-    def pattern_vmi_explosion(row: Dict[str, Any]) -> float:
-        """
-        VMI_EXPLOSION - Volume momentum building (71% success)
-        VMI crossing key levels while price consolidates
-        """
-        vmi = row.get('vmi', 0)
-        ret_7d = row.get('ret_7d', 0)
-        ret_30d = row.get('ret_30d', 0)
-        volume_score = row.get('volume_score', 0)
-        
-        if (1.3 <= vmi <= 2.0 and
-            -5 <= ret_7d <= 10 and
-            -10 <= ret_30d <= 15 and
-            volume_score > 50):
-            
-            # Base strength from VMI level
-            strength = 60 + (vmi - 1.3) * 40
-            
-            # Bonus for perfect consolidation
-            if -2 <= ret_7d <= 5:
-                strength += 10
-            
-            return min(95, strength)
-        
-        return 0
-    
-    @staticmethod
-    def pattern_accumulation_layers(row: Dict[str, Any]) -> float:
-        """
-        ACCUMULATION_LAYERS - Triple volume confirmation (76% success)
-        All timeframes showing increased volume = massive accumulation
-        """
-        vol_1d = row.get('vol_ratio_1d_90d', 1)
-        vol_7d = row.get('vol_ratio_7d_90d', 1)
-        vol_30d = row.get('vol_ratio_30d_90d', 1)
-        master_score = row.get('master_score', 0)
-        
-        if (vol_1d > 1.2 and vol_7d > 1.15 and vol_30d > 1.1 and
-            vol_1d > vol_7d and vol_7d > vol_30d and
-            40 <= master_score <= 70):
-            
-            # Calculate accumulation intensity
-            total_ratio = (vol_1d + vol_7d + vol_30d) / 3
-            strength = 55 + (total_ratio - 1) * 45
-            
-            # Acceleration bonus
-            if vol_1d > 1.5 and vol_1d > vol_7d * 1.2:
-                strength += 10
-            
-            return min(100, strength)
-        
-        return 0
-    
-    @staticmethod
-    def pattern_failed_breakout_coil(row: Dict[str, Any]) -> float:
-        """
-        FAILED_BREAKOUT_COIL - The spring-loaded pattern (74% success)
-        Failed breakout + accumulation = coiled spring
-        """
-        from_high_pct = row.get('from_high_pct', 0)
-        from_low_pct = row.get('from_low_pct', 0)
-        rvol = row.get('rvol', 1)
-        momentum_harmony = row.get('momentum_harmony', 0)
-        ret_7d = row.get('ret_7d', 0)
-        
-        if (-30 <= from_high_pct <= -15 and
-            40 <= from_low_pct <= 80 and
-            1.3 <= rvol <= 2.5 and
-            momentum_harmony >= 1 and
-            ret_7d > 0):
-            
-            strength = 75
-            
-            # Recent momentum bonus
-            strength += min(10, ret_7d * 2)
-            
-            # Volume confirmation
-            if rvol > 1.8:
-                strength += 5
-            
-            # Harmony bonus
-            if momentum_harmony >= 2:
-                strength += 5
-            
-            return min(95, strength)
-        
-        return 0
-    
-    @staticmethod
-    def pattern_momentum_harmony_shift(row: Dict[str, Any]) -> float:
-        """
-        MOMENTUM_HARMONY_SHIFT - Trend alignment detector (67% success)
-        Detects when multiple timeframes start aligning
-        """
-        momentum_harmony = row.get('momentum_harmony', 0)
-        volume_score = row.get('volume_score', 0)
-        from_low_pct = row.get('from_low_pct', 0)
-        vmi = row.get('vmi', 0)
-        
-        # We can't detect previous value in static method, 
-        # so we use current harmony with other confirmations
-        if (momentum_harmony >= 2 and
-            volume_score > 50 and
-            from_low_pct < 100 and
-            vmi > 1.0):
-            
-            strength = 55 + (momentum_harmony * 10)
-            
-            # Strong harmony bonus
-            if momentum_harmony >= 3:
-                strength += 15
-            
-            # Volume confirmation
-            if volume_score > 65:
-                strength += 10
-            
-            return min(90, strength)
-        
-        return 0
-    
-    @staticmethod
-    def pattern_smart_money_signature(row: Dict[str, Any]) -> float:
-        """
-        SMART_MONEY_SIGNATURE - Institutional footprint (82% success)
-        Detects the exact pattern institutions create when accumulating
-        """
-        volume_score = row.get('volume_score', 0)
-        momentum_score = row.get('momentum_score', 0)
-        rvol = row.get('rvol', 1)
-        ret_1d = row.get('ret_1d', 0)
-        vmi = row.get('vmi', 0)
-        momentum_harmony = row.get('momentum_harmony', 0)
-        from_low_pct = row.get('from_low_pct', 0)
-        
-        # Calculate institutional footprint score
-        footprint = 0
-        
-        # Large volume with small price movement (accumulation)
-        if rvol > 1.2 and abs(ret_1d) < 3:
-            footprint += 30
-        
-        # Consistent accumulation (not retail spikes)
-        if 1.2 <= rvol <= 2.5:
-            footprint += 20
-        
-        # VMI shows sustained buying
-        if vmi > 1.3:
-            footprint += 20
-        
-        # Momentum harmony improving
-        if momentum_harmony >= 2:
-            footprint += 15
-        
-        # Near support accumulation
-        if from_low_pct < 30 and ret_1d > -2:
-            footprint += 15
-        
-        # Divergence present
-        if volume_score > 55 and momentum_score < 50:
-            footprint += 20
-        
-        # Scale to 0-100
-        if footprint >= 60:
-            return min(100, footprint * 0.8 + 20)
-        
-        return 0
 
     @staticmethod
     @PerformanceMonitor.timer(target_time=0.3)
@@ -5993,9 +5814,8 @@ class PatternDetector:
             )
         else:
             # Use volume as proxy for liquidity
-            volume_1d = get_col_safe('volume_1d', 0)
             mask = (
-                (volume_1d > volume_1d.median() * 2) &
+                (get_col_safe('volume_1d', 0) > df['volume_1d'].median() * 2) &
                 (get_col_safe('rvol', 1) > 1.5)
             )
         patterns.append(('💰 LIQUID LEADER', mask))
@@ -6710,10 +6530,10 @@ class PatternDetector:
                 ultimate_scores.append(score >= CONFIG.PATTERN_THRESHOLDS.get('ultimate_winner', 75))
             
             mask = pd.Series(ultimate_scores, index=df.index)
-            patterns.append(('🧬 ULTIMATE WINNER', ensure_series(mask)))
+            patterns.append(('🎯 ULTIMATE_WINNER', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in ULTIMATE_WINNER pattern: {e}")
-            patterns.append(('🧬 ULTIMATE WINNER', pd.Series(False, index=df.index)))
+            patterns.append(('🎯 ULTIMATE_WINNER', pd.Series(False, index=df.index)))
 
         # 43. MEGA DIVERGENCE - Extreme volume-momentum gap
         try:
@@ -6722,10 +6542,10 @@ class PatternDetector:
             
             volume_momentum_gap = volume_score - momentum_score
             mask = volume_momentum_gap > 20
-            patterns.append(('🔍 MEGA DIVERGENCE', ensure_series(mask)))
+            patterns.append(('💎 MEGA_DIVERGENCE', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in MEGA_DIVERGENCE pattern: {e}")
-            patterns.append(('🔍 MEGA DIVERGENCE', pd.Series(False, index=df.index)))
+            patterns.append(('💎 MEGA_DIVERGENCE', pd.Series(False, index=df.index)))
 
         # 44. PERFECT GOLDILOCKS - Ideal scoring range
         try:
@@ -6738,10 +6558,10 @@ class PatternDetector:
                 (volume_score > 60) &
                 (from_high_pct <= -25)
             )
-            patterns.append(('🌟 PERFECT GOLDILOCKS', ensure_series(mask)))
+            patterns.append(('🏆 PERFECT_GOLDILOCKS', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in PERFECT_GOLDILOCKS pattern: {e}")
-            patterns.append(('🌟 PERFECT GOLDILOCKS', pd.Series(False, index=df.index)))
+            patterns.append(('🏆 PERFECT_GOLDILOCKS', pd.Series(False, index=df.index)))
 
         # 45. SMALL CAP ROCKET - Small cap explosive potential
         try:
@@ -6764,126 +6584,10 @@ class PatternDetector:
                 (momentum_harmony >= 2) &
                 ultimate_mask
             )
-            patterns.append(('🦅 SMALL CAP ROCKET', ensure_series(mask)))
+            patterns.append(('🚀 SMALL_CAP_ROCKET', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in SMALL_CAP_ROCKET pattern: {e}")
-            patterns.append(('🦅 SMALL CAP ROCKET', pd.Series(False, index=df.index)))
-        
-        # ========== NEW HIGH-PERFORMANCE PATTERNS BASED ON MULTI-BAGGER ANALYSIS ==========
-        
-        # 45. VMI EXPLOSION - Institutional volume momentum with explosive characteristics (85% success)
-        try:
-            if all(col in df.columns for col in ['vmi', 'rvol', 'momentum_score', 'volume_score', 'from_low_pct']):
-                vmi = get_col_safe('vmi', 0)
-                rvol = get_col_safe('rvol', 0)
-                momentum_score = get_col_safe('momentum_score', 0)
-                volume_score = get_col_safe('volume_score', 0)
-                from_low_pct = get_col_safe('from_low_pct', 0)
-                
-                # Direct vectorized pattern logic
-                mask = (
-                    (vmi >= 3.0) &
-                    (rvol >= 2.5) &
-                    (momentum_score >= 70) &
-                    (volume_score >= 65) &
-                    (from_low_pct >= 20)
-                )
-                patterns.append(('💥 VMI EXPLOSION', ensure_series(mask)))
-            else:
-                patterns.append(('💥 VMI EXPLOSION', pd.Series(False, index=df.index)))
-        except Exception as e:
-            logger.warning(f"Error in VMI EXPLOSION pattern: {e}")
-            patterns.append(('💥 VMI EXPLOSION', pd.Series(False, index=df.index)))
-
-        # 46. ACCUMULATION LAYERS - Multi-timeframe accumulation with institutional footprint (78% success)
-        try:
-            if all(col in df.columns for col in ['vol_ratio_7d_90d', 'volume_score', 'momentum_score', 'from_high_pct']):
-                vol_ratio_7d_90d = get_col_safe('vol_ratio_7d_90d', 1)
-                volume_score = get_col_safe('volume_score', 0)
-                momentum_score = get_col_safe('momentum_score', 0)
-                from_high_pct = get_col_safe('from_high_pct', 100)
-                
-                # Direct vectorized pattern logic
-                mask = (
-                    (vol_ratio_7d_90d >= 1.3) &
-                    (volume_score >= 60) &
-                    (momentum_score >= 55) &
-                    (from_high_pct <= 25)
-                )
-                patterns.append(('📚 ACCUMULATION LAYERS', ensure_series(mask)))
-            else:
-                patterns.append(('📚 ACCUMULATION LAYERS', pd.Series(False, index=df.index)))
-        except Exception as e:
-            logger.warning(f"Error in ACCUMULATION LAYERS pattern: {e}")
-            patterns.append(('📚 ACCUMULATION LAYERS', pd.Series(False, index=df.index)))
-
-        # 47. FAILED BREAKOUT COIL - Energy accumulation in failed breakout patterns (82% success)
-        try:
-            if all(col in df.columns for col in ['from_high_pct', 'rvol', 'momentum_score', 'volume_score']):
-                from_high_pct = get_col_safe('from_high_pct', 100)
-                rvol = get_col_safe('rvol', 0)
-                momentum_score = get_col_safe('momentum_score', 0)
-                volume_score = get_col_safe('volume_score', 0)
-                
-                # Direct vectorized pattern logic  
-                mask = (
-                    (from_high_pct >= 15) & (from_high_pct <= 35) &
-                    (rvol >= 1.8) &
-                    (momentum_score >= 50) &
-                    (volume_score >= 55)
-                )
-                patterns.append(('🪀 FAILED BREAKOUT COIL', ensure_series(mask)))
-            else:
-                patterns.append(('🪀 FAILED BREAKOUT COIL', pd.Series(False, index=df.index)))
-        except Exception as e:
-            logger.warning(f"Error in FAILED BREAKOUT COIL pattern: {e}")
-            patterns.append(('🪀 FAILED BREAKOUT COIL', pd.Series(False, index=df.index)))
-
-        # 48. MOMENTUM HARMONY SHIFT - Momentum alignment with harmonic convergence (67% success)
-        try:
-            if all(col in df.columns for col in ['momentum_harmony', 'momentum_score', 'volume_score', 'acceleration_score']):
-                momentum_harmony = get_col_safe('momentum_harmony', 0)
-                momentum_score = get_col_safe('momentum_score', 0)
-                volume_score = get_col_safe('volume_score', 0)
-                acceleration_score = get_col_safe('acceleration_score', 0)
-                
-                # Direct vectorized pattern logic
-                mask = (
-                    (momentum_harmony >= 3) &
-                    (momentum_score >= 60) &
-                    (volume_score >= 55) &
-                    (acceleration_score >= 65)
-                )
-                patterns.append(('🎼 MOMENTUM HARMONY SHIFT', ensure_series(mask)))
-            else:
-                patterns.append(('🎼 MOMENTUM HARMONY SHIFT', pd.Series(False, index=df.index)))
-        except Exception as e:
-            logger.warning(f"Error in MOMENTUM HARMONY SHIFT pattern: {e}")
-            patterns.append(('🎼 MOMENTUM HARMONY SHIFT', pd.Series(False, index=df.index)))
-
-        # 49. SMART MONEY SIGNATURE - Advanced institutional flow detection (73% success)
-        try:
-            if all(col in df.columns for col in ['vmi', 'volume_score', 'momentum_score', 'from_low_pct', 'market_state']):
-                vmi = get_col_safe('vmi', 0)
-                volume_score = get_col_safe('volume_score', 0)
-                momentum_score = get_col_safe('momentum_score', 0)
-                from_low_pct = get_col_safe('from_low_pct', 0)
-                market_state = get_col_safe('market_state', 'unknown')
-                
-                # Direct vectorized pattern logic
-                mask = (
-                    (vmi >= 2.5) &
-                    (volume_score >= 70) &
-                    (momentum_score >= 65) &
-                    (from_low_pct >= 25) &
-                    (market_state.isin(['bullish', 'neutral']))
-                )
-                patterns.append(('🏛️ SMART MONEY SIGNATURE', ensure_series(mask)))
-            else:
-                patterns.append(('🏛️ SMART MONEY SIGNATURE', pd.Series(False, index=df.index)))
-        except Exception as e:
-            logger.warning(f"Error in SMART MONEY SIGNATURE pattern: {e}")
-            patterns.append(('🏛️ SMART MONEY SIGNATURE', pd.Series(False, index=df.index)))
+            patterns.append(('🚀 SMALL_CAP_ROCKET', pd.Series(False, index=df.index)))
         
         # Ensure all patterns have Series masks
         patterns = [(name, ensure_series(mask)) for name, mask in patterns]
