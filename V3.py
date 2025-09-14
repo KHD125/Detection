@@ -355,7 +355,17 @@ def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     # Add to patterns column for display
     if 'patterns' in df.columns:
         winner_mask = df['alpha_winner']
-        df.loc[winner_mask, 'patterns'] = df.loc[winner_mask, 'patterns'].fillna('') + ' | 🔄 REVERSAL POTENTIAL'
+        # Handle empty/NaN patterns properly - don't add pipe separator for empty patterns
+        existing_patterns = df.loc[winner_mask, 'patterns'].fillna('')
+        empty_patterns = (existing_patterns == '') | (existing_patterns.str.strip() == '')
+        
+        # For stocks with existing patterns: add with separator
+        has_patterns = winner_mask & ~empty_patterns
+        df.loc[has_patterns, 'patterns'] = df.loc[has_patterns, 'patterns'] + ' | 🔄 REVERSAL POTENTIAL'
+        
+        # For stocks with no patterns: add without separator
+        no_patterns = winner_mask & empty_patterns
+        df.loc[no_patterns, 'patterns'] = '🔄 REVERSAL POTENTIAL'
     
     # Add signal strength for UI display
     df['signal_strength'] = pd.cut(
