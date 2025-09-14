@@ -8348,13 +8348,13 @@ class ExportEngine:
         templates = {
             'day_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'rvol', 
-                           'momentum_score', 'acceleration_score', 'ret_1d', 'ret_7d', 
+                           'momentum_score', 'acceleration_score', 'alpha_score', 'signal_strength', 'ret_1d', 'ret_7d', 
                            'volume_score', 'vmi', 'market_state', 'patterns', 'category', 'industry'],
                 'focus': 'Intraday momentum and volume'
             },
             'swing_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 
-                           'breakout_score', 'position_score', 'position_tension',
+                           'breakout_score', 'position_score', 'position_tension', 'alpha_score', 'signal_strength',
                            'from_high_pct', 'from_low_pct', 'trend_quality', 
                            'momentum_harmony', 'patterns', 'industry'],
                 'focus': 'Position and breakout setups'
@@ -8362,7 +8362,7 @@ class ExportEngine:
             'investor': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'pe', 
                            'eps_current', 'eps_change_pct', 'ret_1y', 'ret_3y', 
-                           'long_term_strength', 'money_flow_mm', 'category', 'sector', 'industry'],
+                           'long_term_strength', 'alpha_score', 'signal_strength', 'money_flow_mm', 'category', 'sector', 'industry'],
                 'focus': 'Fundamentals and long-term performance'
             },
             'full': {
@@ -8493,7 +8493,7 @@ class ExportEngine:
             'rank', 'ticker', 'company_name', 'master_score',
             'position_score', 'volume_score', 'momentum_score',
             'acceleration_score', 'breakout_score', 'rvol_score',
-            'trend_quality', 'price', 'pe', 'eps_current', 'eps_change_pct',
+            'trend_quality', 'alpha_score', 'signal_strength', 'price', 'pe', 'eps_current', 'eps_change_pct',
             'from_low_pct', 'from_high_pct',
             'ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y',
             'rvol', 'vmi', 'money_flow_mm', 'position_tension',
