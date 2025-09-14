@@ -191,6 +191,14 @@ def calculate_overall_market_strength(df: pd.DataFrame) -> pd.Series:
     # Initialize without default values
     market_strength = pd.Series(index=df.index, dtype=float)
     
+    # Check required columns exist
+    required_cols = ['momentum_score', 'position_score', 'breakout_score']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    
+    if missing_cols:
+        logger.warning(f"Market strength calculation skipped: missing columns {missing_cols}")
+        return market_strength  # Return empty series
+    
     # Calculate using proven formula
     valid_mask = (
         df['momentum_score'].notna() & 
@@ -243,6 +251,15 @@ def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     # Initialize new columns
     df['alpha_winner'] = False
     df['alpha_score'] = 0.0
+    
+    # Check required columns exist
+    required_cols = ['momentum_score', 'position_score', 'breakout_score']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    
+    if missing_cols:
+        logger.warning(f"Alpha pattern detection skipped: missing columns {missing_cols}")
+        df['signal_strength'] = '❌ Weak'  # Default signal strength
+        return df
     
     # Vectorized scoring for performance
     scores = pd.Series(0.0, index=df.index)
@@ -12137,7 +12154,7 @@ def main():
                 available_cols = [
                     'rank', 'ticker', 'company_name', 'master_score', 'position_score', 'momentum_score',
                     'volume_score', 'acceleration_score', 'breakout_score', 'rvol_score', 'trend_quality',
-                    'long_term_strength', 'liquidity_score', 'overall_market_strength', 'market_state',
+                    'long_term_strength', 'liquidity_score', 'overall_market_strength', 'alpha_score', 'signal_strength', 'market_state',
                     'price', 'from_low_pct', 'from_high_pct', 'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d',
                     'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'patterns',
                     'category', 'sector', 'industry'
