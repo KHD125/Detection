@@ -174,6 +174,157 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================
+# SMART FIX FOR V9.PY - Based on Real Data Analysis
+# ============================================
+
+def calculate_overall_market_strength(df: pd.DataFrame) -> pd.Series:
+    """
+    Calculate Overall Market Strength using ONLY proven metrics
+    
+    Based on correlation analysis:
+    - momentum_score: 77.4% (weighted 40%)
+    - position_score: 57.0% (weighted 35%)
+    - breakout_score: 54.5% (weighted 25%)
+    - REMOVED: volume, acceleration, rvol (all noise)
+    """
+    
+    # Initialize without default values
+    market_strength = pd.Series(index=df.index, dtype=float)
+    
+    # Calculate using proven formula
+    valid_mask = (
+        df['momentum_score'].notna() & 
+        df['position_score'].notna() & 
+        df['breakout_score'].notna()
+    )
+    
+    if valid_mask.any():
+        # The formula that actually works
+        market_strength[valid_mask] = (
+            df.loc[valid_mask, 'momentum_score'] * 0.40 +   # Highest correlation
+            df.loc[valid_mask, 'position_score'] * 0.35 +   # Best discriminator
+            df.loc[valid_mask, 'breakout_score'] * 0.25     # Hidden predictor
+        )
+        
+        # Killer combo bonus - when all align perfectly (like the 7 winners)
+        killer_combo = valid_mask & (
+            df['momentum_score'].between(45, 55) &   # Sweet spot (not extremes!)
+            (df['position_score'] > 80) &            # Extreme position
+            (df['breakout_score'] > 75)              # Ready to breakout
+        )
+        
+        if killer_combo.any():
+            market_strength[killer_combo] *= 1.20  # 20% bonus
+            logger.info(f"🔥 Killer combo found in {killer_combo.sum()} stocks!")
+    
+    # Market state multiplier (based on 100% win rates)
+    if 'market_state' in df.columns:
+        bullish = df['market_state'].isin(['STRONG_UPTREND', 'UPTREND', 'PULLBACK'])
+        bearish = df['market_state'].isin(['DOWNTREND', 'STRONG_DOWNTREND'])
+        
+        market_strength[bullish] *= 1.15  # Boost bullish
+        market_strength[bearish] *= 0.70  # Penalize bearish
+    
+    # Clip to valid range
+    market_strength = market_strength.clip(0, 100)
+    
+    logger.info(f"Smart market strength: {valid_mask.sum()}/{len(df)} calculated, "
+                f"Mean: {market_strength[valid_mask].mean():.1f}")
+    
+    return market_strength
+
+
+def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detect THE pattern that identified all 7 big winners
+    Simple, proven, effective
+    """
+    
+    # Initialize new columns
+    df['alpha_winner'] = False
+    df['alpha_score'] = 0.0
+    
+    # Vectorized scoring for performance
+    scores = pd.Series(0.0, index=df.index)
+    
+    # FACTOR 1: Momentum Sweet Spot (30 points)
+    # Winners have moderate momentum, not extreme!
+    momentum_perfect = df['momentum_score'].between(45, 55)
+    momentum_good = df['momentum_score'].between(40, 60)
+    scores[momentum_perfect] += 30
+    scores[momentum_good & ~momentum_perfect] += 15
+    
+    # FACTOR 2: Position Extremes (30 points)
+    # 6/7 winners had position > 90
+    position_extreme = df['position_score'] > 90
+    position_strong = df['position_score'] > 80
+    position_value = df['position_score'] < 20  # Alternative: value plays
+    
+    scores[position_extreme] += 30
+    scores[position_strong & ~position_extreme] += 20
+    scores[position_value] += 15
+    
+    # FACTOR 3: Breakout Ready (20 points)
+    # 6/7 winners had breakout > 75
+    breakout_imminent = df['breakout_score'] > 75
+    breakout_building = df['breakout_score'] > 65
+    
+    scores[breakout_imminent] += 20
+    scores[breakout_building & ~breakout_imminent] += 10
+    
+    # FACTOR 4: Momentum Harmony - THE SECRET (30 points)
+    # ALL 7 winners had harmony >= 3!
+    if 'momentum_harmony' in df.columns:
+        harmony_perfect = df['momentum_harmony'] >= 3
+        harmony_good = df['momentum_harmony'] >= 2
+        
+        scores[harmony_perfect] += 30  # This is CRITICAL
+        scores[harmony_good & ~harmony_perfect] += 15
+    
+    # FACTOR 5: Market State (10 points)
+    if 'market_state' in df.columns:
+        good_market = df['market_state'].isin(['STRONG_UPTREND', 'UPTREND', 'PULLBACK'])
+        scores[good_market] += 10
+    
+    # FACTOR 6: Category Bonus (10 points)
+    # 86% of winners were Small/Micro caps
+    if 'category' in df.columns:
+        small_caps = df['category'].isin(['Small Cap', 'Micro Cap'])
+        scores[small_caps] += 10
+    
+    # Set the scores
+    df['alpha_score'] = scores.clip(0, 100)
+    
+    # Mark winners (score >= 70 is high confidence)
+    df['alpha_winner'] = df['alpha_score'] >= 70
+    
+    # Add to patterns column for display
+    if 'patterns' in df.columns:
+        winner_mask = df['alpha_winner']
+        df.loc[winner_mask, 'patterns'] = df.loc[winner_mask, 'patterns'].fillna('') + ' | 🎯 ALPHA WINNER'
+    
+    # Add signal strength for UI display
+    df['signal_strength'] = pd.cut(
+        df['alpha_score'],
+        bins=[0, 50, 60, 70, 80, 100],
+        labels=['❌ Weak', '📊 Fair', '✅ Good', '🔥 Strong', '🔥🔥 Extreme']
+    )
+    
+    # Log results
+    winner_count = df['alpha_winner'].sum()
+    if winner_count > 0:
+        avg_score = df.loc[df['alpha_winner'], 'alpha_score'].mean()
+        logger.info(f"🎯 ALPHA WINNERS: {winner_count} detected, Avg score: {avg_score:.1f}")
+        
+        # Show top 5
+        if 'ticker' in df.columns:
+            top_5 = df.nlargest(5, 'alpha_score')[['ticker', 'alpha_score', 'signal_strength']]
+            for _, row in top_5.iterrows():
+                logger.info(f"  {row['ticker']}: {row['alpha_score']:.0f} ({row['signal_strength']})")
+    
+    return df
+
+# ============================================
 # CONFIGURATION AND CONSTANTS
 # ============================================
 
@@ -415,6 +566,8 @@ class Config:
         'breakout_score': 'Probability of price breakout (0-100)',
         'trend_quality': 'SMA alignment quality (0-100)',
         'liquidity_score': 'Trading liquidity measure (0-100)',
+        'alpha_score': 'Alpha Winner Score: 0-100 based on proven winner patterns (momentum 45-55, position >80, breakout >75, harmony ≥3)',
+        'signal_strength': 'Alpha Signal Strength: Weak/Fair/Good/Strong/Extreme classification based on alpha_score',
         'from_high_pct': 'Distance from 52-week high: 0% = at high, negative values = below high',
         'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low',
         'vmi_tier': 'Volume Momentum Index tier: Weighted volume trend classification',
@@ -423,58 +576,6 @@ class Config:
 
 # Global configuration instance
 CONFIG = Config()
-
-# ============================================
-# ALPHA SIGNAL CONFIGURATION
-# ============================================
-
-@dataclass(frozen=True)
-class AlphaConfig:
-    """Alpha Signal System Configuration based on 129-stock analysis"""
-    
-    # Correlation strengths with 30-day returns (from empirical analysis)
-    MOMENTUM_CORRELATION: float = 77.4  # Strongest predictor
-    POSITION_CORRELATION: float = 57.0  # Strong secondary predictor  
-    BREAKOUT_CORRELATION: float = 54.5  # Solid tertiary predictor
-    VOLUME_CORRELATION: float = 16.4   # Weak predictor (noise)
-    
-    # Alpha Signal thresholds based on win rate analysis
-    ALPHA_SIGNAL_THRESHOLD: float = 0.75    # 75th percentile trigger
-    HIGH_CONFIDENCE_THRESHOLD: float = 0.85  # 85th percentile for high confidence
-    EXTREME_SIGNAL_THRESHOLD: float = 0.95   # 95th percentile for extreme signals
-    
-    # Pattern performance targets (89% success rate goal)
-    TARGET_WIN_RATE: float = 0.89           # 89% target success rate
-    MINIMUM_WIN_RATE: float = 0.75          # 75% minimum acceptable rate
-    PATTERN_CONFIDENCE_FLOOR: float = 0.70  # 70% minimum confidence
-    
-    # True Score calculation weights (normalized from correlations)
-    TRUE_SCORE_WEIGHTS: Dict[str, float] = field(default_factory=lambda: {
-        'momentum_score': 0.385,    # 77.4% / 200.7 total
-        'position_score': 0.285,    # 57.0% / 200.7 total  
-        'breakout_score': 0.273,    # 54.5% / 200.7 total
-        'volume_score': 0.057       # 16.4% / 200.7 total (reduced influence)
-    })
-    
-    # Alpha pattern detection parameters
-    ALPHA_PATTERN_PARAMS: Dict[str, float] = field(default_factory=lambda: {
-        'momentum_floor': 0.60,      # Minimum momentum requirement
-        'position_floor': 0.55,      # Minimum position requirement
-        'breakout_floor': 0.50,      # Minimum breakout requirement
-        'combined_floor': 0.65,      # Minimum combined score
-        'volume_cap': 0.30           # Maximum volume influence (noise reduction)
-    })
-    
-    # Market strength enhancement parameters
-    MARKET_STRENGTH_PARAMS: Dict[str, float] = field(default_factory=lambda: {
-        'base_multiplier': 1.0,      # Base market strength multiplier
-        'alpha_bonus': 0.15,         # 15% bonus for alpha signals
-        'confidence_bonus': 0.10,    # 10% bonus for high confidence
-        'extreme_bonus': 0.25        # 25% bonus for extreme signals
-    })
-
-# Global Alpha configuration instance
-ALPHA_CONFIG = AlphaConfig()
 
 # ============================================
 # PERFORMANCE MONITORING
@@ -804,6 +905,9 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         
         # Corrected method call here
         df = PatternDetector.detect_all_patterns_optimized(df)
+        
+        # Detect the ultimate winner pattern based on proven data analysis
+        df = detect_alpha_winner_pattern(df)
         
         # Add advanced metrics
         df = AdvancedMetrics.calculate_all_metrics(df)
@@ -1231,34 +1335,9 @@ class AdvancedMetrics:
         # Market State Analysis
         df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
     
-        # Overall Market Strength - ALPHA SIGNAL ENHANCEMENT  
-        # Enhanced formula based on correlation analysis of 129 winning stocks
-        # Uses data-driven weights from proven correlations with 30-day returns
-        required_cols = ['position_score', 'momentum_score']
-        if all(col in df.columns for col in required_cols):
-            # Primary formula with all key indicators
-            if all(col in df.columns for col in ['breakout_score', 'volume_score']):
-                df['overall_market_strength'] = (
-                    df['momentum_score'] * 0.385 +      # 77.4% correlation / 2 for normalized weight
-                    df['position_score'] * 0.285 +      # 57.0% correlation / 2 for normalized weight  
-                    df['breakout_score'] * 0.273 +      # 54.5% correlation / 2 for normalized weight
-                    df['volume_score'] * 0.057          # 16.4% correlation / 2 for normalized weight (reduced noise)
-                )
-            # Fallback without breakout_score
-            elif 'volume_score' in df.columns:
-                df['overall_market_strength'] = (
-                    df['momentum_score'] * 0.537 +      # Increased weight when fewer indicators
-                    df['position_score'] * 0.396 +      # Increased weight when fewer indicators
-                    df['volume_score'] * 0.067          # Minimal weight due to noise characteristics
-                )
-            # Minimal formula with core indicators only
-            else:
-                df['overall_market_strength'] = (
-                    df['momentum_score'] * 0.576 +      # Primary predictor
-                    df['position_score'] * 0.424        # Secondary predictor
-                )
-        else:
-            df['overall_market_strength'] = np.nan
+        # Overall Market Strength - SMART VERSION BASED ON PROVEN DATA
+        # Uses ONLY proven metrics with 77.4%, 57.0%, and 54.5% correlations
+        df['overall_market_strength'] = calculate_overall_market_strength(df)
         
         # VMI and Momentum Harmony Tier Classifications
         def classify_advanced_tier(value: float, tier_config: tuple) -> str:
@@ -2251,53 +2330,6 @@ class RankingEngine:
         for component, status in calculation_results.items():
             logger.debug(f"  {component}: {status}")
         
-        logger.info("="*60)
-        
-        # ============================================================
-        # PHASE 4: ALPHA SIGNAL ENHANCEMENT
-        # ============================================================
-        alpha_start = time.time()
-        
-        try:
-            # Apply Alpha Signal system for enhanced ranking
-            logger.info("Applying Alpha Signal enhancements...")
-            df = enhance_dataframe_with_alpha(df, enable_alpha=True, preserve_existing=True)
-            
-            # Update timing breakdown
-            timing_breakdown['alpha_enhancement'] = time.time() - alpha_start
-            
-            # Log Alpha Signal results
-            if 'alpha_signal' in df.columns:
-                alpha_count = df['alpha_signal'].sum()
-                alpha_pct = (alpha_count / len(df)) * 100
-                logger.info(f"Alpha Signal enhancement complete: {alpha_count} signals ({alpha_pct:.1f}%)")
-                
-                # Show True Score statistics
-                if 'true_score' in df.columns:
-                    true_score_stats = df['true_score'].describe()
-                    logger.info(f"True Score statistics: mean={true_score_stats['mean']:.3f}, "
-                              f"max={true_score_stats['max']:.3f}")
-                
-                # Show top Alpha Master Score performers
-                if 'alpha_master_score' in df.columns and 'ticker' in df.columns:
-                    top_alpha = df.nlargest(3, 'alpha_master_score')
-                    logger.info("Top Alpha performers:")
-                    for _, row in top_alpha.iterrows():
-                        logger.info(f"  {row['ticker']}: Alpha Score {row['alpha_master_score']:.3f}, "
-                                  f"Alpha Level: {row.get('alpha_level', 'N/A')}")
-            else:
-                logger.warning("Alpha Signal enhancement failed - no alpha_signal column found")
-                
-        except Exception as e:
-            logger.error(f"Alpha Signal enhancement failed: {str(e)}")
-            # Continue without Alpha enhancements
-            timing_breakdown['alpha_enhancement'] = time.time() - alpha_start
-        
-        # Update total timing with Alpha enhancement
-        total_time = time.time() - start_time
-        timing_breakdown['total_with_alpha'] = total_time
-        
-        logger.info(f"Complete ranking with Alpha Signal: {total_time:.3f}s")
         logger.info("="*60)
         
         # GUARANTEE: Return valid DataFrame
@@ -5446,407 +5478,6 @@ class RankingEngine:
                 logger.info(f"Worst performing category: {worst_category}")
         
         return df
-
-# ============================================
-# ALPHA SIGNAL DETECTION ENGINE
-# ============================================
-
-class AlphaSignalDetector:
-    """
-    Master Alpha Signal Detection System
-    
-    Replaces 45 weak patterns with single high-performance pattern based on
-    proven correlations from 129-stock analysis with 89% success rate.
-    Uses data-driven approach with correlation strengths as weights.
-    """
-    
-    def __init__(self, config: AlphaConfig = None):
-        """Initialize with Alpha configuration"""
-        self.config = config or ALPHA_CONFIG
-        self.logger = logging.getLogger(__name__)
-    
-    def detect_alpha_signal(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Detect Alpha Signals using proven correlation-based pattern
-        
-        Args:
-            df: DataFrame with required score columns
-            
-        Returns:
-            DataFrame with alpha signal columns added
-        """
-        try:
-            # Validate required columns
-            required_cols = ['momentum_score', 'position_score']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                self.logger.warning(f"Missing required columns for Alpha Signal: {missing_cols}")
-                df['alpha_signal'] = False
-                df['alpha_confidence'] = 0.0
-                df['alpha_strength'] = 0.0
-                return df
-            
-            # Calculate Alpha Signal strength using correlation weights
-            alpha_components = {}
-            
-            # Primary predictors (required)
-            alpha_components['momentum'] = df['momentum_score'].fillna(0) * (self.config.MOMENTUM_CORRELATION / 100)
-            alpha_components['position'] = df['position_score'].fillna(0) * (self.config.POSITION_CORRELATION / 100)
-            
-            # Secondary predictors (optional but beneficial)
-            if 'breakout_score' in df.columns:
-                alpha_components['breakout'] = df['breakout_score'].fillna(0) * (self.config.BREAKOUT_CORRELATION / 100)
-            else:
-                alpha_components['breakout'] = pd.Series(0, index=df.index)
-            
-            # Volume (reduced influence due to noise characteristics)
-            if 'volume_score' in df.columns:
-                # Cap volume influence to reduce noise
-                volume_capped = np.minimum(df['volume_score'].fillna(0), self.config.ALPHA_PATTERN_PARAMS['volume_cap'])
-                alpha_components['volume'] = volume_capped * (self.config.VOLUME_CORRELATION / 100)
-            else:
-                alpha_components['volume'] = pd.Series(0, index=df.index)
-            
-            # Calculate combined Alpha strength
-            total_correlation = (self.config.MOMENTUM_CORRELATION + 
-                               self.config.POSITION_CORRELATION + 
-                               self.config.BREAKOUT_CORRELATION + 
-                               self.config.VOLUME_CORRELATION)
-            
-            df['alpha_strength'] = (
-                alpha_components['momentum'] + 
-                alpha_components['position'] + 
-                alpha_components['breakout'] + 
-                alpha_components['volume']
-            ) / (total_correlation / 100)  # Normalize to 0-1 scale
-            
-            # Apply minimum requirements for Alpha Signal
-            momentum_meets_floor = df['momentum_score'].fillna(0) >= self.config.ALPHA_PATTERN_PARAMS['momentum_floor']
-            position_meets_floor = df['position_score'].fillna(0) >= self.config.ALPHA_PATTERN_PARAMS['position_floor']
-            
-            # Breakout floor (if available)
-            if 'breakout_score' in df.columns:
-                breakout_meets_floor = df['breakout_score'].fillna(0) >= self.config.ALPHA_PATTERN_PARAMS['breakout_floor']
-            else:
-                breakout_meets_floor = pd.Series(True, index=df.index)  # Skip requirement if not available
-            
-            # Combined strength requirement
-            strength_meets_floor = df['alpha_strength'] >= self.config.ALPHA_PATTERN_PARAMS['combined_floor']
-            
-            # Alpha Signal trigger (all requirements must be met)
-            df['alpha_signal'] = (
-                momentum_meets_floor & 
-                position_meets_floor & 
-                breakout_meets_floor & 
-                strength_meets_floor &
-                (df['alpha_strength'] >= self.config.ALPHA_SIGNAL_THRESHOLD)
-            )
-            
-            # Calculate confidence levels
-            df['alpha_confidence'] = np.where(
-                df['alpha_signal'],
-                np.minimum(1.0, df['alpha_strength'] / self.config.ALPHA_SIGNAL_THRESHOLD),
-                0.0
-            )
-            
-            # Classify signal strength levels
-            conditions = [
-                df['alpha_strength'] >= self.config.EXTREME_SIGNAL_THRESHOLD,
-                df['alpha_strength'] >= self.config.HIGH_CONFIDENCE_THRESHOLD,
-                df['alpha_strength'] >= self.config.ALPHA_SIGNAL_THRESHOLD,
-                df['alpha_strength'] >= self.config.PATTERN_CONFIDENCE_FLOOR
-            ]
-            
-            choices = [
-                'EXTREME_ALPHA',
-                'HIGH_CONFIDENCE', 
-                'ALPHA_SIGNAL',
-                'POTENTIAL'
-            ]
-            
-            df['alpha_level'] = np.select(conditions, choices, default='WEAK')
-            
-            # Log detection results
-            alpha_count = df['alpha_signal'].sum()
-            if alpha_count > 0:
-                self.logger.info(f"Alpha Signals detected: {alpha_count}/{len(df)} stocks ({alpha_count/len(df)*100:.1f}%)")
-                
-                # Log by confidence levels
-                for level in ['EXTREME_ALPHA', 'HIGH_CONFIDENCE', 'ALPHA_SIGNAL']:
-                    level_count = (df['alpha_level'] == level).sum()
-                    if level_count > 0:
-                        self.logger.info(f"  {level}: {level_count} stocks")
-                
-                # Show top alpha signals
-                top_alphas = df[df['alpha_signal']].nlargest(3, 'alpha_strength')
-                for _, row in top_alphas.iterrows():
-                    if 'ticker' in df.columns:
-                        self.logger.debug(f"  Top Alpha: {row['ticker']} "
-                                        f"(Strength: {row['alpha_strength']:.3f}, "
-                                        f"Level: {row['alpha_level']})")
-            else:
-                self.logger.info("No Alpha Signals detected in current dataset")
-                
-            return df
-            
-        except Exception as e:
-            self.logger.error(f"Error in Alpha Signal detection: {str(e)}")
-            # Return safe defaults
-            df['alpha_signal'] = False
-            df['alpha_confidence'] = 0.0
-            df['alpha_strength'] = 0.0
-            df['alpha_level'] = 'ERROR'
-            return df
-    
-    def get_alpha_pattern_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
-        """Get summary statistics for Alpha patterns"""
-        try:
-            if 'alpha_signal' not in df.columns:
-                return {'error': 'Alpha signals not calculated'}
-            
-            alpha_stocks = df[df['alpha_signal'] == True]
-            
-            summary = {
-                'total_stocks': len(df),
-                'alpha_signals': len(alpha_stocks),
-                'alpha_percentage': (len(alpha_stocks) / len(df)) * 100 if len(df) > 0 else 0,
-                'avg_alpha_strength': alpha_stocks['alpha_strength'].mean() if len(alpha_stocks) > 0 else 0,
-                'max_alpha_strength': alpha_stocks['alpha_strength'].max() if len(alpha_stocks) > 0 else 0,
-                'confidence_distribution': df['alpha_level'].value_counts().to_dict()
-            }
-            
-            return summary
-            
-        except Exception as e:
-            self.logger.error(f"Error generating Alpha pattern summary: {str(e)}")
-            return {'error': str(e)}
-
-# ============================================
-# ALPHA SIGNAL CALCULATION FUNCTIONS
-# ============================================
-
-def calculate_true_score(df: pd.DataFrame, 
-                        alpha_detector: AlphaSignalDetector = None,
-                        config: AlphaConfig = None) -> pd.DataFrame:
-    """
-    Calculate True Score using Alpha Signal methodology
-    
-    Combines enhanced market strength with Alpha Signal detection
-    for superior ranking accuracy based on proven correlations.
-    
-    Args:
-        df: DataFrame with market data
-        alpha_detector: AlphaSignalDetector instance (optional)
-        config: AlphaConfig instance (optional)
-        
-    Returns:
-        DataFrame with true_score column added
-    """
-    logger = logging.getLogger(__name__)
-    
-    try:
-        # Initialize components
-        if alpha_detector is None:
-            alpha_detector = AlphaSignalDetector(config)
-        if config is None:
-            config = ALPHA_CONFIG
-        
-        # Apply Alpha Signal detection
-        df = alpha_detector.detect_alpha_signal(df)
-        
-        # Calculate base True Score using enhanced market strength
-        if 'overall_market_strength' in df.columns:
-            base_score = df['overall_market_strength'].fillna(0)
-        else:
-            logger.warning("overall_market_strength not found, calculating from components")
-            # Fallback calculation using True Score weights
-            base_score = pd.Series(0.0, index=df.index)
-            
-            for component, weight in config.TRUE_SCORE_WEIGHTS.items():
-                if component in df.columns:
-                    base_score += df[component].fillna(0) * weight
-                else:
-                    logger.warning(f"Component {component} not found for True Score calculation")
-        
-        # Apply Alpha Signal bonuses
-        alpha_bonus = pd.Series(0.0, index=df.index)
-        
-        # Base alpha signal bonus (15%)
-        alpha_mask = df['alpha_signal'] == True
-        alpha_bonus = np.where(alpha_mask, config.MARKET_STRENGTH_PARAMS['alpha_bonus'], 0)
-        
-        # Confidence level bonuses
-        high_conf_mask = df['alpha_level'] == 'HIGH_CONFIDENCE'
-        extreme_mask = df['alpha_level'] == 'EXTREME_ALPHA'
-        
-        # High confidence bonus (additional 10%)
-        alpha_bonus = np.where(high_conf_mask, 
-                              alpha_bonus + config.MARKET_STRENGTH_PARAMS['confidence_bonus'], 
-                              alpha_bonus)
-        
-        # Extreme signal bonus (additional 25% total)
-        alpha_bonus = np.where(extreme_mask, 
-                              config.MARKET_STRENGTH_PARAMS['extreme_bonus'], 
-                              alpha_bonus)
-        
-        # Calculate final True Score
-        df['true_score'] = base_score * (config.MARKET_STRENGTH_PARAMS['base_multiplier'] + alpha_bonus)
-        
-        # Ensure score bounds (0-1 scale)
-        df['true_score'] = np.clip(df['true_score'], 0, 1)
-        
-        # Add True Score tier classification
-        conditions = [
-            df['true_score'] >= 0.90,
-            df['true_score'] >= 0.80,
-            df['true_score'] >= 0.70,
-            df['true_score'] >= 0.60,
-            df['true_score'] >= 0.50
-        ]
-        
-        choices = [
-            'EXCEPTIONAL (90%+)',
-            'EXCELLENT (80-90%)',
-            'STRONG (70-80%)',
-            'GOOD (60-70%)',
-            'AVERAGE (50-60%)'
-        ]
-        
-        df['true_score_tier'] = np.select(conditions, choices, default='WEAK (<50%)')
-        
-        # Log True Score results
-        true_score_stats = df['true_score'].describe()
-        logger.info(f"True Score calculation completed:")
-        logger.info(f"  Mean: {true_score_stats['mean']:.3f}")
-        logger.info(f"  Max: {true_score_stats['max']:.3f}")
-        logger.info(f"  Stocks with Alpha bonuses: {alpha_mask.sum()}")
-        
-        # Tier distribution
-        tier_counts = df['true_score_tier'].value_counts()
-        for tier, count in tier_counts.head(3).items():
-            logger.info(f"  {tier}: {count} stocks")
-        
-        return df
-        
-    except Exception as e:
-        logger.error(f"Error calculating True Score: {str(e)}")
-        # Return safe defaults
-        df['true_score'] = df.get('overall_market_strength', 0).fillna(0)
-        df['true_score_tier'] = 'ERROR'
-        return df
-
-def enhance_dataframe_with_alpha(df: pd.DataFrame, 
-                                enable_alpha: bool = True,
-                                preserve_existing: bool = True) -> pd.DataFrame:
-    """
-    Main integration function to apply Alpha Signal system to dataframe
-    
-    This function enhances the existing ranking system with Alpha Signal
-    capabilities while preserving backward compatibility.
-    
-    Args:
-        df: Input DataFrame with market data
-        enable_alpha: Whether to enable Alpha Signal enhancements
-        preserve_existing: Whether to preserve existing pattern scores
-        
-    Returns:
-        Enhanced DataFrame with Alpha Signal capabilities
-    """
-    logger = logging.getLogger(__name__)
-    
-    try:
-        logger.info("Starting Alpha Signal enhancement of dataframe")
-        
-        if not enable_alpha:
-            logger.info("Alpha Signal enhancement disabled, returning original dataframe")
-            return df
-        
-        # Validate input DataFrame
-        if df is None or len(df) == 0:
-            logger.warning("Empty or None DataFrame provided")
-            return df
-        
-        # Create backup of original data if requested
-        if preserve_existing:
-            original_columns = set(df.columns)
-        
-        # Initialize Alpha Signal detector
-        alpha_detector = AlphaSignalDetector()
-        
-        # Step 1: Apply Alpha Signal detection (if not already done)
-        if 'alpha_signal' not in df.columns:
-            logger.info("Applying Alpha Signal detection...")
-            df = alpha_detector.detect_alpha_signal(df)
-        else:
-            logger.info("Alpha signals already present, updating if needed...")
-            df = alpha_detector.detect_alpha_signal(df)
-        
-        # Step 2: Calculate True Score (enhanced scoring system)
-        if 'true_score' not in df.columns:
-            logger.info("Calculating True Score...")
-            df = calculate_true_score(df, alpha_detector)
-        else:
-            logger.info("True Score already present, recalculating...")
-            df = calculate_true_score(df, alpha_detector)
-        
-        # Step 3: Create Alpha-enhanced master score
-        if 'master_score' in df.columns and enable_alpha:
-            # Blend original master score with true score for enhanced ranking
-            # Give more weight to True Score due to its proven correlations
-            df['alpha_master_score'] = (
-                df['true_score'] * 0.70 +           # 70% weight to data-driven True Score
-                df['master_score'] * 0.30           # 30% weight to existing master score
-            )
-            
-            logger.info("Created alpha_master_score blending True Score with existing master score")
-        else:
-            # Use True Score as primary ranking if master_score not available
-            df['alpha_master_score'] = df['true_score']
-            logger.info("Using True Score as primary ranking metric")
-        
-        # Step 4: Add Alpha Signal metadata
-        df['alpha_enhanced'] = True
-        df['alpha_timestamp'] = datetime.now(timezone.utc).isoformat()
-        
-        # Step 5: Generate Alpha Signal summary
-        alpha_summary = alpha_detector.get_alpha_pattern_summary(df)
-        logger.info(f"Alpha enhancement complete: {alpha_summary}")
-        
-        # Step 6: Validate enhancement results
-        new_columns = set(df.columns) - (original_columns if preserve_existing else set())
-        alpha_columns = [
-            'alpha_signal', 'alpha_confidence', 'alpha_strength', 'alpha_level',
-            'true_score', 'true_score_tier', 'alpha_master_score', 
-            'alpha_enhanced', 'alpha_timestamp'
-        ]
-        
-        missing_alpha_cols = [col for col in alpha_columns if col not in df.columns]
-        if missing_alpha_cols:
-            logger.warning(f"Some Alpha columns missing: {missing_alpha_cols}")
-        else:
-            logger.info(f"All Alpha Signal columns successfully added: {len(alpha_columns)} columns")
-        
-        # Final validation
-        alpha_signal_count = df['alpha_signal'].sum() if 'alpha_signal' in df.columns else 0
-        true_score_mean = df['true_score'].mean() if 'true_score' in df.columns else 0
-        
-        logger.info(f"Enhancement validation: {alpha_signal_count} Alpha signals, "
-                   f"True Score mean: {true_score_mean:.3f}")
-        
-        return df
-        
-    except Exception as e:
-        logger.error(f"Error enhancing DataFrame with Alpha Signal: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        
-        # Return original DataFrame with error indicators
-        if 'alpha_enhanced' not in df.columns:
-            df['alpha_enhanced'] = False
-        if 'alpha_error' not in df.columns:
-            df['alpha_error'] = str(e)
-        
-        return df
-
 # ============================================
 # PATTERN DETECTION ENGINE - FULLY OPTIMIZED & FIXED
 # ============================================
@@ -12276,9 +11907,10 @@ def main():
             st.session_state.user_preferences['default_top_n'] = display_count
         
         with ranking_controls[1]:
-            sort_options = ['Master Score', 'Alpha Master Score', 'True Score', 'Momentum Score', 'Volume Score', 'Position Score', 
+            sort_options = ['Master Score', 'Momentum Score', 'Volume Score', 'Position Score', 
                           'Acceleration Score', 'Breakout Score', 'RVOL Score', 'Trend Quality',
-                          'Long Term Strength', 'Liquidity Score', 'Overall Market Strength']
+                          'Long Term Strength', 'Liquidity Score', 'Overall Market Strength',
+                          'Alpha Score', 'Signal Strength']
             
             sort_by = st.selectbox(
                 "📊 Primary Sort",
@@ -12364,8 +11996,6 @@ def main():
         # Enhanced sorting logic
         sort_mapping = {
             'Master Score': 'master_score',
-            'Alpha Master Score': 'alpha_master_score',  # New Alpha option
-            'True Score': 'true_score',  # New True Score option
             'Momentum Score': 'momentum_score',
             'Volume Score': 'volume_score', 
             'Position Score': 'position_score',
@@ -12375,31 +12005,22 @@ def main():
             'Trend Quality': 'trend_quality',
             'Long Term Strength': 'long_term_strength',
             'Liquidity Score': 'liquidity_score',
-            'Overall Market Strength': 'overall_market_strength'
+            'Overall Market Strength': 'overall_market_strength',
+            'Alpha Score': 'alpha_score',
+            'Signal Strength': 'signal_strength'
         }
         
         if sort_by in sort_mapping and sort_mapping[sort_by] in display_df.columns:
             display_df = display_df.sort_values(sort_mapping[sort_by], ascending=False)
         else:
-            # Prefer alpha_master_score for sorting if available, then master_score
-            if 'alpha_master_score' in display_df.columns:
-                display_df = display_df.sort_values('alpha_master_score', ascending=False)
-            else:
-                display_df = display_df.sort_values('master_score', ascending=False)
+            display_df = display_df.sort_values('master_score', ascending=False)
         
         if not display_df.empty:
             
             # PROFESSIONAL COLUMN CONFIGURATION BASED ON VIEW MODE
-            # Use Alpha Master Score if available, then adjusted score, then regular master score
-            if 'alpha_master_score' in display_df.columns:
-                score_column = 'alpha_master_score'
-                score_label = 'Alpha Score'
-            elif performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns:
-                score_column = 'master_score_adjusted'
-                score_label = f'{performance_timeframe} Score'
-            else:
-                score_column = 'master_score'
-                score_label = 'Score'
+            # Use adjusted score if performance timeframe filtering is applied
+            score_column = 'master_score_adjusted' if (performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns) else 'master_score'
+            score_label = f'{performance_timeframe} Score' if performance_timeframe != "All" and 'master_score_adjusted' in display_df.columns else 'Score'
             
             if view_mode == "Essential":
                 # Core metrics every trader needs
@@ -12408,6 +12029,8 @@ def main():
                     'ticker': 'Ticker',
                     'company_name': 'Company',
                     score_column: score_label,
+                    'alpha_score': 'Alpha',
+                    'signal_strength': 'Signal',
                     'market_state': 'State',
                     'price': 'Price',
                     'from_low_pct': 'Low%',
@@ -12421,13 +12044,6 @@ def main():
                     'patterns': 'Patterns',
                     'category': 'Category'
                 }
-                
-                # Add Alpha Signal columns if available
-                if 'alpha_signal' in display_df.columns:
-                    display_cols.update({
-                        'alpha_signal': '🔥 Alpha',
-                        'alpha_level': 'α Level'
-                    })
                 
                 # Add fundamentals if in Hybrid mode
                 if show_fundamentals:
@@ -12454,20 +12070,12 @@ def main():
                     'long_term_strength': 'LT Str',
                     'liquidity_score': 'Liquid',
                     'overall_market_strength': 'Mkt Str',
+                    'alpha_score': 'Alpha',
+                    'signal_strength': 'Signal',
                     'price': 'Price',
                     'vmi': 'VMI',
                     'patterns': 'Patterns'
                 }
-                
-                # Add Alpha Signal columns if available
-                if 'alpha_signal' in display_df.columns:
-                    display_cols.update({
-                        'alpha_signal': '🔥 Alpha',
-                        'alpha_strength': 'α Strength',
-                        'alpha_level': 'α Level',
-                        'true_score': 'True Score',
-                        'alpha_master_score': 'α Master'
-                    })
                 
                 # Add fundamentals if in Hybrid mode
                 if show_fundamentals:
@@ -12494,6 +12102,8 @@ def main():
                     'long_term_strength': 'LTS',
                     'liquidity_score': 'Liq',
                     'overall_market_strength': 'MktS',
+                    'alpha_score': 'Alpha',
+                    'signal_strength': 'Signal',
                     'market_state': 'State',
                     'price': 'Price',
                     'from_low_pct': 'Low%',
@@ -12511,18 +12121,6 @@ def main():
                     'sector': 'Sector',
                     'industry': 'Industry'
                 }
-                
-                # Add Alpha Signal columns if available (CRITICAL ADDITION)
-                if 'alpha_signal' in display_df.columns:
-                    display_cols.update({
-                        'alpha_signal': '🔥 Alpha',
-                        'alpha_strength': 'α Str',
-                        'alpha_confidence': 'α Conf',
-                        'alpha_level': 'α Level',
-                        'true_score': 'True Scr',
-                        'true_score_tier': 'True Tier',
-                        'alpha_master_score': 'α Master'
-                    })
                 
                 # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY
                 if show_fundamentals:
@@ -12545,13 +12143,6 @@ def main():
                     'category', 'sector', 'industry'
                 ]
                 
-                # Add Alpha Signal columns if available (CRITICAL ADDITION)
-                if 'alpha_signal' in display_df.columns:
-                    available_cols.extend([
-                        'alpha_signal', 'alpha_strength', 'alpha_confidence', 
-                        'alpha_level', 'true_score', 'true_score_tier', 'alpha_master_score'
-                    ])
-                
                 # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY  
                 if show_fundamentals:
                     available_cols.extend(['pe', 'eps_current', 'eps_change_pct'])
@@ -12567,9 +12158,6 @@ def main():
                     default_cols.append('rvol')
                 if 'patterns' in available_cols:
                     default_cols.append('patterns')
-                # Add Alpha Signal to default if available
-                if 'alpha_signal' in available_cols:
-                    default_cols.append('alpha_signal')
                 
                 custom_cols = st.multiselect(
                     "Select columns to display:",
@@ -12620,6 +12208,8 @@ def main():
                 'long_term_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'liquidity_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
+                'alpha_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
+                'signal_strength': lambda x: str(x) if pd.notna(x) else '-',
                 'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'from_high_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
@@ -12692,39 +12282,6 @@ def main():
                 # Format EPS current (earnings per share)
                 if 'eps_current' in display_df_formatted.columns:
                     display_df_formatted['eps_current'] = display_df['eps_current'].apply(lambda x: f"₹{x:.1f}" if pd.notna(x) and x > 0 else '-')
-            
-            # Format Alpha Signal columns - CRITICAL ADDITION
-            if 'alpha_signal' in display_df_formatted.columns:
-                display_df_formatted['alpha_signal'] = display_df['alpha_signal'].apply(lambda x: "🔥" if x else "➖")
-            
-            if 'alpha_strength' in display_df_formatted.columns:
-                display_df_formatted['alpha_strength'] = display_df['alpha_strength'].apply(lambda x: f"{x:.3f}" if pd.notna(x) else '-')
-            
-            if 'alpha_confidence' in display_df_formatted.columns:
-                display_df_formatted['alpha_confidence'] = display_df['alpha_confidence'].apply(lambda x: f"{x:.3f}" if pd.notna(x) else '-')
-            
-            if 'true_score' in display_df_formatted.columns:
-                display_df_formatted['true_score'] = display_df['true_score'].apply(lambda x: f"{x:.3f}" if pd.notna(x) else '-')
-            
-            if 'alpha_master_score' in display_df_formatted.columns:
-                display_df_formatted['alpha_master_score'] = display_df['alpha_master_score'].apply(lambda x: f"{x:.3f}" if pd.notna(x) else '-')
-            
-            # Format alpha_level with emojis for visual impact
-            if 'alpha_level' in display_df_formatted.columns:
-                def format_alpha_level(level):
-                    if pd.isna(level) or level == 'WEAK':
-                        return "➖ WEAK"
-                    elif level == 'POTENTIAL':
-                        return "⚡ POTENTIAL"
-                    elif level == 'ALPHA_SIGNAL':
-                        return "🔥 ALPHA"
-                    elif level == 'HIGH_CONFIDENCE':
-                        return "🚀 HIGH"
-                    elif level == 'EXTREME_ALPHA':
-                        return "💎 EXTREME"
-                    else:
-                        return str(level)
-                display_df_formatted['alpha_level'] = display_df['alpha_level'].apply(format_alpha_level)
             
             # Add trend indicators for better visualization
             if 'trend_quality' in display_df.columns:
@@ -12801,6 +12358,8 @@ def main():
                 "Liquid": st.column_config.TextColumn("Liquid", help="Liquidity Score", width="small"),
                 "MktS": st.column_config.TextColumn("MktS", help="Overall Market Strength", width="tiny"),
                 "Mkt Str": st.column_config.TextColumn("Mkt Str", help="Overall Market Strength", width="small"),
+                "Alpha": st.column_config.TextColumn("Alpha", help="Alpha Winner Score (0-100) - proven pattern detection", width="small"),
+                "Signal": st.column_config.TextColumn("Signal", help="Alpha Signal Strength - winner confidence level", width="small"),
                 "State": st.column_config.TextColumn("State", help="Current Market State", width="medium"),
                 "Price": st.column_config.TextColumn("Price", help="Current stock price", width="small"),
                 "Low%": st.column_config.TextColumn("Low%", help="Distance from 52W low", width="small"),
@@ -12818,18 +12377,6 @@ def main():
                 "Category": st.column_config.TextColumn("Category", help="Market Cap Category", width="medium"),
                 "Sector": st.column_config.TextColumn("Sector", help="Sector Classification", width="medium"),
                 "Industry": st.column_config.TextColumn("Industry", help="Industry Classification", width="medium", max_chars=40),
-                
-                # Alpha Signal columns - NEW CRITICAL ADDITION
-                "🔥 Alpha": st.column_config.CheckboxColumn("🔥 Alpha", help="Alpha Signal Detected", width="small"),
-                "α Strength": st.column_config.ProgressColumn("α Strength", help="Alpha Signal Strength", min_value=0, max_value=1, format="%.3f", width="small"),
-                "α Str": st.column_config.ProgressColumn("α Str", help="Alpha Signal Strength", min_value=0, max_value=1, format="%.3f", width="small"),
-                "α Conf": st.column_config.ProgressColumn("α Conf", help="Alpha Confidence Level", min_value=0, max_value=1, format="%.3f", width="small"),
-                "α Level": st.column_config.TextColumn("α Level", help="Alpha Signal Level", width="medium"),
-                "True Score": st.column_config.ProgressColumn("True Score", help="Data-driven True Score", min_value=0, max_value=1, format="%.3f", width="small"),
-                "True Scr": st.column_config.ProgressColumn("True Scr", help="Data-driven True Score", min_value=0, max_value=1, format="%.3f", width="small"),
-                "True Tier": st.column_config.TextColumn("True Tier", help="True Score Performance Tier", width="medium"),
-                "α Master": st.column_config.ProgressColumn("α Master", help="Alpha Master Score (Enhanced)", min_value=0, max_value=1, format="%.3f", width="small"),
-                "Alpha Score": st.column_config.ProgressColumn("Alpha Score", help="Alpha Master Score (Enhanced)", min_value=0, max_value=1, format="%.3f", width="small"),
                 
                 # Fundamental columns - ONLY WHAT EXISTS IN V9.PY
                 "PE": st.column_config.TextColumn("PE", help="Price to Earnings Ratio", width="small"),
