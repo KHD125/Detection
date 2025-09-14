@@ -258,134 +258,208 @@ def calculate_overall_market_strength(df: pd.DataFrame) -> pd.Series:
 
 def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Detect reversal patterns using corrected low-score methodology
+    FIXED: Detect reversal patterns using STRICT low-score methodology
+    Target: 50-100 stocks MAX (2-5% of universe), not 85%!
     Based on analysis of 75 winners showing LOW scores predict wins
-    Reversal Potential: 57.3% accuracy vs 1.3% with old high-score approach
     """
     
     # Initialize new columns
     df['alpha_winner'] = False
     df['alpha_score'] = 0.0
     
-    # Check required columns exist AND have non-null data
+    # Check required columns exist
     required_cols = ['momentum_score', 'position_score', 'breakout_score']
     missing_cols = [col for col in required_cols if col not in df.columns or df[col].isna().all()]
     
     if missing_cols:
         logger.warning(f"Reversal pattern detection skipped: missing/empty columns {missing_cols}")
-        df['signal_strength'] = '❌ Weak'  # Default signal strength
+        df['signal_strength'] = '❌ Weak'
         return df
     
-    # Vectorized scoring for performance
-    scores = pd.Series(50.0, index=df.index)  # Start with neutral base
+    # START FROM ZERO - Must meet conditions to score
+    scores = pd.Series(0.0, index=df.index)
     
-    # CORRECTED FACTOR 1: Low Momentum Reversal (35 points)
-    # Winners had avg 35.9 momentum - LOW scores indicate potential!
-    momentum_reversal_sweet = df['momentum_score'].between(30, 45)  # Sweet spot
-    momentum_reversal_zone = df['momentum_score'].between(20, 50)   # Broader zone
-    momentum_too_high = df['momentum_score'] > 70  # Penalty for extended
+    # ============================================
+    # STRICT QUALIFICATION CRITERIA (ALL must be true)
+    # Based on ACTUAL winner data: Mom avg 35.9, Pos avg 46.9, Brk avg 38.4
+    # ============================================
     
-    scores[momentum_reversal_sweet] += 35
-    scores[momentum_reversal_zone & ~momentum_reversal_sweet] += 20
-    scores[momentum_too_high] -= 15  # Penalty: already extended
+    # Define the EXACT sweet spots from data analysis
+    momentum_qualified = (df['momentum_score'] >= 30) & (df['momentum_score'] <= 42)  # Tighter
+    position_qualified = (df['position_score'] >= 40) & (df['position_score'] <= 55)   # Tighter
+    breakout_qualified = (df['breakout_score'] >= 30) & (df['breakout_score'] <= 45)   # Tighter
     
-    # CORRECTED FACTOR 2: Low-Mid Position Sweet Spot (30 points)
-    # Winners had avg 46.9 position - NOT extreme highs!
-    position_reversal_perfect = df['position_score'].between(35, 55)  # Corrected sweet spot
-    position_reversal_good = df['position_score'].between(25, 65)     # Broader zone
-    position_too_extreme = df['position_score'] > 85  # Penalty for overextended
+    # Additional filters to reduce false positives
+    not_already_extended = True  # Default
+    if 'ret_7d' in df.columns:
+        not_already_extended = df['ret_7d'] < 8  # Not already running hard
     
-    scores[position_reversal_perfect] += 30
-    scores[position_reversal_good & ~position_reversal_perfect] += 18
-    scores[position_too_extreme] -= 20  # Strong penalty: likely to reverse down
-    
-    # CORRECTED FACTOR 3: Pre-Breakout Compression (25 points)
-    # Winners had avg 38.4 breakout - BEFORE the breakout, not after!
-    breakout_pre_stage = df['breakout_score'].between(30, 50)    # Pre-breakout compression
-    breakout_building = df['breakout_score'].between(20, 60)     # Building energy
-    breakout_already_gone = df['breakout_score'] > 75  # Penalty: breakout already happened
-    
-    scores[breakout_pre_stage] += 25
-    scores[breakout_building & ~breakout_pre_stage] += 15
-    scores[breakout_already_gone] -= 25  # Major penalty: missed the move
-    
-    # FACTOR 4: Market Timing Bonus (20 points)
-    # Reversal patterns work best in certain market conditions
+    # Market state filter
+    good_reversal_state = True  # Default
     if 'market_state' in df.columns:
-        # Reversal-friendly markets
-        reversal_markets = df['market_state'].isin(['PULLBACK', 'SIDEWAYS', 'RECOVERY'])
-        trending_markets = df['market_state'].isin(['STRONG_UPTREND'])  # Less reversal potential
-        
-        scores[reversal_markets] += 20
-        scores[trending_markets] -= 10  # Penalty: momentum stocks preferred in trends
+        good_reversal_state = ~df['market_state'].isin(['STRONG_UPTREND', 'UPTREND'])
     
-    # FACTOR 5: Volume Reversal Signal (15 points)
-    # Look for volume expansion on low prices (accumulation)
-    if 'rvol' in df.columns and df['rvol'].notna().any():
-        volume_expansion = df['rvol'] > 1.5  # Volume picking up
-        massive_volume = df['rvol'] > 3.0    # Potential climax (could be reversal)
-        
-        scores[volume_expansion] += 15
-        scores[massive_volume] += 10  # Additional for strong volume
+    # ============================================
+    # CORE QUALIFICATION: Must meet ALL criteria
+    # ============================================
+    fully_qualified = (
+        momentum_qualified & 
+        position_qualified & 
+        breakout_qualified & 
+        not_already_extended & 
+        good_reversal_state
+    )
     
-    # FACTOR 6: Time-Based Reversal Factors (10 points)
-    # Stocks beaten down for a while have higher reversal potential
-    if 'ret_30d' in df.columns and df['ret_30d'].notna().any():
-        beaten_down = df['ret_30d'] < -15  # Down significantly
-        slight_recovery = df['ret_7d'] > df['ret_30d']  # Recent improvement
-        
-        scores[beaten_down] += 10
-        scores[slight_recovery] += 5
+    # Only qualified stocks get scored
+    scores[fully_qualified] = 65  # Base score for qualified
     
-    # FACTOR 7: Category Preference (10 points)
-    # Small/Micro caps have higher reversal potential (more volatile)
-    if 'category' in df.columns:
-        small_caps = df['category'].isin(['Small Cap', 'Micro Cap'])
-        large_caps = df['category'].isin(['Large Cap', 'Mega Cap'])
-        
-        scores[small_caps] += 10
-        scores[large_caps] -= 5  # Penalty: less volatile, lower reversal potential
+    # ============================================
+    # TIER 2: Good but not perfect (partial qualification)
+    # ============================================
+    # Slightly broader ranges for tier 2
+    momentum_decent = (df['momentum_score'] >= 25) & (df['momentum_score'] <= 45)
+    position_decent = (df['position_score'] >= 35) & (df['position_score'] <= 60)
+    breakout_decent = (df['breakout_score'] >= 25) & (df['breakout_score'] <= 50)
     
-    # Apply final scoring
+    # Must meet at least 2 of 3 conditions strongly
+    partial_qualified = (
+        (momentum_decent & position_decent & ~fully_qualified) |
+        (momentum_decent & breakout_decent & ~fully_qualified) |
+        (position_decent & breakout_decent & ~fully_qualified)
+    )
+    
+    scores[partial_qualified] = 45  # Lower base for partial
+    
+    # ============================================
+    # BONUS POINTS (max +25 total)
+    # ============================================
+    
+    # Qualified stocks mask for bonuses
+    qualified = fully_qualified | partial_qualified
+    
+    # Bonus 1: Oversold condition (+10 max)
+    if 'ret_30d' in df.columns:
+        oversold = qualified & (df['ret_30d'] < -10)
+        very_oversold = qualified & (df['ret_30d'] < -20)
+        scores[oversold] += 7
+        scores[very_oversold] += 3  # Additional
+    
+    # Bonus 2: Volume confirmation - PROPERLY IMPLEMENTED (+8 max)
+    if 'rvol' in df.columns:
+        # Small bonus for RVOL (weak correlation but positive)
+        mild_volume = qualified & (df['rvol'].between(1.5, 3.0))
+        scores[mild_volume] += 5
+        
+        # Additional bonus for strong volume expansion
+        volume_picking_up = qualified & (df['rvol'].between(1.3, 3.0))
+        scores[volume_picking_up] += 3  # Additional 3 points, total 8
+    
+    # Bonus 3: Perfect harmony for reversal (+7 max)
+    if 'momentum_harmony' in df.columns:
+        low_harmony = qualified & (df['momentum_harmony'] <= 1)
+        scores[low_harmony] += 7
+    
+    # ============================================
+    # PENALTIES (reduce or eliminate score)
+    # ============================================
+    
+    # Penalty 1: Already extended - DISQUALIFY
+    if 'momentum_score' in df.columns:
+        already_hot = (df['momentum_score'] > 65) | (df['position_score'] > 75)
+        scores[already_hot] = 0  # Complete disqualification
+    
+    # Penalty 2: Recent big moves - DISQUALIFY
+    if 'ret_7d' in df.columns:
+        recent_movers = df['ret_7d'] > 15
+        scores[recent_movers] = 0
+    
+    # Penalty 3: Wrong market state - REDUCE
+    if 'market_state' in df.columns:
+        strong_trending = df['market_state'] == 'STRONG_UPTREND'
+        scores[strong_trending] *= 0.5
+    
+    # ============================================
+    # FINAL SCORING & STRICT SELECTION
+    # ============================================
+    
+    # Clip scores
     df['alpha_score'] = scores.clip(0, 100)
     
-    # Mark reversal candidates (score >= 70 for high confidence)
-    df['alpha_winner'] = df['alpha_score'] >= 70
+    # STRICT THRESHOLDS
+    MIN_SCORE_FOR_WINNER = 72  # Raised from 70
+    MAX_WINNERS_ALLOWED = 100  # Hard cap
     
-    # Add to patterns column for display
+    # Initial selection
+    df['alpha_winner'] = df['alpha_score'] >= MIN_SCORE_FOR_WINNER
+    
+    # If too many winners, raise the bar
+    current_winners = df['alpha_winner'].sum()
+    if current_winners > MAX_WINNERS_ALLOWED:
+        # Take only top 100 by score
+        threshold_for_top_n = df.nlargest(MAX_WINNERS_ALLOWED, 'alpha_score')['alpha_score'].min()
+        df['alpha_winner'] = df['alpha_score'] >= threshold_for_top_n
+        logger.info(f"Too many winners ({current_winners}), raised threshold to {threshold_for_top_n:.1f}")
+    
+    # ============================================
+    # PATTERN LABELING
+    # ============================================
+    
     if 'patterns' in df.columns:
         winner_mask = df['alpha_winner']
-        # Handle empty/NaN patterns properly - don't add pipe separator for empty patterns
-        existing_patterns = df.loc[winner_mask, 'patterns'].fillna('')
-        empty_patterns = (existing_patterns == '') | (existing_patterns.str.strip() == '')
-        
-        # For stocks with existing patterns: add with separator
-        has_patterns = winner_mask & ~empty_patterns
-        df.loc[has_patterns, 'patterns'] = df.loc[has_patterns, 'patterns'] + ' | 🔄 REVERSAL POTENTIAL'
-        
-        # For stocks with no patterns: add without separator
-        no_patterns = winner_mask & empty_patterns
-        df.loc[no_patterns, 'patterns'] = '🔄 REVERSAL POTENTIAL'
+        if winner_mask.any():
+            existing_patterns = df.loc[winner_mask, 'patterns'].fillna('')
+            empty_patterns = (existing_patterns == '') | (existing_patterns.str.strip() == '')
+            
+            # Add to existing patterns
+            has_patterns = winner_mask & ~empty_patterns
+            df.loc[has_patterns, 'patterns'] = df.loc[has_patterns, 'patterns'] + ' | 🔄 REVERSAL'
+            
+            # Set for empty patterns
+            no_patterns = winner_mask & empty_patterns
+            df.loc[no_patterns, 'patterns'] = '🔄 REVERSAL CANDIDATE'
     
-    # Add signal strength for UI display
+    # Signal strength with adjusted thresholds
     df['signal_strength'] = pd.cut(
         df['alpha_score'],
-        bins=[-0.1, 50, 60, 70, 80, 100],
+        bins=[-0.1, 45, 60, 72, 85, 100],
         labels=['❌ Weak', '📊 Fair', '✅ Good', '🔥 Strong', '🔥🔥 Extreme'],
         include_lowest=True
     )
     
-    # Log results with corrected terminology
+    # ============================================
+    # LOGGING & VALIDATION
+    # ============================================
+    
     winner_count = df['alpha_winner'].sum()
+    
+    # Quality check
     if winner_count > 0:
-        avg_score = df.loc[df['alpha_winner'], 'alpha_score'].mean()
-        logger.info(f"🔄 REVERSAL CANDIDATES: {winner_count} detected, Avg score: {avg_score:.1f}")
+        winners = df[df['alpha_winner']]
+        avg_score = winners['alpha_score'].mean()
         
-        # Show top 5
-        if 'ticker' in df.columns:
-            top_5 = df.nlargest(5, 'alpha_score')[['ticker', 'alpha_score', 'signal_strength']]
+        # Log stats
+        logger.info(f"🔄 REVERSAL CANDIDATES: {winner_count} detected (target: 50-100)")
+        logger.info(f"   Average Score: {avg_score:.1f}")
+        
+        # Check if the pattern is working correctly
+        if winner_count > 200:
+            logger.error(f"❌ ERROR: {winner_count} winners is too many! Pattern is too loose!")
+        elif winner_count > 150:
+            logger.warning(f"⚠️ WARNING: {winner_count} winners is high. Consider tightening criteria.")
+        elif winner_count < 20:
+            logger.warning(f"⚠️ Only {winner_count} winners. Pattern might be too strict.")
+        else:
+            logger.info(f"✅ Winner count {winner_count} is within expected range (20-150)")
+        
+        # Show characteristics of winners
+        if 'ticker' in df.columns and 'momentum_score' in df.columns:
+            top_5 = df.nlargest(5, 'alpha_score')
+            logger.info("Top 5 Reversal Candidates:")
             for _, row in top_5.iterrows():
-                logger.info(f"  {row['ticker']}: {row['alpha_score']:.0f} ({row['signal_strength']})")
+                logger.info(f"   {row['ticker']}: Score={row['alpha_score']:.0f}, "
+                          f"Mom={row['momentum_score']:.0f}, Pos={row['position_score']:.0f}")
+    else:
+        logger.warning("No reversal candidates found. Market may be strongly trending.")
     
     return df
 
