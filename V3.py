@@ -188,16 +188,16 @@ def calculate_overall_market_strength(df: pd.DataFrame) -> pd.Series:
     - REMOVED: volume, acceleration, rvol (all noise)
     """
     
-    # Initialize without default values
-    market_strength = pd.Series(index=df.index, dtype=float)
+    # Initialize with proper NaN values
+    market_strength = pd.Series(np.nan, index=df.index, dtype=float)
     
-    # Check required columns exist
+    # Check required columns exist AND have non-null data
     required_cols = ['momentum_score', 'position_score', 'breakout_score']
-    missing_cols = [col for col in required_cols if col not in df.columns]
+    missing_cols = [col for col in required_cols if col not in df.columns or df[col].isna().all()]
     
     if missing_cols:
-        logger.warning(f"Market strength calculation skipped: missing columns {missing_cols}")
-        return market_strength  # Return empty series
+        logger.warning(f"Market strength calculation skipped: missing/empty columns {missing_cols}")
+        return market_strength  # Return NaN series
     
     # Calculate using proven formula
     valid_mask = (
@@ -252,12 +252,12 @@ def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     df['alpha_winner'] = False
     df['alpha_score'] = 0.0
     
-    # Check required columns exist
+    # Check required columns exist AND have non-null data
     required_cols = ['momentum_score', 'position_score', 'breakout_score']
-    missing_cols = [col for col in required_cols if col not in df.columns]
+    missing_cols = [col for col in required_cols if col not in df.columns or df[col].isna().all()]
     
     if missing_cols:
-        logger.warning(f"Alpha pattern detection skipped: missing columns {missing_cols}")
+        logger.warning(f"Alpha pattern detection skipped: missing/empty columns {missing_cols}")
         df['signal_strength'] = '❌ Weak'  # Default signal strength
         return df
     
@@ -291,12 +291,31 @@ def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     
     # FACTOR 4: Momentum Harmony - THE SECRET (30 points)
     # ALL 7 winners had harmony >= 3!
-    if 'momentum_harmony' in df.columns:
+    if 'momentum_harmony' in df.columns and df['momentum_harmony'].notna().any():
         harmony_perfect = df['momentum_harmony'] >= 3
         harmony_good = df['momentum_harmony'] >= 2
         
         scores[harmony_perfect] += 30  # This is CRITICAL
         scores[harmony_good & ~harmony_perfect] += 15
+    else:
+        # Calculate basic momentum harmony on the fly if missing
+        logger.warning("Momentum harmony not available for alpha pattern - using fallback calculation")
+        basic_harmony = pd.Series(0, index=df.index, dtype=int)
+        
+        # Simple fallback: check if we have consistent positive momentum
+        if 'ret_1d' in df.columns:
+            basic_harmony += (df['ret_1d'].fillna(0) > 0).astype(int)
+        if 'ret_7d' in df.columns:
+            basic_harmony += (df['ret_7d'].fillna(0) > 0).astype(int)
+        if 'ret_30d' in df.columns:
+            basic_harmony += (df['ret_30d'].fillna(0) > 0).astype(int)
+        
+        # Apply reduced scoring since this is fallback
+        fallback_perfect = basic_harmony >= 3
+        fallback_good = basic_harmony >= 2
+        
+        scores[fallback_perfect] += 20  # Reduced from 30
+        scores[fallback_good & ~fallback_perfect] += 10  # Reduced from 15
     
     # FACTOR 5: Market State (10 points)
     if 'market_state' in df.columns:
