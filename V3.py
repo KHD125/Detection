@@ -284,7 +284,7 @@ def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
     # FACTOR 3: Breakout Ready (20 points)
     # 6/7 winners had breakout > 75
     breakout_imminent = df['breakout_score'] > 75
-    breakout_building = df['breakout_score'] > 65
+    breakout_building = df['breakout_score'] > 55
     
     scores[breakout_imminent] += 20
     scores[breakout_building & ~breakout_imminent] += 10
