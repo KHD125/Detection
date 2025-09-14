@@ -174,296 +174,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ============================================
-# SMART FIX FOR V9.PY - Based on Real Data Analysis
-# ============================================
-
-def calculate_overall_market_strength(df: pd.DataFrame) -> pd.Series:
-    """
-    Calculate Overall Market Strength using REVERSAL POTENTIAL
-    
-    CRITICAL CHANGE: Based on actual data analysis of 75 winners:
-    - Winners had LOWER scores before winning (avg Mom 35.9, Pos 46.9, Brk 38.4)
-    - Original high-score pattern had 1.3% accuracy
-    - New low-score pattern has 57.3% accuracy
-    """
-    
-    # Initialize with proper NaN values (same as original)
-    market_strength = pd.Series(np.nan, index=df.index, dtype=float)
-    
-    # Check required columns exist AND have non-null data (same validation as original)
-    required_cols = ['momentum_score', 'position_score', 'breakout_score']
-    missing_cols = [col for col in required_cols if col not in df.columns or df[col].isna().all()]
-    
-    if missing_cols:
-        logger.warning(f"Market strength calculation skipped: missing/empty columns {missing_cols}")
-        return market_strength  # Return NaN series
-    
-    # Calculate using CORRECTED formula based on actual data
-    valid_mask = (
-        df['momentum_score'].notna() & 
-        df['position_score'].notna() & 
-        df['breakout_score'].notna()
-    )
-    
-    if valid_mask.any():
-        # NEW FORMULA: Lower scores = Higher reversal potential
-        # This is based on actual winner characteristics
-        
-        # Initialize base score
-        market_strength[valid_mask] = 50.0
-        
-        # Factor 1: Low momentum (35-45 optimal, based on 35.9 avg)
-        low_momentum = valid_mask & df['momentum_score'].between(30, 45)
-        market_strength[low_momentum] += 20
-        
-        # Factor 2: Low position (40-55 optimal, based on 46.9 avg)  
-        low_position = valid_mask & df['position_score'].between(40, 55)
-        market_strength[low_position] += 20
-        
-        # Factor 3: Low breakout (30-45 optimal, based on 38.4 avg)
-        low_breakout = valid_mask & df['breakout_score'].between(30, 45)
-        market_strength[low_breakout] += 15
-        
-        # REVERSAL COMBO BONUS - when all low scores align (57% of winners had this)
-        reversal_combo = valid_mask & (
-            (df['momentum_score'] < 45) &    # Low momentum
-            (df['position_score'] < 60) &    # Low position  
-            (df['breakout_score'] < 50)      # Low breakout
-        )
-        
-        if reversal_combo.any():
-            market_strength[reversal_combo] *= 1.25  # 25% bonus
-            logger.info(f"🎯 Reversal candidates found: {reversal_combo.sum()} stocks!")
-    
-    # Market state multiplier (INVERTED based on data - weak states had more winners)
-    if 'market_state' in df.columns:
-        # Weak states had MORE winners (proven by data)
-        weak_states = df['market_state'].isin(['DOWNTREND', 'SIDEWAYS', 'ROTATION'])
-        strong_states = df['market_state'].isin(['STRONG_UPTREND', 'UPTREND'])
-        
-        market_strength[weak_states] *= 1.15  # Boost weak states
-        market_strength[strong_states] *= 0.85  # Reduce strong states
-    
-    # Clip to valid range
-    market_strength = market_strength.clip(0, 100)
-    
-    # Fill NaN with 50 (neutral) for any remaining
-    market_strength = market_strength.fillna(50)
-    
-    logger.info(f"Market strength (reversal): {valid_mask.sum()}/{len(df)} calculated, "
-                f"Mean: {market_strength[valid_mask].mean():.1f}")
-    
-    return market_strength
-
-
-def detect_alpha_winner_pattern(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    FIXED: Detect reversal patterns using STRICT low-score methodology
-    Target: 50-100 stocks MAX (2-5% of universe), not 85%!
-    Based on analysis of 75 winners showing LOW scores predict wins
-    """
-    
-    # Initialize new columns
-    df['alpha_winner'] = False
-    df['alpha_score'] = 0.0
-    
-    # Check required columns exist
-    required_cols = ['momentum_score', 'position_score', 'breakout_score']
-    missing_cols = [col for col in required_cols if col not in df.columns or df[col].isna().all()]
-    
-    if missing_cols:
-        logger.warning(f"Reversal pattern detection skipped: missing/empty columns {missing_cols}")
-        df['signal_strength'] = '❌ Weak'
-        return df
-    
-    # START FROM ZERO - Must meet conditions to score
-    scores = pd.Series(0.0, index=df.index)
-    
-    # ============================================
-    # STRICT QUALIFICATION CRITERIA (ALL must be true)
-    # Based on ACTUAL winner data: Mom avg 35.9, Pos avg 46.9, Brk avg 38.4
-    # ============================================
-    
-    # Define the EXACT sweet spots from data analysis
-    momentum_qualified = (df['momentum_score'] >= 30) & (df['momentum_score'] <= 42)  # Tighter
-    position_qualified = (df['position_score'] >= 40) & (df['position_score'] <= 55)   # Tighter
-    breakout_qualified = (df['breakout_score'] >= 30) & (df['breakout_score'] <= 45)   # Tighter
-    
-    # Additional filters to reduce false positives
-    not_already_extended = True  # Default
-    if 'ret_7d' in df.columns:
-        not_already_extended = df['ret_7d'] < 8  # Not already running hard
-    
-    # Market state filter
-    good_reversal_state = True  # Default
-    if 'market_state' in df.columns:
-        good_reversal_state = ~df['market_state'].isin(['STRONG_UPTREND', 'UPTREND'])
-    
-    # ============================================
-    # CORE QUALIFICATION: Must meet ALL criteria
-    # ============================================
-    fully_qualified = (
-        momentum_qualified & 
-        position_qualified & 
-        breakout_qualified & 
-        not_already_extended & 
-        good_reversal_state
-    )
-    
-    # Only qualified stocks get scored
-    scores[fully_qualified] = 65  # Base score for qualified
-    
-    # ============================================
-    # TIER 2: Good but not perfect (partial qualification)
-    # ============================================
-    # Slightly broader ranges for tier 2
-    momentum_decent = (df['momentum_score'] >= 25) & (df['momentum_score'] <= 45)
-    position_decent = (df['position_score'] >= 35) & (df['position_score'] <= 60)
-    breakout_decent = (df['breakout_score'] >= 25) & (df['breakout_score'] <= 50)
-    
-    # Must meet at least 2 of 3 conditions strongly
-    partial_qualified = (
-        (momentum_decent & position_decent & ~fully_qualified) |
-        (momentum_decent & breakout_decent & ~fully_qualified) |
-        (position_decent & breakout_decent & ~fully_qualified)
-    )
-    
-    scores[partial_qualified] = 45  # Lower base for partial
-    
-    # ============================================
-    # BONUS POINTS (max +25 total)
-    # ============================================
-    
-    # Qualified stocks mask for bonuses
-    qualified = fully_qualified | partial_qualified
-    
-    # Bonus 1: Oversold condition (+10 max)
-    if 'ret_30d' in df.columns:
-        oversold = qualified & (df['ret_30d'] < -10)
-        very_oversold = qualified & (df['ret_30d'] < -20)
-        scores[oversold] += 7
-        scores[very_oversold] += 3  # Additional
-    
-    # Bonus 2: Volume confirmation - PROPERLY IMPLEMENTED (+8 max)
-    if 'rvol' in df.columns:
-        # Small bonus for RVOL (weak correlation but positive)
-        mild_volume = qualified & (df['rvol'].between(1.5, 3.0))
-        scores[mild_volume] += 5
-        
-        # Additional bonus for strong volume expansion
-        volume_picking_up = qualified & (df['rvol'].between(1.3, 3.0))
-        scores[volume_picking_up] += 3  # Additional 3 points, total 8
-    
-    # Bonus 3: Perfect harmony for reversal (+7 max)
-    if 'momentum_harmony' in df.columns:
-        low_harmony = qualified & (df['momentum_harmony'] <= 1)
-        scores[low_harmony] += 7
-    
-    # ============================================
-    # PENALTIES (reduce or eliminate score)
-    # ============================================
-    
-    # Penalty 1: Already extended - DISQUALIFY
-    if 'momentum_score' in df.columns:
-        already_hot = (df['momentum_score'] > 65) | (df['position_score'] > 75)
-        scores[already_hot] = 0  # Complete disqualification
-    
-    # Penalty 2: Recent big moves - DISQUALIFY
-    if 'ret_7d' in df.columns:
-        recent_movers = df['ret_7d'] > 15
-        scores[recent_movers] = 0
-    
-    # Penalty 3: Wrong market state - REDUCE
-    if 'market_state' in df.columns:
-        strong_trending = df['market_state'] == 'STRONG_UPTREND'
-        scores[strong_trending] *= 0.5
-    
-    # ============================================
-    # FINAL SCORING & STRICT SELECTION
-    # ============================================
-    
-    # Clip scores
-    df['alpha_score'] = scores.clip(0, 100)
-    
-    # STRICT THRESHOLDS
-    MIN_SCORE_FOR_WINNER = 72  # Raised from 70
-    MAX_WINNERS_ALLOWED = 100  # Hard cap
-    
-    # Initial selection
-    df['alpha_winner'] = df['alpha_score'] >= MIN_SCORE_FOR_WINNER
-    
-    # If too many winners, raise the bar
-    current_winners = df['alpha_winner'].sum()
-    if current_winners > MAX_WINNERS_ALLOWED:
-        # Take only top 100 by score
-        threshold_for_top_n = df.nlargest(MAX_WINNERS_ALLOWED, 'alpha_score')['alpha_score'].min()
-        df['alpha_winner'] = df['alpha_score'] >= threshold_for_top_n
-        logger.info(f"Too many winners ({current_winners}), raised threshold to {threshold_for_top_n:.1f}")
-    
-    # ============================================
-    # PATTERN LABELING
-    # ============================================
-    
-    if 'patterns' in df.columns:
-        winner_mask = df['alpha_winner']
-        if winner_mask.any():
-            existing_patterns = df.loc[winner_mask, 'patterns'].fillna('')
-            empty_patterns = (existing_patterns == '') | (existing_patterns.str.strip() == '')
-            
-            # Add to existing patterns
-            has_patterns = winner_mask & ~empty_patterns
-            df.loc[has_patterns, 'patterns'] = df.loc[has_patterns, 'patterns'] + ' | 🔄 REVERSAL'
-            
-            # Set for empty patterns
-            no_patterns = winner_mask & empty_patterns
-            df.loc[no_patterns, 'patterns'] = '🔄 REVERSAL CANDIDATE'
-    
-    # Signal strength with adjusted thresholds
-    df['signal_strength'] = pd.cut(
-        df['alpha_score'],
-        bins=[-0.1, 45, 60, 72, 85, 100],
-        labels=['❌ Weak', '📊 Fair', '✅ Good', '🔥 Strong', '🔥🔥 Extreme'],
-        include_lowest=True
-    )
-    
-    # ============================================
-    # LOGGING & VALIDATION
-    # ============================================
-    
-    winner_count = df['alpha_winner'].sum()
-    
-    # Quality check
-    if winner_count > 0:
-        winners = df[df['alpha_winner']]
-        avg_score = winners['alpha_score'].mean()
-        
-        # Log stats
-        logger.info(f"🔄 REVERSAL CANDIDATES: {winner_count} detected (target: 50-100)")
-        logger.info(f"   Average Score: {avg_score:.1f}")
-        
-        # Check if the pattern is working correctly
-        if winner_count > 200:
-            logger.error(f"❌ ERROR: {winner_count} winners is too many! Pattern is too loose!")
-        elif winner_count > 150:
-            logger.warning(f"⚠️ WARNING: {winner_count} winners is high. Consider tightening criteria.")
-        elif winner_count < 20:
-            logger.warning(f"⚠️ Only {winner_count} winners. Pattern might be too strict.")
-        else:
-            logger.info(f"✅ Winner count {winner_count} is within expected range (20-150)")
-        
-        # Show characteristics of winners
-        if 'ticker' in df.columns and 'momentum_score' in df.columns:
-            top_5 = df.nlargest(5, 'alpha_score')
-            logger.info("Top 5 Reversal Candidates:")
-            for _, row in top_5.iterrows():
-                logger.info(f"   {row['ticker']}: Score={row['alpha_score']:.0f}, "
-                          f"Mom={row['momentum_score']:.0f}, Pos={row['position_score']:.0f}")
-    else:
-        logger.warning("No reversal candidates found. Market may be strongly trending.")
-    
-    return df
-
-# ============================================
 # CONFIGURATION AND CONSTANTS
 # ============================================
 
@@ -705,8 +415,6 @@ class Config:
         'breakout_score': 'Probability of price breakout (0-100)',
         'trend_quality': 'SMA alignment quality (0-100)',
         'liquidity_score': 'Trading liquidity measure (0-100)',
-        'alpha_score': 'Reversal Potential Score: 0-100 based on corrected low-score patterns (momentum 30-45, position 35-55, breakout 30-50)',
-        'signal_strength': 'Reversal Signal Strength: Weak/Fair/Good/Strong/Extreme classification for reversal potential',
         'from_high_pct': 'Distance from 52-week high: 0% = at high, negative values = below high',
         'from_low_pct': 'Distance from 52-week low: 0% = at low, positive values = above low',
         'vmi_tier': 'Volume Momentum Index tier: Weighted volume trend classification',
@@ -1044,9 +752,6 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         
         # Corrected method call here
         df = PatternDetector.detect_all_patterns_optimized(df)
-        
-        # Detect the ultimate winner pattern based on proven data analysis
-        df = detect_alpha_winner_pattern(df)
         
         # Add advanced metrics
         df = AdvancedMetrics.calculate_all_metrics(df)
@@ -1474,9 +1179,22 @@ class AdvancedMetrics:
         # Market State Analysis
         df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
     
-        # Overall Market Strength - SMART VERSION BASED ON PROVEN DATA
-        # Uses ONLY proven metrics with 77.4%, 57.0%, and 54.5% correlations
-        df['overall_market_strength'] = calculate_overall_market_strength(df)
+        # Overall Market Strength - FOUNDATION FOCUS  
+        # This measures "How solid is the setup?"
+        if all(col in df.columns for col in ['position_score', 'volume_score']):
+            if 'momentum_score' in df.columns:
+                df['overall_market_strength'] = (
+                    df['position_score'] * 0.40 +
+                    df['volume_score'] * 0.35 +
+                    df['momentum_score'] * 0.25
+                )
+            else:
+                df['overall_market_strength'] = (
+                    df['position_score'] * 0.55 +
+                    df['volume_score'] * 0.45
+                )
+        else:
+            df['overall_market_strength'] = np.nan
         
         # VMI and Momentum Harmony Tier Classifications
         def classify_advanced_tier(value: float, tier_config: tuple) -> str:
@@ -8451,13 +8169,13 @@ class ExportEngine:
         templates = {
             'day_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'rvol', 
-                           'momentum_score', 'acceleration_score', 'alpha_score', 'signal_strength', 'ret_1d', 'ret_7d', 
+                           'momentum_score', 'acceleration_score', 'ret_1d', 'ret_7d', 
                            'volume_score', 'vmi', 'market_state', 'patterns', 'category', 'industry'],
                 'focus': 'Intraday momentum and volume'
             },
             'swing_trader': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 
-                           'breakout_score', 'position_score', 'position_tension', 'alpha_score', 'signal_strength',
+                           'breakout_score', 'position_score', 'position_tension',
                            'from_high_pct', 'from_low_pct', 'trend_quality', 
                            'momentum_harmony', 'patterns', 'industry'],
                 'focus': 'Position and breakout setups'
@@ -8465,7 +8183,7 @@ class ExportEngine:
             'investor': {
                 'columns': ['rank', 'ticker', 'company_name', 'master_score', 'pe', 
                            'eps_current', 'eps_change_pct', 'ret_1y', 'ret_3y', 
-                           'long_term_strength', 'alpha_score', 'signal_strength', 'money_flow_mm', 'category', 'sector', 'industry'],
+                           'long_term_strength', 'money_flow_mm', 'category', 'sector', 'industry'],
                 'focus': 'Fundamentals and long-term performance'
             },
             'full': {
@@ -8596,7 +8314,7 @@ class ExportEngine:
             'rank', 'ticker', 'company_name', 'master_score',
             'position_score', 'volume_score', 'momentum_score',
             'acceleration_score', 'breakout_score', 'rvol_score',
-            'trend_quality', 'alpha_score', 'signal_strength', 'price', 'pe', 'eps_current', 'eps_change_pct',
+            'trend_quality', 'price', 'pe', 'eps_current', 'eps_change_pct',
             'from_low_pct', 'from_high_pct',
             'ret_1d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y',
             'rvol', 'vmi', 'money_flow_mm', 'position_tension',
@@ -12048,8 +11766,7 @@ def main():
         with ranking_controls[1]:
             sort_options = ['Master Score', 'Momentum Score', 'Volume Score', 'Position Score', 
                           'Acceleration Score', 'Breakout Score', 'RVOL Score', 'Trend Quality',
-                          'Long Term Strength', 'Liquidity Score', 'Overall Market Strength',
-                          'Alpha Score', 'Signal Strength']
+                          'Long Term Strength', 'Liquidity Score', 'Overall Market Strength']
             
             sort_by = st.selectbox(
                 "📊 Primary Sort",
@@ -12144,9 +11861,7 @@ def main():
             'Trend Quality': 'trend_quality',
             'Long Term Strength': 'long_term_strength',
             'Liquidity Score': 'liquidity_score',
-            'Overall Market Strength': 'overall_market_strength',
-            'Alpha Score': 'alpha_score',
-            'Signal Strength': 'signal_strength'
+            'Overall Market Strength': 'overall_market_strength'
         }
         
         if sort_by in sort_mapping and sort_mapping[sort_by] in display_df.columns:
@@ -12168,8 +11883,6 @@ def main():
                     'ticker': 'Ticker',
                     'company_name': 'Company',
                     score_column: score_label,
-                    'alpha_score': 'Alpha',
-                    'signal_strength': 'Signal',
                     'market_state': 'State',
                     'price': 'Price',
                     'from_low_pct': 'Low%',
@@ -12209,8 +11922,6 @@ def main():
                     'long_term_strength': 'LT Str',
                     'liquidity_score': 'Liquid',
                     'overall_market_strength': 'Mkt Str',
-                    'alpha_score': 'Alpha',
-                    'signal_strength': 'Signal',
                     'price': 'Price',
                     'vmi': 'VMI',
                     'patterns': 'Patterns'
@@ -12241,8 +11952,6 @@ def main():
                     'long_term_strength': 'LTS',
                     'liquidity_score': 'Liq',
                     'overall_market_strength': 'MktS',
-                    'alpha_score': 'Alpha',
-                    'signal_strength': 'Signal',
                     'market_state': 'State',
                     'price': 'Price',
                     'from_low_pct': 'Low%',
@@ -12276,7 +11985,7 @@ def main():
                 available_cols = [
                     'rank', 'ticker', 'company_name', 'master_score', 'position_score', 'momentum_score',
                     'volume_score', 'acceleration_score', 'breakout_score', 'rvol_score', 'trend_quality',
-                    'long_term_strength', 'liquidity_score', 'overall_market_strength', 'alpha_score', 'signal_strength', 'market_state',
+                    'long_term_strength', 'liquidity_score', 'overall_market_strength', 'market_state',
                     'price', 'from_low_pct', 'from_high_pct', 'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d',
                     'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'patterns',
                     'category', 'sector', 'industry'
@@ -12347,8 +12056,6 @@ def main():
                 'long_term_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'liquidity_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'alpha_score': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
-                'signal_strength': lambda x: str(x) if pd.notna(x) else '-',
                 'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'from_high_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
@@ -12497,8 +12204,6 @@ def main():
                 "Liquid": st.column_config.TextColumn("Liquid", help="Liquidity Score", width="small"),
                 "MktS": st.column_config.TextColumn("MktS", help="Overall Market Strength", width="tiny"),
                 "Mkt Str": st.column_config.TextColumn("Mkt Str", help="Overall Market Strength", width="small"),
-                "Alpha": st.column_config.TextColumn("Alpha", help="Reversal Potential Score (0-100) - low-score pattern detection", width="small"),
-                "Signal": st.column_config.TextColumn("Signal", help="Reversal Signal Strength - reversal confidence level", width="small"),
                 "State": st.column_config.TextColumn("State", help="Current Market State", width="medium"),
                 "Price": st.column_config.TextColumn("Price", help="Current stock price", width="small"),
                 "Low%": st.column_config.TextColumn("Low%", help="Distance from 52W low", width="small"),
