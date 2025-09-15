@@ -12121,56 +12121,13 @@ def main():
                 if 'column_order' not in st.session_state:
                     st.session_state.column_order = default_cols.copy()
                 
-                # INTEGRATED DRAG-AND-DROP COLUMN SELECTION
-                try:
-                    from streamlit_sortables import sort_items
-                    
-                    # Create two containers: selection and ordering
-                    col1, col2 = st.columns([1, 1])
-                    
-                    with col1:
-                        # Standard multiselect for column selection
-                        custom_cols = st.multiselect(
-                            "Select columns to display:",
-                            options=available_cols,
-                            default=[col for col in st.session_state.column_order if col in available_cols],
-                            key="custom_columns_select"
-                        )
-                    
-                    with col2:
-                        if custom_cols:
-                            st.markdown("**Drag to reorder:**")
-                            # FIXED: Show ALL selected columns (including new ones) in draggable format
-                            sorted_items = sort_items(
-                                [col.replace('_', ' ').title() for col in custom_cols],
-                                key="column_sorter"
-                            )
-                            
-                            # Convert back to column names in the dragged order
-                            reordered_cols = []
-                            for display_name in sorted_items:
-                                for col in custom_cols:
-                                    if col.replace('_', ' ').title() == display_name:
-                                        reordered_cols.append(col)
-                                        break
-                            
-                            # Update custom_cols to match the dragged order
-                            custom_cols = reordered_cols
-                            
-                            # Update session state for persistence
-                            st.session_state.column_order = custom_cols.copy()
-                        else:
-                            st.markdown("*Select columns to enable reordering*")
-                    
-                except ImportError:
-                    # Fallback to simple multiselect without drag-and-drop
-                    custom_cols = st.multiselect(
-                        "Select columns to display:",
-                        options=available_cols,
-                        default=[col for col in st.session_state.column_order if col in available_cols],
-                        key="custom_columns_select"
-                    )
-                    st.info("💡 **Enhanced Experience**: Install streamlit-sortables for drag-and-drop column reordering: `pip install streamlit-sortables`")
+                # SIMPLE CLEAN IMPLEMENTATION
+                custom_cols = st.multiselect(
+                    "Select columns to display:",
+                    options=available_cols,
+                    default=default_cols,
+                    key="custom_columns_select"
+                )
                 
                 # Create display_cols dict for custom selection
                 display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
