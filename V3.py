@@ -7207,7 +7207,8 @@ class FilterEngine:
                 'ret_5y_selection': "All Returns",
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
-                'include_patterns': []
+                'include_patterns': [],
+                'combination_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -7356,7 +7357,8 @@ class FilterEngine:
             'ret_5y_selection': "All Returns",
             # Two-Stage Pattern Filtering System
             'exclude_patterns': [],
-            'include_patterns': []
+            'include_patterns': [],
+            'combination_patterns': []
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -7372,6 +7374,8 @@ class FilterEngine:
             'position_tier_multiselect_intelligence',
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
+            # Combination Pattern Filter Widget
+            'combination_patterns_multiselect',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -7673,6 +7677,16 @@ class FilterEngine:
                 include_mask |= df['patterns'].str.contains(pattern, na=False, regex=False)
             # Apply inclusion: keep stocks that DO have included patterns
             masks.append(include_mask)
+        
+        # STAGE 3: COMBINATION patterns (require ALL selected patterns - AND logic)
+        if filters.get('combination_patterns') and 'patterns' in df.columns:
+            combination_mask = pd.Series(True, index=df.index)  # Start with True for AND logic
+            for pattern in filters['combination_patterns']:
+                # Each pattern must be present (AND logic)
+                pattern_present = df['patterns'].str.contains(pattern, na=False, regex=False)
+                combination_mask &= pattern_present
+            # Apply combination filter: keep stocks that have ALL combination patterns
+            masks.append(combination_mask)
         
         # Legacy pattern filter support (for backward compatibility)
         if filters.get('patterns') and 'patterns' in df.columns:
@@ -8068,7 +8082,11 @@ class FilterEngine:
             'market_strength_range': (0, 100),
             'long_term_strength_range': (0, 100),
             'quick_filter': None,
-            'quick_filter_applied': False
+            'quick_filter_applied': False,
+            # Three-Stage Pattern Filtering System
+            'exclude_patterns': [],
+            'include_patterns': [],
+            'combination_patterns': []
         }
 
         # Clean up ALL dynamically created widget keys
@@ -9262,7 +9280,8 @@ class SessionStateManager:
                 'quick_filter_applied': False,
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
-                'include_patterns': []
+                'include_patterns': [],
+                'combination_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -9529,6 +9548,7 @@ class SessionStateManager:
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
+                'combination_patterns': [],
                 # Performance filter ranges
                 'ret_1d_range': (2.0, 25.0),
                 'ret_3d_range': (3.0, 50.0),
@@ -10433,6 +10453,10 @@ def main():
             if 'include_patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['include_patterns'] = st.session_state.include_patterns_multiselect
 
+        def sync_combination_patterns():
+            if 'combination_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['combination_patterns'] = st.session_state.combination_patterns_multiselect
+
         def sync_market_states():
             if 'market_states_multiselect' in st.session_state:
                 st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
@@ -10608,6 +10632,26 @@ def main():
             
             if included_patterns:
                 filters['include_patterns'] = included_patterns
+            
+            # STAGE 3: COMBINATION PATTERNS (AND Logic)
+            st.markdown("##### 🔗 Combination Patterns")
+            
+            # Get stored combination patterns
+            stored_combination_patterns = st.session_state.filter_state.get('combination_patterns', [])
+            valid_combination_defaults = [pat for pat in stored_combination_patterns if pat in sorted_patterns]
+            
+            combination_patterns = st.multiselect(
+                f"🔗 Require ALL Selected Patterns",
+                options=sorted_patterns,
+                default=valid_combination_defaults,
+                placeholder="Select patterns for AND logic (empty = no combination filter)",
+                help="Show only stocks that have ALL of these patterns simultaneously (AND logic)",
+                key="combination_patterns_multiselect",
+                on_change=sync_combination_patterns
+            )
+            
+            if combination_patterns:
+                filters['combination_patterns'] = combination_patterns
         
         else:
             st.info("📊 No patterns detected in current dataset")
