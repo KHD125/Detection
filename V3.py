@@ -12117,60 +12117,33 @@ def main():
                 if 'patterns' in available_cols:
                     default_cols.append('patterns')
                 
+                # Initialize column order in session state
+                if 'column_order' not in st.session_state:
+                    st.session_state.column_order = default_cols.copy()
+                
+                # Create ordered options list based on session state
+                ordered_options = []
+                # First, add columns that are already in the order
+                for col in st.session_state.column_order:
+                    if col in available_cols:
+                        ordered_options.append(col)
+                # Then add any new columns that aren't in the order yet
+                for col in available_cols:
+                    if col not in ordered_options:
+                        ordered_options.append(col)
+                
+                # Use ordered options for multiselect with drag-and-drop capability
                 custom_cols = st.multiselect(
-                    "Select columns to display:",
-                    options=available_cols,
-                    default=default_cols,
-                    key="custom_columns_select"
+                    "Select columns to display: (Drag to reorder)",
+                    options=ordered_options,
+                    default=[col for col in st.session_state.column_order if col in available_cols],
+                    key="custom_columns_select",
+                    help="💡 Tip: Drag selected items to reorder columns as needed"
                 )
                 
-                # Column Reordering Interface
-                if custom_cols:
-                    st.markdown("**Arrange column order:**")
-                    
-                    # Initialize column order in session state
-                    if 'column_order' not in st.session_state or set(st.session_state.column_order) != set(custom_cols):
-                        st.session_state.column_order = custom_cols.copy()
-                    
-                    # Display reorderable columns
-                    reordered_cols = []
-                    for i, col in enumerate(st.session_state.column_order):
-                        if col in custom_cols:  # Only show selected columns
-                            col_container = st.container()
-                            with col_container:
-                                col1, col2, col3 = st.columns([6, 1, 1])
-                                
-                                with col1:
-                                    st.write(f"{i+1}. {col.replace('_', ' ').title()}")
-                                
-                                with col2:
-                                    if i > 0 and st.button("↑", key=f"up_{col}_{i}", help="Move up"):
-                                        # Move column up
-                                        current_order = st.session_state.column_order.copy()
-                                        current_idx = current_order.index(col)
-                                        if current_idx > 0:
-                                            current_order[current_idx], current_order[current_idx-1] = current_order[current_idx-1], current_order[current_idx]
-                                            st.session_state.column_order = current_order
-                                            st.rerun()
-                                
-                                with col3:
-                                    if i < len([c for c in st.session_state.column_order if c in custom_cols]) - 1 and st.button("↓", key=f"down_{col}_{i}", help="Move down"):
-                                        # Move column down
-                                        current_order = st.session_state.column_order.copy()
-                                        current_idx = current_order.index(col)
-                                        selected_cols_in_order = [c for c in current_order if c in custom_cols]
-                                        selected_idx = selected_cols_in_order.index(col)
-                                        if selected_idx < len(selected_cols_in_order) - 1:
-                                            next_col = selected_cols_in_order[selected_idx + 1]
-                                            next_idx = current_order.index(next_col)
-                                            current_order[current_idx], current_order[next_idx] = current_order[next_idx], current_order[current_idx]
-                                            st.session_state.column_order = current_order
-                                            st.rerun()
-                            
-                            reordered_cols.append(col)
-                    
-                    # Update custom_cols to match the reordered selection
-                    custom_cols = [col for col in st.session_state.column_order if col in custom_cols]
+                # Update session state with the new order from multiselect
+                if custom_cols != [col for col in st.session_state.column_order if col in custom_cols]:
+                    st.session_state.column_order = custom_cols.copy()
                 
                 # Create display_cols dict for custom selection
                 display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
