@@ -10594,7 +10594,6 @@ def main():
             sorted_patterns = sorted(all_patterns)
             
             # STAGE 1: EXCLUDE PATTERNS
-            st.markdown("#### Patterns")
             
             # Get stored exclude patterns
             stored_exclude_patterns = st.session_state.filter_state.get('exclude_patterns', [])
