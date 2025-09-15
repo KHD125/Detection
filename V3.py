@@ -12121,29 +12121,84 @@ def main():
                 if 'column_order' not in st.session_state:
                     st.session_state.column_order = default_cols.copy()
                 
-                # Create ordered options list based on session state
-                ordered_options = []
-                # First, add columns that are already in the order
-                for col in st.session_state.column_order:
-                    if col in available_cols:
-                        ordered_options.append(col)
-                # Then add any new columns that aren't in the order yet
-                for col in available_cols:
-                    if col not in ordered_options:
-                        ordered_options.append(col)
+                # PROFESSIONAL DRAG-AND-DROP COLUMN SELECTOR
+                st.markdown("**Select and arrange columns:**")
                 
-                # Use ordered options for multiselect with drag-and-drop capability
-                custom_cols = st.multiselect(
-                    "Select columns to display: (Drag to reorder)",
-                    options=ordered_options,
-                    default=[col for col in st.session_state.column_order if col in available_cols],
-                    key="custom_columns_select",
-                    help="💡 Tip: Drag selected items to reorder columns as needed"
-                )
+                # Two-column layout for selection and ordering
+                select_col, order_col = st.columns([1, 1])
                 
-                # Update session state with the new order from multiselect
-                if custom_cols != [col for col in st.session_state.column_order if col in custom_cols]:
-                    st.session_state.column_order = custom_cols.copy()
+                with select_col:
+                    st.markdown("**Available Columns:**")
+                    # Show available columns with checkboxes
+                    selected_columns = []
+                    for col in available_cols:
+                        if st.checkbox(col.replace('_', ' ').title(), 
+                                     value=col in st.session_state.column_order, 
+                                     key=f"select_{col}"):
+                            selected_columns.append(col)
+                
+                with order_col:
+                    st.markdown("**Column Order (Drag to reorder):**")
+                    # Show selected columns in order with drag handles
+                    if selected_columns:
+                        try:
+                            from streamlit_sortables import sort_items
+                            
+                            # Create sortable items
+                            current_order = [col for col in st.session_state.column_order if col in selected_columns]
+                            # Add newly selected columns to the end
+                            for col in selected_columns:
+                                if col not in current_order:
+                                    current_order.append(col)
+                            
+                            # Display sortable list
+                            sorted_items = sort_items(
+                                [col.replace('_', ' ').title() for col in current_order],
+                                key="column_sorter"
+                            )
+                            
+                            # Convert back to column names
+                            custom_cols = []
+                            for display_name in sorted_items:
+                                for col in current_order:
+                                    if col.replace('_', ' ').title() == display_name:
+                                        custom_cols.append(col)
+                                        break
+                            
+                            # Update session state
+                            st.session_state.column_order = custom_cols.copy()
+                            
+                        except ImportError:
+                            # Fallback: Simple reorderable list with buttons
+                            st.info("💡 Install streamlit-sortables for drag-and-drop: `pip install streamlit-sortables`")
+                            custom_cols = []
+                            current_order = [col for col in st.session_state.column_order if col in selected_columns]
+                            for col in selected_columns:
+                                if col not in current_order:
+                                    current_order.append(col)
+                            
+                            for i, col in enumerate(current_order):
+                                col_row = st.container()
+                                with col_row:
+                                    c1, c2, c3 = st.columns([5, 1, 1])
+                                    with c1:
+                                        st.write(f"{i+1}. {col.replace('_', ' ').title()}")
+                                    with c2:
+                                        if i > 0 and st.button("↑", key=f"up_{col}"):
+                                            # Move up
+                                            current_order[i], current_order[i-1] = current_order[i-1], current_order[i]
+                                            st.session_state.column_order = current_order
+                                            st.rerun()
+                                    with c3:
+                                        if i < len(current_order)-1 and st.button("↓", key=f"down_{col}"):
+                                            # Move down
+                                            current_order[i], current_order[i+1] = current_order[i+1], current_order[i]
+                                            st.session_state.column_order = current_order
+                                            st.rerun()
+                            custom_cols = current_order
+                    else:
+                        custom_cols = []
+                        st.info("Select columns to display and arrange")
                 
                 # Create display_cols dict for custom selection
                 display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
