@@ -12117,11 +12117,6 @@ def main():
                 if 'patterns' in available_cols:
                     default_cols.append('patterns')
                 
-                # Initialize column order in session state
-                if 'column_order' not in st.session_state:
-                    st.session_state.column_order = default_cols.copy()
-                
-                # SIMPLE CLEAN IMPLEMENTATION
                 custom_cols = st.multiselect(
                     "Select columns to display:",
                     options=available_cols,
