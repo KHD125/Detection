@@ -17,3 +17,5 @@ plotly>=5.15.0
 # Excel Export Functionality (CRITICAL for ExportEngine class)
 xlsxwriter>=3.1.9     # Primary Excel engine used in create_excel_report()
 openpyxl>=3.1.0       # Secondary Excel engine for multi-sheet exports
+
+streamlit-sortables>=0.3.1  # Drag-and-drop sortable components for column reordering
