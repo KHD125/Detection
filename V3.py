@@ -10582,7 +10582,7 @@ def main():
         if selected_industries:
             filters['industries'] = selected_industries
 
-        st.markdown("#### ✨ Advanced Pattern Filtering System")
+        st.markdown("#### ✨ Pattern Detector")
         
         # Get all available patterns
         all_patterns = set()
@@ -10594,7 +10594,7 @@ def main():
             sorted_patterns = sorted(all_patterns)
             
             # STAGE 1: EXCLUDE PATTERNS
-            st.markdown("##### 🚫 Exclude Patterns")
+            st.markdown("#### Patterns")
             
             # Get stored exclude patterns
             stored_exclude_patterns = st.session_state.filter_state.get('exclude_patterns', [])
@@ -10614,7 +10614,6 @@ def main():
                 filters['exclude_patterns'] = excluded_patterns
             
             # STAGE 2: INCLUDE PATTERNS
-            st.markdown("##### ✅ Include Patterns")
             
             # Get stored include patterns
             stored_include_patterns = st.session_state.filter_state.get('include_patterns', [])
@@ -10634,14 +10633,13 @@ def main():
                 filters['include_patterns'] = included_patterns
             
             # STAGE 3: COMBINATION PATTERNS (AND Logic)
-            st.markdown("##### 🔗 Combination Patterns")
             
             # Get stored combination patterns
             stored_combination_patterns = st.session_state.filter_state.get('combination_patterns', [])
             valid_combination_defaults = [pat for pat in stored_combination_patterns if pat in sorted_patterns]
             
             combination_patterns = st.multiselect(
-                f"🔗 Require ALL Selected Patterns",
+                f"🔗 Combination Patterns",
                 options=sorted_patterns,
                 default=valid_combination_defaults,
                 placeholder="Select patterns for AND logic (empty = no combination filter)",
