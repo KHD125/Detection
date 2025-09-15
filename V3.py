@@ -12124,127 +12124,56 @@ def main():
                     key="custom_columns_select"
                 )
                 
-                # ✨ PROFESSIONAL COLUMN REORDERING SYSTEM ✨
-                if custom_cols:  # Only show reordering if columns are selected
-                    st.markdown("##### 🎯 **Arrange Column Order**")
-                    st.caption("💡 Drag and drop to reorder your selected columns:")
+                # Column Reordering Interface
+                if custom_cols:
+                    st.markdown("**Arrange column order:**")
                     
-                    # Get current column order from session state or use selection order
-                    if 'column_order' not in st.session_state:
+                    # Initialize column order in session state
+                    if 'column_order' not in st.session_state or set(st.session_state.column_order) != set(custom_cols):
                         st.session_state.column_order = custom_cols.copy()
                     
-                    # Sync column order with current selection
-                    # Remove columns that are no longer selected
-                    st.session_state.column_order = [col for col in st.session_state.column_order if col in custom_cols]
-                    # Add newly selected columns at the end
-                    for col in custom_cols:
-                        if col not in st.session_state.column_order:
-                            st.session_state.column_order.append(col)
-                    
-                    # Create professional column ordering interface
-                    col_order_container = st.container()
-                    
-                    with col_order_container:
-                        # Display current order with reorder buttons
-                        st.markdown("**Current Column Order:**")
-                        
-                        for i, col in enumerate(st.session_state.column_order):
-                            col_display_name = col.replace('_', ' ').title()
-                            
-                            # Create columns for each row
-                            btn_col1, btn_col2, name_col, btn_col3, btn_col4 = st.columns([1, 1, 6, 1, 1])
-                            
-                            with name_col:
-                                st.markdown(f"**{i+1}.** {col_display_name}")
-                            
-                            # Move up button
-                            with btn_col1:
-                                if i > 0:  # Not first item
-                                    if st.button("⬆️", key=f"up_{col}_{i}", help=f"Move {col_display_name} up"):
-                                        # Swap with previous item
-                                        st.session_state.column_order[i], st.session_state.column_order[i-1] = \
-                                            st.session_state.column_order[i-1], st.session_state.column_order[i]
-                                        st.rerun()
-                                else:
-                                    st.write("")  # Empty space for alignment
-                            
-                            # Move down button
-                            with btn_col2:
-                                if i < len(st.session_state.column_order) - 1:  # Not last item
-                                    if st.button("⬇️", key=f"down_{col}_{i}", help=f"Move {col_display_name} down"):
-                                        # Swap with next item
-                                        st.session_state.column_order[i], st.session_state.column_order[i+1] = \
-                                            st.session_state.column_order[i+1], st.session_state.column_order[i]
-                                        st.rerun()
-                                else:
-                                    st.write("")  # Empty space for alignment
-                            
-                            # Move to top button
-                            with btn_col3:
-                                if i > 0:  # Not already at top
-                                    if st.button("🔝", key=f"top_{col}_{i}", help=f"Move {col_display_name} to top"):
-                                        # Move to beginning
-                                        col_to_move = st.session_state.column_order.pop(i)
-                                        st.session_state.column_order.insert(0, col_to_move)
-                                        st.rerun()
-                                else:
-                                    st.write("")  # Empty space for alignment
-                            
-                            # Move to bottom button
-                            with btn_col4:
-                                if i < len(st.session_state.column_order) - 1:  # Not already at bottom
-                                    if st.button("🔚", key=f"bottom_{col}_{i}", help=f"Move {col_display_name} to bottom"):
-                                        # Move to end
-                                        col_to_move = st.session_state.column_order.pop(i)
-                                        st.session_state.column_order.append(col_to_move)
-                                        st.rerun()
-                                else:
-                                    st.write("")  # Empty space for alignment
-                        
-                        # Quick reorder options
-                        st.markdown("---")
-                        st.markdown("**Quick Actions:**")
-                        
-                        quick_col1, quick_col2, quick_col3 = st.columns(3)
-                        
-                        with quick_col1:
-                            if st.button("🔄 Reset to Default Order", help="Reset to original selection order"):
-                                st.session_state.column_order = custom_cols.copy()
-                                st.rerun()
-                        
-                        with quick_col2:
-                            if st.button("🔤 Sort Alphabetically", help="Sort columns alphabetically"):
-                                st.session_state.column_order = sorted(st.session_state.column_order)
-                                st.rerun()
-                        
-                        with quick_col3:
-                            if st.button("⭐ Smart Order", help="Arrange in recommended order"):
-                                # Smart ordering: rank, ticker, name, scores, performance, patterns
-                                smart_order = []
-                                priority_order = ['rank', 'ticker', 'company_name', 'master_score', 'position_score', 
-                                                'momentum_score', 'volume_score', 'acceleration_score', 'breakout_score',
-                                                'price', 'ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'patterns']
+                    # Display reorderable columns
+                    reordered_cols = []
+                    for i, col in enumerate(st.session_state.column_order):
+                        if col in custom_cols:  # Only show selected columns
+                            col_container = st.container()
+                            with col_container:
+                                col1, col2, col3 = st.columns([6, 1, 1])
                                 
-                                # Add columns in priority order if they exist
-                                for priority_col in priority_order:
-                                    if priority_col in st.session_state.column_order:
-                                        smart_order.append(priority_col)
+                                with col1:
+                                    st.write(f"{i+1}. {col.replace('_', ' ').title()}")
                                 
-                                # Add remaining columns
-                                for col in st.session_state.column_order:
-                                    if col not in smart_order:
-                                        smart_order.append(col)
+                                with col2:
+                                    if i > 0 and st.button("↑", key=f"up_{col}_{i}", help="Move up"):
+                                        # Move column up
+                                        current_order = st.session_state.column_order.copy()
+                                        current_idx = current_order.index(col)
+                                        if current_idx > 0:
+                                            current_order[current_idx], current_order[current_idx-1] = current_order[current_idx-1], current_order[current_idx]
+                                            st.session_state.column_order = current_order
+                                            st.rerun()
                                 
-                                st.session_state.column_order = smart_order
-                                st.rerun()
+                                with col3:
+                                    if i < len([c for c in st.session_state.column_order if c in custom_cols]) - 1 and st.button("↓", key=f"down_{col}_{i}", help="Move down"):
+                                        # Move column down
+                                        current_order = st.session_state.column_order.copy()
+                                        current_idx = current_order.index(col)
+                                        selected_cols_in_order = [c for c in current_order if c in custom_cols]
+                                        selected_idx = selected_cols_in_order.index(col)
+                                        if selected_idx < len(selected_cols_in_order) - 1:
+                                            next_col = selected_cols_in_order[selected_idx + 1]
+                                            next_idx = current_order.index(next_col)
+                                            current_order[current_idx], current_order[next_idx] = current_order[next_idx], current_order[current_idx]
+                                            st.session_state.column_order = current_order
+                                            st.rerun()
+                            
+                            reordered_cols.append(col)
                     
-                    # Use the reordered columns for display
-                    ordered_custom_cols = st.session_state.column_order
-                else:
-                    ordered_custom_cols = custom_cols
+                    # Update custom_cols to match the reordered selection
+                    custom_cols = [col for col in st.session_state.column_order if col in custom_cols]
                 
-                # Create display_cols dict for custom selection using the ordered columns
-                display_cols = {col: col.replace('_', ' ').title() for col in ordered_custom_cols}
+                # Create display_cols dict for custom selection
+                display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
         
             # ROBUST COLUMN FILTERING - Only include columns that actually exist
             available_display_cols = [c for c in display_cols.keys() if c in display_df.columns]
