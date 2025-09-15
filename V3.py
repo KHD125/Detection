@@ -10569,100 +10569,45 @@ def main():
         if all_patterns:
             sorted_patterns = sorted(all_patterns)
             
-            # STAGE 1: EXCLUDE PATTERNS (Professional Implementation)
-            st.markdown("##### 🚫 **Step 1: Exclude Patterns** (Remove stocks with these patterns)")
+            # STAGE 1: EXCLUDE PATTERNS
+            st.markdown("##### 🚫 Exclude Patterns")
             
             # Get stored exclude patterns
             stored_exclude_patterns = st.session_state.filter_state.get('exclude_patterns', [])
             valid_exclude_defaults = [pat for pat in stored_exclude_patterns if pat in sorted_patterns]
             
             excluded_patterns = st.multiselect(
-                f"🚫 Select Patterns to EXCLUDE ({len(sorted_patterns)} available)",
+                f"🚫 Exclude Patterns ({len(sorted_patterns)} available)",
                 options=sorted_patterns,
                 default=valid_exclude_defaults,
                 placeholder="Select patterns to exclude (empty = exclude none)",
-                help="🚫 **EXCLUDE MODE**: Stocks containing ANY of these patterns will be REMOVED from results",
+                help="Stocks containing ANY of these patterns will be REMOVED from results",
                 key="exclude_patterns_multiselect",
                 on_change=sync_exclude_patterns
             )
             
-            # Calculate remaining patterns after exclusion for Stage 2
             if excluded_patterns:
-                # Show what's excluded
-                st.caption(f"🚫 **Excluding {len(excluded_patterns)} pattern(s)**: {', '.join(excluded_patterns[:3])}{'...' if len(excluded_patterns) > 3 else ''}")
                 filters['exclude_patterns'] = excluded_patterns
             
-            # STAGE 2: INCLUDE PATTERNS (Only from remaining stocks)
-            st.markdown("##### ✅ **Step 2: Include Patterns** (From remaining stocks, show only these)")
+            # STAGE 2: INCLUDE PATTERNS
+            st.markdown("##### ✅ Include Patterns")
             
             # Get stored include patterns
             stored_include_patterns = st.session_state.filter_state.get('include_patterns', [])
             valid_include_defaults = [pat for pat in stored_include_patterns if pat in sorted_patterns]
             
             included_patterns = st.multiselect(
-                f"✅ Select Patterns to INCLUDE (from remaining stocks)",
+                f"✅ Include Patterns",
                 options=sorted_patterns,
                 default=valid_include_defaults,
                 placeholder="Select patterns to include (empty = include all remaining)",
-                help="✅ **INCLUDE MODE**: From stocks remaining after exclusion, show only those with ANY of these patterns",
+                help="From stocks remaining after exclusion, show only those with ANY of these patterns",
                 key="include_patterns_multiselect", 
                 on_change=sync_include_patterns
             )
             
             if included_patterns:
-                st.caption(f"✅ **Including {len(included_patterns)} pattern(s)**: {', '.join(included_patterns[:3])}{'...' if len(included_patterns) > 3 else ''}")
                 filters['include_patterns'] = included_patterns
-            
-            # PROFESSIONAL STATUS DISPLAY
-            status_col1, status_col2, status_col3 = st.columns(3)
-            
-            with status_col1:
-                exclude_count = len(excluded_patterns) if excluded_patterns else 0
-                exclude_emoji = "🚫" if exclude_count > 0 else "✅"
-                st.metric("Excluded Patterns", f"{exclude_emoji} {exclude_count}")
-            
-            with status_col2:
-                include_count = len(included_patterns) if included_patterns else 0
-                include_emoji = "✅" if include_count > 0 else "📊"
-                include_label = f"{include_emoji} {include_count}" if include_count > 0 else "📊 All"
-                st.metric("Included Patterns", include_label)
-            
-            with status_col3:
-                # Calculate filtering impact
-                total_patterns = len(sorted_patterns)
-                active_patterns = total_patterns - exclude_count
-                if include_count > 0:
-                    active_patterns = min(active_patterns, include_count)
-                
-                impact_emoji = "🎯" if active_patterns < total_patterns else "📊"
-                st.metric("Active Patterns", f"{impact_emoji} {active_patterns}/{total_patterns}")
-            
-            # SMART PATTERN PRESETS (Professional Enhancement)
-            st.markdown("##### 🎯 **Quick Pattern Presets**")
-            
-            preset_col1, preset_col2 = st.columns(2)
-            
-            with preset_col1:
-                if st.button("🔥 Day Trading Focus", help="Exclude: slow patterns | Include: high-speed patterns"):
-                    exclude_presets = ["📈 VALUE MOMENTUM", "🔄 TURNAROUND", "🏆 QUALITY LEADER", "⚠️ HIGH PE"]
-                    include_presets = ["⚡ VOL EXPLOSION", "🚀 VELOCITY BREAKOUT", "🏎️ ACCELERATION", "🌋 INSTITUTIONAL TSUNAMI"]
-                    st.session_state.filter_state['exclude_patterns'] = [p for p in exclude_presets if p in sorted_patterns]
-                    st.session_state.filter_state['include_patterns'] = [p for p in include_presets if p in sorted_patterns]
-                    st.rerun()
-            
-            with preset_col2:
-                if st.button("💎 Value Hunting", help="Exclude: momentum patterns | Include: value patterns"):
-                    exclude_presets = ["⚡ VOL EXPLOSION", "🚀 VELOCITY BREAKOUT", "🏎️ ACCELERATION"]
-                    include_presets = ["💎 HIDDEN GEM", "📈 VALUE MOMENTUM", "🔄 TURNAROUND", "💳 OVERSOLD QUALITY"]
-                    st.session_state.filter_state['exclude_patterns'] = [p for p in exclude_presets if p in sorted_patterns]
-                    st.session_state.filter_state['include_patterns'] = [p for p in include_presets if p in sorted_patterns]
-                    st.rerun()
-            
-            # Clear filters button
-            if st.button("🔄 Clear All Pattern Filters", help="Reset both exclude and include filters"):
-                st.session_state.filter_state['exclude_patterns'] = []
-                st.session_state.filter_state['include_patterns'] = []
-                st.rerun()
         
         else:
             st.info("📊 No patterns detected in current dataset")
