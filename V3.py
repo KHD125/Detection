@@ -31,7 +31,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Union  # Add Union back for type hints
 from dataclasses import dataclass, field
@@ -7205,12 +7205,10 @@ class FilterEngine:
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
-                # Three-Stage Pattern Filtering System
+                # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
-                'combination_patterns': [],
-                # Column Ordering System
-                'column_order': []
+                'combination_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -7357,12 +7355,10 @@ class FilterEngine:
             'ret_1y_selection': "All Returns",
             'ret_3y_selection': "All Returns",
             'ret_5y_selection': "All Returns",
-            # Three-Stage Pattern Filtering System
+            # Two-Stage Pattern Filtering System
             'exclude_patterns': [],
             'include_patterns': [],
-            'combination_patterns': [],
-            # Column Ordering System
-            'column_order': []
+            'combination_patterns': []
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -7380,9 +7376,6 @@ class FilterEngine:
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
             # Combination Pattern Filter Widget
             'combination_patterns_multiselect',
-            # Column Ordering Widgets
-            'column_order_selectbox', 'column_move_up_button', 'column_move_down_button',
-            'column_reset_order_button',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -7585,8 +7578,8 @@ class FilterEngine:
         Apply all filters to dataframe efficiently using vectorized operations.
         If no filters provided, get from centralized state.
         """
-        if df is None or df.empty:
-            return df if df is not None else pd.DataFrame()
+        if df.empty:
+            return df
         
         # Use provided filters or get from state
         if filters is None:
@@ -8006,7 +7999,7 @@ class FilterEngine:
         Get available options for a filter based on other active filters.
         This creates BIDIRECTIONAL SMART INTERCONNECTED filters for Category/Sector/Industry.
         """
-        if df is None or df.empty or column not in df.columns:
+        if df.empty or column not in df.columns:
             return []
         
         # Use current filters or get from state
@@ -8093,9 +8086,7 @@ class FilterEngine:
             # Three-Stage Pattern Filtering System
             'exclude_patterns': [],
             'include_patterns': [],
-            'combination_patterns': [],
-            # Column Ordering System
-            'column_order': []
+            'combination_patterns': []
         }
 
         # Clean up ALL dynamically created widget keys
@@ -9290,8 +9281,7 @@ class SessionStateManager:
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
-                'combination_patterns': [],
-                'column_order': []
+                'combination_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -9559,7 +9549,6 @@ class SessionStateManager:
                 'exclude_patterns': [],
                 'include_patterns': [],
                 'combination_patterns': [],
-                'column_order': [],
                 # Performance filter ranges
                 'ret_1d_range': (2.0, 25.0),
                 'ret_3d_range': (3.0, 50.0),
@@ -9948,7 +9937,7 @@ def validate_market_state_filters():
 # MAIN APPLICATION
 # ============================================
 
-def main() -> None:
+def main():
     """Main Streamlit application - Final Perfected Production Version"""
     
     # Page configuration
@@ -10315,22 +10304,19 @@ def main() -> None:
     
     if quick_filter:
         if quick_filter == 'top_gainers':
-            ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80] if ranked_df is not None else None
-            st.info(f"Showing {len(ranked_df_display) if ranked_df_display is not None else 0} stocks with momentum score ≥ 80")
+            ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80]
+            st.info(f"Showing {len(ranked_df_display)} stocks with momentum score ≥ 80")
         elif quick_filter == 'volume_surges':
-            ranked_df_display = ranked_df[ranked_df['rvol'] >= 3] if ranked_df is not None else None
-            st.info(f"Showing {len(ranked_df_display) if ranked_df_display is not None else 0} stocks with RVOL ≥ 3x")
+            ranked_df_display = ranked_df[ranked_df['rvol'] >= 3]
+            st.info(f"Showing {len(ranked_df_display)} stocks with RVOL ≥ 3x")
         elif quick_filter == 'velocity_breakout':
-            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('VELOCITY BREAKOUT', na=False)] if ranked_df is not None else None
-            st.info(f"Showing {len(ranked_df_display) if ranked_df_display is not None else 0} stocks with Velocity Breakout pattern")
+            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('VELOCITY BREAKOUT', na=False)]
+            st.info(f"Showing {len(ranked_df_display)} stocks with Velocity Breakout pattern")
         elif quick_filter == 'institutional_tsunami':
-            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)] if ranked_df is not None else None
-            st.info(f"Showing {len(ranked_df_display) if ranked_df_display is not None else 0} stocks with Institutional Tsunami pattern")
+            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)]
+            st.info(f"Showing {len(ranked_df_display)} stocks with Institutional Tsunami pattern")
     else:
         ranked_df_display = ranked_df
-
-    # Initialize filtered_df with a default value to prevent undefined variable warnings
-    filtered_df = ranked_df if ranked_df is not None else pd.DataFrame()
     
     # Sidebar filters
     with st.sidebar:
@@ -10600,10 +10586,9 @@ def main() -> None:
         
         # Get all available patterns
         all_patterns = set()
-        if ranked_df_display is not None and 'patterns' in ranked_df_display.columns:
-            for patterns in ranked_df_display['patterns'].dropna():
-                if patterns:
-                    all_patterns.update(patterns.split(' | '))
+        for patterns in ranked_df_display['patterns'].dropna():
+            if patterns:
+                all_patterns.update(patterns.split(' | '))
         
         if all_patterns:
             sorted_patterns = sorted(all_patterns)
@@ -10868,7 +10853,7 @@ def main() -> None:
                 filters['min_score'] = min_score
             
             # Position Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'position_score' in ranked_df_display.columns:
+            if 'position_score' in ranked_df_display.columns:
                 position_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -10918,7 +10903,7 @@ def main() -> None:
                         filters['position_score_range'] = (0, 39)
             
             # Volume Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'volume_score' in ranked_df_display.columns:
+            if 'volume_score' in ranked_df_display.columns:
                 volume_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -10968,7 +10953,7 @@ def main() -> None:
                         filters['volume_score_range'] = (0, 39)
             
             # Momentum Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'momentum_score' in ranked_df_display.columns:
+            if 'momentum_score' in ranked_df_display.columns:
                 momentum_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -11018,7 +11003,7 @@ def main() -> None:
                         filters['momentum_score_range'] = (0, 39)
             
             # Acceleration Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'acceleration_score' in ranked_df_display.columns:
+            if 'acceleration_score' in ranked_df_display.columns:
                 acceleration_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -11068,7 +11053,7 @@ def main() -> None:
                         filters['acceleration_score_range'] = (0, 39)
             
             # Breakout Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'breakout_score' in ranked_df_display.columns:
+            if 'breakout_score' in ranked_df_display.columns:
                 breakout_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -11118,7 +11103,7 @@ def main() -> None:
                         filters['breakout_score_range'] = (0, 39)
             
             # RVOL Score Dropdown with Custom Range
-            if ranked_df_display is not None and 'rvol_score' in ranked_df_display.columns:
+            if 'rvol_score' in ranked_df_display.columns:
                 rvol_score_options = [
                     "All Scores",
                     "🟢 Strong (>= 80)",
@@ -11171,7 +11156,7 @@ def main() -> None:
         with st.expander("📈 Performance Filter", expanded=False):
             
             # Check for available return columns
-            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if ranked_df_display is not None and col in ranked_df_display.columns]
+            available_return_cols = [col for col in ['ret_1d', 'ret_3d', 'ret_7d', 'ret_30d', 'ret_3m', 'ret_6m', 'ret_1y', 'ret_3y', 'ret_5y'] if col in ranked_df_display.columns]
             
             if available_return_cols:
                 # Individual Return Period Filters
@@ -11380,7 +11365,7 @@ def main() -> None:
         # 🧠 Intelligence Filter - Combined Section
         with st.expander("🧠 Intelligence Filter", expanded=False):
             # VMI (Volume Momentum Index) Filter
-            if ranked_df_display is not None and ('vmi_tier' in ranked_df_display.columns or 'vmi' in ranked_df_display.columns):
+            if 'vmi_tier' in ranked_df_display.columns or 'vmi' in ranked_df_display.columns:
                 vmi_tier_options = list(CONFIG.TIERS['vmi_tiers'].keys()) + ["🎯 Custom VMI Range"]
                 vmi_tiers = st.multiselect(
                     "VMI (Volume Momentum Index) Tiers",
@@ -11411,7 +11396,7 @@ def main() -> None:
                     filters['custom_vmi_range'] = vmi_range
             
             # Momentum Harmony Filter  
-            if ranked_df_display is not None and ('momentum_harmony_tier' in ranked_df_display.columns or 'momentum_harmony' in ranked_df_display.columns):
+            if 'momentum_harmony_tier' in ranked_df_display.columns or 'momentum_harmony' in ranked_df_display.columns:
                 momentum_harmony_tier_options = list(CONFIG.TIERS['momentum_harmony_tiers'].keys())
                 momentum_harmony_tiers = st.multiselect(
                     "Momentum Harmony Tiers",
@@ -11426,7 +11411,7 @@ def main() -> None:
                     filters['momentum_harmony_tiers'] = momentum_harmony_tiers
             
             #  Volume Intelligence
-            if ranked_df_display is not None and ('volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns):
+            if 'volume_tier' in ranked_df_display.columns or 'rvol' in ranked_df_display.columns:
                 # Volume tier multiselect with custom range option
                 volume_tier_options = list(CONFIG.TIERS['volume_tiers'].keys()) + ["🎯 Custom RVOL Range"]
                 volume_tiers = st.multiselect(
@@ -11460,7 +11445,7 @@ def main() -> None:
                         filters['rvol_range'] = rvol_range
             
             # 🎯 Position Intelligence
-            if ranked_df_display is not None and 'position_tier' in ranked_df_display.columns:
+            if 'position_tier' in ranked_df_display.columns:
                 # Position tier multiselect with custom range option
                 position_tier_options = list(CONFIG.TIERS['position_tiers'].keys()) + ["🎯 Custom Position Range"]
                 position_tiers = st.multiselect(
@@ -11544,7 +11529,7 @@ def main() -> None:
                 ('pe_tiers', 'pe_tier', 'pe_tiers', sync_pe_tier),
                 ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier)
             ]:
-                if ranked_df_display is not None and col_name in ranked_df_display.columns:
+                if col_name in ranked_df_display.columns:
                     tier_options = FilterEngine.get_filter_options(ranked_df_display, col_name, filters)
                     
                     selected_tiers = st.multiselect(
@@ -11560,7 +11545,7 @@ def main() -> None:
                         filters[tier_type] = selected_tiers
             
             # EPS change tier filter
-            if ranked_df_display is not None and 'eps_change_tier' in ranked_df_display.columns:
+            if 'eps_change_tier' in ranked_df_display.columns:
                 # EPS Change Tier Filter
                 eps_change_tiers = st.multiselect(
                     "EPS Change Tier",
@@ -11575,7 +11560,7 @@ def main() -> None:
                     filters['eps_change_tiers'] = eps_change_tiers
             
             # PE filters (only in hybrid mode)
-            if show_fundamentals and ranked_df_display is not None and 'pe' in ranked_df_display.columns:
+            if show_fundamentals and 'pe' in ranked_df_display.columns:
                 st.markdown("**🔍 Fundamental Filters**")
                 
                 col1, col2 = st.columns(2)
@@ -11655,9 +11640,7 @@ def main() -> None:
     else:
         filtered_df = FilterEngine.apply_filters(ranked_df, filters)
     
-    # Only sort if we have data and the rank column exists
-    if not filtered_df.empty and 'rank' in filtered_df.columns:
-        filtered_df = filtered_df.sort_values('rank')
+    filtered_df = filtered_df.sort_values('rank')
     
     # Save current filters
     st.session_state.user_preferences['last_filters'] = filters
@@ -11675,8 +11658,8 @@ def main() -> None:
             st.write(st.session_state.filter_state)
             
             st.write(f"\n**Filter Result:**")
-            st.write(f"Before: {len(ranked_df) if ranked_df is not None else 0} stocks")
-            st.write(f"After: {len(filtered_df) if filtered_df is not None else 0} stocks")
+            st.write(f"Before: {len(ranked_df)} stocks")
+            st.write(f"After: {len(filtered_df)} stocks")
             
             if st.session_state.performance_metrics:
                 st.write(f"\n**Performance:**")
@@ -11710,8 +11693,8 @@ def main() -> None:
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
-        total_stocks = len(filtered_df) if filtered_df is not None else 0
-        total_original = len(ranked_df) if ranked_df is not None else 0
+        total_stocks = len(filtered_df)
+        total_original = len(ranked_df)
         pct_of_all = (total_stocks/total_original*100) if total_original > 0 else 0
         
         UIComponents.render_metric_card(
@@ -11993,9 +11976,8 @@ def main() -> None:
         
         if sort_by in sort_mapping and sort_mapping[sort_by] in display_df.columns:
             display_df = display_df.sort_values(sort_mapping[sort_by], ascending=False)
-        elif 'master_score' in display_df.columns:
+        else:
             display_df = display_df.sort_values('master_score', ascending=False)
-        # If no valid sort column exists, leave unsorted
         
         if not display_df.empty:
             
@@ -12142,75 +12124,127 @@ def main() -> None:
                     key="custom_columns_select"
                 )
                 
-                # PROFESSIONAL COLUMN ORDERING SYSTEM
-                if custom_cols:
-                    st.markdown("##### 🔄 Column Order")
+                # ✨ PROFESSIONAL COLUMN REORDERING SYSTEM ✨
+                if custom_cols:  # Only show reordering if columns are selected
+                    st.markdown("##### 🎯 **Arrange Column Order**")
+                    st.caption("💡 Drag and drop to reorder your selected columns:")
                     
-                    # Initialize column order in session state if not exists
+                    # Get current column order from session state or use selection order
                     if 'column_order' not in st.session_state:
                         st.session_state.column_order = custom_cols.copy()
                     
-                    # Update column order when selection changes
-                    if set(custom_cols) != set(st.session_state.column_order):
-                        # Add new columns to the end
-                        new_cols = [col for col in custom_cols if col not in st.session_state.column_order]
-                        # Remove deselected columns
-                        existing_cols = [col for col in st.session_state.column_order if col in custom_cols]
-                        st.session_state.column_order = existing_cols + new_cols
+                    # Sync column order with current selection
+                    # Remove columns that are no longer selected
+                    st.session_state.column_order = [col for col in st.session_state.column_order if col in custom_cols]
+                    # Add newly selected columns at the end
+                    for col in custom_cols:
+                        if col not in st.session_state.column_order:
+                            st.session_state.column_order.append(col)
                     
-                    # Professional column ordering interface
-                    col1, col2 = st.columns([3, 1])
+                    # Create professional column ordering interface
+                    col_order_container = st.container()
                     
-                    with col1:
-                        st.info("💡 **Tip**: Use the selectbox below to reorder columns, or the buttons to move them up/down")
+                    with col_order_container:
+                        # Display current order with reorder buttons
+                        st.markdown("**Current Column Order:**")
+                        
+                        for i, col in enumerate(st.session_state.column_order):
+                            col_display_name = col.replace('_', ' ').title()
+                            
+                            # Create columns for each row
+                            btn_col1, btn_col2, name_col, btn_col3, btn_col4 = st.columns([1, 1, 6, 1, 1])
+                            
+                            with name_col:
+                                st.markdown(f"**{i+1}.** {col_display_name}")
+                            
+                            # Move up button
+                            with btn_col1:
+                                if i > 0:  # Not first item
+                                    if st.button("⬆️", key=f"up_{col}_{i}", help=f"Move {col_display_name} up"):
+                                        # Swap with previous item
+                                        st.session_state.column_order[i], st.session_state.column_order[i-1] = \
+                                            st.session_state.column_order[i-1], st.session_state.column_order[i]
+                                        st.rerun()
+                                else:
+                                    st.write("")  # Empty space for alignment
+                            
+                            # Move down button
+                            with btn_col2:
+                                if i < len(st.session_state.column_order) - 1:  # Not last item
+                                    if st.button("⬇️", key=f"down_{col}_{i}", help=f"Move {col_display_name} down"):
+                                        # Swap with next item
+                                        st.session_state.column_order[i], st.session_state.column_order[i+1] = \
+                                            st.session_state.column_order[i+1], st.session_state.column_order[i]
+                                        st.rerun()
+                                else:
+                                    st.write("")  # Empty space for alignment
+                            
+                            # Move to top button
+                            with btn_col3:
+                                if i > 0:  # Not already at top
+                                    if st.button("🔝", key=f"top_{col}_{i}", help=f"Move {col_display_name} to top"):
+                                        # Move to beginning
+                                        col_to_move = st.session_state.column_order.pop(i)
+                                        st.session_state.column_order.insert(0, col_to_move)
+                                        st.rerun()
+                                else:
+                                    st.write("")  # Empty space for alignment
+                            
+                            # Move to bottom button
+                            with btn_col4:
+                                if i < len(st.session_state.column_order) - 1:  # Not already at bottom
+                                    if st.button("🔚", key=f"bottom_{col}_{i}", help=f"Move {col_display_name} to bottom"):
+                                        # Move to end
+                                        col_to_move = st.session_state.column_order.pop(i)
+                                        st.session_state.column_order.append(col_to_move)
+                                        st.rerun()
+                                else:
+                                    st.write("")  # Empty space for alignment
+                        
+                        # Quick reorder options
+                        st.markdown("---")
+                        st.markdown("**Quick Actions:**")
+                        
+                        quick_col1, quick_col2, quick_col3 = st.columns(3)
+                        
+                        with quick_col1:
+                            if st.button("🔄 Reset to Default Order", help="Reset to original selection order"):
+                                st.session_state.column_order = custom_cols.copy()
+                                st.rerun()
+                        
+                        with quick_col2:
+                            if st.button("🔤 Sort Alphabetically", help="Sort columns alphabetically"):
+                                st.session_state.column_order = sorted(st.session_state.column_order)
+                                st.rerun()
+                        
+                        with quick_col3:
+                            if st.button("⭐ Smart Order", help="Arrange in recommended order"):
+                                # Smart ordering: rank, ticker, name, scores, performance, patterns
+                                smart_order = []
+                                priority_order = ['rank', 'ticker', 'company_name', 'master_score', 'position_score', 
+                                                'momentum_score', 'volume_score', 'acceleration_score', 'breakout_score',
+                                                'price', 'ret_1d', 'ret_7d', 'ret_30d', 'rvol', 'patterns']
+                                
+                                # Add columns in priority order if they exist
+                                for priority_col in priority_order:
+                                    if priority_col in st.session_state.column_order:
+                                        smart_order.append(priority_col)
+                                
+                                # Add remaining columns
+                                for col in st.session_state.column_order:
+                                    if col not in smart_order:
+                                        smart_order.append(col)
+                                
+                                st.session_state.column_order = smart_order
+                                st.rerun()
                     
-                    with col2:
-                        if st.button("🔄 Reset Order", help="Reset to default column order"):
-                            st.session_state.column_order = custom_cols.copy()
-                            st.rerun()
-                    
-                    # Column reordering with selectbox (professional approach)
-                    st.markdown("**🎯 Reorder Columns:**")
-                    reorder_col1, reorder_col2, reorder_col3 = st.columns([2, 1, 1])
-                    
-                    with reorder_col1:
-                        if len(st.session_state.column_order) > 1:
-                            selected_column = st.selectbox(
-                                "Select column to move:",
-                                options=st.session_state.column_order,
-                                key="column_to_move"
-                            )
-                    
-                    with reorder_col2:
-                        if len(st.session_state.column_order) > 1:
-                            if st.button("⬆️ Move Up", help="Move selected column up"):
-                                col_index = st.session_state.column_order.index(selected_column)
-                                if col_index > 0:
-                                    # Swap with previous column
-                                    st.session_state.column_order[col_index], st.session_state.column_order[col_index-1] = \
-                                        st.session_state.column_order[col_index-1], st.session_state.column_order[col_index]
-                                    st.rerun()
-                    
-                    with reorder_col3:
-                        if len(st.session_state.column_order) > 1:
-                            if st.button("⬇️ Move Down", help="Move selected column down"):
-                                col_index = st.session_state.column_order.index(selected_column)
-                                if col_index < len(st.session_state.column_order) - 1:
-                                    # Swap with next column
-                                    st.session_state.column_order[col_index], st.session_state.column_order[col_index+1] = \
-                                        st.session_state.column_order[col_index+1], st.session_state.column_order[col_index]
-                                    st.rerun()
-                    
-                    # Display current column order
-                    st.markdown("**📋 Current Column Order:**")
-                    order_display = " → ".join([f"`{i+1}. {col.replace('_', ' ').title()}`" for i, col in enumerate(st.session_state.column_order)])
-                    st.markdown(order_display)
-                    
-                    # Use the ordered columns for display
-                    custom_cols = st.session_state.column_order.copy()
+                    # Use the reordered columns for display
+                    ordered_custom_cols = st.session_state.column_order
+                else:
+                    ordered_custom_cols = custom_cols
                 
-                # Create display_cols dict for custom selection
-                display_cols = {col: col.replace('_', ' ').title() for col in custom_cols}
+                # Create display_cols dict for custom selection using the ordered columns
+                display_cols = {col: col.replace('_', ' ').title() for col in ordered_custom_cols}
         
             # ROBUST COLUMN FILTERING - Only include columns that actually exist
             available_display_cols = [c for c in display_cols.keys() if c in display_df.columns]
@@ -16458,12 +16492,12 @@ def main() -> None:
         st.markdown("#### 📊 Export Preview")
         
         export_stats = {
-            "Total Stocks": len(filtered_df) if filtered_df is not None else 0,
-            "Average Score": f"{filtered_df['master_score'].mean():.1f}" if not filtered_df.empty and 'master_score' in filtered_df.columns else "N/A",
-            "Stocks with Patterns": (filtered_df['patterns'] != '').sum() if filtered_df is not None and 'patterns' in filtered_df.columns else 0,
-            "High RVOL (>2x)": (filtered_df['rvol'] > 2).sum() if filtered_df is not None and 'rvol' in filtered_df.columns else 0,
-            "Positive 30D Returns": (filtered_df['ret_30d'] > 0).sum() if filtered_df is not None and 'ret_30d' in filtered_df.columns else 0,
-            "Data Quality": f"{st.session_state.data_quality.get('completeness', 0):.1f}%" if hasattr(st.session_state, 'data_quality') and st.session_state.data_quality else "0.0%"
+            "Total Stocks": len(filtered_df),
+            "Average Score": f"{filtered_df['master_score'].mean():.1f}" if not filtered_df.empty else "N/A",
+            "Stocks with Patterns": (filtered_df['patterns'] != '').sum() if 'patterns' in filtered_df.columns else 0,
+            "High RVOL (>2x)": (filtered_df['rvol'] > 2).sum() if 'rvol' in filtered_df.columns else 0,
+            "Positive 30D Returns": (filtered_df['ret_30d'] > 0).sum() if 'ret_30d' in filtered_df.columns else 0,
+            "Data Quality": f"{st.session_state.data_quality.get('completeness', 0):.1f}%"
         }
         
         stat_cols = st.columns(3)
@@ -16602,13 +16636,13 @@ def main() -> None:
         with session_cols[0]:
             UIComponents.render_metric_card(
                 "Stocks Loaded",
-                f"{len(ranked_df):,}" if 'ranked_df' in locals() and ranked_df is not None else "0"
+                f"{len(ranked_df):,}" if 'ranked_df' in locals() else "0"
             )
         
         with session_cols[1]:
             UIComponents.render_metric_card(
                 "Filtered Results",
-                f"{len(filtered_df):,}" if 'filtered_df' in locals() and filtered_df is not None else "0"
+                f"{len(filtered_df):,}" if 'filtered_df' in locals() else "0"
             )
         
         with session_cols[2]:
