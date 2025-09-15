@@ -7204,7 +7204,10 @@ class FilterEngine:
                 'ret_6m_selection': "All Returns",
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
-                'ret_5y_selection': "All Returns"
+                'ret_5y_selection': "All Returns",
+                # Two-Stage Pattern Filtering System
+                'exclude_patterns': [],
+                'include_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -7350,7 +7353,10 @@ class FilterEngine:
             'ret_6m_selection': "All Returns",
             'ret_1y_selection': "All Returns",
             'ret_3y_selection': "All Returns",
-            'ret_5y_selection': "All Returns"
+            'ret_5y_selection': "All Returns",
+            # Two-Stage Pattern Filtering System
+            'exclude_patterns': [],
+            'include_patterns': []
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
@@ -7364,6 +7370,8 @@ class FilterEngine:
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
             'position_tier_multiselect_intelligence',
+            # Two-Stage Pattern Filter Widgets
+            'exclude_patterns_multiselect', 'include_patterns_multiselect',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -7648,7 +7656,25 @@ class FilterEngine:
                 min_rvol, max_rvol = rvol_range
                 masks.append((df['rvol_score'] >= min_rvol) & (df['rvol_score'] <= max_rvol))
         
-        # 3. Pattern filter
+        # 3. Advanced Two-Stage Pattern Filter (Professional Implementation)
+        
+        # STAGE 1: EXCLUDE patterns (remove stocks with these patterns)
+        if filters.get('exclude_patterns') and 'patterns' in df.columns:
+            exclude_mask = pd.Series(False, index=df.index)
+            for pattern in filters['exclude_patterns']:
+                exclude_mask |= df['patterns'].str.contains(pattern, na=False, regex=False)
+            # Apply exclusion: keep stocks that DON'T have excluded patterns
+            masks.append(~exclude_mask)
+        
+        # STAGE 2: INCLUDE patterns (from remaining stocks, show only these)
+        if filters.get('include_patterns') and 'patterns' in df.columns:
+            include_mask = pd.Series(False, index=df.index)
+            for pattern in filters['include_patterns']:
+                include_mask |= df['patterns'].str.contains(pattern, na=False, regex=False)
+            # Apply inclusion: keep stocks that DO have included patterns
+            masks.append(include_mask)
+        
+        # Legacy pattern filter support (for backward compatibility)
         if filters.get('patterns') and 'patterns' in df.columns:
             pattern_mask = pd.Series(False, index=df.index)
             for pattern in filters['patterns']:
@@ -9233,7 +9259,10 @@ class SessionStateManager:
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
                 'quick_filter': None,
-                'quick_filter_applied': False
+                'quick_filter_applied': False,
+                # Two-Stage Pattern Filtering System
+                'exclude_patterns': [],
+                'include_patterns': []
             }
         
         # CRITICAL FIX: Clean up any corrupted performance_tiers values
@@ -9497,6 +9526,9 @@ class SessionStateManager:
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
+                # Two-Stage Pattern Filtering System
+                'exclude_patterns': [],
+                'include_patterns': [],
                 # Performance filter ranges
                 'ret_1d_range': (2.0, 25.0),
                 'ret_3d_range': (3.0, 50.0),
@@ -10392,6 +10424,15 @@ def main():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
 
+        # NEW: Two-stage pattern filtering sync functions
+        def sync_exclude_patterns():
+            if 'exclude_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['exclude_patterns'] = st.session_state.exclude_patterns_multiselect
+
+        def sync_include_patterns():
+            if 'include_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['include_patterns'] = st.session_state.include_patterns_multiselect
+
         def sync_market_states():
             if 'market_states_multiselect' in st.session_state:
                 st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
@@ -10517,31 +10558,114 @@ def main():
         if selected_industries:
             filters['industries'] = selected_industries
 
-        st.markdown("#### ✨ Pattern Detector")
+        st.markdown("#### ✨ Advanced Pattern Filtering System")
         
-        # Pattern filter with callback
+        # Get all available patterns
         all_patterns = set()
         for patterns in ranked_df_display['patterns'].dropna():
             if patterns:
                 all_patterns.update(patterns.split(' | '))
         
         if all_patterns:
-            # Clean default values to only include available options (INTERCONNECTION FIX)
-            stored_patterns = st.session_state.filter_state.get('patterns', [])
-            valid_pattern_defaults = [pat for pat in stored_patterns if pat in sorted(all_patterns)]
+            sorted_patterns = sorted(all_patterns)
             
-            selected_patterns = st.multiselect(
-                "Patterns",
-                options=sorted(all_patterns),
-                default=valid_pattern_defaults,
-                placeholder="Select patterns (empty = All)",
-                help="Filter by specific patterns",
-                key="patterns_multiselect",
-                on_change=sync_patterns  # SYNC ON CHANGE
+            # STAGE 1: EXCLUDE PATTERNS (Professional Implementation)
+            st.markdown("##### 🚫 **Step 1: Exclude Patterns** (Remove stocks with these patterns)")
+            
+            # Get stored exclude patterns
+            stored_exclude_patterns = st.session_state.filter_state.get('exclude_patterns', [])
+            valid_exclude_defaults = [pat for pat in stored_exclude_patterns if pat in sorted_patterns]
+            
+            excluded_patterns = st.multiselect(
+                f"🚫 Select Patterns to EXCLUDE ({len(sorted_patterns)} available)",
+                options=sorted_patterns,
+                default=valid_exclude_defaults,
+                placeholder="Select patterns to exclude (empty = exclude none)",
+                help="🚫 **EXCLUDE MODE**: Stocks containing ANY of these patterns will be REMOVED from results",
+                key="exclude_patterns_multiselect",
+                on_change=sync_exclude_patterns
             )
             
-            if selected_patterns:
-                filters['patterns'] = selected_patterns
+            # Calculate remaining patterns after exclusion for Stage 2
+            if excluded_patterns:
+                # Show what's excluded
+                st.caption(f"🚫 **Excluding {len(excluded_patterns)} pattern(s)**: {', '.join(excluded_patterns[:3])}{'...' if len(excluded_patterns) > 3 else ''}")
+                filters['exclude_patterns'] = excluded_patterns
+            
+            # STAGE 2: INCLUDE PATTERNS (Only from remaining stocks)
+            st.markdown("##### ✅ **Step 2: Include Patterns** (From remaining stocks, show only these)")
+            
+            # Get stored include patterns
+            stored_include_patterns = st.session_state.filter_state.get('include_patterns', [])
+            valid_include_defaults = [pat for pat in stored_include_patterns if pat in sorted_patterns]
+            
+            included_patterns = st.multiselect(
+                f"✅ Select Patterns to INCLUDE (from remaining stocks)",
+                options=sorted_patterns,
+                default=valid_include_defaults,
+                placeholder="Select patterns to include (empty = include all remaining)",
+                help="✅ **INCLUDE MODE**: From stocks remaining after exclusion, show only those with ANY of these patterns",
+                key="include_patterns_multiselect", 
+                on_change=sync_include_patterns
+            )
+            
+            if included_patterns:
+                st.caption(f"✅ **Including {len(included_patterns)} pattern(s)**: {', '.join(included_patterns[:3])}{'...' if len(included_patterns) > 3 else ''}")
+                filters['include_patterns'] = included_patterns
+            
+            # PROFESSIONAL STATUS DISPLAY
+            status_col1, status_col2, status_col3 = st.columns(3)
+            
+            with status_col1:
+                exclude_count = len(excluded_patterns) if excluded_patterns else 0
+                exclude_emoji = "🚫" if exclude_count > 0 else "✅"
+                st.metric("Excluded Patterns", f"{exclude_emoji} {exclude_count}")
+            
+            with status_col2:
+                include_count = len(included_patterns) if included_patterns else 0
+                include_emoji = "✅" if include_count > 0 else "📊"
+                include_label = f"{include_emoji} {include_count}" if include_count > 0 else "📊 All"
+                st.metric("Included Patterns", include_label)
+            
+            with status_col3:
+                # Calculate filtering impact
+                total_patterns = len(sorted_patterns)
+                active_patterns = total_patterns - exclude_count
+                if include_count > 0:
+                    active_patterns = min(active_patterns, include_count)
+                
+                impact_emoji = "🎯" if active_patterns < total_patterns else "📊"
+                st.metric("Active Patterns", f"{impact_emoji} {active_patterns}/{total_patterns}")
+            
+            # SMART PATTERN PRESETS (Professional Enhancement)
+            st.markdown("##### 🎯 **Quick Pattern Presets**")
+            
+            preset_col1, preset_col2 = st.columns(2)
+            
+            with preset_col1:
+                if st.button("🔥 Day Trading Focus", help="Exclude: slow patterns | Include: high-speed patterns"):
+                    exclude_presets = ["📈 VALUE MOMENTUM", "🔄 TURNAROUND", "🏆 QUALITY LEADER", "⚠️ HIGH PE"]
+                    include_presets = ["⚡ VOL EXPLOSION", "🚀 VELOCITY BREAKOUT", "🏎️ ACCELERATION", "🌋 INSTITUTIONAL TSUNAMI"]
+                    st.session_state.filter_state['exclude_patterns'] = [p for p in exclude_presets if p in sorted_patterns]
+                    st.session_state.filter_state['include_patterns'] = [p for p in include_presets if p in sorted_patterns]
+                    st.rerun()
+            
+            with preset_col2:
+                if st.button("💎 Value Hunting", help="Exclude: momentum patterns | Include: value patterns"):
+                    exclude_presets = ["⚡ VOL EXPLOSION", "🚀 VELOCITY BREAKOUT", "🏎️ ACCELERATION"]
+                    include_presets = ["💎 HIDDEN GEM", "📈 VALUE MOMENTUM", "🔄 TURNAROUND", "💳 OVERSOLD QUALITY"]
+                    st.session_state.filter_state['exclude_patterns'] = [p for p in exclude_presets if p in sorted_patterns]
+                    st.session_state.filter_state['include_patterns'] = [p for p in include_presets if p in sorted_patterns]
+                    st.rerun()
+            
+            # Clear filters button
+            if st.button("🔄 Clear All Pattern Filters", help="Reset both exclude and include filters"):
+                st.session_state.filter_state['exclude_patterns'] = []
+                st.session_state.filter_state['include_patterns'] = []
+                st.rerun()
+        
+        else:
+            st.info("📊 No patterns detected in current dataset")
         
         # Trend filter with callback and custom range
         st.markdown("#### 📈 Trend Strength")
