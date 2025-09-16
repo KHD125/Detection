@@ -355,10 +355,10 @@ class Config:
         },
         "position_tiers": {
             "💎 Near Lows (0-20%)": (0, 20),
-            "🏗 Lower Range (20-40%)": (20, 40),
-            "🏞 Middle Range (40-60%)": (40, 60),
-            "⛰ Upper Range (60-80%)": (60, 80),
-            "🏔 Near Highs (80-100%)": (80, 100)
+            "🏗️ Lower Range (20-40%)": (20, 40),
+            "🏞️ Middle Range (40-60%)": (40, 60),
+            "⛰️ Upper Range (60-80%)": (60, 80),
+            "🏔️ Near Highs (80-100%)": (80, 100)
         },
         "performance_tiers": {
             # Short-term momentum (Practical thresholds for Indian markets)
@@ -376,7 +376,7 @@ class Config:
             # Long-term performance (More practical thresholds)
             "🌙 Annual Winners (>50% 1Y)": ("ret_1y", 50),
             "👑 Multi-Year Champions (>100% 3Y)": ("ret_3y", 100),
-            "🏛 Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
+            "🏛️ Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -395,10 +395,10 @@ class Config:
         },
         "momentum_harmony_tiers": {
             "💔 Broken (Score 0)": ("momentum_harmony", 0, 0),
-            "🌧 Conflicted (Score 1)": ("momentum_harmony", 1, 1),
+            "🌧️ Conflicted (Score 1)": ("momentum_harmony", 1, 1),
             "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
-            "🌤 Aligned (Score 3)": ("momentum_harmony", 3, 3),
-            "☀ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
+            "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
+            "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         }
     })
     
@@ -409,7 +409,7 @@ class Config:
         'momentum_harmony': 'Multi-timeframe alignment: 0-4 score showing consistency across periods',
         'overall_market_strength': 'Composite market score: Combined momentum, acceleration, RVOL & breakout',
         'market_state': 'Market momentum regime: STRONG_UPTREND, UPTREND, PULLBACK, SIDEWAYS, DOWNTREND, etc.',
-        'money_flow_mm': 'Money Flow in millions: Price  Volume  RVOL / 1M',
+        'money_flow_mm': 'Money Flow in millions: Price × Volume × RVOL / 1M',
         'master_score': 'Overall ranking score (0-100) combining all factors',
         'acceleration_score': 'Rate of momentum change (0-100)',
         'breakout_score': 'Probability of price breakout (0-100)',
@@ -1028,7 +1028,7 @@ class DataProcessor:
                 elif 'ret_3y' in returns and returns['ret_3y'] > 100:
                     return "👑 Multi-Year Champions (>100% 3Y)"
                 elif 'ret_5y' in returns and returns['ret_5y'] > 150:
-                    return "🏛 Long-Term Legends (>150% 5Y)"
+                    return "🏛️ Long-Term Legends (>150% 5Y)"
                 
                 else:
                     return "Standard"
@@ -1247,10 +1247,10 @@ class AdvancedMetrics:
                     return "Unknown"
                 harmony_map = {
                     0: "💔 Broken (Score 0)",
-                    1: "🌧 Conflicted (Score 1)", 
+                    1: "🌧️ Conflicted (Score 1)", 
                     2: "⛅ Mixed (Score 2)",
-                    3: "🌤 Aligned (Score 3)",
-                    4: "☀ Perfect Harmony (Score 4)"
+                    3: "🌤️ Aligned (Score 3)",
+                    4: "☀️ Perfect Harmony (Score 4)"
                 }
                 return harmony_map.get(int(value), "Unknown")
             
@@ -2157,7 +2157,7 @@ class RankingEngine:
         logger.info("Performance breakdown:")
         for phase, duration in timing_breakdown.items():
             pct = (duration / total_time * 100) if total_time > 0 else 0
-            status = "⚠" if duration > 0.1 else "✓"
+            status = "⚠️" if duration > 0.1 else "✓"
             logger.info(f"  {status} {phase}: {duration:.3f}s ({pct:.1f}%)")
         
         # Data quality report
@@ -2177,10 +2177,10 @@ class RankingEngine:
         
         # Warnings
         if total_time > 0.5:
-            logger.warning(f"⚠ Exceeded target time of 0.5s by {total_time - 0.5:.3f}s")
+            logger.warning(f"⚠️ Exceeded target time of 0.5s by {total_time - 0.5:.3f}s")
         
         if market_stats['coverage_pct'] < 50:
-            logger.warning(f"⚠ Low data coverage: {market_stats['coverage_pct']:.1f}%")
+            logger.warning(f"⚠️ Low data coverage: {market_stats['coverage_pct']:.1f}%")
         
         # Component calculation summary
         logger.debug("Component calculation results:")
@@ -2969,7 +2969,7 @@ class RankingEngine:
                 
                 # Combine sign and magnitude
                 consistency_factor[valid_all] = 50  # Base
-                consistency_factor[valid_all] += sign_consistency * 20  # 20 for direction
+                consistency_factor[valid_all] += sign_consistency * 20  # ±20 for direction
                 consistency_factor[building] += 20  # Bonus for building
                 consistency_factor[fading] -= 20  # Penalty for fading
                 consistency_factor[steady] += 10  # Small bonus for steady
@@ -3996,7 +3996,7 @@ class RankingEngine:
                 alignment_score[above_200] += 50
                 alignment_max[valid_200] += 50
                 
-                # Distance bonus/penalty (up to 10 points)
+                # Distance bonus/penalty (up to ±10 points)
                 distance_200 = ((price - sma_200) / sma_200 * 100).clip(-20, 20)
                 alignment_score[valid_200] += distance_200[valid_200] * 0.5
         
@@ -4458,7 +4458,7 @@ class RankingEngine:
     def _calculate_liquidity_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate true liquidity score based on turnover value and tradability.
-        FIXED: Uses turnover (volume  price), float ratios, proper scaling.
+        FIXED: Uses turnover (volume × price), float ratios, proper scaling.
         
         Liquidity Philosophy:
         - Liquidity = Ability to trade without impacting price
@@ -4468,7 +4468,7 @@ class RankingEngine:
         - Market cap relative thresholds
         
         Score Components:
-        - 40% Turnover value (volume  price)
+        - 40% Turnover value (volume × price)
         - 25% Turnover ratio (turnover / market cap)
         - 20% Volume consistency
         - 15% Trading frequency (active days)
@@ -5364,31 +5364,31 @@ class PatternDetector:
             '🎯 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
             '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
             '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
-            '⚠ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
+            '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
             '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
-            '↗ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
+            '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
             '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
             '🤏 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
             '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
-            '🏎 ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
-            '⛈ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
+            '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
+            '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
             '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
             '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
             '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
             '🔃 ROTATION LEADER': {'importance_weight': 10, 'category': 'rotation'},
             '📊 DISTRIBUTION': {'importance_weight': 15, 'category': 'warning'},
-            '🗜 VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
+            '🗜️ VELOCITY SQUEEZE': {'importance_weight': 15, 'category': 'coiled'},
             '🔉 VOLUME DIVERGENCE': {'importance_weight': -10, 'category': 'warning'},
             '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
             '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
             '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
-            '🌪 VACUUM': {'importance_weight': 18, 'category': 'reversal'},
+            '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
             '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
-            '🕰 INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
+            '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
             '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
-            '⚛ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
+            '⚛️ ATOMIC DECAY MOMENTUM': {'importance_weight': 20, 'category': 'physics'},
             '💹 GARP LEADER': {'importance_weight': 18, 'category': 'fundamental'},
-            '🛡 PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
+            '🛡️ PULLBACK SUPPORT': {'importance_weight': 12, 'category': 'technical'},
             '💳 OVERSOLD QUALITY': {'importance_weight': 15, 'category': 'value'}
     }
 
@@ -5872,7 +5872,7 @@ class PatternDetector:
         # 16. High PE Warning - Realistic threshold for Indian markets
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 50)  # Lowered from 100 to 50 for practical screening
-        patterns.append(('⚠ HIGH PE', mask))
+        patterns.append(('⚠️ HIGH PE', mask))
 
         # ========== RANGE PATTERNS (17-20) ==========
         
@@ -5890,7 +5890,7 @@ class PatternDetector:
             (get_col_safe('acceleration_score', 0) >= 80) & 
             (get_col_safe('ret_30d', 0) > 10)
         )
-        patterns.append(('↗ 52W LOW BOUNCE', mask))
+        patterns.append(('↗️ 52W LOW BOUNCE', mask))
         
         # 19. Momentum Divergence
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'acceleration_score', 'rvol']):
@@ -5939,7 +5939,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 22. 🏎 ACCELERATION - Momentum acceleration pattern
+        # 22. 🏎️ ACCELERATION - Momentum acceleration pattern
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -5953,7 +5953,7 @@ class PatternDetector:
                 (get_col_safe('from_high_pct', -100) > -15) & 
                 (df['category'].isin(['Small Cap', 'Micro Cap']))
             )
-            patterns.append(('🏎 ACCELERATION', mask))
+            patterns.append(('🏎️ ACCELERATION', mask))
         
         # 23. Perfect Storm
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
@@ -5962,7 +5962,7 @@ class PatternDetector:
                 (get_col_safe('ret_30d', 0) > 20) &  # Use return data instead
                 (get_col_safe('rvol', 0) > 2)  # Add volume confirmation
             )
-            patterns.append(('⛈ PERFECT STORM', mask))
+            patterns.append(('⛈️ PERFECT STORM', mask))
 
         # ========== REVERSAL & CONTINUATION PATTERNS (24-34) ==========
         
@@ -6048,7 +6048,7 @@ class PatternDetector:
                 (abs(df['from_high_pct']) + df['from_low_pct'] < 30) &  # Middle of range
                 (range_pct < 0.5)  # Tight range
             )
-            patterns.append(('🗜 VELOCITY SQUEEZE', mask))
+            patterns.append(('🗜️ VELOCITY SQUEEZE', mask))
         
         # 30. VOLUME DIVERGENCE WARNING - Clarified bearish divergence logic
         if all(col in df.columns for col in ['ret_7d', 'ret_30d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'from_high_pct']):
@@ -6112,7 +6112,7 @@ class PatternDetector:
                 (df['rvol'] > 3) &
                 (df['from_low_pct'] < 10)
             )
-            patterns.append(('🌪 VACUUM', mask))
+            patterns.append(('🌪️ VACUUM', mask))
 
         # 35. EARNINGS SURPRISE LEADER - Multi-timeframe earnings acceleration with pace calculation
         try:
@@ -6210,10 +6210,10 @@ class PatternDetector:
                     stealth_volume &
                     arbitrage_setup
                 )
-                patterns.append(('🕰 INFORMATION DECAY ARBITRAGE', mask))
+                patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', mask))
         except Exception as e:
             logger.warning(f"Error in INFORMATION DECAY ARBITRAGE pattern: {e}")
-            patterns.append(('🕰 INFORMATION DECAY ARBITRAGE', pd.Series(False, index=df.index)))
+            patterns.append(('🕰️ INFORMATION DECAY ARBITRAGE', pd.Series(False, index=df.index)))
 
         # 37. PHOENIX RISING - Epic comeback with dramatic transformation
         try:
@@ -6248,7 +6248,7 @@ class PatternDetector:
                 ret_7d = get_col_safe('ret_7d', 0)
                 ret_30d = get_col_safe('ret_30d', 0)
                 
-                # Calculate momentum half-life using atomic decay physics (t = ln(2)/λ)
+                # Calculate momentum half-life using atomic decay physics (t½ = ln(2)/λ)
                 with np.errstate(divide='ignore', invalid='ignore'):
                     # Momentum decay rate calculation - ratio of short to long momentum
                     momentum_ratio = np.where(ret_30d != 0, abs(ret_7d / ret_30d), 0.1)
@@ -6264,10 +6264,10 @@ class PatternDetector:
                     (get_col_safe('acceleration_score', 0) >= 75)    # Accelerating
                 )
                 
-                patterns.append(('⚛ ATOMIC DECAY MOMENTUM', ensure_series(atomic_strength)))
+                patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', ensure_series(atomic_strength)))
         except Exception as e:
             logger.warning(f"Error in ATOMIC DECAY MOMENTUM pattern: {e}")
-            patterns.append(('⚛ ATOMIC DECAY MOMENTUM', pd.Series(False, index=df.index)))
+            patterns.append(('⚛️ ATOMIC DECAY MOMENTUM', pd.Series(False, index=df.index)))
 
         # 39. GARP LEADER - Growth At Reasonable Price methodology
         try:
@@ -6294,7 +6294,7 @@ class PatternDetector:
                 sma_200d = get_col_safe('sma_200d', 0)
                 sma_20d = get_col_safe('sma_20d', 0)
                 
-                # Calculate realistic support zone around 20-day SMA (3% for practical trading)
+                # Calculate realistic support zone around 20-day SMA (±3% for practical trading)
                 with np.errstate(divide='ignore', invalid='ignore'):
                     support_zone_low = sma_20d * 0.97   # Widened from 0.98 to 0.97
                     support_zone_high = sma_20d * 1.03  # Widened from 1.02 to 1.03
@@ -6302,14 +6302,14 @@ class PatternDetector:
                 mask = (
                     price.notna() & sma_200d.notna() & sma_20d.notna() &
                     (price > sma_200d) &                                          # Above long-term trend
-                    (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA (3%)
+                    (price >= support_zone_low) & (price <= support_zone_high) &  # Near 20-day SMA (±3%)
                     (get_col_safe('ret_1d', 0) > 0) &                            # Bouncing
                     (get_col_safe('rvol', 0) > 1.2)                              # Lowered volume threshold for practicality
                 )
-                patterns.append(('🛡 PULLBACK SUPPORT', ensure_series(mask)))
+                patterns.append(('🛡️ PULLBACK SUPPORT', ensure_series(mask)))
         except Exception as e:
             logger.warning(f"Error in PULLBACK SUPPORT pattern: {e}")
-            patterns.append(('🛡 PULLBACK SUPPORT', pd.Series(False, index=df.index)))
+            patterns.append(('🛡️ PULLBACK SUPPORT', pd.Series(False, index=df.index)))
 
         # 41. OVERSOLD QUALITY - Value opportunity identification
         try:
@@ -6386,7 +6386,7 @@ class LeadershipDensityEngine:
     Revolutionary Leadership Density Index (LDI) approach for sector/industry/category analysis.
     
     This approach measures sector strength through leadership density rather than sampling bias.
-    LDI = (Number of Market Leaders in Group) / (Total Stocks in Group)  100
+    LDI = (Number of Market Leaders in Group) / (Total Stocks in Group) × 100
     
     Key Benefits:
     - No sampling bias - uses entire universe
@@ -6555,7 +6555,7 @@ class LeadershipDensityEngine:
             # Quality assessment
             quality_flag = ''
             if total_stocks < 5:
-                quality_flag = '⚠ Small Sample'
+                quality_flag = '⚠️ Small Sample'
             elif ldi == 0 and total_stocks > 10:
                 quality_flag = '📉 No Leaders'
             elif ldi > 20:
@@ -6760,7 +6760,7 @@ class MarketIntelligence:
         
         # RISK-OFF DEFENSIVE: Poor breadth + weak fundamentals
         elif breadth < 0.42 or (category_diff < -8 and breadth < 0.48):
-            regime = "🛡 RISK-OFF DEFENSIVE"
+            regime = "🛡️ RISK-OFF DEFENSIVE"
         
         # VOLATILE OPPORTUNITY: High volume + mixed breadth
         elif volume_level > 1.3 and breadth > 0.48 and breadth < 0.58:
@@ -7249,7 +7249,7 @@ class FilterEngine:
             "💎 Half-Year Heroes (>60% 6M)",
             "🌙 Annual Winners (>80% 1Y)",
             "👑 Multi-Year Champions (>150% 3Y)",
-            "🏛 Long-Term Legends (>250% 5Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
             "🎯 Custom Range"
         ]
         
@@ -7933,7 +7933,7 @@ class FilterEngine:
                     "🎯 MOMENTUM (Default)": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK'],
                     "⚡ AGGRESSIVE": ['STRONG_UPTREND'],
                     "💎 VALUE": ['PULLBACK', 'BOUNCE', 'SIDEWAYS'],
-                    "🛡 DEFENSIVE": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
+                    "🛡️ DEFENSIVE": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'SIDEWAYS', 'BOUNCE'],
                     "🌍 ALL": ['STRONG_UPTREND', 'UPTREND', 'PULLBACK', 'ROTATION', 'SIDEWAYS', 'DOWNTREND', 'STRONG_DOWNTREND', 'BOUNCE']
                 }
                 
@@ -8472,7 +8472,7 @@ class UIComponents:
                 ad_display = f"{ad_ratio:.1f}"
                 market_signal = "MILD BULLISH"
             elif ad_ratio > 0.8:
-                ad_status = "⚖ NEUTRAL"
+                ad_status = "⚖️ NEUTRAL"
                 ad_display = f"{ad_ratio:.1f}"
                 market_signal = "MIXED"
             else:
@@ -8517,7 +8517,7 @@ class UIComponents:
             else:
                 UIComponents.render_metric_card(
                     "Momentum Engine", 
-                    "⚠ NO DATA",
+                    "⚠️ NO DATA",
                     "Momentum data unavailable",
                     "Momentum scoring requires momentum_score column in dataset"
                 )
@@ -8541,7 +8541,7 @@ class UIComponents:
                     vol_status = "💧 ELEVATED"
                     vol_quality = "ACTIVE"
                 else:
-                    vol_status = "🏜 QUIET"
+                    vol_status = "🏜️ QUIET"
                     vol_quality = "LOW ACTIVITY"
                 
                 UIComponents.render_metric_card(
@@ -8553,7 +8553,7 @@ class UIComponents:
             else:
                 UIComponents.render_metric_card(
                     "Volume Intelligence",
-                    "⚠ NO DATA",
+                    "⚠️ NO DATA",
                     "Volume data unavailable",
                     "Volume analysis requires rvol column in dataset"
                 )
@@ -8682,20 +8682,20 @@ class UIComponents:
                     st.info(f"**Tsunami Strength:** {tsunami_strength}")
                 else:
                     st.markdown("**🌋 INSTITUTIONAL TSUNAMI**")
-                    st.info("⚖ No tsunami patterns detected")
+                    st.info("⚖️ No tsunami patterns detected")
                     st.caption("Monitor for institutional accumulation")
             else:
                 st.markdown("**🌋 INSTITUTIONAL TSUNAMI**")
                 st.warning("Pattern data unavailable")
         
         with opp_col2:
-            # 🕰 Information Decay Arbitrage - Advanced
+            # 🕰️ Information Decay Arbitrage - Advanced
             if 'patterns' in df.columns:
-                info_decay = df[df['patterns'].str.contains('🕰 INFORMATION DECAY ARBITRAGE', na=False)]
+                info_decay = df[df['patterns'].str.contains('🕰️ INFORMATION DECAY ARBITRAGE', na=False)]
                 if len(info_decay) > 0:
                     top_decay = info_decay.nlargest(3, 'master_score')
                     
-                    st.markdown("**🕰 INFO DECAY ARBITRAGE**")
+                    st.markdown("**🕰️ INFO DECAY ARBITRAGE**")
                     for _, stock in top_decay.iterrows():
                         company_name = stock.get('company_name', 'N/A')[:20] + "..." if len(stock.get('company_name', '')) > 20 else stock.get('company_name', 'N/A')
                         vol_score = stock.get('volume_score', 0)
@@ -8706,14 +8706,14 @@ class UIComponents:
                     
                     # Add decay efficiency indicator  
                     avg_efficiency = top_decay['master_score'].mean()
-                    decay_efficiency = "⚡ OPTIMAL" if avg_efficiency > 80 else "📈 GOOD" if avg_efficiency > 70 else "⚖ FAIR"
+                    decay_efficiency = "⚡ OPTIMAL" if avg_efficiency > 80 else "📈 GOOD" if avg_efficiency > 70 else "⚖️ FAIR"
                     st.info(f"**Decay Efficiency:** {decay_efficiency}")
                 else:
-                    st.markdown("**🕰 INFO DECAY ARBITRAGE**")
-                    st.info("⚖ No decay opportunities")
+                    st.markdown("**🕰️ INFO DECAY ARBITRAGE**")
+                    st.info("⚖️ No decay opportunities")
                     st.caption("Awaiting information asymmetries")
             else:
-                st.markdown("**🕰 INFO DECAY ARBITRAGE**")
+                st.markdown("**🕰️ INFO DECAY ARBITRAGE**")
                 st.warning("Pattern data unavailable")
         
         with opp_col3:
@@ -8738,7 +8738,7 @@ class UIComponents:
                     st.info(f"**Earnings Power:** {earnings_power}")
                 else:
                     st.markdown("**🎆 EARNINGS ROCKETS**")
-                    st.info("⚖ No earnings surprises")
+                    st.info("⚖️ No earnings surprises")
                     st.caption("Monitor upcoming earnings")
             else:
                 st.markdown("**🎆 EARNINGS ROCKETS**")
@@ -8766,7 +8766,7 @@ class UIComponents:
                     st.info(f"**Transformation:** {transformation_power}")
                 else:
                     st.markdown("**🐦 PHOENIX RISING**")
-                    st.info("⚖ No phoenix patterns")
+                    st.info("⚖️ No phoenix patterns")
                     st.caption("Scanning for turnarounds")
             else:
                 st.markdown("**🐦 PHOENIX RISING**")
@@ -8863,7 +8863,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
                 # Add sector insights
                 hot_sectors = top_12[top_12['flow_score'] > 75]
@@ -8872,7 +8872,7 @@ class UIComponents:
                 
                 cold_sectors = top_12[top_12['flow_score'] < 35]
                 if len(cold_sectors) > 0:
-                    st.warning(f"❄ **AVOID SECTORS**: {', '.join(cold_sectors.index[-2:])}")
+                    st.warning(f"❄️ **AVOID SECTORS**: {', '.join(cold_sectors.index[-2:])}")
                     
             else:
                 st.info("📊 Sector rotation data processing...")
@@ -8887,7 +8887,7 @@ class UIComponents:
             # Regime display with enhanced styling
             regime_colors = {
                 'RISK-ON BULL': '🚀',
-                'RISK-OFF DEFENSIVE': '🛡',
+                'RISK-OFF DEFENSIVE': '🛡️',
                 'VOLATILE OPPORTUNITY': '⚡',
                 'RANGE-BOUND': '😴'
             }
@@ -8922,10 +8922,10 @@ class UIComponents:
                 signals.append("✅ Strong breadth")
                 signal_strength += 2
             elif breadth > 0.4:
-                signals.append("⚖ Moderate breadth")
+                signals.append("⚖️ Moderate breadth")
                 signal_strength += 1
             else:
-                signals.append("⚠ Weak breadth")
+                signals.append("⚠️ Weak breadth")
             
             # Category Leadership Analysis
             category_spread = regime_metrics.get('category_spread', 0)
@@ -8936,9 +8936,9 @@ class UIComponents:
                 signals.append("🔄 Small caps active")
                 signal_strength += 1
             elif category_spread < -15:
-                signals.append("🛡 Large caps DEFENSIVE")
+                signals.append("🛡️ Large caps DEFENSIVE")
             elif category_spread < -5:
-                signals.append("🛡 Large caps preferred")
+                signals.append("🛡️ Large caps preferred")
                 signal_strength += 1
             
             # Volume Analysis
@@ -8953,7 +8953,7 @@ class UIComponents:
                 signals.append("💧 Normal volume")
                 signal_strength += 1
             else:
-                signals.append("🏜 Low volume")
+                signals.append("🏜️ Low volume")
             
             # Pattern Emergence
             if 'patterns' in df.columns:
@@ -8966,7 +8966,7 @@ class UIComponents:
                     signals.append("🎯 Patterns developing")
                     signal_strength += 1
                 elif pattern_density > 0.1:
-                    signals.append("⚖ Few patterns")
+                    signals.append("⚖️ Few patterns")
                 else:
                     signals.append("📉 Pattern scarcity")
             
@@ -9045,7 +9045,7 @@ class UIComponents:
                 # Create component performance dataframe
                 component_df = pd.DataFrame(list(score_components.items()), columns=['Component', 'Score'])
                 component_df['Quality'] = component_df['Score'].apply(
-                    lambda x: '🔥 Elite' if x >= 75 else '📈 Strong' if x >= 65 else '⚖ Average' if x >= 50 else '📉 Weak'
+                    lambda x: '🔥 Elite' if x >= 75 else '📈 Strong' if x >= 65 else '⚖️ Average' if x >= 50 else '📉 Weak'
                 )
                 component_df = component_df.sort_values('Score', ascending=False)
                 
@@ -9090,7 +9090,7 @@ class UIComponents:
                     return_analysis[period] = {
                         'Win Rate': win_rate,
                         'Avg Return': avg_return,
-                        'Quality': '🔥' if win_rate > 60 and avg_return > 2 else '📈' if win_rate > 50 else '⚖' if win_rate > 40 else '📉'
+                        'Quality': '🔥' if win_rate > 60 and avg_return > 2 else '📈' if win_rate > 50 else '⚖️' if win_rate > 40 else '📉'
                     }
             
             if return_analysis:
@@ -9142,7 +9142,7 @@ class UIComponents:
                             'Pattern': pattern[:20] + '...' if len(pattern) > 20 else pattern,
                             'Count': data['count'],
                             'Avg Score': avg_score,
-                            'Effectiveness': '🔥 Elite' if avg_score > 80 else '📈 Strong' if avg_score > 70 else '⚖ Average'
+                            'Effectiveness': '🔥 Elite' if avg_score > 80 else '📈 Strong' if avg_score > 70 else '⚖️ Average'
                         })
                 
                 if pattern_stats:
@@ -9326,7 +9326,7 @@ class SessionStateManager:
             "💎 Half-Year Heroes (>60% 6M)",
             "🌙 Annual Winners (>80% 1Y)",
             "👑 Multi-Year Champions (>150% 3Y)",
-            "🏛 Long-Term Legends (>250% 5Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
             "🎯 Custom Range"
         ]
         
@@ -9494,8 +9494,8 @@ class SessionStateManager:
                     "🔥 Exceptional (85+)": (85, 100),
                     "🚀 Strong (70-84)": (70, 84),
                     "✅ Good (55-69)": (55, 69),
-                    "➡ Neutral (40-54)": (40, 54),
-                    "⚠ Weak (25-39)": (25, 39),
+                    "➡️ Neutral (40-54)": (40, 54),
+                    "⚠️ Weak (25-39)": (25, 39),
                     "🔻 Poor (<25)": (0, 24)
                 }
                 filters['trend_filter'] = st.session_state['trend_filter']
@@ -10164,7 +10164,7 @@ def main():
                     
                     duplicates = data_quality.get('duplicate_tickers', 0)
                     if duplicates > 0:
-                        st.metric("Duplicates", f"⚠ {duplicates}")
+                        st.metric("Duplicates", f"⚠️ {duplicates}")
         
         # Performance metrics
         perf_metrics = st.session_state.get('performance_metrics', {})
@@ -10224,7 +10224,7 @@ def main():
         if active_filter_count > 0:
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
-        if st.button("🗑 Clear All Filters", 
+        if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
             SessionStateManager.clear_filters()
@@ -10381,7 +10381,7 @@ def main():
             if available_fund_cols:
                 st.sidebar.success(f"✅ Fundamental data available: {', '.join(available_fund_cols)}")
             else:
-                st.sidebar.warning("⚠ No fundamental data found in current dataset")
+                st.sidebar.warning("⚠️ No fundamental data found in current dataset")
         
         st.markdown("---")
         
@@ -10689,8 +10689,8 @@ def main():
             "🔥 Exceptional (85+)": (85, 100),
             "🚀 Strong (70-84)": (70, 84),
             "✅ Good (55-69)": (55, 69),
-            "➡ Neutral (40-54)": (40, 54),
-            "⚠ Weak (25-39)": (25, 39),
+            "➡️ Neutral (40-54)": (40, 54),
+            "⚠️ Weak (25-39)": (25, 39),
             "🔻 Poor (<25)": (0, 24),
             "🎯 Custom Range": None  # Special option for custom range
         }
@@ -10735,7 +10735,7 @@ def main():
                 max_value=100,
                 value=current_custom_range,
                 step=1,
-                help="🔥 85+: Exceptional | 🚀 70-84: Strong | ✅ 55-69: Good | ➡ 40-54: Neutral | ⚠ 25-39: Weak | 🔻 <25: Poor",
+                help="🔥 85+: Exceptional | 🚀 70-84: Strong | ✅ 55-69: Good | ➡️ 40-54: Neutral | ⚠️ 25-39: Weak | 🔻 <25: Poor",
                 key="trend_custom_range_slider",
                 on_change=sync_trend_custom_slider
             )
@@ -10756,9 +10756,9 @@ def main():
                 elif min_val >= 55:
                     return "✅"
                 elif min_val >= 40:
-                    return "➡"
+                    return "➡️"
                 elif min_val >= 25:
-                    return "⚠"
+                    return "⚠️"
                 else:
                     return "🔻"
             
@@ -10773,7 +10773,7 @@ def main():
         st.markdown("#### 📈 Market State Filters")
         
         # Add filter presets and custom selection option (no individual states in main multiselect)
-        preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡 DEFENSIVE", "🌍 ALL"]
+        preset_options = ["🎯 MOMENTUM (Default)", "⚡ AGGRESSIVE", "💎 VALUE", "🛡️ DEFENSIVE", "🌍 ALL"]
         market_state_with_presets = preset_options + ["📊 Custom Selection"]
         
         selected_market_states = st.multiselect(
@@ -11199,7 +11199,7 @@ def main():
                             {'label': '💥 Explosive', 'min': 10, 'max': None, 'description': '>10% 1D'},
                             {'label': '🚀 Strong Rise', 'min': 5, 'max': 10, 'description': '5-10% 1D'},
                             {'label': '📈 Positive', 'min': 2, 'max': 5, 'description': '2-5% 1D'},
-                            {'label': '➡ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
+                            {'label': '➡️ Flat', 'min': -2, 'max': 2, 'description': '-2% to 2% 1D'},
                             {'label': '📉 Negative', 'min': -5, 'max': -2, 'description': '-5% to -2% 1D'},
                             {'label': '💣 Crash', 'min': None, 'max': -5, 'description': '<-5% 1D'}
                         ],
@@ -11214,8 +11214,8 @@ def main():
                             {'label': '🌟 3-Day Surge', 'min': 15, 'max': None, 'description': '>15% 3D'},
                             {'label': '⚡ Strong Momentum', 'min': 8, 'max': 15, 'description': '8-15% 3D'},
                             {'label': '📊 Steady Rise', 'min': 3, 'max': 8, 'description': '3-8% 3D'},
-                            {'label': '⏸ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
-                            {'label': '⚠ Weakening', 'min': -8, 'max': -3, 'description': '-8% to -3% 3D'},
+                            {'label': '⏸️ Consolidating', 'min': -3, 'max': 3, 'description': '-3% to 3% 3D'},
+                            {'label': '⚠️ Weakening', 'min': -8, 'max': -3, 'description': '-8% to -3% 3D'},
                             {'label': '🔻 Sharp Decline', 'min': None, 'max': -8, 'description': '<-8% 3D'}
                         ],
                         'slider_range': (-75, 75),
@@ -11246,7 +11246,7 @@ def main():
                             {'label': '📈 Outperformers', 'min': 10, 'max': 20, 'description': '10-20% 30D'},
                             {'label': '🔄 Market Performers', 'min': -10, 'max': 10, 'description': '-10% to 10% 30D'},
                             {'label': '📉 Underperformers', 'min': -20, 'max': -10, 'description': '-20% to -10% 30D'},
-                            {'label': '☠ Monthly Losers', 'min': None, 'max': -20, 'description': '<-20% 30D'}
+                            {'label': '☠️ Monthly Losers', 'min': None, 'max': -20, 'description': '<-20% 30D'}
                         ],
                         'slider_range': (-100, 200),
                         'slider_step': 2,
@@ -11274,7 +11274,7 @@ def main():
                             {'label': '💎 Half-Year Heroes', 'min': 80, 'max': None, 'description': '>80% 6M'},
                             {'label': '🌟 Semi-Annual Stars', 'min': 60, 'max': 80, 'description': '60-80% 6M'},
                             {'label': '📈 Strong Half', 'min': 30, 'max': 60, 'description': '30-60% 6M'},
-                            {'label': '〰 Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
+                            {'label': '〰️ Sideways', 'min': -20, 'max': 20, 'description': '-20% to 20% 6M'},
                             {'label': '📉 Weak Half', 'min': -50, 'max': -20, 'description': '-50% to -20% 6M'},
                             {'label': '💀 Half-Year Collapse', 'min': None, 'max': -50, 'description': '<-50% 6M'}
                         ],
@@ -11316,12 +11316,12 @@ def main():
                     'ret_5y': {
                         'name': '5 Year Return',
                         'presets': [
-                            {'label': '🏛 Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
+                            {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
                             {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
                             {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
                             {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
-                            {'label': '⚠ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
-                            {'label': '☠ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
+                            {'label': '⚠️ 5Y Laggards', 'min': -75, 'max': 0, 'description': '-75% to 0% 5Y'},
+                            {'label': '☠️ 5Y Wipeout', 'min': None, 'max': -75, 'description': '<-75% 5Y'}
                         ],
                         'slider_range': (-100, 5000),
                         'slider_step': 50,
@@ -11650,7 +11650,7 @@ def main():
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
         # Clear filters button - ENHANCED VERSION
-        if st.button("🗑 Clear All Filters", 
+        if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
@@ -11821,7 +11821,7 @@ def main():
                 UIComponents.render_metric_card("With Patterns", "N/A")
     
     tabs = st.tabs([
-        "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ About"
+        "📊 Summary", "🏆 Rankings", "📈 Market Radar", "📊 Analysis", "🔍 Search", "📥 Export", "ℹ️ About"
     ])
     
     with tabs[0]:
@@ -11880,7 +11880,7 @@ def main():
                     else:
                         st.info("📊 No pattern stocks in current selection")
                 else:
-                    st.warning("⚠ Pattern data not available in dataset")
+                    st.warning("⚠️ Pattern data not available in dataset")
         
         else:
             st.warning("No data available for summary. Please adjust filters.")
@@ -11925,7 +11925,7 @@ def main():
         
         with ranking_controls[3]:
             performance_timeframe = st.selectbox(
-                "⏱ Performance Period",
+                "⏱️ Performance Period",
                 options=["1D", "3D", "7D", "30D", "All"],
                 index=4,
                 key="perf_timeframe",
@@ -12119,7 +12119,7 @@ def main():
                     
             else:  # Custom view
                 # Let user select what they want to see
-                st.markdown("#### 🛠 Customize Your View")
+                st.markdown("#### 🛠️ Customize Your View")
                 
                 available_cols = [
                     'rank', 'ticker', 'company_name', 'master_score', 'position_score', 'momentum_score',
@@ -12166,7 +12166,7 @@ def main():
                 missing_fund_cols = [c for c in requested_fund_cols if c not in display_df.columns]
                 
                 if missing_fund_cols:
-                    st.warning(f"⚠ **Hybrid Mode**: Some fundamental data missing from dataset: {', '.join(missing_fund_cols)}")
+                    st.warning(f"⚠️ **Hybrid Mode**: Some fundamental data missing from dataset: {', '.join(missing_fund_cols)}")
                     st.info("💡 **Tip**: Upload data with PE, EPS columns or switch to Technical mode for full experience")
             
             # SAFETY CHECK: Ensure no duplicate column names
@@ -12280,9 +12280,9 @@ def main():
                     elif score >= 55:
                         return "✅"  # Good
                     elif score >= 40:
-                        return "➡"  # Neutral
+                        return "➡️"  # Neutral
                     elif score >= 25:
-                        return "⚠"  # Weak
+                        return "⚠️"  # Weak
                     else:
                         return "🔻"  # Poor
                 
@@ -12396,7 +12396,7 @@ def main():
                         
                         st.info(f"📅 **{performance_timeframe} Performance Focus Active** | "
                                f"🚀 {adjustment_stats['boosted']} boosted • "
-                               f"⚠ {adjustment_stats['penalized']} penalized • "
+                               f"⚠️ {adjustment_stats['penalized']} penalized • "
                                f"➖ {adjustment_stats['unchanged']} unchanged")
                     else:
                         st.info(f"📅 **Performance Focus**: {performance_timeframe} timeframe analysis")
@@ -12835,7 +12835,7 @@ def main():
                 options=[
                     "🌊 Wave Hunter", 
                     "⚡ Breakout Scanner", 
-                    "🏗 Pattern Recognition",
+                    "🏗️ Pattern Recognition",
                     "💰 Institutional Flow",
                     "🔥 Momentum Surge",
                     "📊 Full Spectrum"
@@ -12862,19 +12862,19 @@ def main():
         
         with radar_controls[2]:
             sensitivity_level = st.select_slider(
-                "🎚 Signal Sensitivity",
-                options=["🛡 Ultra Conservative", "🔒 Conservative", "⚖ Balanced", "🚀 Aggressive", "🔥 Ultra Aggressive"],
-                value="⚖ Balanced",
+                "🎚️ Signal Sensitivity",
+                options=["🛡️ Ultra Conservative", "🔒 Conservative", "⚖️ Balanced", "🚀 Aggressive", "🔥 Ultra Aggressive"],
+                value="⚖️ Balanced",
                 key="sensitivity_level_select",
                 help="Signal detection sensitivity level"
             )
         
         with radar_controls[3]:
             risk_filter = st.selectbox(
-                "⚖ Risk Profile",
+                "⚖️ Risk Profile",
                 options=[
-                    "🛡 Low Risk Only",
-                    "⚖ Balanced Risk", 
+                    "🛡️ Low Risk Only",
+                    "⚖️ Balanced Risk", 
                     "🚀 High Risk/Reward",
                     "🔥 Maximum Alpha"
                 ],
@@ -12983,12 +12983,12 @@ def main():
             radar_df = radar_df[radar_df.get('breakout_score', 0) >= 65]
             st.info(f"⚡ Breakout Scanner Mode: {len(radar_df)}/{original_count} stocks have breakout score ≥65")
             
-        elif radar_mode == "🏗 Pattern Recognition":
+        elif radar_mode == "🏗️ Pattern Recognition":
             if 'patterns' in radar_df.columns:
                 radar_df = radar_df[radar_df['patterns'].str.len() > 0]
-                st.info(f"🏗 Pattern Recognition Mode: {len(radar_df)}/{original_count} stocks have detected patterns")
+                st.info(f"🏗️ Pattern Recognition Mode: {len(radar_df)}/{original_count} stocks have detected patterns")
             else:
-                st.warning("🏗 Pattern Recognition Mode: 'patterns' column not available - using all data")
+                st.warning("🏗️ Pattern Recognition Mode: 'patterns' column not available - using all data")
                 
         elif radar_mode == "💰 Institutional Flow":
             flow_filter = (
@@ -13016,14 +13016,14 @@ def main():
         
         pre_risk_count = len(radar_df)
         
-        if risk_filter == "🛡 Low Risk Only":
+        if risk_filter == "🛡️ Low Risk Only":
             risk_filter_condition = (
                 (radar_df.get('pe', 999) < 25) &
                 (radar_df.get('volatility_score', 100) < 60) &
                 (radar_df.get('master_score', 0) >= 50)
             )
             radar_df = radar_df[risk_filter_condition]
-            st.info(f"🛡 Low Risk Filter: {len(radar_df)}/{pre_risk_count} stocks meet low-risk criteria")
+            st.info(f"🛡️ Low Risk Filter: {len(radar_df)}/{pre_risk_count} stocks meet low-risk criteria")
             
         elif risk_filter == "🚀 High Risk/Reward":
             risk_filter_condition = (
@@ -13043,8 +13043,8 @@ def main():
             radar_df = radar_df[risk_filter_condition]
             st.info(f"🔥 Maximum Alpha Filter: {len(radar_df)}/{pre_risk_count} elite alpha-generating stocks")
             
-        # ⚖ Balanced Risk uses current data (no additional filtering)
-        elif risk_filter == "⚖ Balanced Risk":
+        # ⚖️ Balanced Risk uses current data (no additional filtering)
+        elif risk_filter == "⚖️ Balanced Risk":
             pass  # No filtering applied
         
         # ================================================================================================
@@ -13197,7 +13197,7 @@ def main():
             with st.expander("📊 Current Sensitivity Thresholds", expanded=True):
                 if "Conservative" in sensitivity_level:
                     st.markdown("""
-                    **Conservative Settings** 🛡
+                    **Conservative Settings** 🛡️
                     - **Momentum Shifts:** Score ≥ 60, Acceleration ≥ 70
                     - **Emerging Patterns:** Within 5% of qualifying threshold
                     - **Volume Surges:** RVOL ≥ 3.0x (extreme volumes only)
@@ -13206,7 +13206,7 @@ def main():
                     """)
                 elif "Balanced" in sensitivity_level:
                     st.markdown("""
-                    **Balanced Settings** ⚖
+                    **Balanced Settings** ⚖️
                     - **Momentum Shifts:** Score ≥ 50, Acceleration ≥ 60
                     - **Emerging Patterns:** Within 10% of qualifying threshold
                     - **Volume Surges:** RVOL ≥ 2.0x (standard threshold)
@@ -13447,7 +13447,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -13522,9 +13522,9 @@ def main():
                                     if 'Small' in top_category or 'Micro' in top_category:
                                         flow_direction = "🔥 RISK-ON"
                                     elif 'Large' in top_category or 'Mega' in top_category:
-                                        flow_direction = "❄ RISK-OFF"
+                                        flow_direction = "❄️ RISK-OFF"
                                     else:
-                                        flow_direction = "➡ Neutral"
+                                        flow_direction = "➡️ Neutral"
                                     
                                     fig_flow = go.Figure()
                                     
@@ -13548,7 +13548,7 @@ def main():
                                         showlegend=False
                                     )
                                     
-                                    st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                                    st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                                 else:
                                     st.info("Insufficient data for category flow analysis after sampling.")
                             else:
@@ -13578,7 +13578,7 @@ def main():
                         elif large_caps_score > small_caps_score + 10:
                             st.warning("📉 Large Caps Leading - Defensive Mode")
                         else:
-                            st.info("➡ Balanced Market - No Clear Leader")
+                            st.info("➡️ Balanced Market - No Clear Leader")
                     else:
                         st.info("Category data not available")
             
@@ -13937,7 +13937,7 @@ def main():
                         pattern_signals.append({
                             'Ticker': stock['ticker'],
                             'Company': stock.get('company_name', 'Unknown'),
-                            'Pattern': '➡ Continuation',
+                            'Pattern': '➡️ Continuation',
                             'Score': stock['trend_score'],
                             'Reliability': 'High' if stock['trend_score'] > reliability_threshold else 'Medium'
                         })
@@ -14055,7 +14055,7 @@ def main():
                     elif outflows > inflows + 2:
                         st.error("🔴 **Net Institutional Selling** - Bearish sentiment")
                     else:
-                        st.info("⚖ **Balanced Flow** - Mixed sentiment")
+                        st.info("⚖️ **Balanced Flow** - Mixed sentiment")
                     
                     # Display flows
                     st.dataframe(
@@ -14287,7 +14287,7 @@ def main():
                         )
                         
                         # Risk warning
-                        st.warning("⚠ **Risk Warning**: High probability signals are statistical indicators. Always use proper risk management and position sizing.")
+                        st.warning("⚠️ **Risk Warning**: High probability signals are statistical indicators. Always use proper risk management and position sizing.")
                         
                     else:
                         st.info(f"No high probability signals found with {sensitivity_level} criteria (≥{prob_threshold}%)")
@@ -14431,9 +14431,9 @@ def main():
                     elif strong_signals > total_signals * 0.5:
                         st.success("✅ **Good Multi-Timeframe Alignment** - High conviction signals")
                     elif strong_signals > total_signals * 0.3:
-                        st.info("⚖ **Mixed Timeframe Signals** - Moderate conviction, selective approach recommended")
+                        st.info("⚖️ **Mixed Timeframe Signals** - Moderate conviction, selective approach recommended")
                     else:
-                        st.warning("⚠ **Weak Timeframe Alignment** - Lower conviction, careful position sizing advised")
+                        st.warning("⚠️ **Weak Timeframe Alignment** - Lower conviction, careful position sizing advised")
                     
                     # Sensitivity adjustment recommendations
                     if len(confluence_df) < 5:
@@ -14482,7 +14482,7 @@ def main():
             strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
             
             # Market health indicators
-            market_health = "🔥 BULLISH" if elite_stocks > total_analyzed * 0.15 else "📈 POSITIVE" if strong_stocks > total_analyzed * 0.25 else "⚖ NEUTRAL" if strong_stocks > total_analyzed * 0.15 else "⚠ CAUTIOUS"
+            market_health = "🔥 BULLISH" if elite_stocks > total_analyzed * 0.15 else "📈 POSITIVE" if strong_stocks > total_analyzed * 0.25 else "⚖️ NEUTRAL" if strong_stocks > total_analyzed * 0.15 else "⚠️ CAUTIOUS"
             
             # Executive metrics row
             exec_cols = st.columns(6)
@@ -14496,7 +14496,7 @@ def main():
             
             with exec_cols[2]:
                 avg_momentum = filtered_df['momentum_score'].mean() if 'momentum_score' in filtered_df.columns else 0
-                momentum_rating = "🚀" if avg_momentum > 70 else "📈" if avg_momentum > 60 else "➡"
+                momentum_rating = "🚀" if avg_momentum > 70 else "📈" if avg_momentum > 60 else "➡️"
                 UIComponents.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
             
             with exec_cols[3]:
@@ -14511,7 +14511,7 @@ def main():
                 UIComponents.render_metric_card("Breakouts", f"{breakout_pct:.1f}%", f"{breakout_count} stocks")
             
             with exec_cols[5]:
-                risk_level = "🛡 LOW" if avg_momentum > 65 and avg_volume < 3 else "⚠ MEDIUM" if avg_volume < 4 else "🚨 HIGH"
+                risk_level = "🛡️ LOW" if avg_momentum > 65 and avg_volume < 3 else "⚠️ MEDIUM" if avg_volume < 4 else "🚨 HIGH"
                 UIComponents.render_metric_card("Risk Level", risk_level, "Systematic")
             
             # ================================================================================================
@@ -14538,7 +14538,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_dist, width='stretch', theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -14597,7 +14597,7 @@ def main():
                         component_data = {
                             'Component': components,
                             'Avg Score': scores,
-                            'Quality': ['🔥 Strong' if score >= 65 else '📈 Good' if score >= 55 else '⚖ Average' if score >= 40 else '📉 Weak' for score in scores]
+                            'Quality': ['🔥 Strong' if score >= 65 else '📈 Good' if score >= 55 else '⚖️ Average' if score >= 40 else '📉 Weak' for score in scores]
                         }
                         
                         component_df = pd.DataFrame(component_data)
@@ -14622,7 +14622,7 @@ def main():
                             # Show component count
                             st.info(f"📊 Analyzing {len(components)} score components from your dataset")
                     else:
-                        st.warning("⚠ **Insufficient Data**: Need at least 2 score components for analysis")
+                        st.warning("⚠️ **Insufficient Data**: Need at least 2 score components for analysis")
                         st.info("💡 **Available columns**: " + ", ".join(available_score_cols) if available_score_cols else "No score columns found")
             
             # Tab 2: Performance Matrix
@@ -14645,7 +14645,7 @@ def main():
                                     'Positive %': (positive_returns / len(filtered_df) * 100),
                                     'Avg Return': avg_return,
                                     'Max Return': max_return,
-                                    'Quality': '🔥' if avg_return > 5 else '📈' if avg_return > 2 else '⚖' if avg_return > 0 else '📉'
+                                    'Quality': '🔥' if avg_return > 5 else '📈' if avg_return > 2 else '⚖️' if avg_return > 0 else '📉'
                                 }
                         
                         if return_analysis:
@@ -14754,7 +14754,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, use_container_width=True)
+                            st.plotly_chart(fig_momentum, width='stretch')
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -14778,7 +14778,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, use_container_width=True)
+                            st.plotly_chart(fig_single, width='stretch')
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
@@ -14792,7 +14792,7 @@ def main():
                                 '🚀 Explosive (High/High)': len(filtered_df[high_momentum & high_acceleration]),
                                 '📈 Building (High/Low)': len(filtered_df[high_momentum & ~high_acceleration]),
                                 '⚡ Accelerating (Low/High)': len(filtered_df[~high_momentum & high_acceleration]),
-                                '⚖ Consolidating (Low/Low)': len(filtered_df[~high_momentum & ~high_acceleration])
+                                '⚖️ Consolidating (Low/Low)': len(filtered_df[~high_momentum & ~high_acceleration])
                             }
                             
                             quadrant_df = pd.DataFrame([
@@ -14818,7 +14818,7 @@ def main():
                             elif explosive_pct > 10:
                                 st.info(f"📈 **Building Momentum**: {explosive_pct:.1f}% stocks showing explosive potential")
                             else:
-                                st.warning(f"⚖ **Consolidation Phase**: Only {explosive_pct:.1f}% explosive stocks")
+                                st.warning(f"⚖️ **Consolidation Phase**: Only {explosive_pct:.1f}% explosive stocks")
                         else:
                             # Show insights for single momentum metric
                             available_col = momentum_cols[0]
@@ -14832,7 +14832,7 @@ def main():
                             metric_analysis = pd.DataFrame([
                                 {'Category': f'🔥 High {col_name}', 'Count': high_count, 'Percentage': high_pct},
                                 {'Category': f'📈 Medium {col_name}', 'Count': len(filtered_df) - high_count - len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]), 'Percentage': 100 - high_pct - (len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]) / len(filtered_df) * 100)},
-                                {'Category': f'⚖ Low {col_name}', 'Count': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]), 'Percentage': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]) / len(filtered_df) * 100}
+                                {'Category': f'⚖️ Low {col_name}', 'Count': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]), 'Percentage': len(filtered_df[filtered_df[available_col] <= filtered_df[available_col].quantile(0.3)]) / len(filtered_df) * 100}
                             ])
                             
                             st.dataframe(
@@ -14851,9 +14851,9 @@ def main():
                             elif high_pct > 15:
                                 st.info(f"📈 **Moderate {col_name}**: {high_pct:.1f}% stocks with elevated {available_col.replace('_', ' ')}")
                             else:
-                                st.warning(f"⚖ **Low {col_name}**: Only {high_pct:.1f}% stocks with high {available_col.replace('_', ' ')}")
+                                st.warning(f"⚖️ **Low {col_name}**: Only {high_pct:.1f}% stocks with high {available_col.replace('_', ' ')}")
                 else:
-                    st.warning("⚠ **Momentum data not available** - No momentum or acceleration scores found in dataset")
+                    st.warning("⚠️ **Momentum data not available** - No momentum or acceleration scores found in dataset")
             
             # Tab 4: Pattern Intelligence
             with viz_tabs[3]:
@@ -14879,7 +14879,7 @@ def main():
                             
                             pattern_df['Percentage'] = (pattern_df['Count'] / len(filtered_df) * 100)
                             pattern_df['Quality'] = pattern_df['Percentage'].apply(
-                                lambda x: '🔥' if x > 15 else '📈' if x > 8 else '⚖' if x > 3 else '📉'
+                                lambda x: '🔥' if x > 15 else '📈' if x > 8 else '⚖️' if x > 3 else '📉'
                             )
                             
                             st.dataframe(
@@ -14901,7 +14901,7 @@ def main():
                         else:
                             st.info("📊 **No patterns detected** in current selection")
                     else:
-                        st.warning("⚠ **Pattern data not available** - No pattern column found in dataset")
+                        st.warning("⚠️ **Pattern data not available** - No pattern column found in dataset")
                 
                 with pattern_intel_cols[1]:
                     st.markdown("**📊 Pattern Quality Matrix**")
@@ -14942,7 +14942,7 @@ def main():
                         elif high_quality_pct > 15:
                             st.info(f"📈 **Good Pattern Quality**: {high_quality_pct:.1f}% high-quality patterns")
                         else:
-                            st.warning(f"⚖ **Mixed Pattern Quality**: {high_quality_pct:.1f}% high-quality patterns")
+                            st.warning(f"⚖️ **Mixed Pattern Quality**: {high_quality_pct:.1f}% high-quality patterns")
             
             # Tab 5: Sector Analysis 
             with viz_tabs[4]:
@@ -14966,7 +14966,7 @@ def main():
                         # Add quality indicators
                         if 'ldi_score' in sector_overview_display.columns:
                             sector_overview_display['Sector_Quality'] = sector_overview_display['ldi_score'].apply(
-                                lambda x: '💎 Elite' if x > 20 else '🔥 Strong' if x > 15 else '📈 Good' if x > 10 else '⚖ Average'
+                                lambda x: '💎 Elite' if x > 20 else '🔥 Strong' if x > 15 else '📈 Good' if x > 10 else '⚖️ Average'
                             )
                         
                         st.dataframe(
@@ -14998,7 +14998,7 @@ def main():
                                 'Stock Count': sector_dist.values,
                                 'Percentage': sector_pct.values,
                                 'Representation': sector_pct.map(
-                                    lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖ Moderate' if x > 5 else '📉 Light'
+                                    lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖️ Moderate' if x > 5 else '📉 Light'
                                 ).values
                             })
                             
@@ -15057,7 +15057,7 @@ def main():
                         
                         # Add quality indicators
                         industry_metrics['quality'] = industry_metrics['strength_index'].apply(
-                            lambda x: '🚀 Elite' if x > 80 else '🔥 Strong' if x > 70 else '📈 Good' if x > 60 else '⚖ Average' if x > 50 else '📉 Weak'
+                            lambda x: '🚀 Elite' if x > 80 else '🔥 Strong' if x > 70 else '📈 Good' if x > 60 else '⚖️ Average' if x > 50 else '📉 Weak'
                         )
                         
                         # Sort by strength index
@@ -15082,7 +15082,7 @@ def main():
                             top_count = industry_ranking['stock_count'].iloc[0]
                             st.success(f"🏆 **Leading Industry**: {top_industry} (Strength: {top_strength:.1f}, {top_count} stocks)")
                     else:
-                        st.warning("⚠ **Industry data not available** - No industry column found in dataset")
+                        st.warning("⚠️ **Industry data not available** - No industry column found in dataset")
                 
                 with industry_intel_cols[1]:
                     st.markdown("**📊 Industry Concentration Analysis**")
@@ -15097,7 +15097,7 @@ def main():
                             'Stock Count': industry_dist.values,
                             'Market Share': industry_pct.values,
                             'Concentration': industry_pct.apply(
-                                lambda x: '🔥 Dominant' if x > 15 else '📈 Major' if x > 8 else '⚖ Moderate' if x > 4 else '📉 Niche'
+                                lambda x: '🔥 Dominant' if x > 15 else '📈 Major' if x > 8 else '⚖️ Moderate' if x > 4 else '📉 Niche'
                             ).values
                         })
                         
@@ -15118,7 +15118,7 @@ def main():
                         top_5_concentration = industry_pct.head(5).sum()
                         
                         if top_5_concentration > 60:
-                            st.warning(f"⚠ **High Concentration**: Top 5 industries control {top_5_concentration:.1f}% of market")
+                            st.warning(f"⚠️ **High Concentration**: Top 5 industries control {top_5_concentration:.1f}% of market")
                         elif top_5_concentration > 40:
                             st.info(f"📊 **Moderate Concentration**: Top 5 industries hold {top_5_concentration:.1f}% of market")
                         else:
@@ -15133,7 +15133,7 @@ def main():
                                 'Industry': industry_momentum.index,
                                 'Avg Momentum': industry_momentum.values.round(1),
                                 'Momentum Level': industry_momentum.apply(
-                                    lambda x: '🚀 Explosive' if x > 80 else '🔥 Strong' if x > 70 else '📈 Building' if x > 60 else '⚖ Stable'
+                                    lambda x: '🚀 Explosive' if x > 80 else '🔥 Strong' if x > 70 else '📈 Building' if x > 60 else '⚖️ Stable'
                                 ).values
                             })
                             
@@ -15148,7 +15148,7 @@ def main():
                                 }
                             )
                     else:
-                        st.warning("⚠ **Industry data not available** - No industry column found in dataset")
+                        st.warning("⚠️ **Industry data not available** - No industry column found in dataset")
             
             # Tab 7: Risk Dashboard
             with viz_tabs[6]:
@@ -15157,7 +15157,7 @@ def main():
                 risk_cols = st.columns(2)
                 
                 with risk_cols[0]:
-                    st.markdown("**🛡 Risk Distribution Analysis**")
+                    st.markdown("**🛡️ Risk Distribution Analysis**")
                     
                     # Calculate risk metrics
                     if 'rvol' in filtered_df.columns and 'master_score' in filtered_df.columns:
@@ -15168,8 +15168,8 @@ def main():
                         
                         risk_distribution = {
                             '🚨 High Risk': len(filtered_df[high_risk]),
-                            '⚠ Medium Risk': len(filtered_df[medium_risk]),
-                            '🛡 Low Risk': len(filtered_df[low_risk])
+                            '⚠️ Medium Risk': len(filtered_df[medium_risk]),
+                            '🛡️ Low Risk': len(filtered_df[low_risk])
                         }
                         
                         risk_df = pd.DataFrame([
@@ -15193,9 +15193,9 @@ def main():
                         if high_risk_pct > 40:
                             st.error(f"🚨 **High Risk Portfolio**: {high_risk_pct:.1f}% high-risk positions")
                         elif high_risk_pct > 25:
-                            st.warning(f"⚠ **Moderate Risk**: {high_risk_pct:.1f}% high-risk positions")
+                            st.warning(f"⚠️ **Moderate Risk**: {high_risk_pct:.1f}% high-risk positions")
                         else:
-                            st.success(f"🛡 **Controlled Risk**: Only {high_risk_pct:.1f}% high-risk positions")
+                            st.success(f"🛡️ **Controlled Risk**: Only {high_risk_pct:.1f}% high-risk positions")
                 
                 with risk_cols[1]:
                     st.markdown("**📊 Position Sizing Recommendations**")
@@ -15265,7 +15265,7 @@ def main():
                 elif strong_stocks > total_analyzed * 0.25:
                     findings.append(f"📈 **Positive Market**: {(strong_stocks/total_analyzed*100):.1f}% strong stocks")
                 else:
-                    findings.append(f"⚖ **Neutral Market**: {(strong_stocks/total_analyzed*100):.1f}% strong stocks - selective approach needed")
+                    findings.append(f"⚖️ **Neutral Market**: {(strong_stocks/total_analyzed*100):.1f}% strong stocks - selective approach needed")
                 
                 # Volume finding
                 if 'rvol' in filtered_df.columns:
@@ -15284,7 +15284,7 @@ def main():
                     elif avg_momentum > 55:
                         findings.append(f"📈 **Building Momentum**: {avg_momentum:.1f} average momentum score")
                     else:
-                        findings.append(f"⚖ **Weak Momentum**: {avg_momentum:.1f} average momentum score")
+                        findings.append(f"⚖️ **Weak Momentum**: {avg_momentum:.1f} average momentum score")
                 
                 # Risk finding
                 if 'rvol' in filtered_df.columns:
@@ -15293,9 +15293,9 @@ def main():
                     if risk_pct > 30:
                         findings.append(f"🚨 **High Risk Environment**: {risk_pct:.1f}% highly volatile stocks")
                     elif risk_pct > 15:
-                        findings.append(f"⚠ **Moderate Risk**: {risk_pct:.1f}% highly volatile stocks")
+                        findings.append(f"⚠️ **Moderate Risk**: {risk_pct:.1f}% highly volatile stocks")
                     else:
-                        findings.append(f"🛡 **Low Risk Environment**: Only {risk_pct:.1f}% highly volatile stocks")
+                        findings.append(f"🛡️ **Low Risk Environment**: Only {risk_pct:.1f}% highly volatile stocks")
                 
                 for finding in findings:
                     st.write(f"• {finding}")
@@ -15323,9 +15323,9 @@ def main():
                 if 'rvol' in filtered_df.columns:
                     avg_rvol = filtered_df['rvol'].mean()
                     if avg_rvol > 3:
-                        recommendations.append("🛡 **Implement Stop Losses** - high volatility environment")
+                        recommendations.append("🛡️ **Implement Stop Losses** - high volatility environment")
                     elif avg_rvol > 2:
-                        recommendations.append("⚠ **Monitor Positions Closely** - elevated volatility")
+                        recommendations.append("⚠️ **Monitor Positions Closely** - elevated volatility")
                     else:
                         recommendations.append("📈 **Normal Risk Management** - stable environment")
                 
@@ -15960,10 +15960,10 @@ def main():
                                     trend_status = f"✅ Good ({tq:.0f})"
                                     trend_color = "success"
                                 elif tq >= 40:
-                                    trend_status = f"➡ Neutral ({tq:.0f})"
+                                    trend_status = f"➡️ Neutral ({tq:.0f})"
                                     trend_color = "warning"
                                 elif tq >= 25:
-                                    trend_status = f"⚠ Weak ({tq:.0f})"
+                                    trend_status = f"⚠️ Weak ({tq:.0f})"
                                     trend_color = "warning"
                                 else:
                                     trend_status = f"🔻 Poor ({tq:.0f})"
@@ -16015,7 +16015,7 @@ def main():
                                         vol_status = "📈 Growing Interest"
                                         vol_color = "success"
                                     elif rvol_val >= 0.5:
-                                        vol_status = "➡ Normal Activity"
+                                        vol_status = "➡️ Normal Activity"
                                         vol_color = "info"
                                     else:
                                         vol_status = "😴 Low Activity"
@@ -16078,7 +16078,7 @@ def main():
                                         elif ratio_val >= 1.2:
                                             status = "➕ Above Normal"
                                         elif ratio_val >= 0.8:
-                                            status = "➡ Normal"
+                                            status = "➡️ Normal"
                                         elif ratio_val >= 0.5:
                                             status = "➖ Below Normal"
                                         else:
@@ -16112,7 +16112,7 @@ def main():
                                         score_status = "✅ Good"
                                         score_color = "success"
                                     elif vol_score >= 40:
-                                        score_status = "⚠ Average"
+                                        score_status = "⚠️ Average"
                                         score_color = "warning"
                                     else:
                                         score_status = "❌ Poor"
@@ -16138,7 +16138,7 @@ def main():
                                         elif rvol_val >= 1.0:
                                             activity = "📈 Normal+"
                                         elif rvol_val >= 0.5:
-                                            activity = "➡ Normal"
+                                            activity = "➡️ Normal"
                                         else:
                                             activity = "😴 Low"
                                         
@@ -16170,7 +16170,7 @@ def main():
                                         liq_status = "💦 Moderate Liquidity"
                                         liq_color = "warning"
                                     else:
-                                        liq_status = "🏜 Low Liquidity"
+                                        liq_status = "🏜️ Low Liquidity"
                                         liq_color = "error"
                                     
                                     getattr(st, liq_color)(f"**Liquidity:** {liq_status}")
@@ -16208,7 +16208,7 @@ def main():
                             if 'money_flow_mm' in stock.index and pd.notna(stock['money_flow_mm']):
                                 adv_data['Metric'].append('Money Flow')
                                 adv_data['Value'].append(f"₹{stock['money_flow_mm']:.1f}M")
-                                adv_data['Description'].append('Price  Volume  RVOL')
+                                adv_data['Description'].append('Price × Volume × RVOL')
 
                             
                             # Overall Market Strength
@@ -16423,7 +16423,7 @@ def main():
                 UIComponents.render_metric_card(label, value)
     
     with tabs[6]:
-        st.markdown("### ℹ About Wave Detection 3.0")
+        st.markdown("### ℹ️ About Wave Detection 3.0")
         
         # Main content in clean two-column layout
         col1, col2 = st.columns([2, 1])
@@ -16513,7 +16513,7 @@ def main():
         
         # System architecture section
         st.markdown("---")
-        st.markdown("#### 🏗 System Architecture")
+        st.markdown("#### 🏗️ System Architecture")
         
         arch_col1, arch_col2, arch_col3 = st.columns(3)
         
@@ -16583,7 +16583,7 @@ def main():
             cache_minutes = int((datetime.now(timezone.utc) - st.session_state.last_refresh).total_seconds() / 60)
             UIComponents.render_metric_card(
                 "Cache Status",
-                f"{'🟢' if cache_minutes < 60 else '🔴'} {cache_minutes} min ago"
+                f"{'🟢' if cache_minutes < 60 else '🔴'} {cache_minutes}min ago"
             )
         
         # Footer
