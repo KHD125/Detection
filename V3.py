@@ -355,10 +355,10 @@ class Config:
         },
         "position_tiers": {
             "💎 Near Lows (0-20%)": (0, 20),
-            "🏗 Lower Range (20-40%)": (20, 40),
-            "🏞 Middle Range (40-60%)": (40, 60),
-            "⛰ Upper Range (60-80%)": (60, 80),
-            "🏔 Near Highs (80-100%)": (80, 100)
+            "🏗️ Lower Range (20-40%)": (20, 40),
+            "🏞️ Middle Range (40-60%)": (40, 60),
+            "⛰️ Upper Range (60-80%)": (60, 80),
+            "🏔️ Near Highs (80-100%)": (80, 100)
         },
         "performance_tiers": {
             # Short-term momentum (Practical thresholds for Indian markets)
@@ -376,7 +376,7 @@ class Config:
             # Long-term performance (More practical thresholds)
             "🌙 Annual Winners (>50% 1Y)": ("ret_1y", 50),
             "👑 Multi-Year Champions (>100% 3Y)": ("ret_3y", 100),
-            "🏛 Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
+            "🏛️ Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -395,10 +395,10 @@ class Config:
         },
         "momentum_harmony_tiers": {
             "💔 Broken (Score 0)": ("momentum_harmony", 0, 0),
-            "🌧 Conflicted (Score 1)": ("momentum_harmony", 1, 1),
+            "🌧️ Conflicted (Score 1)": ("momentum_harmony", 1, 1),
             "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
-            "🌤 Aligned (Score 3)": ("momentum_harmony", 3, 3),
-            "☀ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
+            "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
+            "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         }
     })
     
@@ -1028,7 +1028,7 @@ class DataProcessor:
                 elif 'ret_3y' in returns and returns['ret_3y'] > 100:
                     return "👑 Multi-Year Champions (>100% 3Y)"
                 elif 'ret_5y' in returns and returns['ret_5y'] > 150:
-                    return "🏛 Long-Term Legends (>150% 5Y)"
+                    return "🏛️ Long-Term Legends (>150% 5Y)"
                 
                 else:
                     return "Standard"
@@ -1247,10 +1247,10 @@ class AdvancedMetrics:
                     return "Unknown"
                 harmony_map = {
                     0: "💔 Broken (Score 0)",
-                    1: "🌧 Conflicted (Score 1)", 
+                    1: "🌧️ Conflicted (Score 1)", 
                     2: "⛅ Mixed (Score 2)",
-                    3: "🌤 Aligned (Score 3)",
-                    4: "☀ Perfect Harmony (Score 4)"
+                    3: "🌤️ Aligned (Score 3)",
+                    4: "☀️ Perfect Harmony (Score 4)"
                 }
                 return harmony_map.get(int(value), "Unknown")
             
@@ -5364,14 +5364,14 @@ class PatternDetector:
             '🎯 EARNINGS ROCKET': {'importance_weight': 10, 'category': 'fundamental'},
             '🏆 QUALITY LEADER': {'importance_weight': 10, 'category': 'fundamental'},
             '🔄 TURNAROUND': {'importance_weight': 10, 'category': 'fundamental'},
-            '⚠ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
+            '⚠️ HIGH PE': {'importance_weight': -5, 'category': 'warning'},
             '🎲 52W HIGH APPROACH': {'importance_weight': 10, 'category': 'range'},
             '↗️ 52W LOW BOUNCE': {'importance_weight': 10, 'category': 'range'},
             '🔀 MOMENTUM DIVERGE': {'importance_weight': 10, 'category': 'divergence'},
             '🤏 RANGE COMPRESS': {'importance_weight': 5, 'category': 'range'},
             '🤫 STEALTH': {'importance_weight': 10, 'category': 'hidden'},
-            '🏎 ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
-            '⛈ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
+            '🏎️ ACCELERATION': {'importance_weight': 10, 'category': 'aggressive'},
+            '⛈️ PERFECT STORM': {'importance_weight': 20, 'category': 'extreme'},
             '🪤 BULL TRAP': {'importance_weight': 15, 'category': 'reversal'},
             '💣 CAPITULATION': {'importance_weight': 20, 'category': 'reversal'},
             '🏃 RUNAWAY GAP': {'importance_weight': 12, 'category': 'continuation'},
@@ -5382,7 +5382,7 @@ class PatternDetector:
             '✨ GOLDEN CROSS': {'importance_weight': 12, 'category': 'bullish'},
             '📉 EXHAUSTION': {'importance_weight': -15, 'category': 'bearish'},
             '🔺 PYRAMID': {'importance_weight': 8, 'category': 'accumulation'},
-            '🌪 VACUUM': {'importance_weight': 18, 'category': 'reversal'},
+            '🌪️ VACUUM': {'importance_weight': 18, 'category': 'reversal'},
             '🎆 EARNINGS SURPRISE LEADER': {'importance_weight': 22, 'category': 'fundamental'},
             '🕰️ INFORMATION DECAY ARBITRAGE': {'importance_weight': 25, 'category': 'mathematical'},
             '🐦 PHOENIX RISING': {'importance_weight': 28, 'category': 'transformation'},
@@ -5872,7 +5872,7 @@ class PatternDetector:
         # 16. High PE Warning - Realistic threshold for Indian markets
         pe = get_col_safe('pe')
         mask = pe.notna() & (pe > 50)  # Lowered from 100 to 50 for practical screening
-        patterns.append(('⚠ HIGH PE', mask))
+        patterns.append(('⚠️ HIGH PE', mask))
 
         # ========== RANGE PATTERNS (17-20) ==========
         
@@ -5939,7 +5939,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 22. 🏎 ACCELERATION - Momentum acceleration pattern
+        # 22. 🏎️ ACCELERATION - Momentum acceleration pattern
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -5953,7 +5953,7 @@ class PatternDetector:
                 (get_col_safe('from_high_pct', -100) > -15) & 
                 (df['category'].isin(['Small Cap', 'Micro Cap']))
             )
-            patterns.append(('🏎 ACCELERATION', mask))
+            patterns.append(('🏎️ ACCELERATION', mask))
         
         # 23. Perfect Storm
         if 'momentum_harmony' in df.columns and 'master_score' in df.columns:
@@ -5962,7 +5962,7 @@ class PatternDetector:
                 (get_col_safe('ret_30d', 0) > 20) &  # Use return data instead
                 (get_col_safe('rvol', 0) > 2)  # Add volume confirmation
             )
-            patterns.append(('⛈ PERFECT STORM', mask))
+            patterns.append(('⛈️ PERFECT STORM', mask))
 
         # ========== REVERSAL & CONTINUATION PATTERNS (24-34) ==========
         
@@ -6112,7 +6112,7 @@ class PatternDetector:
                 (df['rvol'] > 3) &
                 (df['from_low_pct'] < 10)
             )
-            patterns.append(('🌪 VACUUM', mask))
+            patterns.append(('🌪️ VACUUM', mask))
 
         # 35. EARNINGS SURPRISE LEADER - Multi-timeframe earnings acceleration with pace calculation
         try:
@@ -7249,7 +7249,7 @@ class FilterEngine:
             "💎 Half-Year Heroes (>60% 6M)",
             "🌙 Annual Winners (>80% 1Y)",
             "👑 Multi-Year Champions (>150% 3Y)",
-            "🏛 Long-Term Legends (>250% 5Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
             "🎯 Custom Range"
         ]
         
@@ -9326,7 +9326,7 @@ class SessionStateManager:
             "💎 Half-Year Heroes (>60% 6M)",
             "🌙 Annual Winners (>80% 1Y)",
             "👑 Multi-Year Champions (>150% 3Y)",
-            "🏛 Long-Term Legends (>250% 5Y)",
+            "🏛️ Long-Term Legends (>250% 5Y)",
             "🎯 Custom Range"
         ]
         
@@ -11316,7 +11316,7 @@ def main():
                     'ret_5y': {
                         'name': '5 Year Return',
                         'presets': [
-                            {'label': '🏛 Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
+                            {'label': '🏛️ Long-Term Legends', 'min': 300, 'max': None, 'description': '>300% 5Y'},
                             {'label': '💎 5Y Diamonds', 'min': 250, 'max': 300, 'description': '250-300% 5Y'},
                             {'label': '🌟 5Y Winners', 'min': 150, 'max': 250, 'description': '150-250% 5Y'},
                             {'label': '📊 5Y Average', 'min': 0, 'max': 100, 'description': '0-100% 5Y'},
@@ -12835,7 +12835,7 @@ def main():
                 options=[
                     "🌊 Wave Hunter", 
                     "⚡ Breakout Scanner", 
-                    "🏗 Pattern Recognition",
+                    "🏗️ Pattern Recognition",
                     "💰 Institutional Flow",
                     "🔥 Momentum Surge",
                     "📊 Full Spectrum"
@@ -12983,12 +12983,12 @@ def main():
             radar_df = radar_df[radar_df.get('breakout_score', 0) >= 65]
             st.info(f"⚡ Breakout Scanner Mode: {len(radar_df)}/{original_count} stocks have breakout score ≥65")
             
-        elif radar_mode == "🏗 Pattern Recognition":
+        elif radar_mode == "🏗️ Pattern Recognition":
             if 'patterns' in radar_df.columns:
                 radar_df = radar_df[radar_df['patterns'].str.len() > 0]
-                st.info(f"🏗 Pattern Recognition Mode: {len(radar_df)}/{original_count} stocks have detected patterns")
+                st.info(f"🏗️ Pattern Recognition Mode: {len(radar_df)}/{original_count} stocks have detected patterns")
             else:
-                st.warning("🏗 Pattern Recognition Mode: 'patterns' column not available - using all data")
+                st.warning("🏗️ Pattern Recognition Mode: 'patterns' column not available - using all data")
                 
         elif radar_mode == "💰 Institutional Flow":
             flow_filter = (
@@ -16513,7 +16513,7 @@ def main():
         
         # System architecture section
         st.markdown("---")
-        st.markdown("#### 🏗 System Architecture")
+        st.markdown("#### 🏗️ System Architecture")
         
         arch_col1, arch_col2, arch_col3 = st.columns(3)
         
