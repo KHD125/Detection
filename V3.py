@@ -8886,10 +8886,10 @@ class UIComponents:
             
             # Regime display with enhanced styling
             regime_colors = {
-                'RISK-ON BULL': '�',
-                'RISK-OFF DEFENSIVE': '�️',
+                'RISK-ON BULL': '🚀',
+                'RISK-OFF DEFENSIVE': '🛡️',
                 'VOLATILE OPPORTUNITY': '⚡',
-                'RANGE-BOUND': '�'
+                'RANGE-BOUND': '😴'
             }
             
             # Extract emoji and text from regime
