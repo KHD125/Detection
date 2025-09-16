@@ -16570,10 +16570,9 @@ def main():
                 st.session_state.data_quality = {'completeness': 85.0}
             
             data_quality = st.session_state.data_quality.get('completeness', 0)
-            quality_emoji = "🟢" if data_quality > 80 else "🟡" if data_quality > 60 else "🔴"
             UIComponents.render_metric_card(
                 "Data Quality",
-                f"{quality_emoji} {data_quality:.1f}%"
+                f"{'🟢' if data_quality > 80 else '🟡' if data_quality > 60 else '🔴'} {data_quality:.1f}%"
             )
         
         with session_cols[3]:
@@ -16581,12 +16580,10 @@ def main():
             if 'last_refresh' not in st.session_state:
                 st.session_state.last_refresh = datetime.now(timezone.utc)
             
-            cache_time = datetime.now(timezone.utc) - st.session_state.last_refresh
-            minutes = int(cache_time.total_seconds() / 60)
-            cache_emoji = "🟢" if minutes < 60 else "🔴"
+            cache_minutes = int((datetime.now(timezone.utc) - st.session_state.last_refresh).total_seconds() / 60)
             UIComponents.render_metric_card(
                 "Cache Status",
-                f"{cache_emoji} {minutes}min ago"
+                f"{'🟢' if cache_minutes < 60 else '🔴'} {cache_minutes}min ago"
             )
         
         # Footer
