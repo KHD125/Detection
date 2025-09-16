@@ -1,5 +1,5 @@
 """
-Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Wave Detection 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -8480,7 +8480,7 @@ class UIComponents:
                     momentum_status = "📈 BUILDING"
                     momentum_quality = "DEVELOPING"
                 else:
-                    momentum_status = "⚖️ WEAK"
+                    momentum_status = "📉 WEAK"
                     momentum_quality = "CONSOLIDATING"
                 
                 UIComponents.render_metric_card(
@@ -9942,7 +9942,7 @@ def main():
     
     # Page configuration
     st.set_page_config(
-        page_title="Wave Detection Ultimate 3.0",
+        page_title="Wave Detection 3.0",
         page_icon="🌊",
         layout="wide",
         initial_sidebar_state="expanded"
@@ -10008,7 +10008,7 @@ def main():
         margin-bottom: 2rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     ">
-        <h1 style="margin: 0; font-size: 2.5rem;">🌊 Wave Detection Ultimate 3.0</h1>
+        <h1 style="margin: 0; font-size: 2.5rem;">🌊 Wave Detection 3.0</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">
             Professional Stock Ranking System
         </p>
@@ -16387,7 +16387,7 @@ def main():
                 UIComponents.render_metric_card(label, value)
     
     with tabs[6]:
-        st.markdown("### ℹ️ About Wave Detection Ultimate 3.0")
+        st.markdown("### ℹ️ About Wave Detection 3.0")
         
         # Main content in clean two-column layout
         col1, col2 = st.columns([2, 1])
@@ -16395,7 +16395,7 @@ def main():
         with col1:
             st.markdown("#### 🎯 System Overview")
             st.markdown("""
-            Wave Detection Ultimate 3.0 is a professional-grade stock ranking system designed for institutional-quality market analysis. 
+            Wave Detection 3.0 is a professional-grade stock ranking system designed for institutional-quality market analysis. 
             The system combines advanced technical analysis, volume dynamics, and pattern recognition to identify high-potential 
             investment opportunities.
             
@@ -16554,7 +16554,7 @@ def main():
             border-radius: 5px;
             margin-top: 2rem;
         ">
-            <strong>🌊 Wave Detection Ultimate 3.0</strong><br>
+            <strong>🌊 Wave Detection 3.0</strong><br>
             <small>Professional Stock Ranking System for Institutional-Grade Market Analysis</small>
         </div>
         """, unsafe_allow_html=True)
