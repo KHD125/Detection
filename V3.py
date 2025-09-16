@@ -15041,13 +15041,19 @@ def main():
                         industry_metrics.columns = ['avg_score', 'score_volatility', 'stock_count', 
                                                   'momentum_avg', 'acceleration_avg', 'volume_avg', 'avg_price']
                         
-                        # Calculate industry strength index
+                        # Calculate industry strength index (FIXED: Proper normalization to 0-100 range)
+                        # Ensure all components are clipped to 0-100 range before combining
+                        momentum_norm = industry_metrics['momentum_avg'].fillna(50).clip(0, 100)
+                        acceleration_norm = industry_metrics['acceleration_avg'].fillna(50).clip(0, 100)
+                        volume_norm = industry_metrics['volume_avg'].fillna(50).clip(0, 100)
+                        score_norm = industry_metrics['avg_score'].clip(0, 100)
+                        
                         industry_metrics['strength_index'] = (
-                            (industry_metrics['avg_score'] * 0.4) +
-                            (industry_metrics['momentum_avg'].fillna(50) * 0.2) +
-                            (industry_metrics['acceleration_avg'].fillna(50) * 0.2) +
-                            (industry_metrics['volume_avg'].fillna(50) * 0.2)
-                        ).round(1)
+                            (score_norm * 0.4) +
+                            (momentum_norm * 0.2) +
+                            (acceleration_norm * 0.2) +
+                            (volume_norm * 0.2)
+                        ).clip(0, 100).round(1)  # Final clipping to ensure 0-100 range
                         
                         # Add quality indicators
                         industry_metrics['quality'] = industry_metrics['strength_index'].apply(
