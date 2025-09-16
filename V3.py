@@ -14500,7 +14500,8 @@ def main():
                 UIComponents.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
             
             with exec_cols[3]:
-                avg_volume = filtered_df['rvol'].mean() if 'rvol' in filtered_df.columns else 0
+                # FIXED: Use median and clip outliers to avoid unrealistic 1000x+ values
+                avg_volume = filtered_df['rvol'].clip(0, 20).median() if 'rvol' in filtered_df.columns else 0
                 volume_activity = "🔥 HIGH" if avg_volume > 2.0 else "📊 MEDIUM" if avg_volume > 1.5 else "📉 LOW"
                 UIComponents.render_metric_card("Volume Activity", volume_activity, f"{avg_volume:.1f}x avg")
             
