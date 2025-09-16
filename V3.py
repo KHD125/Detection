@@ -8612,31 +8612,23 @@ class UIComponents:
         
         with pulse_col5:
             # Market Regime Intelligence
-            regime_strength = regime_metrics.get('strength', 50)
-            regime_confidence = regime_metrics.get('confidence', 50)
+            regime_strength = regime_metrics.get('breadth', 0.5) * 100  # Use actual breadth as strength
+            regime_confidence = min(95, max(60, abs(regime_metrics.get('category_spread', 0)) * 5 + 70))  # Confidence based on category spread
             
-            if regime in ['STRONG_UPTREND', 'PARABOLIC']:
-                regime_emoji = "🚀🚀"
+            if "RISK-ON BULL" in regime:
                 regime_action = "AGGRESSIVE LONG"
-            elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
-                regime_emoji = "📈"
-                regime_action = "LONG BIAS"
-            elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
-                regime_emoji = "🔄"
-                regime_action = "BUY DIPS"
-            elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
-                regime_emoji = "⚖️"
+            elif "VOLATILE OPPORTUNITY" in regime:
+                regime_action = "SELECTIVE LONG"
+            elif "RANGE-BOUND" in regime:
                 regime_action = "RANGE TRADE"
-            elif regime in ['DISTRIBUTION', 'TOPPING']:
-                regime_emoji = "⚠️"
-                regime_action = "REDUCE LONGS"
-            else:
-                regime_emoji = "📉"
+            elif "RISK-OFF DEFENSIVE" in regime:
                 regime_action = "DEFENSIVE"
+            else:
+                regime_action = "CAUTIOUS"
             
             UIComponents.render_metric_card(
                 "Market Regime",
-                f"{regime_emoji} {regime.replace('_', ' ')}",
+                f"{regime}",  # Just show the regime as-is (already has emoji)
                 f"Strength: {regime_strength:.0f}% • {regime_action}",
                 f"Institutional market regime analysis. Confidence: {regime_confidence:.0f}%. Strategic positioning: {regime_action}"
             )
@@ -8885,7 +8877,7 @@ class UIComponents:
             
             # Extract emoji and text from regime
             regime_key = regime.split(' ', 1)[-1] if ' ' in regime else regime
-            regime_emoji = regime_colors.get(regime_key, '⚪')
+            # Just display the regime as-is since it already contains emojis  
             st.markdown(f"### {regime}")
             
             # Show regime metrics for debugging
