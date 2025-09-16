@@ -6742,15 +6742,21 @@ class MarketIntelligence:
         momentum_pct = 0
         volume_level = metrics['avg_rvol']
         
-        # Calculate momentum percentage if available
-        if hasattr(df, 'columns') and 'momentum_score' in df.columns:
-            momentum_pct = (len(df[df['momentum_score'] >= 70]) / len(df) * 100) if len(df) > 0 else 0
+        # Calculate momentum percentage if available (BULLETPROOF)
+        if 'momentum_score' in df.columns and len(df) > 0:
+            valid_momentum = df['momentum_score'].dropna()
+            if len(valid_momentum) > 0:
+                momentum_pct = (len(valid_momentum[valid_momentum >= 70]) / len(valid_momentum) * 100)
+            else:
+                momentum_pct = 0
+        else:
+            momentum_pct = 0
         
         # COMPREHENSIVE REGIME LOGIC - All factors must align
         
         # RISK-ON BULL: Needs strong breadth + decent momentum OR strong category rotation
         if (breadth > 0.58 and momentum_pct > 6) or (category_diff > 8 and breadth > 0.55):
-            regime = "� RISK-ON BULL"
+            regime = "🔥 RISK-ON BULL"
         
         # RISK-OFF DEFENSIVE: Poor breadth + weak fundamentals
         elif breadth < 0.42 or (category_diff < -8 and breadth < 0.48):
