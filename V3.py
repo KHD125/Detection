@@ -6735,13 +6735,21 @@ class MarketIntelligence:
         else:
             metrics['avg_rvol'] = 1.0
         
-        # Determine market regime professionally
-        if metrics['micro_small_avg'] > metrics['large_mega_avg'] + 10 and breadth > 0.6:
+        # Determine market regime professionally with more realistic thresholds
+        category_diff = metrics['micro_small_avg'] - metrics['large_mega_avg']
+        
+        if category_diff > 5 and breadth > 0.55:
             regime = "🔥 RISK-ON BULL"
-        elif metrics['large_mega_avg'] > metrics['micro_small_avg'] + 10 and breadth < 0.4:
+        elif category_diff < -5 and breadth < 0.45:
             regime = "🛡️ RISK-OFF DEFENSIVE"
-        elif metrics['avg_rvol'] > 1.5 and breadth > 0.5:
+        elif metrics['avg_rvol'] > 1.3 and breadth > 0.5:
             regime = "⚡VOLATILE OPPORTUNITY"
+        elif abs(category_diff) <= 5 and breadth >= 0.45 and breadth <= 0.55:
+            regime = "😴 RANGE-BOUND"
+        elif breadth > 0.55:
+            regime = "🔥 RISK-ON BULL"
+        elif breadth < 0.45:
+            regime = "🛡️ RISK-OFF DEFENSIVE"
         else:
             regime = "😴 RANGE-BOUND"
         
@@ -8466,17 +8474,17 @@ class UIComponents:
             # Institutional Momentum Intelligence
             if 'momentum_score' in df.columns:
                 momentum_stats = df['momentum_score'].describe()
-                high_momentum = len(df[df['momentum_score'] >= 80])
-                elite_momentum = len(df[df['momentum_score'] >= 90])
+                high_momentum = len(df[df['momentum_score'] >= 70])  # Lowered from 80
+                elite_momentum = len(df[df['momentum_score'] >= 85])  # Lowered from 90
                 momentum_pct = (high_momentum / len(df) * 100) if len(df) > 0 else 0
                 
-                if momentum_pct > 25:
+                if momentum_pct > 15:  # Lowered from 25
                     momentum_status = "🚀 EXPLOSIVE"
                     momentum_quality = "INSTITUTIONAL GRADE"
-                elif momentum_pct > 15:
+                elif momentum_pct > 8:  # Lowered from 15
                     momentum_status = "🔥 STRONG"
                     momentum_quality = "PROFESSIONAL GRADE"
-                elif momentum_pct > 8:
+                elif momentum_pct > 4:  # Lowered from 8
                     momentum_status = "📈 BUILDING"
                     momentum_quality = "DEVELOPING"
                 else:
@@ -8486,8 +8494,8 @@ class UIComponents:
                 UIComponents.render_metric_card(
                     "Momentum Engine",
                     f"{momentum_status}",
-                    f"{momentum_pct:.0f}% • {elite_momentum} Elite • {momentum_quality}",
-                    f"Momentum analysis: {high_momentum} stocks with institutional-grade momentum (≥80). Avg: {momentum_stats['mean']:.1f}"
+                    f"{momentum_pct:.1f}% • {elite_momentum} Elite • {momentum_quality}",
+                    f"Momentum analysis: {high_momentum} stocks with strong momentum (≥70). Avg: {momentum_stats['mean']:.1f} | Max: {momentum_stats['max']:.1f}"
                 )
             else:
                 UIComponents.render_metric_card(
@@ -8502,17 +8510,17 @@ class UIComponents:
             if 'rvol' in df.columns:
                 volume_stats = df['rvol'].describe()
                 avg_rvol = df['rvol'].median()
-                volume_surge = len(df[df['rvol'] > 3])
-                extreme_volume = len(df[df['rvol'] > 5])
-                institutional_volume = len(df[df['rvol'] > 2])
+                volume_surge = len(df[df['rvol'] > 2.0])  # Lowered from 3
+                extreme_volume = len(df[df['rvol'] > 3.0])  # Lowered from 5
+                institutional_volume = len(df[df['rvol'] > 1.5])  # Lowered from 2
                 
-                if avg_rvol > 2.0:
+                if avg_rvol > 1.4:  # Lowered from 2.0
                     vol_status = "🌊🌊 TSUNAMI"
                     vol_quality = "EXTREME ACTIVITY"
-                elif avg_rvol > 1.5:
+                elif avg_rvol > 1.2:  # Lowered from 1.5
                     vol_status = "🌊 SURGE"
                     vol_quality = "HIGH ACTIVITY"
-                elif avg_rvol > 1.2:
+                elif avg_rvol > 1.05:  # Lowered from 1.2
                     vol_status = "💧 ELEVATED"
                     vol_quality = "ACTIVE"
                 else:
@@ -8522,8 +8530,8 @@ class UIComponents:
                 UIComponents.render_metric_card(
                     "Volume Intelligence",
                     f"{vol_status}",
-                    f"{avg_rvol:.1f}x • {volume_surge} Surges • {vol_quality}",
-                    f"Volume analysis: {institutional_volume} stocks with institutional volume (>2x). {extreme_volume} extreme volume spikes."
+                    f"{avg_rvol:.2f}x • {volume_surge} Surges • {vol_quality}",
+                    f"Volume analysis: {institutional_volume} stocks with elevated volume (>1.5x). {extreme_volume} extreme spikes (>3x)."
                 )
             else:
                 UIComponents.render_metric_card(
@@ -8541,48 +8549,52 @@ class UIComponents:
             # Factor 1: Overextension Risk
             if 'from_high_pct' in df.columns and 'momentum_score' in df.columns:
                 overextended = len(df[(df['from_high_pct'] >= -2) & (df['momentum_score'] < 50)])
-                if overextended > len(df) * 0.15:
-                    risk_score += 25
+                if overextended > len(df) * 0.10:  # Lowered from 0.15
+                    risk_score += 15  # Lowered from 25
                     risk_factors.append(f"{overextended} overextended")
             
             # Factor 2: Pump & Dump Risk
             if 'rvol' in df.columns and 'master_score' in df.columns:
-                pump_risk = len(df[(df['rvol'] > 8) & (df['master_score'] < 60)])
-                if pump_risk > 10:
-                    risk_score += 20
+                pump_risk = len(df[(df['rvol'] > 5) & (df['master_score'] < 60)])  # Lowered from 8
+                if pump_risk > 5:  # Lowered from 10
+                    risk_score += 15  # Lowered from 20
                     risk_factors.append(f"{pump_risk} pump suspects")
             
             # Factor 3: Trend Deterioration
             if 'trend_quality' in df.columns:
                 weak_trends = len(df[df['trend_quality'] < 40])
-                if weak_trends > len(df) * 0.25:
-                    risk_score += 15
+                if weak_trends > len(df) * 0.20:  # Lowered from 0.25
+                    risk_score += 10  # Lowered from 15
                     risk_factors.append(f"{weak_trends} weak trends")
             
             # Factor 4: Pattern Quality
             if 'patterns' in df.columns:
                 warning_patterns = len(df[df['patterns'].str.contains('🪤|📉|🔉|📊', na=False)])
-                if warning_patterns > len(df) * 0.1:
-                    risk_score += 20
+                if warning_patterns > len(df) * 0.08:  # Lowered from 0.1
+                    risk_score += 15  # Lowered from 20
                     risk_factors.append(f"{warning_patterns} warning patterns")
             
             # Factor 5: Market Regime Risk
             regime_risk = 0
-            if regime in ['WEAK_DOWNTREND', 'STRONG_DOWNTREND', 'CRASH']:
-                regime_risk = 30
-            elif regime in ['DISTRIBUTION', 'PULLBACK']:
+            if "RISK-OFF DEFENSIVE" in regime:
+                regime_risk = 25
+            elif "RANGE-BOUND" in regime:
+                regime_risk = 10
+            elif "VOLATILE OPPORTUNITY" in regime:
                 regime_risk = 15
+            elif "RISK-ON BULL" in regime:
+                regime_risk = 0
             
             risk_score += regime_risk
             
-            # Risk Classification
-            if risk_score >= 70:
+            # More realistic Risk Classification thresholds
+            if risk_score >= 65:  # Lowered from 70
                 risk_status = "🔴 EXTREME"
                 risk_action = "DEFENSIVE MODE"
-            elif risk_score >= 50:
+            elif risk_score >= 40:  # Lowered from 50
                 risk_status = "🟠 HIGH"
                 risk_action = "REDUCE EXPOSURE"
-            elif risk_score >= 30:
+            elif risk_score >= 20:  # Lowered from 30
                 risk_status = "🟡 MODERATE"
                 risk_action = "SELECTIVE"
             else:
@@ -8865,18 +8877,26 @@ class UIComponents:
             
             # Regime display with enhanced styling
             regime_colors = {
-                'STRONG_UPTREND': '🟢',
-                'UPTREND': '🟢',
-                'PULLBACK': '🟡',
-                'SIDEWAYS': '🟠',
-                'WEAK_UPTREND': '🟡',
-                'WEAK_DOWNTREND': '🟠',
-                'DOWNTREND': '🔴',
-                'STRONG_DOWNTREND': '🔴'
+                'RISK-ON BULL': '�',
+                'RISK-OFF DEFENSIVE': '�️',
+                'VOLATILE OPPORTUNITY': '⚡',
+                'RANGE-BOUND': '�'
             }
             
-            regime_emoji = regime_colors.get(regime, '⚪')
-            st.markdown(f"### {regime_emoji} **{regime}**")
+            # Extract emoji and text from regime
+            regime_key = regime.split(' ', 1)[-1] if ' ' in regime else regime
+            regime_emoji = regime_colors.get(regime_key, '⚪')
+            st.markdown(f"### {regime}")
+            
+            # Show regime metrics for debugging
+            if st.checkbox("🔍 Show Regime Metrics", key="regime_debug"):
+                st.json({
+                    'category_spread': round(regime_metrics.get('category_spread', 0), 2),
+                    'breadth': round(regime_metrics.get('breadth', 0), 3),
+                    'avg_rvol': round(regime_metrics.get('avg_rvol', 0), 2),
+                    'micro_small_avg': round(regime_metrics.get('micro_small_avg', 0), 2),
+                    'large_mega_avg': round(regime_metrics.get('large_mega_avg', 0), 2)
+                })
             
             # Detailed regime metrics
             st.markdown("**📡 INTELLIGENCE SIGNALS**")
@@ -8976,14 +8996,14 @@ class UIComponents:
             
             # Action Items based on regime
             st.markdown("**🎯 ACTION ITEMS**")
-            if regime in ['STRONG_UPTREND', 'UPTREND']:
+            if "RISK-ON BULL" in regime or "VOLATILE OPPORTUNITY" in regime:
                 st.info("• Focus on momentum leaders\n• Increase position sizes\n• Look for breakout patterns")
-            elif regime in ['PULLBACK']:
-                st.warning("• Prepare shopping lists\n• Watch for reversal patterns\n• Reduce position sizes")
-            elif regime in ['SIDEWAYS']:
+            elif "RANGE-BOUND" in regime:
                 st.info("• Trade range-bound setups\n• Focus on earnings plays\n• Neutral position sizing")
-            else:
+            elif "RISK-OFF DEFENSIVE" in regime:
                 st.error("• Defensive positioning\n• Cash preservation\n• Avoid new positions")
+            else:
+                st.warning("• Monitor market conditions\n• Wait for clearer signals\n• Prepare for regime shift")
 
         # ================================================================================================
         # PERFORMANCE ATTRIBUTION & ADVANCED METRICS
