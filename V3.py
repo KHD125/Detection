@@ -6720,9 +6720,9 @@ class MarketIntelligence:
             metrics['large_mega_avg'] = 50
             metrics['category_spread'] = 0
         
-        # Calculate market breadth
-        if 'ret_30d' in df.columns:
-            breadth = len(df[df['ret_30d'] > 0]) / len(df) if len(df) > 0 else 0.5
+        # Calculate market breadth using SAME timeframe as A/D (1-day)
+        if 'ret_1d' in df.columns:
+            breadth = len(df[df['ret_1d'] > 0]) / len(df) if len(df) > 0 else 0.5
             metrics['breadth'] = breadth
         else:
             breadth = 0.5
@@ -6735,21 +6735,32 @@ class MarketIntelligence:
         else:
             metrics['avg_rvol'] = 1.0
         
-        # Determine market regime professionally with more realistic thresholds
+        # UNIFIED MARKET REGIME DETECTION - Using ALL metrics for consistency
         category_diff = metrics['micro_small_avg'] - metrics['large_mega_avg']
         
-        if category_diff > 5 and breadth > 0.55:
-            regime = "🔥 RISK-ON BULL"
-        elif category_diff < -5 and breadth < 0.45:
+        # Get additional metrics for comprehensive regime detection
+        momentum_pct = 0
+        volume_level = metrics['avg_rvol']
+        
+        # Calculate momentum percentage if available
+        if hasattr(df, 'columns') and 'momentum_score' in df.columns:
+            momentum_pct = (len(df[df['momentum_score'] >= 70]) / len(df) * 100) if len(df) > 0 else 0
+        
+        # COMPREHENSIVE REGIME LOGIC - All factors must align
+        
+        # RISK-ON BULL: Needs strong breadth + decent momentum OR strong category rotation
+        if (breadth > 0.58 and momentum_pct > 6) or (category_diff > 8 and breadth > 0.55):
+            regime = "� RISK-ON BULL"
+        
+        # RISK-OFF DEFENSIVE: Poor breadth + weak fundamentals
+        elif breadth < 0.42 or (category_diff < -8 and breadth < 0.48):
             regime = "🛡️ RISK-OFF DEFENSIVE"
-        elif metrics['avg_rvol'] > 1.3 and breadth > 0.5:
+        
+        # VOLATILE OPPORTUNITY: High volume + mixed breadth
+        elif volume_level > 1.3 and breadth > 0.48 and breadth < 0.58:
             regime = "⚡VOLATILE OPPORTUNITY"
-        elif abs(category_diff) <= 5 and breadth >= 0.45 and breadth <= 0.55:
-            regime = "😴 RANGE-BOUND"
-        elif breadth > 0.55:
-            regime = "🔥 RISK-ON BULL"
-        elif breadth < 0.45:
-            regime = "🛡️ RISK-OFF DEFENSIVE"
+        
+        # RANGE-BOUND: Everything else (most common)
         else:
             regime = "😴 RANGE-BOUND"
         
