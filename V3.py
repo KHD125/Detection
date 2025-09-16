@@ -31,7 +31,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Union  # Add Union back for type hints
 from dataclasses import dataclass, field
@@ -16553,16 +16553,22 @@ def main():
         with session_cols[0]:
             UIComponents.render_metric_card(
                 "Stocks Loaded",
-                f"{len(ranked_df):,}" if 'ranked_df' in locals() else "0"
+                f"{len(ranked_df):,}" if ranked_df is not None else "0"
             )
         
         with session_cols[1]:
+            # Use ranked_df_display which is always available at this point
+            display_count = len(ranked_df_display) if 'ranked_df_display' in locals() else len(ranked_df) if ranked_df is not None else 0
             UIComponents.render_metric_card(
                 "Filtered Results",
-                f"{len(filtered_df):,}" if 'filtered_df' in locals() else "0"
+                f"{display_count:,}"
             )
         
         with session_cols[2]:
+            # Initialize data_quality if not exists
+            if 'data_quality' not in st.session_state:
+                st.session_state.data_quality = {'completeness': 85.0}
+            
             data_quality = st.session_state.data_quality.get('completeness', 0)
             quality_emoji = "🟢" if data_quality > 80 else "🟡" if data_quality > 60 else "🔴"
             UIComponents.render_metric_card(
@@ -16571,6 +16577,10 @@ def main():
             )
         
         with session_cols[3]:
+            # Initialize last_refresh if not exists
+            if 'last_refresh' not in st.session_state:
+                st.session_state.last_refresh = datetime.now(timezone.utc)
+            
             cache_time = datetime.now(timezone.utc) - st.session_state.last_refresh
             minutes = int(cache_time.total_seconds() / 60)
             cache_emoji = "🟢" if minutes < 60 else "🔴"
