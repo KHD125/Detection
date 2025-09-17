@@ -14481,38 +14481,124 @@ def main():
             elite_stocks = len(filtered_df[filtered_df['master_score'] >= elite_threshold]) if 'master_score' in filtered_df.columns else 0
             strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
             
-            # Market health indicators
-            market_health = "🔥 BULLISH" if elite_stocks > total_analyzed * 0.15 else "📈 POSITIVE" if strong_stocks > total_analyzed * 0.25 else "⚖️ NEUTRAL" if strong_stocks > total_analyzed * 0.15 else "⚠️ CAUTIOUS"
+            # PROFESSIONAL UNIQUE METRICS (NOT IN SUMMARY TAB)
             
             # Executive metrics row
-            exec_cols = st.columns(6)
+            exec_cols = st.columns(5)
             
             with exec_cols[0]:
-                UIComponents.render_metric_card("Market Health", market_health, f"{strong_stocks} strong signals")
+                # 🔄 SECTOR LEADERSHIP INTELLIGENCE
+                if 'sector' in filtered_df.columns and 'ret_1d' in filtered_df.columns:
+                    sector_performance = filtered_df.groupby('sector')['ret_1d'].mean().fillna(0)
+                    if not sector_performance.empty:
+                        top_sector = sector_performance.idxmax()
+                        top_sector_return = sector_performance.max()
+                        sector_status = "🔥 HOT" if top_sector_return > 2 else "📈 LEADING" if top_sector_return > 0.5 else "⚖️ MIXED"
+                        UIComponents.render_metric_card("🔄 Sector Leader", f"{sector_status}", f"{top_sector} (+{top_sector_return:.1f}%)")
+                    else:
+                        UIComponents.render_metric_card("🔄 Sector Leader", "📊 ANALYZING", "Data processing...")
+                else:
+                    UIComponents.render_metric_card("🔄 Sector Leader", "⚠️ NO DATA", "Sector data unavailable")
             
             with exec_cols[1]:
-                elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
-                UIComponents.render_metric_card("Elite Stocks", f"{elite_pct:.1f}%", f"{elite_stocks}/{total_analyzed}")
+                # 💰 EARNINGS MOMENTUM INTELLIGENCE
+                if 'eps_change_pct' in filtered_df.columns:
+                    valid_eps = filtered_df['eps_change_pct'].dropna()
+                    if len(valid_eps) > 0:
+                        avg_eps_growth = valid_eps.mean()
+                        positive_eps = len(valid_eps[valid_eps > 0])
+                        total_eps = len(valid_eps)
+                        eps_win_rate = safe_percentage(positive_eps, total_eps, default=0.0)
+                        
+                        if avg_eps_growth > 15:
+                            eps_status = "🚀 EXPLOSIVE"
+                        elif avg_eps_growth > 5:
+                            eps_status = "📈 STRONG"
+                        elif avg_eps_growth > 0:
+                            eps_status = "💚 POSITIVE"
+                        else:
+                            eps_status = "📉 DECLINING"
+                        
+                        UIComponents.render_metric_card("💰 Earnings Momentum", f"{eps_status}", f"{avg_eps_growth:+.1f}% avg • {eps_win_rate:.0f}% positive")
+                    else:
+                        UIComponents.render_metric_card("💰 Earnings Momentum", "📊 LIMITED", "Insufficient EPS data")
+                else:
+                    UIComponents.render_metric_card("💰 Earnings Momentum", "⚠️ NO DATA", "EPS data unavailable")
             
             with exec_cols[2]:
-                avg_momentum = filtered_df['momentum_score'].mean() if 'momentum_score' in filtered_df.columns else 0
-                momentum_rating = "🚀" if avg_momentum > 70 else "📈" if avg_momentum > 60 else "➡️"
-                UIComponents.render_metric_card("Momentum", f"{avg_momentum:.1f}", momentum_rating)
+                # 🎯 LONG-TERM STRENGTH INTELLIGENCE
+                if 'long_term_strength' in filtered_df.columns:
+                    valid_lts = filtered_df['long_term_strength'].dropna()
+                    if len(valid_lts) > 0:
+                        avg_lts = valid_lts.mean()
+                        strong_lts_count = len(valid_lts[valid_lts >= 70])
+                        lts_quality = safe_percentage(strong_lts_count, len(valid_lts), default=0.0)
+                        
+                        if avg_lts >= 75:
+                            lts_status = "💎 ELITE"
+                        elif avg_lts >= 65:
+                            lts_status = "🏆 STRONG"
+                        elif avg_lts >= 55:
+                            lts_status = "📈 GOOD"
+                        else:
+                            lts_status = "⚖️ AVERAGE"
+                        
+                        UIComponents.render_metric_card("🎯 Long-Term Strength", f"{lts_status}", f"{avg_lts:.1f} avg • {lts_quality:.0f}% strong")
+                    else:
+                        UIComponents.render_metric_card("🎯 Long-Term Strength", "📊 CALCULATING", "Processing trends...")
+                else:
+                    UIComponents.render_metric_card("🎯 Long-Term Strength", "⚠️ NO DATA", "LTS data unavailable")
             
             with exec_cols[3]:
-                # FIXED: Use median and clip outliers to avoid unrealistic 1000x+ values
-                avg_volume = filtered_df['rvol'].clip(0, 20).median() if 'rvol' in filtered_df.columns else 0
-                volume_activity = "🔥 HIGH" if avg_volume > 2.0 else "📊 MEDIUM" if avg_volume > 1.5 else "📉 LOW"
-                UIComponents.render_metric_card("Volume Activity", volume_activity, f"{avg_volume:.1f}x avg")
+                # ⏱️ MULTI-TIMEFRAME ALIGNMENT
+                if 'momentum_harmony' in filtered_df.columns:
+                    valid_harmony = filtered_df['momentum_harmony'].dropna()
+                    if len(valid_harmony) > 0:
+                        avg_harmony = valid_harmony.mean()
+                        aligned_count = len(valid_harmony[valid_harmony >= 3])
+                        alignment_rate = safe_percentage(aligned_count, len(valid_harmony), default=0.0)
+                        
+                        if avg_harmony >= 3.5:
+                            harmony_status = "🟢 PERFECT"
+                        elif avg_harmony >= 2.8:
+                            harmony_status = "🟢 ALIGNED"
+                        elif avg_harmony >= 2.0:
+                            harmony_status = "🟡 MIXED"
+                        else:
+                            harmony_status = "🔴 DIVERGING"
+                        
+                        UIComponents.render_metric_card("⏱️ Multi-Timeframe", f"{harmony_status}", f"{avg_harmony:.1f}/4 • {alignment_rate:.0f}% aligned")
+                    else:
+                        UIComponents.render_metric_card("⏱️ Multi-Timeframe", "📊 ANALYZING", "Timeframe analysis...")
+                else:
+                    UIComponents.render_metric_card("⏱️ Multi-Timeframe", "⚠️ NO DATA", "Harmony data unavailable")
             
             with exec_cols[4]:
-                breakout_count = len(filtered_df[filtered_df['breakout_score'] >= 70]) if 'breakout_score' in filtered_df.columns else 0
-                breakout_pct = (breakout_count / total_analyzed * 100) if total_analyzed > 0 else 0
-                UIComponents.render_metric_card("Breakouts", f"{breakout_pct:.1f}%", f"{breakout_count} stocks")
-            
-            with exec_cols[5]:
-                risk_level = "🛡️ LOW" if avg_momentum > 65 and avg_volume < 3 else "⚠️ MEDIUM" if avg_volume < 4 else "🚨 HIGH"
-                UIComponents.render_metric_card("Risk Level", risk_level, "Systematic")
+                # 📊 VALUATION HEALTH INTELLIGENCE
+                if 'pe' in filtered_df.columns:
+                    valid_pe = filtered_df['pe'].dropna()
+                    # Filter out extreme PE values for realistic assessment
+                    reasonable_pe = valid_pe[(valid_pe > 0) & (valid_pe < 100)]
+                    
+                    if len(reasonable_pe) > 0:
+                        avg_pe = reasonable_pe.mean()
+                        reasonable_count = len(reasonable_pe[(reasonable_pe >= 10) & (reasonable_pe <= 25)])
+                        valuation_health = safe_percentage(reasonable_count, len(reasonable_pe), default=0.0)
+                        
+                        if avg_pe <= 15:
+                            pe_status = "💰 CHEAP"
+                        elif avg_pe <= 25:
+                            pe_status = "💵 FAIR"
+                        elif avg_pe <= 40:
+                            pe_status = "💸 EXPENSIVE"
+                        else:
+                            pe_status = "🚨 OVERVALUED"
+                        
+                        UIComponents.render_metric_card("📊 Valuation Health", f"{pe_status}", f"PE: {avg_pe:.1f}x • {valuation_health:.0f}% reasonable")
+                    else:
+                        UIComponents.render_metric_card("📊 Valuation Health", "📊 LIMITED", "Insufficient PE data")
+                else:
+                    UIComponents.render_metric_card("📊 Valuation Health", "⚠️ NO DATA", "PE data unavailable")
             
             # ================================================================================================
             # 📈 ADVANCED VISUALIZATION SUITE - PROFESSIONAL CHARTS
@@ -15251,6 +15337,15 @@ def main():
             
             st.markdown("---")
             st.markdown("### 🎯 **EXECUTIVE SUMMARY & ACTIONABLE INSIGHTS**")
+            
+            # Ensure variables are available for this section
+            if 'total_analyzed' not in locals():
+                total_analyzed = len(filtered_df)
+                elite_threshold = 80
+                strong_threshold = 70
+                elite_stocks = len(filtered_df[filtered_df['master_score'] >= elite_threshold]) if 'master_score' in filtered_df.columns else 0
+                strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
+                elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
             
             summary_cols = st.columns(2)
             
@@ -16133,6 +16228,7 @@ def main():
                                         rvol_val = stock['rvol']
                                         st.markdown("**Activity Level**")
                                         
+                                        # Determine activity level based on RVOL
                                         if rvol_val >= 2.0:
                                             activity = "🔥 High Activity"
                                         elif rvol_val >= 1.0:
