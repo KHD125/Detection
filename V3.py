@@ -8812,9 +8812,8 @@ class UIComponents:
                 avoid_label = "AVOID SECTORS"
                 rotation_data = MarketIntelligence.detect_sector_rotation(df)
             
-            # Display dynamic title and context
+            # Display dynamic title
             st.markdown(f"**{rotation_title}**")
-            st.caption(rotation_subtitle)
             
             if not rotation_data.empty:
                 # Enhanced visualization with institutional perspective
