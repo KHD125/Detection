@@ -683,7 +683,9 @@ def parse_data_source_url(url_or_id: str) -> Tuple[str, str]:
     # Check if it's a Google Drive file URL
     if '/file/d/' in url_or_id:
         file_id = extract_spreadsheet_id(url_or_id)
-        csv_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+        # For Google Drive CSV files, use the direct download URL
+        # Format: https://drive.google.com/uc?export=download&id=FILE_ID
+        csv_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         return "drive", csv_url
     
     # Check if it's a Google Sheets URL or ID
@@ -10854,6 +10856,13 @@ def main():
             filters['industries'] = selected_industries
 
         st.markdown("#### ✨ Pattern Detector")
+        
+        # Check if patterns column exists, if not create empty patterns
+        if 'patterns' not in ranked_df_display.columns:
+            st.warning("⚠️ Pattern detection data not available. Patterns will be skipped.")
+            ranked_df_display['patterns'] = ''
+            ranked_df_display['pattern_count'] = 0
+            ranked_df_display['pattern_confidence'] = 0.0
         
         # Get all available patterns
         all_patterns = set()
