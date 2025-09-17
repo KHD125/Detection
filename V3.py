@@ -8166,7 +8166,7 @@ class FilterEngine:
         Get available options for a filter based on other active filters.
         This creates BIDIRECTIONAL SMART INTERCONNECTED filters for Category/Sector/Industry.
         """
-        if df.empty or column not in df.columns:
+        if df is None or df.empty or column not in df.columns:
             return []
         
         # Use current filters or get from state
@@ -10503,6 +10503,9 @@ def main():
         st.error("No data available. Please check your data source configuration.")
         st.stop()
     
+    # Initialize ranked_df_display with a safe default
+    ranked_df_display = ranked_df
+    
     if quick_filter:
         if quick_filter == 'top_gainers':
             ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80]
@@ -10516,8 +10519,6 @@ def main():
         elif quick_filter == 'institutional_tsunami':
             ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)]
             st.info(f"Showing {len(ranked_df_display)} stocks with Institutional Tsunami pattern")
-    else:
-        ranked_df_display = ranked_df
     
     # Sidebar filters
     with st.sidebar:
@@ -10722,6 +10723,11 @@ def main():
         # BIDIRECTIONAL SMART INTERCONNECTED FILTERS: Category ↔ Sector ↔ Industry
         # Any selection affects the other two filters bidirectionally
         st.markdown("#### 🏢 Company Classification")
+        
+        # Safety check to ensure we have valid data before proceeding with filters
+        if ranked_df_display is None or ranked_df_display.empty:
+            st.warning("No data available for filtering. Please check your data source.")
+            return
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -13669,32 +13675,79 @@ def main():
                             else:
                                 flow_direction = "➡️ Neutral"
                             
-                            # Create professional visualization
+                            # Create professional visualization with color zones
                             fig_flow = go.Figure()
+                            
+                            # Create color mapping based on flow score (same as sector rotation)
+                            colors = []
+                            for score in category_flow['Flow Score']:
+                                if score > 75:
+                                    colors.append('#00ff00')  # Bright green for hot categories
+                                elif score > 60:
+                                    colors.append('#32cd32')  # Green for strong categories
+                                elif score > 45:
+                                    colors.append('#ffd700')  # Gold for neutral
+                                elif score > 30:
+                                    colors.append('#ff8c00')  # Orange for weak
+                                else:
+                                    colors.append('#ff4500')  # Red for very weak
                             
                             fig_flow.add_trace(go.Bar(
                                 x=category_flow.index,
                                 y=category_flow['Flow Score'],
                                 text=[f"{val:.1f}" for val in category_flow['Flow Score']],
                                 textposition='outside',
-                                marker_color=['#2ecc71' if score > 60 else '#e74c3c' if score < 40 else '#f39c12' 
-                                             for score in category_flow['Flow Score']],
-                                hovertemplate='Category: %{x}<br>Flow Score: %{y:.1f}<br>Stocks: %{customdata}<br>Quality: %{customdata[1]}<extra></extra>',
-                                customdata=[[category_flow.loc[cat, 'Count'], 
-                                           category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else 'N/A'] 
+                                marker_color=colors,
+                                marker_line=dict(color='rgba(0,0,0,0.3)', width=1),
+                                hovertemplate=(
+                                    '<b>%{x}</b><br>'
+                                    'Flow Score: %{y:.1f}<br>'
+                                    'LDI Score: %{customdata[0]:.1f}%<br>'
+                                    'Market Leaders: %{customdata[1]} of %{customdata[2]}<br>'
+                                    'Leadership Quality: %{customdata[3]}<br>'
+                                    'Avg Score: %{customdata[4]:.1f}<extra></extra>'
+                                ),
+                                customdata=[[category_rotation.loc[cat, 'ldi_score'] if 'ldi_score' in category_rotation.columns else 0,
+                                           category_flow.loc[cat, 'Count'],
+                                           category_rotation.loc[cat, 'total_stocks'] if 'total_stocks' in category_rotation.columns else category_flow.loc[cat, 'Count'],
+                                           category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else 'N/A',
+                                           category_flow.loc[cat, 'Avg Score'] if 'Avg Score' in category_flow.columns else 0] 
                                           for cat in category_flow.index]
                             ))
                             
+                            # Enhanced layout with professional styling
                             fig_flow.update_layout(
-                                title=f"Smart Money Flow Direction: {flow_direction} (LDI Professional Analysis)",
+                                title=f"🎯 INSTITUTIONAL CATEGORY ROTATION MAP - {flow_direction}",
                                 xaxis_title="Market Cap Category",
-                                yaxis_title="Flow Score",
-                                height=300,
+                                yaxis_title="Enhanced Flow Score",
+                                height=450,
                                 template='plotly_white',
-                                showlegend=False
+                                showlegend=False,
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font=dict(size=12, color='#2c3e50'),
+                                title_font=dict(size=16, color='#2c3e50')
                             )
                             
+                            # Add horizontal reference lines for zones
+                            fig_flow.add_hline(y=75, line_dash="dash", line_color="green", annotation_text="Hot Zone")
+                            fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
+                            fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
+                            
                             st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
+                            
+                            # Add zone-based insights
+                            hot_categories = category_flow[category_flow['Flow Score'] > 75]
+                            if len(hot_categories) > 0:
+                                st.success(f"🔥 **HOT CATEGORIES**: {', '.join(hot_categories.index[:3])}")
+                            
+                            cold_categories = category_flow[category_flow['Flow Score'] < 35]
+                            if len(cold_categories) > 0:
+                                st.warning(f"❄️ **AVOID CATEGORIES**: {', '.join(cold_categories.index[-2:])}")
+                            
+                            neutral_categories = category_flow[(category_flow['Flow Score'] >= 45) & (category_flow['Flow Score'] <= 60)]
+                            if len(neutral_categories) > 0:
+                                st.info(f"⚖️ **NEUTRAL CATEGORIES**: {', '.join(neutral_categories.index[:2])}")
                         else:
                             st.info("Insufficient data for professional category rotation analysis.")
                             
