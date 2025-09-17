@@ -6600,7 +6600,7 @@ class LeadershipDensityEngine:
             
             # Use only relevant columns for caching
             cache_cols = ['industry', 'master_score']
-            optional_cols = ['momentum_score', 'volume_score']
+            optional_cols = ['momentum_score', 'volume_score', 'rvol', 'ret_30d', 'money_flow_mm']
             cache_cols.extend([col for col in optional_cols if col in df.columns])
             
             cache_df = df[cache_cols].copy()
@@ -6872,6 +6872,14 @@ class MarketIntelligence:
             }).copy()
             
             display_df['sampling_pct'] = 100.0
+            
+            # Professional quality indicators
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: 'Elite' if x >= 20 else 
+                         'Strong' if x >= 10 else 
+                         'Moderate' if x >= 5 else 
+                         'Weak'
+            )
             
             return display_df.sort_values('flow_score', ascending=False)
             
