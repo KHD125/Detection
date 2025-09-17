@@ -15590,14 +15590,13 @@ def main():
             st.markdown("---")
             st.markdown("### 🎯 **EXECUTIVE SUMMARY & ACTIONABLE INSIGHTS**")
             
-            # Ensure variables are available for this section
-            if 'total_analyzed' not in locals():
-                total_analyzed = len(filtered_df)
-                elite_threshold = 80
-                strong_threshold = 70
-                elite_stocks = len(filtered_df[filtered_df['master_score'] >= elite_threshold]) if 'master_score' in filtered_df.columns else 0
-                strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
-                elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
+            # Ensure variables are always available for this section
+            total_analyzed = len(filtered_df)
+            elite_threshold = 80
+            strong_threshold = 70
+            elite_stocks = len(filtered_df[filtered_df['master_score'] >= elite_threshold]) if 'master_score' in filtered_df.columns else 0
+            strong_stocks = len(filtered_df[filtered_df['master_score'] >= strong_threshold]) if 'master_score' in filtered_df.columns else 0
+            elite_pct = (elite_stocks / total_analyzed * 100) if total_analyzed > 0 else 0
             
             summary_cols = st.columns(2)
             
