@@ -636,15 +636,11 @@ class DataValidator:
 
 def extract_spreadsheet_id(url_or_id: str) -> str:
     """
-    Extracts the spreadsheet ID from a Google Sheets URL, Google Drive file URL, or returns the ID if it's already in the correct format.
-    
-    Supports multiple URL formats:
-    - Google Sheets: https://docs.google.com/spreadsheets/d/ID/edit
-    - Google Drive: https://drive.google.com/file/d/ID/view
-    - Direct ID: 1GaC6Q9g3rpIT5hcCIO7rTVLL6Z4t8Usr
+    Extracts the spreadsheet ID from a Google Sheets URL or Google Drive CSV file URL,
+    or returns the ID if it's already in the correct format.
 
     Args:
-        url_or_id (str): A Google Sheets URL, Google Drive file URL, or just the spreadsheet ID.
+        url_or_id (str): A Google Sheets URL, Google Drive CSV file URL, or just the spreadsheet ID.
 
     Returns:
         str: The extracted spreadsheet ID, or an empty string if not found.
@@ -652,43 +648,56 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     if not url_or_id:
         return ""
     
-    # Strip whitespace and normalize
-    url_or_id = url_or_id.strip()
-    
-    # If it's already just an ID (no slashes), validate and return it
+    # If it's already just an ID (no slashes), return it
     if '/' not in url_or_id:
-        # Validate ID format (Google IDs are typically 44 characters, alphanumeric with dashes/underscores)
-        if re.match(r'^[a-zA-Z0-9-_]{25,50}$', url_or_id):
-            return url_or_id
-        else:
-            return ""
+        return url_or_id.strip()
     
-    # Enhanced pattern to match both Google Sheets and Google Drive URLs
-    # Matches:
-    # - /spreadsheets/d/ID (Google Sheets)
-    # - /file/d/ID (Google Drive)
-    # - /document/d/ID (Google Docs)
-    # - /presentation/d/ID (Google Slides)
-    patterns = [
-        r'/(spreadsheets|file|document|presentation)/d/([a-zA-Z0-9-_]{25,50})',  # Primary pattern
-        r'/d/([a-zA-Z0-9-_]{25,50})',  # Fallback pattern for direct /d/ links
-        r'id=([a-zA-Z0-9-_]{25,50})'   # Query parameter pattern
-    ]
+    # Try to extract from Google Sheets URL
+    pattern = r'/spreadsheets/d/([a-zA-Z0-9-_]+)'
+    match = re.search(pattern, url_or_id)
+    if match:
+        return match.group(1)
     
-    for pattern in patterns:
-        match = re.search(pattern, url_or_id)
-        if match:
-            # Return the ID (always the last capture group)
-            return match.group(-1)
+    # Try to extract from Google Drive file URL
+    drive_pattern = r'/file/d/([a-zA-Z0-9-_]+)'
+    drive_match = re.search(drive_pattern, url_or_id)
+    if drive_match:
+        return drive_match.group(1)
     
-    # If no pattern matches, check if it might be a malformed URL with a valid ID
-    # Extract any string that looks like a Google ID
-    id_match = re.search(r'([a-zA-Z0-9-_]{25,50})', url_or_id)
-    if id_match:
-        return id_match.group(1)
+    # If no match, return as is.
+    return url_or_id.strip()
+
+def parse_data_source_url(url_or_id: str) -> Tuple[str, str]:
+    """
+    Parses a data source URL and determines the type and appropriate CSV URL.
     
-    # If absolutely no match found, return empty string
-    return ""
+    Args:
+        url_or_id (str): Google Sheets URL, Google Drive CSV file URL, or spreadsheet ID
+        
+    Returns:
+        Tuple[str, str]: (source_type, csv_url) where source_type is 'sheets' or 'drive'
+    """
+    if not url_or_id:
+        return "sheets", ""
+    
+    # Check if it's a Google Drive file URL
+    if '/file/d/' in url_or_id:
+        file_id = extract_spreadsheet_id(url_or_id)
+        csv_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+        return "drive", csv_url
+    
+    # Check if it's a Google Sheets URL or ID
+    elif '/spreadsheets/d/' in url_or_id or '/' not in url_or_id:
+        sheet_id = extract_spreadsheet_id(url_or_id)
+        # Use gid=0 as default for the first sheet
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+        return "sheets", csv_url
+    
+    # Default to sheets format
+    else:
+        sheet_id = extract_spreadsheet_id(url_or_id)
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
+        return "sheets", csv_url
 
 @st.cache_data(ttl=3600, show_spinner=False)  # 1 hour TTL to prevent stale data
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
@@ -700,8 +709,8 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
     Args:
         source_type (str): Specifies the data source, either "sheet" or "upload".
         file_data (Optional): The uploaded CSV file object if `source_type` is "upload".
-        sheet_id (str): The Google Spreadsheet ID.
-        gid (str): The Google Sheet tab ID.
+        sheet_id (str): The Google Spreadsheet ID or Google Drive file ID.
+        gid (str): The Google Sheet tab ID (only used for Google Sheets).
         data_version (str): A unique key to bust the cache (e.g., hash of date + sheet ID).
 
     Returns:
@@ -709,7 +718,7 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         the processing timestamp, and metadata about the process.
     
     Raises:
-        ValueError: If a valid Google Sheets ID is not provided.
+        ValueError: If a valid Google Sheets ID or Google Drive CSV URL is not provided.
         Exception: If data loading or processing fails.
     """
     
@@ -744,57 +753,30 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         else:
             # Use defaults if not provided
             if not sheet_id:
-                raise ValueError("Please enter a Google Sheets ID")
-            if not gid:
-                gid = CONFIG.DEFAULT_GID
+                raise ValueError("Please enter a Google Sheets ID or Google Drive CSV URL")
             
-            # Extract and validate the sheet ID from URL or direct ID
-            extracted_id = extract_spreadsheet_id(sheet_id)
-            if not extracted_id:
-                raise ValueError("Invalid Google Sheets ID or URL format. Please provide a valid Google Sheets ID or URL.")
+            # Parse the URL to determine source type and construct appropriate CSV URL
+            source_url_type, csv_url = parse_data_source_url(sheet_id)
             
-            # Construct CSV URL for Google Sheets access
-            csv_url = f"https://docs.google.com/spreadsheets/d/{extracted_id}/export?format=csv&gid={gid}"
-            
-            # Determine source type for logging
-            source_description = "Google Sheets"
-            if "drive.google.com/file" in sheet_id:
-                source_description = "Google Drive file (converted to Sheets access)"
-            elif "docs.google.com/spreadsheets" in sheet_id:
-                source_description = "Google Sheets"
-            
-            logger.info(f"Loading data from {source_description} ID: {extracted_id}")
+            # For Google Sheets, use the provided gid or default
+            if source_url_type == "sheets":
+                if not gid:
+                    gid = CONFIG.DEFAULT_GID
+                # Re-construct with correct gid for sheets
+                actual_sheet_id = extract_spreadsheet_id(sheet_id)
+                csv_url = f"https://docs.google.com/spreadsheets/d/{actual_sheet_id}/export?format=csv&gid={gid}"
+                logger.info(f"Loading data from Google Sheets ID: {actual_sheet_id}")
+                metadata['source'] = "Google Sheets"
+            else:
+                # For Google Drive CSV files, use the direct download URL
+                logger.info(f"Loading data from Google Drive CSV file")
+                metadata['source'] = "Google Drive CSV"
             
             try:
                 df = pd.read_csv(csv_url, low_memory=False)
-                metadata['source'] = source_description
-                metadata['sheet_id'] = extracted_id
-                metadata['csv_url'] = csv_url
             except Exception as e:
-                error_msg = str(e)
-                logger.error(f"Failed to load from {source_description}: {error_msg}")
-                
-                # Enhanced error messaging based on URL type
-                if "drive.google.com/file" in sheet_id:
-                    enhanced_error = (
-                        f"Failed to access Google Drive file: {error_msg}\n\n"
-                        "Common solutions:\n"
-                        "• Ensure the file is a Google Sheets document (not Excel/other format)\n"
-                        "• Check sharing permissions: 'Anyone with the link can view'\n"
-                        "• Try opening the file in Google Sheets and use that URL instead\n"
-                        "• For Excel files: upload to Google Sheets and convert format"
-                    )
-                else:
-                    enhanced_error = (
-                        f"Failed to access Google Sheets: {error_msg}\n\n"
-                        "Common solutions:\n"
-                        "• Verify the Sheets ID or URL is correct\n"
-                        "• Check sharing permissions: 'Anyone with the link can view'\n"
-                        "• Ensure the sheet exists and is accessible\n"
-                        "• Check network connectivity"
-                    )
-                
-                metadata['errors'].append(enhanced_error)
+                logger.error(f"Failed to load from {source_url_type}: {str(e)}")
+                metadata['errors'].append(f"Data load error: {str(e)}")
                 
                 # Try to use cached data as fallback
                 if 'last_good_data' in st.session_state:
@@ -803,7 +785,7 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                     metadata['warnings'].append("Using cached data due to load failure")
                     metadata['cache_used'] = True
                     return df, timestamp, metadata
-                raise ValueError(enhanced_error)
+                raise
         
         # Validate loaded data
         is_valid, validation_msg = DataValidator.validate_dataframe(df, CONFIG.CRITICAL_COLUMNS, "Initial load")
@@ -10347,38 +10329,43 @@ def main():
                 st.info("Please upload a CSV file to continue")
         else:
             # Google Sheets input
-            st.markdown("#### 📊 Google Sheets Configuration")
+            st.markdown("#### 📊 Data Source Configuration")
             
             sheet_input = st.text_input(
-                "Google Sheets ID or URL",
+                "Google Sheets ID/URL or Google Drive CSV URL",
                 value=st.session_state.get('sheet_id', ''),
-                placeholder="Enter Sheet ID or full URL",
-                help="Example: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM or the full Google Sheets URL"
+                placeholder="Enter Sheet ID, Google Sheets URL, or Google Drive CSV URL",
+                help="Examples:\n• Sheet ID: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM\n• Google Sheets: https://docs.google.com/spreadsheets/d/ID/edit\n• Google Drive CSV: https://drive.google.com/file/d/ID/view"
             )
             
             if sheet_input:
-                sheet_id_match = re.search(r'/d/([a-zA-Z0-9-_]+)', sheet_input)
-                if sheet_id_match:
-                    sheet_id = sheet_id_match.group(1)
-                else:
-                    sheet_id = sheet_input.strip()
-            
+                # Use the enhanced extraction function that handles both Google Sheets and Drive URLs
+                sheet_id = extract_spreadsheet_id(sheet_input)
                 st.session_state.sheet_id = sheet_id
             
-            gid_input = st.text_input(
-                "Sheet Tab GID (Optional)",
-                value=st.session_state.get('gid', CONFIG.DEFAULT_GID),
-                placeholder=f"Default: {CONFIG.DEFAULT_GID}",
-                help="The GID identifies specific sheet tab. Found in URL after #gid="
-            )
+            # Only show GID input for Google Sheets (not for Google Drive CSV files)
+            show_gid_input = True
+            if sheet_input and '/file/d/' in sheet_input:
+                show_gid_input = False
+                st.info("ℹ️ Google Drive CSV files don't use sheet tabs (GID).")
             
-            if gid_input:
-                gid = gid_input.strip()
+            if show_gid_input:
+                gid_input = st.text_input(
+                    "Sheet Tab GID (Optional - Google Sheets only)",
+                    value=st.session_state.get('gid', CONFIG.DEFAULT_GID),
+                    placeholder=f"Default: {CONFIG.DEFAULT_GID}",
+                    help="The GID identifies specific sheet tab. Found in URL after #gid="
+                )
+                
+                if gid_input:
+                    gid = gid_input.strip()
+                else:
+                    gid = CONFIG.DEFAULT_GID
             else:
                 gid = CONFIG.DEFAULT_GID
             
             if not sheet_id:
-                st.warning("Please enter a Google Sheets ID to continue")
+                st.warning("Please enter a Google Sheets ID/URL or Google Drive CSV URL to continue")
         
         # Data quality indicator
         data_quality = st.session_state.get('data_quality', {})
