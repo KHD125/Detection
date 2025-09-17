@@ -6640,9 +6640,20 @@ class LeadershipDensityEngine:
             # Calculate Leadership Density Index
             ldi = (leader_count / total_stocks) * 100
             
-            # Additional metrics
+            # Additional metrics for enhanced analysis
             avg_score = category_df['master_score'].mean()
-            avg_percentile = category_df['category_percentile'].mean() if 'category_percentile' in category_df.columns else 50.0
+            median_score = category_df['master_score'].median()
+            top_10_pct_count = max(1, int(total_stocks * 0.1))
+            top_performers = category_df.nlargest(top_10_pct_count, 'master_score')
+            elite_avg_score = top_performers['master_score'].mean()
+            
+            # Calculate momentum and volume metrics if available
+            avg_momentum = category_df['momentum_score'].mean() if 'momentum_score' in category_df.columns else 50.0
+            avg_volume = category_df['volume_score'].mean() if 'volume_score' in category_df.columns else 50.0
+            avg_rvol = category_df['rvol'].mean() if 'rvol' in category_df.columns else 1.0
+            avg_ret_30d = category_df['ret_30d'].mean() if 'ret_30d' in category_df.columns else 0.0
+            
+            # Money flow if available
             total_money_flow = category_df['money_flow_mm'].sum() if 'money_flow_mm' in category_df.columns else 0.0
             
             category_stats.append({
@@ -6651,7 +6662,12 @@ class LeadershipDensityEngine:
                 'leader_count': leader_count,
                 'total_stocks': total_stocks,
                 'avg_score': round(avg_score, 2),
-                'avg_percentile': round(avg_percentile, 2),
+                'median_score': round(median_score, 2),
+                'elite_avg_score': round(elite_avg_score, 2),
+                'avg_momentum': round(avg_momentum, 2),
+                'avg_volume': round(avg_volume, 2),
+                'avg_rvol': round(avg_rvol, 2),
+                'avg_ret_30d': round(avg_ret_30d, 2),
                 'total_money_flow': round(total_money_flow, 2),
                 'leadership_density': f"{ldi:.1f}%"
             })
@@ -6678,7 +6694,7 @@ class LeadershipDensityEngine:
             
             # Use only relevant columns for caching
             cache_cols = ['category', 'master_score']
-            optional_cols = ['category_percentile', 'money_flow_mm']
+            optional_cols = ['momentum_score', 'volume_score', 'rvol', 'ret_30d', 'money_flow_mm']
             cache_cols.extend([col for col in optional_cols if col in df.columns])
             
             cache_df = df[cache_cols].copy()
@@ -6889,6 +6905,52 @@ class MarketIntelligence:
             return MarketIntelligence._calculate_traditional_industries(df)
     
     @staticmethod
+    def detect_category_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced category rotation detection using Leadership Density Index"""
+        
+        if df.empty or 'category' not in df.columns:
+            return pd.DataFrame()
+        
+        try:
+            # Primary approach: Use LDI for accurate analysis
+            ldi_df = LeadershipDensityEngine.calculate_category_ldi(df)
+            
+            if ldi_df.empty:
+                return pd.DataFrame()
+            
+            # Calculate enhanced flow score
+            ldi_df['flow_score'] = (
+                ldi_df['ldi_score'] * 0.4 +
+                ldi_df['avg_score'] * 0.3 +
+                ldi_df['avg_momentum'] * 0.15 +
+                ldi_df['avg_volume'] * 0.15
+            )
+            
+            ldi_df['rank'] = ldi_df['flow_score'].rank(ascending=False)
+            
+            # Ensure compatibility with existing UI
+            display_df = ldi_df.rename(columns={
+                'leader_count': 'analyzed_stocks'
+            }).copy()
+            
+            display_df['sampling_pct'] = 100.0
+            
+            # Professional quality indicators
+            display_df['ldi_quality'] = display_df['ldi_score'].apply(
+                lambda x: 'Elite' if x >= 20 else 
+                         'Strong' if x >= 10 else 
+                         'Moderate' if x >= 5 else 
+                         'Weak'
+            )
+            
+            return display_df.sort_values('flow_score', ascending=False)
+            
+        except Exception as e:
+            logger.error(f"Error in LDI category rotation: {str(e)}")
+            # Fallback to traditional method
+            return MarketIntelligence._calculate_traditional_categories(df)
+    
+    @staticmethod
     @st.cache_data(ttl=300, show_spinner=False)
     def _calculate_traditional_sectors(df: pd.DataFrame) -> pd.DataFrame:
         """Fallback traditional sector analysis with optimized sampling"""
@@ -7029,6 +7091,78 @@ class MarketIntelligence:
         industry_metrics['rank'] = industry_metrics['flow_score'].rank(ascending=False)
         
         return industry_metrics.sort_values('flow_score', ascending=False)
+
+    @staticmethod
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _calculate_traditional_categories(df: pd.DataFrame) -> pd.DataFrame:
+        """Fallback traditional category analysis with optimized sampling"""
+        
+        if 'category' not in df.columns or df.empty:
+            return pd.DataFrame()
+        
+        category_data = []
+        
+        for category in df['category'].unique():
+            if category == 'Unknown':
+                continue
+                
+            category_df = df[df['category'] == category].copy()
+            total_count = len(category_df)
+            
+            if total_count == 0:
+                continue
+            
+            # Simplified sampling logic for categories
+            if total_count <= 5:
+                sample_count = total_count
+            elif total_count <= 25:
+                sample_count = max(5, int(total_count * 0.7))
+            elif total_count <= 100:
+                sample_count = max(10, int(total_count * 0.4))
+            else:
+                sample_count = min(40, int(total_count * 0.2))
+            
+            # Take top performers
+            sampled_df = category_df.nlargest(sample_count, 'master_score')
+            category_data.append(sampled_df)
+        
+        if not category_data:
+            return pd.DataFrame()
+        
+        combined_df = pd.concat(category_data, ignore_index=True)
+        
+        # Calculate aggregated metrics
+        category_metrics = combined_df.groupby('category').agg({
+            'master_score': ['mean', 'median', 'count'],
+            'momentum_score': 'mean',
+            'volume_score': 'mean',
+            'rvol': 'mean',
+            'ret_30d': 'mean',
+            'money_flow_mm': 'sum' if 'money_flow_mm' in combined_df.columns else lambda x: 0
+        }).round(2)
+        
+        # Flatten column names
+        category_metrics.columns = [
+            'avg_score', 'median_score', 'analyzed_stocks',
+            'avg_momentum', 'avg_volume', 'avg_rvol', 'avg_ret_30d', 'total_money_flow'
+        ]
+        
+        # Add total stock counts and sampling percentage
+        total_counts = df.groupby('category').size().rename('total_stocks')
+        category_metrics = category_metrics.join(total_counts, how='left')
+        category_metrics['sampling_pct'] = (category_metrics['analyzed_stocks'] / category_metrics['total_stocks'] * 100).round(1)
+        
+        # Calculate flow score
+        category_metrics['flow_score'] = (
+            category_metrics['avg_score'] * 0.3 +
+            category_metrics['median_score'] * 0.2 +
+            category_metrics['avg_momentum'] * 0.25 +
+            category_metrics['avg_volume'] * 0.25
+        )
+        
+        category_metrics['rank'] = category_metrics['flow_score'].rank(ascending=False)
+        
+        return category_metrics.sort_values('flow_score', ascending=False)
 
 
 # ============================================
@@ -13507,96 +13641,66 @@ def main():
                 
                 with col1:
                     try:
-                        if 'category' in wave_filtered_df.columns:
-                            category_dfs = []
-                            for cat in wave_filtered_df['category'].unique():
-                                if cat != 'Unknown':
-                                    cat_df = wave_filtered_df[wave_filtered_df['category'] == cat]
-                                    
-                                    category_size = len(cat_df)
-                                    if category_size == 0: 
-                                        continue  
-                                    if 1 <= category_size <= 5:
-                                        sample_count = category_size
-                                    elif 6 <= category_size <= 20:
-                                        sample_count = max(1, int(category_size * 0.80))
-                                    elif 21 <= category_size <= 50:
-                                        sample_count = max(1, int(category_size * 0.60))
-                                    else:
-                                        sample_count = min(50, int(category_size * 0.25))
-                                    
-                                    if sample_count > 0:
-                                        cat_df = cat_df.nlargest(sample_count, 'master_score')
-                                    else:
-                                        cat_df = pd.DataFrame()
-                                        
-                                    if not cat_df.empty:
-                                        category_dfs.append(cat_df)
+                        # Use professional category rotation detection
+                        category_rotation = MarketIntelligence.detect_category_rotation(wave_filtered_df)
+                        
+                        if not category_rotation.empty:
+                            # Prepare data for visualization
+                            category_flow = category_rotation.copy()
                             
-                            if category_dfs:
-                                normalized_cat_df = pd.concat(category_dfs, ignore_index=True)
-                            else:
-                                normalized_cat_df = pd.DataFrame()
+                            # Rename columns for display compatibility
+                            if 'flow_score' in category_flow.columns:
+                                category_flow = category_flow.rename(columns={'flow_score': 'Flow Score'})
+                            if 'avg_score' in category_flow.columns:
+                                category_flow = category_flow.rename(columns={'avg_score': 'Avg Score'})
+                            if 'analyzed_stocks' in category_flow.columns:
+                                category_flow = category_flow.rename(columns={'analyzed_stocks': 'Count'})
+                            if 'avg_momentum' in category_flow.columns:
+                                category_flow = category_flow.rename(columns={'avg_momentum': 'Avg Momentum'})
+                            if 'avg_volume' in category_flow.columns:
+                                category_flow = category_flow.rename(columns={'avg_volume': 'Avg Volume'})
                             
-                            if not normalized_cat_df.empty:
-                                category_flow = normalized_cat_df.groupby('category').agg({
-                                    'master_score': ['mean', 'count'],
-                                    'momentum_score': 'mean',
-                                    'volume_score': 'mean',
-                                    'rvol': 'mean'
-                                }).round(2)
-                                
-                                if not category_flow.empty:
-                                    category_flow.columns = ['Avg Score', 'Count', 'Avg Momentum', 'Avg Volume', 'Avg RVOL']
-                                    category_flow['Flow Score'] = (
-                                        category_flow['Avg Score'] * 0.4 +
-                                        category_flow['Avg Momentum'] * 0.3 +
-                                        category_flow['Avg Volume'] * 0.3
-                                    )
-                                    
-                                    category_flow = category_flow.sort_values('Flow Score', ascending=False)
-                                    
-                                    top_category = category_flow.index[0] if len(category_flow) > 0 else ""
-                                    if 'Small' in top_category or 'Micro' in top_category:
-                                        flow_direction = "🔥 RISK-ON"
-                                    elif 'Large' in top_category or 'Mega' in top_category:
-                                        flow_direction = "❄️ RISK-OFF"
-                                    else:
-                                        flow_direction = "➡️ Neutral"
-                                    
-                                    fig_flow = go.Figure()
-                                    
-                                    fig_flow.add_trace(go.Bar(
-                                        x=category_flow.index,
-                                        y=category_flow['Flow Score'],
-                                        text=[f"{val:.1f}" for val in category_flow['Flow Score']],
-                                        textposition='outside',
-                                        marker_color=['#2ecc71' if score > 60 else '#e74c3c' if score < 40 else '#f39c12' 
-                                                     for score in category_flow['Flow Score']],
-                                        hovertemplate='Category: %{x}<br>Flow Score: %{y:.1f}<br>Stocks: %{customdata}<extra></extra>',
-                                        customdata=category_flow['Count']
-                                    ))
-                                    
-                                    fig_flow.update_layout(
-                                        title=f"Smart Money Flow Direction: {flow_direction} (Dynamically Sampled)",
-                                        xaxis_title="Market Cap Category",
-                                        yaxis_title="Flow Score",
-                                        height=300,
-                                        template='plotly_white',
-                                        showlegend=False
-                                    )
-                                    
-                                    st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
-                                else:
-                                    st.info("Insufficient data for category flow analysis after sampling.")
+                            # Determine flow direction based on top category
+                            top_category = category_flow.index[0] if len(category_flow) > 0 else ""
+                            if 'Small' in top_category or 'Micro' in top_category:
+                                flow_direction = "🔥 RISK-ON"
+                            elif 'Large' in top_category or 'Mega' in top_category:
+                                flow_direction = "❄️ RISK-OFF"
                             else:
-                                st.info("No valid stocks found in categories for flow analysis after sampling.")
+                                flow_direction = "➡️ Neutral"
+                            
+                            # Create professional visualization
+                            fig_flow = go.Figure()
+                            
+                            fig_flow.add_trace(go.Bar(
+                                x=category_flow.index,
+                                y=category_flow['Flow Score'],
+                                text=[f"{val:.1f}" for val in category_flow['Flow Score']],
+                                textposition='outside',
+                                marker_color=['#2ecc71' if score > 60 else '#e74c3c' if score < 40 else '#f39c12' 
+                                             for score in category_flow['Flow Score']],
+                                hovertemplate='Category: %{x}<br>Flow Score: %{y:.1f}<br>Stocks: %{customdata}<br>Quality: %{customdata[1]}<extra></extra>',
+                                customdata=[[category_flow.loc[cat, 'Count'], 
+                                           category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else 'N/A'] 
+                                          for cat in category_flow.index]
+                            ))
+                            
+                            fig_flow.update_layout(
+                                title=f"Smart Money Flow Direction: {flow_direction} (LDI Professional Analysis)",
+                                xaxis_title="Market Cap Category",
+                                yaxis_title="Flow Score",
+                                height=300,
+                                template='plotly_white',
+                                showlegend=False
+                            )
+                            
+                            st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                         else:
-                            st.info("Category data not available for flow analysis.")
+                            st.info("Insufficient data for professional category rotation analysis.")
                             
                     except Exception as e:
-                        logger.error(f"Error in category flow analysis: {str(e)}")
-                        st.error("Unable to analyze category flow")
+                        logger.error(f"Error in professional category rotation analysis: {str(e)}")
+                        st.error("Unable to analyze category rotation")
                 
                 with col2:
                     if 'category_flow' in locals() and not category_flow.empty:
@@ -13605,7 +13709,9 @@ def main():
                         st.markdown("**💎 Strongest Categories:**")
                         for i, (cat, row) in enumerate(category_flow.head(3).iterrows()):
                             emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
-                            st.write(f"{emoji} **{cat}**: Score {row['Flow Score']:.1f}")
+                            quality = category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else ''
+                            quality_emoji = {'Elite': '🏆', 'Strong': '💪', 'Moderate': '📈', 'Weak': '😐'}.get(quality, '')
+                            st.write(f"{emoji} **{cat}**: Score {row['Flow Score']:.1f} {quality_emoji}{quality}")
                         
                         st.markdown("**🔄 Category Shifts:**")
                         small_caps_score = category_flow[category_flow.index.str.contains('Small|Micro')]['Flow Score'].mean()
@@ -13617,6 +13723,14 @@ def main():
                             st.warning("📉 Large Caps Leading - Defensive Mode")
                         else:
                             st.info("➡️ Balanced Market - No Clear Leader")
+                        
+                        # Show LDI quality breakdown
+                        if 'ldi_quality' in category_rotation.columns:
+                            st.markdown("**🎯 Leadership Quality:**")
+                            quality_counts = category_rotation['ldi_quality'].value_counts()
+                            for quality, count in quality_counts.items():
+                                emoji = {'Elite': '🏆', 'Strong': '💪', 'Moderate': '📈', 'Weak': '😐'}.get(quality, '')
+                                st.write(f"{emoji} {quality}: {count} categories")
                     else:
                         st.info("Category data not available")
             
