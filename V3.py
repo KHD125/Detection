@@ -634,79 +634,54 @@ class DataValidator:
 # SMART CACHING WITH VERSIONING
 # ============================================
 
-def extract_spreadsheet_id(url_or_id: str) -> str:
+def extract_spreadsheet_id(url_or_id: str) -> tuple:
     """
-    Extracts the spreadsheet ID from a Google Sheets URL or Google Drive CSV file URL,
-    or returns the ID if it's already in the correct format.
+    Extracts the spreadsheet/file ID from a Google Sheets or Google Drive URL.
 
     Args:
-        url_or_id (str): A Google Sheets URL, Google Drive CSV file URL, or just the spreadsheet ID.
+        url_or_id (str): A Google Sheets URL, Google Drive URL, or just the ID.
 
     Returns:
-        str: The extracted spreadsheet ID, or an empty string if not found.
+        tuple: (extracted_id, source_type) where source_type is 'sheets', 'drive', or 'unknown'
     """
     if not url_or_id:
-        return ""
+        return "", "unknown"
     
-    # If it's already just an ID (no slashes), return it
+    # If it's already just an ID (no slashes), assume Google Sheets
     if '/' not in url_or_id:
-        return url_or_id.strip()
+        return url_or_id.strip(), "sheets"
     
-    # Try to extract from Google Sheets URL
-    pattern = r'/spreadsheets/d/([a-zA-Z0-9-_]+)'
-    match = re.search(pattern, url_or_id)
-    if match:
-        return match.group(1)
+    # Check for Google Sheets URL pattern
+    sheets_pattern = r'/spreadsheets/d/([a-zA-Z0-9-_]+)'
+    sheets_match = re.search(sheets_pattern, url_or_id)
+    if sheets_match:
+        return sheets_match.group(1), "sheets"
     
-    # Try to extract from Google Drive file URL
+    # Check for Google Drive URL pattern
     drive_pattern = r'/file/d/([a-zA-Z0-9-_]+)'
     drive_match = re.search(drive_pattern, url_or_id)
     if drive_match:
-        return drive_match.group(1)
+        return drive_match.group(1), "drive"
     
-    # If no match, return as is.
-    return url_or_id.strip()
-
-def parse_data_source_url(url_or_id: str) -> Tuple[str, str]:
-    """
-    Parses a data source URL and determines the type and appropriate CSV URL.
+    # Check for generic /d/ pattern (could be either)
+    generic_pattern = r'/d/([a-zA-Z0-9-_]+)'
+    generic_match = re.search(generic_pattern, url_or_id)
+    if generic_match:
+        # Try to determine type from domain
+        if "drive.google.com" in url_or_id:
+            return generic_match.group(1), "drive"
+        else:
+            return generic_match.group(1), "sheets"
     
-    Args:
-        url_or_id (str): Google Sheets URL, Google Drive CSV file URL, or spreadsheet ID
-        
-    Returns:
-        Tuple[str, str]: (source_type, csv_url) where source_type is 'sheets' or 'drive'
-    """
-    if not url_or_id:
-        return "sheets", ""
-    
-    # Check if it's a Google Drive file URL
-    if '/file/d/' in url_or_id:
-        file_id = extract_spreadsheet_id(url_or_id)
-        # For Google Drive CSV files, use the direct download URL
-        # Format: https://drive.google.com/uc?export=download&id=FILE_ID
-        csv_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        return "drive", csv_url
-    
-    # Check if it's a Google Sheets URL or ID
-    elif '/spreadsheets/d/' in url_or_id or '/' not in url_or_id:
-        sheet_id = extract_spreadsheet_id(url_or_id)
-        # Use gid=0 as default for the first sheet
-        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-        return "sheets", csv_url
-    
-    # Default to sheets format
-    else:
-        sheet_id = extract_spreadsheet_id(url_or_id)
-        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid=0"
-        return "sheets", csv_url
+    # If no match, return as is with unknown type
+    return url_or_id.strip(), "unknown"
 
 @st.cache_data(ttl=3600, show_spinner=False)  # 1 hour TTL to prevent stale data
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
                          sheet_id: str = None, gid: str = None,
-                         data_version: str = "1.0") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
+                         data_version: str = "1.0", url_source_type: str = "sheets") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
     """
-    Loads and processes data from a Google Sheet or CSV file with caching and versioning.
+    Loads and processes data from a Google Sheet, Google Drive CSV, or uploaded CSV file with caching and versioning.
 
     Args:
         source_type (str): Specifies the data source, either "sheet" or "upload".
@@ -714,13 +689,15 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         sheet_id (str): The Google Spreadsheet ID or Google Drive file ID.
         gid (str): The Google Sheet tab ID (only used for Google Sheets).
         data_version (str): A unique key to bust the cache (e.g., hash of date + sheet ID).
+        url_source_type (str): The type of URL source - "sheets", "drive", or "unknown".
+        data_version (str): A unique key to bust the cache (e.g., hash of date + sheet ID).
 
     Returns:
         Tuple[pd.DataFrame, datetime, Dict[str, Any]]: A tuple containing the processed DataFrame,
         the processing timestamp, and metadata about the process.
     
     Raises:
-        ValueError: If a valid Google Sheets ID or Google Drive CSV URL is not provided.
+        ValueError: If a valid Google Sheets ID is not provided.
         Exception: If data loading or processing fails.
     """
     
@@ -755,30 +732,27 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
         else:
             # Use defaults if not provided
             if not sheet_id:
-                raise ValueError("Please enter a Google Sheets ID or Google Drive CSV URL")
+                raise ValueError("Please enter a Google Sheets ID or Google Drive file ID")
+            if not gid:
+                gid = CONFIG.DEFAULT_GID
             
-            # Parse the URL to determine source type and construct appropriate CSV URL
-            source_url_type, csv_url = parse_data_source_url(sheet_id)
-            
-            # For Google Sheets, use the provided gid or default
-            if source_url_type == "sheets":
-                if not gid:
-                    gid = CONFIG.DEFAULT_GID
-                # Re-construct with correct gid for sheets
-                actual_sheet_id = extract_spreadsheet_id(sheet_id)
-                csv_url = f"https://docs.google.com/spreadsheets/d/{actual_sheet_id}/export?format=csv&gid={gid}"
-                logger.info(f"Loading data from Google Sheets ID: {actual_sheet_id}")
-                metadata['source'] = "Google Sheets"
+            # Construct CSV URL based on source type
+            if url_source_type == "drive":
+                csv_url = f"https://drive.usercontent.google.com/download?id={sheet_id}&export=download&authuser=0"
+                logger.info(f"Loading data from Google Drive file ID: {sheet_id}")
+                metadata['source'] = "Google Drive"
             else:
-                # For Google Drive CSV files, use the direct download URL
-                logger.info(f"Loading data from Google Drive CSV file")
-                metadata['source'] = "Google Drive CSV"
+                # Default to Google Sheets format
+                csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+                logger.info(f"Loading data from Google Sheets ID: {sheet_id}")
+                metadata['source'] = "Google Sheets"
             
             try:
                 df = pd.read_csv(csv_url, low_memory=False)
             except Exception as e:
-                logger.error(f"Failed to load from {source_url_type}: {str(e)}")
-                metadata['errors'].append(f"Data load error: {str(e)}")
+                error_msg = f"Failed to load from {metadata['source']}: {str(e)}"
+                logger.error(error_msg)
+                metadata['errors'].append(f"Load error: {str(e)}")
                 
                 # Try to use cached data as fallback
                 if 'last_good_data' in st.session_state:
@@ -786,12 +760,6 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                     df, timestamp, old_metadata = st.session_state.last_good_data
                     metadata['warnings'].append("Using cached data due to load failure")
                     metadata['cache_used'] = True
-                    
-                    # Check if cached data has required columns, if not disable cache fallback
-                    if 'rank' not in df.columns or 'master_score' not in df.columns:
-                        logger.warning("Cached data is incomplete, forcing fresh load failure")
-                        raise ValueError(f"Data load failed and cached data is incomplete. Please check your data source.")
-                    
                     return df, timestamp, metadata
                 raise
         
@@ -5464,66 +5432,56 @@ class PatternDetector:
         
         logger.info(f"Starting pattern detection for {len(df)} stocks...")
         
-        try:
-            # Get all pattern definitions
-            patterns_with_masks = PatternDetector._get_all_pattern_definitions(df)
-            
-            # Create pattern matrix for vectorized processing
-            pattern_names = [name for name, _ in patterns_with_masks]
-            pattern_matrix = pd.DataFrame(False, index=df.index, columns=pattern_names)
-            
-            # Fill pattern matrix with detection results
-            patterns_detected = 0
-            for name, mask in patterns_with_masks:
-                if mask is not None:
-                    # Convert mask to pandas Series if it's a numpy array
-                    if isinstance(mask, np.ndarray):
-                        mask = pd.Series(mask, index=df.index)
-                    elif not isinstance(mask, pd.Series):
-                        mask = pd.Series(mask, index=df.index)
-                    
-                    # Check if mask has any data
-                    if len(mask) > 0:
-                        pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
-                        detected_count = mask.sum() if hasattr(mask, 'sum') else np.sum(mask)
-                        if detected_count > 0:
-                            patterns_detected += 1
-                            logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
-            
-            # Combine patterns into string column
-            df['patterns'] = pattern_matrix.apply(
-                lambda row: ' | '.join(row.index[row].tolist()), axis=1
-            )
-            df['patterns'] = df['patterns'].fillna('')
-            
-            # Count patterns per stock
-            df['pattern_count'] = pattern_matrix.sum(axis=1)
-            
-            # Calculate pattern categories
-            df['pattern_categories'] = pattern_matrix.apply(
-                lambda row: PatternDetector._get_pattern_categories(row), axis=1
-            )
-            
-            # Calculate confidence score with FIXED calculation
-            df = PatternDetector._calculate_pattern_confidence(df)
-            
-            # Log summary
-            stocks_with_patterns = (df['patterns'] != '').sum()
-            avg_patterns_per_stock = df['pattern_count'].mean()
-            logger.info(f"Pattern detection complete: {patterns_detected} patterns found, "
-                       f"{stocks_with_patterns} stocks with patterns, "
-                       f"avg {avg_patterns_per_stock:.1f} patterns/stock")
-            
-            return df
-            
-        except Exception as e:
-            logger.error(f"Pattern detection failed: {str(e)}")
-            # Return DataFrame with empty pattern columns to prevent crashes
-            df['patterns'] = ''
-            df['pattern_confidence'] = 0.0
-            df['pattern_count'] = 0
-            df['pattern_categories'] = ''
-            return df
+        # Get all pattern definitions
+        patterns_with_masks = PatternDetector._get_all_pattern_definitions(df)
+        
+        # Create pattern matrix for vectorized processing
+        pattern_names = [name for name, _ in patterns_with_masks]
+        pattern_matrix = pd.DataFrame(False, index=df.index, columns=pattern_names)
+        
+        # Fill pattern matrix with detection results
+        patterns_detected = 0
+        for name, mask in patterns_with_masks:
+            if mask is not None:
+                # Convert mask to pandas Series if it's a numpy array
+                if isinstance(mask, np.ndarray):
+                    mask = pd.Series(mask, index=df.index)
+                elif not isinstance(mask, pd.Series):
+                    mask = pd.Series(mask, index=df.index)
+                
+                # Check if mask has any data
+                if len(mask) > 0:
+                    pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
+                    detected_count = mask.sum() if hasattr(mask, 'sum') else np.sum(mask)
+                    if detected_count > 0:
+                        patterns_detected += 1
+                        logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
+        
+        # Combine patterns into string column
+        df['patterns'] = pattern_matrix.apply(
+            lambda row: ' | '.join(row.index[row].tolist()), axis=1
+        )
+        df['patterns'] = df['patterns'].fillna('')
+        
+        # Count patterns per stock
+        df['pattern_count'] = pattern_matrix.sum(axis=1)
+        
+        # Calculate pattern categories
+        df['pattern_categories'] = pattern_matrix.apply(
+            lambda row: PatternDetector._get_pattern_categories(row), axis=1
+        )
+        
+        # Calculate confidence score with FIXED calculation
+        df = PatternDetector._calculate_pattern_confidence(df)
+        
+        # Log summary
+        stocks_with_patterns = (df['patterns'] != '').sum()
+        avg_patterns_per_stock = df['pattern_count'].mean()
+        logger.info(f"Pattern detection complete: {patterns_detected} patterns found, "
+                   f"{stocks_with_patterns} stocks with patterns, "
+                   f"avg {avg_patterns_per_stock:.1f} patterns/stock")
+        
+        return df
 
     @staticmethod
     def _calculate_pattern_confidence(df: pd.DataFrame) -> pd.DataFrame:
@@ -10347,29 +10305,28 @@ def main():
                 st.info("Please upload a CSV file to continue")
         else:
             # Google Sheets input
-            st.markdown("#### 📊 Data Source Configuration")
+            st.markdown("#### 📊 Google Sheets Configuration")
             
             sheet_input = st.text_input(
-                "Google Sheets ID/URL or Google Drive CSV URL",
+                "Google Sheets ID/URL or Google Drive CSV File URL",
                 value=st.session_state.get('sheet_id', ''),
-                placeholder="Enter Sheet ID, Google Sheets URL, or Google Drive CSV URL",
-                help="Examples:\n• Sheet ID: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM\n• Google Sheets: https://docs.google.com/spreadsheets/d/ID/edit\n• Google Drive CSV: https://drive.google.com/file/d/ID/view"
+                placeholder="Enter Sheet ID, Google Sheets URL, or Google Drive CSV file URL",
+                help="Supports:\n• Google Sheets: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM\n• Google Drive CSV: https://drive.google.com/file/d/ID/view"
             )
             
+            url_source_type = "sheets"  # Default
             if sheet_input:
-                # Use the enhanced extraction function that handles both Google Sheets and Drive URLs
-                sheet_id = extract_spreadsheet_id(sheet_input)
+                sheet_id, url_source_type = extract_spreadsheet_id(sheet_input)
                 st.session_state.sheet_id = sheet_id
+                st.session_state.url_source_type = url_source_type
             
-            # Only show GID input for Google Sheets (not for Google Drive CSV files)
-            show_gid_input = True
-            if sheet_input and '/file/d/' in sheet_input:
-                show_gid_input = False
-                st.info("ℹ️ Google Drive CSV files don't use sheet tabs (GID).")
-            
-            if show_gid_input:
+            # Show different GID input based on source type
+            if url_source_type == "drive":
+                st.info("📁 Google Drive CSV file detected - GID not needed")
+                gid = CONFIG.DEFAULT_GID
+            else:
                 gid_input = st.text_input(
-                    "Sheet Tab GID (Optional - Google Sheets only)",
+                    "Sheet Tab GID (Optional)",
                     value=st.session_state.get('gid', CONFIG.DEFAULT_GID),
                     placeholder=f"Default: {CONFIG.DEFAULT_GID}",
                     help="The GID identifies specific sheet tab. Found in URL after #gid="
@@ -10379,11 +10336,9 @@ def main():
                     gid = gid_input.strip()
                 else:
                     gid = CONFIG.DEFAULT_GID
-            else:
-                gid = CONFIG.DEFAULT_GID
             
             if not sheet_id:
-                st.warning("Please enter a Google Sheets ID/URL or Google Drive CSV URL to continue")
+                st.warning("Please enter a Google Sheets ID or Google Drive CSV file URL to continue")
         
         # Data quality indicator
         data_quality = st.session_state.get('data_quality', {})
@@ -10496,7 +10451,7 @@ def main():
             st.stop()
         
         if st.session_state.data_source == "sheet" and not sheet_id:
-            st.warning("Please enter a Google Sheets ID to continue")
+            st.warning("Please enter a Google Sheets ID or Google Drive CSV file URL to continue")
             st.stop()
         
         with st.spinner("📥 Loading and processing data..."):
@@ -10506,10 +10461,12 @@ def main():
                         "upload", file_data=uploaded_file
                     )
                 else:
+                    url_source_type = st.session_state.get('url_source_type', 'sheets')
                     ranked_df, data_timestamp, metadata = load_and_process_data(
                         "sheet", 
                         sheet_id=sheet_id,
-                        gid=gid
+                        gid=gid,
+                        url_source_type=url_source_type
                     )
                 
                 st.session_state.ranked_df = ranked_df
@@ -10872,13 +10829,6 @@ def main():
             filters['industries'] = selected_industries
 
         st.markdown("#### ✨ Pattern Detector")
-        
-        # Check if patterns column exists, if not create empty patterns
-        if 'patterns' not in ranked_df_display.columns:
-            st.warning("⚠️ Pattern detection data not available. Patterns will be skipped.")
-            ranked_df_display['patterns'] = ''
-            ranked_df_display['pattern_count'] = 0
-            ranked_df_display['pattern_confidence'] = 0.0
         
         # Get all available patterns
         all_patterns = set()
@@ -11935,12 +11885,6 @@ def main():
         filtered_df = FilterEngine.apply_filters(ranked_df_display, filters)
     else:
         filtered_df = FilterEngine.apply_filters(ranked_df, filters)
-    
-    # Safety check for rank column before sorting
-    if 'rank' not in filtered_df.columns:
-        st.error("❌ Data processing incomplete. Please refresh the page or check your data source.")
-        st.info("💡 This usually happens when using cached data that wasn't fully processed.")
-        st.stop()
     
     filtered_df = filtered_df.sort_values('rank')
     
