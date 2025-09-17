@@ -786,6 +786,12 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                     df, timestamp, old_metadata = st.session_state.last_good_data
                     metadata['warnings'].append("Using cached data due to load failure")
                     metadata['cache_used'] = True
+                    
+                    # Check if cached data has required columns, if not disable cache fallback
+                    if 'rank' not in df.columns or 'master_score' not in df.columns:
+                        logger.warning("Cached data is incomplete, forcing fresh load failure")
+                        raise ValueError(f"Data load failed and cached data is incomplete. Please check your data source.")
+                    
                     return df, timestamp, metadata
                 raise
         
@@ -5458,11 +5464,12 @@ class PatternDetector:
         
         logger.info(f"Starting pattern detection for {len(df)} stocks...")
         
-        # Get all pattern definitions
-        patterns_with_masks = PatternDetector._get_all_pattern_definitions(df)
-        
-        # Create pattern matrix for vectorized processing
-        pattern_names = [name for name, _ in patterns_with_masks]
+        try:
+            # Get all pattern definitions
+            patterns_with_masks = PatternDetector._get_all_pattern_definitions(df)
+            
+            # Create pattern matrix for vectorized processing
+            pattern_names = [name for name, _ in patterns_with_masks]
         pattern_matrix = pd.DataFrame(False, index=df.index, columns=pattern_names)
         
         # Fill pattern matrix with detection results
@@ -5507,6 +5514,15 @@ class PatternDetector:
                    f"{stocks_with_patterns} stocks with patterns, "
                    f"avg {avg_patterns_per_stock:.1f} patterns/stock")
         
+        return df
+        
+    except Exception as e:
+        logger.error(f"Pattern detection failed: {str(e)}")
+        # Return DataFrame with empty pattern columns to prevent crashes
+        df['patterns'] = ''
+        df['pattern_confidence'] = 0.0
+        df['pattern_count'] = 0
+        df['pattern_categories'] = ''
         return df
 
     @staticmethod
@@ -11919,6 +11935,12 @@ def main():
         filtered_df = FilterEngine.apply_filters(ranked_df_display, filters)
     else:
         filtered_df = FilterEngine.apply_filters(ranked_df, filters)
+    
+    # Safety check for rank column before sorting
+    if 'rank' not in filtered_df.columns:
+        st.error("❌ Data processing incomplete. Please refresh the page or check your data source.")
+        st.info("💡 This usually happens when using cached data that wasn't fully processed.")
+        st.stop()
     
     filtered_df = filtered_df.sort_values('rank')
     
