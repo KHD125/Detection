@@ -8782,24 +8782,53 @@ class UIComponents:
         intel_col1, intel_col2 = st.columns([3, 2])
         
         with intel_col1:
-            # Revolutionary Sector Rotation Analysis with LDI Integration
-            st.markdown("**🔄 SECTOR ROTATION INTELLIGENCE**")
+            # Smart Context-Aware Rotation Intelligence
+            # Switches between SECTOR and INDUSTRY rotation based on filter context
+            selected_sectors = st.session_state.filter_state.get('sectors', [])
             
-            sector_rotation = MarketIntelligence.detect_sector_rotation(df)
+            # Determine rotation mode based on filter context
+            if len(selected_sectors) == 1:
+                # Single sector selected → Focus on INDUSTRY rotation within that sector
+                rotation_mode = "INDUSTRY"
+                rotation_title = "🔄 INDUSTRY ROTATION INTELLIGENCE"
+                sector_name = selected_sectors[0]
+                rotation_subtitle = f"📍 **{sector_name} Sector** - Industry Performance Analysis"
+                chart_title = f"🎯 INDUSTRY ROTATION MAP - {sector_name}"
+                x_axis_title = "Industry"
+                hot_label = "HOT INDUSTRIES"
+                avoid_label = "AVOID INDUSTRIES"
+                rotation_data = MarketIntelligence.detect_industry_rotation(df)
+            else:
+                # Multiple sectors or no filter → Standard SECTOR rotation
+                rotation_mode = "SECTOR"
+                rotation_title = "🔄 SECTOR ROTATION INTELLIGENCE"
+                if len(selected_sectors) > 1:
+                    rotation_subtitle = f"📍 **{len(selected_sectors)} Selected Sectors** - Cross-Sector Analysis"
+                else:
+                    rotation_subtitle = "📍 **Market-Wide Analysis** - All Sectors"
+                chart_title = "🎯 INSTITUTIONAL SECTOR ROTATION MAP"
+                x_axis_title = "Sector"
+                hot_label = "HOT SECTORS"
+                avoid_label = "AVOID SECTORS"
+                rotation_data = MarketIntelligence.detect_sector_rotation(df)
             
-            if not sector_rotation.empty:
+            # Display dynamic title and context
+            st.markdown(f"**{rotation_title}**")
+            st.caption(rotation_subtitle)
+            
+            if not rotation_data.empty:
                 # Enhanced visualization with institutional perspective
                 fig = go.Figure()
                 
-                top_12 = sector_rotation.head(12)  # Show more sectors for better analysis
+                top_12 = rotation_data.head(12)  # Show top analysis items
                 
                 # Create color mapping based on flow score and LDI
                 colors = []
                 for score in top_12['flow_score']:
                     if score > 75:
-                        colors.append('#00ff00')  # Bright green for hot sectors
+                        colors.append('#00ff00')  # Bright green for hot items
                     elif score > 60:
-                        colors.append('#32cd32')  # Green for strong sectors
+                        colors.append('#32cd32')  # Green for strong items
                     elif score > 45:
                         colors.append('#ffd700')  # Gold for neutral
                     elif score > 30:
@@ -8844,10 +8873,10 @@ class UIComponents:
                     ))
                 ))
                 
-                # Enhanced layout with institutional styling
+                # Enhanced layout with context-aware styling
                 fig.update_layout(
-                    title="🎯 INSTITUTIONAL SECTOR ROTATION MAP",
-                    xaxis_title="Sector",
+                    title=chart_title,
+                    xaxis_title=x_axis_title,
                     yaxis_title="Enhanced Flow Score",
                     height=450,
                     template='plotly_white',
@@ -8865,18 +8894,20 @@ class UIComponents:
                 
                 st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
-                # Add sector insights
-                hot_sectors = top_12[top_12['flow_score'] > 75]
-                if len(hot_sectors) > 0:
-                    st.success(f"🔥 **HOT SECTORS**: {', '.join(hot_sectors.index[:3])}")
+                # Add context-aware insights
+                hot_items = top_12[top_12['flow_score'] > 75]
+                if len(hot_items) > 0:
+                    st.success(f"🔥 **{hot_label}**: {', '.join(hot_items.index[:3])}")
                 
-                cold_sectors = top_12[top_12['flow_score'] < 35]
-                if len(cold_sectors) > 0:
-                    st.warning(f"❄️ **AVOID SECTORS**: {', '.join(cold_sectors.index[-2:])}")
+                cold_items = top_12[top_12['flow_score'] < 35]
+                if len(cold_items) > 0:
+                    st.warning(f"❄️ **{avoid_label}**: {', '.join(cold_items.index[-2:])}")
                     
             else:
-                st.info("📊 Sector rotation data processing...")
-                st.caption("Ensure sector data is available in your dataset")
+                processing_message = f"📊 {rotation_mode.title()} rotation data processing..."
+                data_requirement = f"Ensure {rotation_mode.lower()} data is available in your dataset"
+                st.info(processing_message)
+                st.caption(data_requirement)
         
         with intel_col2:
             # Enhanced Market Regime Detection with Action Items
