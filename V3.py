@@ -6780,11 +6780,18 @@ class MarketIntelligence:
         
         # VOLATILE OPPORTUNITY: High volume + mixed breadth
         elif volume_level > 1.3 and breadth > 0.48 and breadth < 0.58:
-            regime = "⚡VOLATILE OPPORTUNITY"
+            regime = "⚡ VOLATILE OPPORTUNITY"
         
-        # RANGE-BOUND: Everything else (most common)
-        else:
+        # RANGE-BOUND: Specific criteria for sideways/choppy markets
+        elif (0.45 <= breadth <= 0.55 and 
+              momentum_pct < 8 and 
+              volume_level < 1.4 and 
+              abs(category_diff) < 6):
             regime = "😴 RANGE-BOUND"
+        
+        # MIXED SIGNALS: When criteria don't clearly align (new fallback)
+        else:
+            regime = "🔄 MIXED SIGNALS"
         
         metrics['regime'] = regime
         
@@ -8741,6 +8748,8 @@ class UIComponents:
                 regime_risk = 10
             elif "VOLATILE OPPORTUNITY" in regime:
                 regime_risk = 15
+            elif "MIXED SIGNALS" in regime:
+                regime_risk = 12
             elif "RISK-ON BULL" in regime:
                 regime_risk = 0
             
@@ -8780,6 +8789,8 @@ class UIComponents:
                 regime_action = "SELECTIVE LONG"
             elif "RANGE-BOUND" in regime:
                 regime_action = "RANGE TRADE"
+            elif "MIXED SIGNALS" in regime:
+                regime_action = "WAIT & WATCH"
             elif "RISK-OFF DEFENSIVE" in regime:
                 regime_action = "DEFENSIVE"
             else:
@@ -13666,14 +13677,35 @@ def main():
                             if 'avg_volume' in category_flow.columns:
                                 category_flow = category_flow.rename(columns={'avg_volume': 'Avg Volume'})
                             
-                            # Determine flow direction based on top category
+                            # Determine flow direction based on market dynamics (NOT just category names)
                             top_category = category_flow.index[0] if len(category_flow) > 0 else ""
-                            if 'Small' in top_category or 'Micro' in top_category:
-                                flow_direction = "🔥 RISK-ON"
-                            elif 'Large' in top_category or 'Mega' in top_category:
-                                flow_direction = "❄️ RISK-OFF"
-                            else:
-                                flow_direction = "➡️ Neutral"
+                            top_score = category_flow['Flow Score'].iloc[0] if len(category_flow) > 0 else 0
+                            avg_score = category_flow['Flow Score'].mean()
+                            
+                            # Get small cap and large cap performance
+                            small_caps_avg = category_flow[category_flow.index.str.contains('Small|Micro', na=False)]['Flow Score'].mean() if any(category_flow.index.str.contains('Small|Micro', na=False)) else 0
+                            large_caps_avg = category_flow[category_flow.index.str.contains('Large|Mega', na=False)]['Flow Score'].mean() if any(category_flow.index.str.contains('Large|Mega', na=False)) else 0
+                            
+                            # Professional Market Regime Detection
+                            if avg_score > 60:  # Strong overall market
+                                if small_caps_avg > large_caps_avg + 5:
+                                    flow_direction = "🔥 RISK-ON (Small Cap Rally)"
+                                elif large_caps_avg > 65:
+                                    flow_direction = "🔥 RISK-ON (Bull Market)"
+                                else:
+                                    flow_direction = "📈 RISK-ON"
+                            elif avg_score < 40:  # Weak overall market
+                                if large_caps_avg > small_caps_avg + 10:
+                                    flow_direction = "❄️ RISK-OFF (Flight to Quality)"
+                                else:
+                                    flow_direction = "❄️ RISK-OFF"
+                            else:  # Neutral market (40-60)
+                                if abs(small_caps_avg - large_caps_avg) < 5:
+                                    flow_direction = "➡️ NEUTRAL (Balanced)"
+                                elif small_caps_avg > large_caps_avg:
+                                    flow_direction = "🌱 RISK-ON (Early Stage)"
+                                else:
+                                    flow_direction = "🛡️ DEFENSIVE (Large Cap Preference)"
                             
                             # Create professional visualization with color zones
                             fig_flow = go.Figure()
@@ -13767,15 +13799,30 @@ def main():
                             st.write(f"{emoji} **{cat}**: Score {row['Flow Score']:.1f} {quality_emoji}{quality}")
                         
                         st.markdown("**🔄 Category Shifts:**")
-                        small_caps_score = category_flow[category_flow.index.str.contains('Small|Micro')]['Flow Score'].mean()
-                        large_caps_score = category_flow[category_flow.index.str.contains('Large|Mega')]['Flow Score'].mean()
+                        small_caps_score = category_flow[category_flow.index.str.contains('Small|Micro', na=False)]['Flow Score'].mean() if any(category_flow.index.str.contains('Small|Micro', na=False)) else 0
+                        large_caps_score = category_flow[category_flow.index.str.contains('Large|Mega', na=False)]['Flow Score'].mean() if any(category_flow.index.str.contains('Large|Mega', na=False)) else 0
                         
-                        if small_caps_score > large_caps_score + 10:
-                            st.success("📈 Small Caps Leading - Early Bull Signal!")
-                        elif large_caps_score > small_caps_score + 10:
+                        # More sophisticated shift analysis
+                        score_diff = small_caps_score - large_caps_score
+                        
+                        if score_diff > 15:
+                            st.success("🚀 Small Caps Surging - Strong Risk-On Signal!")
+                        elif score_diff > 5:
+                            st.success("🚀📈 Small Caps Leading - Early Bull Signal!")
+                        elif score_diff < -15:
+                            st.error("🛡️ Flight to Large Caps - Strong Risk-Off Signal!")
+                        elif score_diff < -5:
                             st.warning("📉 Large Caps Leading - Defensive Mode")
                         else:
-                            st.info("➡️ Balanced Market - No Clear Leader")
+                            st.info("⚖️ Balanced Market - No Clear Size Preference")
+                        
+                        # Additional market insights
+                        if avg_score > 70:
+                            st.success(f"💪 **Strong Market** (Avg Score: {avg_score:.1f})")
+                        elif avg_score < 35:
+                            st.error(f"😰 **Weak Market** (Avg Score: {avg_score:.1f})")
+                        else:
+                            st.info(f"📊 **Mixed Market** (Avg Score: {avg_score:.1f})")
                         
                         # Show LDI quality breakdown
                         if 'ldi_quality' in category_rotation.columns:
