@@ -636,10 +636,15 @@ class DataValidator:
 
 def extract_spreadsheet_id(url_or_id: str) -> str:
     """
-    Extracts the spreadsheet ID from a Google Sheets URL or returns the ID if it's already in the correct format.
+    Extracts the spreadsheet ID from a Google Sheets URL, Google Drive file URL, or returns the ID if it's already in the correct format.
+    
+    Supports multiple URL formats:
+    - Google Sheets: https://docs.google.com/spreadsheets/d/ID/edit
+    - Google Drive: https://drive.google.com/file/d/ID/view
+    - Direct ID: 1GaC6Q9g3rpIT5hcCIO7rTVLL6Z4t8Usr
 
     Args:
-        url_or_id (str): A Google Sheets URL or just the spreadsheet ID.
+        url_or_id (str): A Google Sheets URL, Google Drive file URL, or just the spreadsheet ID.
 
     Returns:
         str: The extracted spreadsheet ID, or an empty string if not found.
@@ -647,18 +652,43 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     if not url_or_id:
         return ""
     
-    # If it's already just an ID (no slashes), return it
+    # Strip whitespace and normalize
+    url_or_id = url_or_id.strip()
+    
+    # If it's already just an ID (no slashes), validate and return it
     if '/' not in url_or_id:
-        return url_or_id.strip()
+        # Validate ID format (Google IDs are typically 44 characters, alphanumeric with dashes/underscores)
+        if re.match(r'^[a-zA-Z0-9-_]{25,50}$', url_or_id):
+            return url_or_id
+        else:
+            return ""
     
-    # Try to extract from URL using a regular expression
-    pattern = r'/spreadsheets/d/([a-zA-Z0-9-_]+)'
-    match = re.search(pattern, url_or_id)
-    if match:
-        return match.group(1)
+    # Enhanced pattern to match both Google Sheets and Google Drive URLs
+    # Matches:
+    # - /spreadsheets/d/ID (Google Sheets)
+    # - /file/d/ID (Google Drive)
+    # - /document/d/ID (Google Docs)
+    # - /presentation/d/ID (Google Slides)
+    patterns = [
+        r'/(spreadsheets|file|document|presentation)/d/([a-zA-Z0-9-_]{25,50})',  # Primary pattern
+        r'/d/([a-zA-Z0-9-_]{25,50})',  # Fallback pattern for direct /d/ links
+        r'id=([a-zA-Z0-9-_]{25,50})'   # Query parameter pattern
+    ]
     
-    # If no match, return as is.
-    return url_or_id.strip()
+    for pattern in patterns:
+        match = re.search(pattern, url_or_id)
+        if match:
+            # Return the ID (always the last capture group)
+            return match.group(-1)
+    
+    # If no pattern matches, check if it might be a malformed URL with a valid ID
+    # Extract any string that looks like a Google ID
+    id_match = re.search(r'([a-zA-Z0-9-_]{25,50})', url_or_id)
+    if id_match:
+        return id_match.group(1)
+    
+    # If absolutely no match found, return empty string
+    return ""
 
 @st.cache_data(ttl=3600, show_spinner=False)  # 1 hour TTL to prevent stale data
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
@@ -718,17 +748,53 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
             if not gid:
                 gid = CONFIG.DEFAULT_GID
             
-            # Construct CSV URL
-            csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+            # Extract and validate the sheet ID from URL or direct ID
+            extracted_id = extract_spreadsheet_id(sheet_id)
+            if not extracted_id:
+                raise ValueError("Invalid Google Sheets ID or URL format. Please provide a valid Google Sheets ID or URL.")
             
-            logger.info(f"Loading data from Google Sheets ID: {sheet_id}")
+            # Construct CSV URL for Google Sheets access
+            csv_url = f"https://docs.google.com/spreadsheets/d/{extracted_id}/export?format=csv&gid={gid}"
+            
+            # Determine source type for logging
+            source_description = "Google Sheets"
+            if "drive.google.com/file" in sheet_id:
+                source_description = "Google Drive file (converted to Sheets access)"
+            elif "docs.google.com/spreadsheets" in sheet_id:
+                source_description = "Google Sheets"
+            
+            logger.info(f"Loading data from {source_description} ID: {extracted_id}")
             
             try:
                 df = pd.read_csv(csv_url, low_memory=False)
-                metadata['source'] = "Google Sheets"
+                metadata['source'] = source_description
+                metadata['sheet_id'] = extracted_id
+                metadata['csv_url'] = csv_url
             except Exception as e:
-                logger.error(f"Failed to load from Google Sheets: {str(e)}")
-                metadata['errors'].append(f"Sheet load error: {str(e)}")
+                error_msg = str(e)
+                logger.error(f"Failed to load from {source_description}: {error_msg}")
+                
+                # Enhanced error messaging based on URL type
+                if "drive.google.com/file" in sheet_id:
+                    enhanced_error = (
+                        f"Failed to access Google Drive file: {error_msg}\n\n"
+                        "Common solutions:\n"
+                        "• Ensure the file is a Google Sheets document (not Excel/other format)\n"
+                        "• Check sharing permissions: 'Anyone with the link can view'\n"
+                        "• Try opening the file in Google Sheets and use that URL instead\n"
+                        "• For Excel files: upload to Google Sheets and convert format"
+                    )
+                else:
+                    enhanced_error = (
+                        f"Failed to access Google Sheets: {error_msg}\n\n"
+                        "Common solutions:\n"
+                        "• Verify the Sheets ID or URL is correct\n"
+                        "• Check sharing permissions: 'Anyone with the link can view'\n"
+                        "• Ensure the sheet exists and is accessible\n"
+                        "• Check network connectivity"
+                    )
+                
+                metadata['errors'].append(enhanced_error)
                 
                 # Try to use cached data as fallback
                 if 'last_good_data' in st.session_state:
@@ -737,7 +803,7 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
                     metadata['warnings'].append("Using cached data due to load failure")
                     metadata['cache_used'] = True
                     return df, timestamp, metadata
-                raise
+                raise ValueError(enhanced_error)
         
         # Validate loaded data
         is_valid, validation_msg = DataValidator.validate_dataframe(df, CONFIG.CRITICAL_COLUMNS, "Initial load")
