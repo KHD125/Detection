@@ -5470,60 +5470,60 @@ class PatternDetector:
             
             # Create pattern matrix for vectorized processing
             pattern_names = [name for name, _ in patterns_with_masks]
-        pattern_matrix = pd.DataFrame(False, index=df.index, columns=pattern_names)
-        
-        # Fill pattern matrix with detection results
-        patterns_detected = 0
-        for name, mask in patterns_with_masks:
-            if mask is not None:
-                # Convert mask to pandas Series if it's a numpy array
-                if isinstance(mask, np.ndarray):
-                    mask = pd.Series(mask, index=df.index)
-                elif not isinstance(mask, pd.Series):
-                    mask = pd.Series(mask, index=df.index)
-                
-                # Check if mask has any data
-                if len(mask) > 0:
-                    pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
-                    detected_count = mask.sum() if hasattr(mask, 'sum') else np.sum(mask)
-                    if detected_count > 0:
-                        patterns_detected += 1
-                        logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
-        
-        # Combine patterns into string column
-        df['patterns'] = pattern_matrix.apply(
-            lambda row: ' | '.join(row.index[row].tolist()), axis=1
-        )
-        df['patterns'] = df['patterns'].fillna('')
-        
-        # Count patterns per stock
-        df['pattern_count'] = pattern_matrix.sum(axis=1)
-        
-        # Calculate pattern categories
-        df['pattern_categories'] = pattern_matrix.apply(
-            lambda row: PatternDetector._get_pattern_categories(row), axis=1
-        )
-        
-        # Calculate confidence score with FIXED calculation
-        df = PatternDetector._calculate_pattern_confidence(df)
-        
-        # Log summary
-        stocks_with_patterns = (df['patterns'] != '').sum()
-        avg_patterns_per_stock = df['pattern_count'].mean()
-        logger.info(f"Pattern detection complete: {patterns_detected} patterns found, "
-                   f"{stocks_with_patterns} stocks with patterns, "
-                   f"avg {avg_patterns_per_stock:.1f} patterns/stock")
-        
-        return df
-        
-    except Exception as e:
-        logger.error(f"Pattern detection failed: {str(e)}")
-        # Return DataFrame with empty pattern columns to prevent crashes
-        df['patterns'] = ''
-        df['pattern_confidence'] = 0.0
-        df['pattern_count'] = 0
-        df['pattern_categories'] = ''
-        return df
+            pattern_matrix = pd.DataFrame(False, index=df.index, columns=pattern_names)
+            
+            # Fill pattern matrix with detection results
+            patterns_detected = 0
+            for name, mask in patterns_with_masks:
+                if mask is not None:
+                    # Convert mask to pandas Series if it's a numpy array
+                    if isinstance(mask, np.ndarray):
+                        mask = pd.Series(mask, index=df.index)
+                    elif not isinstance(mask, pd.Series):
+                        mask = pd.Series(mask, index=df.index)
+                    
+                    # Check if mask has any data
+                    if len(mask) > 0:
+                        pattern_matrix[name] = mask.reindex(df.index, fill_value=False)
+                        detected_count = mask.sum() if hasattr(mask, 'sum') else np.sum(mask)
+                        if detected_count > 0:
+                            patterns_detected += 1
+                            logger.debug(f"Pattern '{name}' detected in {detected_count} stocks")
+            
+            # Combine patterns into string column
+            df['patterns'] = pattern_matrix.apply(
+                lambda row: ' | '.join(row.index[row].tolist()), axis=1
+            )
+            df['patterns'] = df['patterns'].fillna('')
+            
+            # Count patterns per stock
+            df['pattern_count'] = pattern_matrix.sum(axis=1)
+            
+            # Calculate pattern categories
+            df['pattern_categories'] = pattern_matrix.apply(
+                lambda row: PatternDetector._get_pattern_categories(row), axis=1
+            )
+            
+            # Calculate confidence score with FIXED calculation
+            df = PatternDetector._calculate_pattern_confidence(df)
+            
+            # Log summary
+            stocks_with_patterns = (df['patterns'] != '').sum()
+            avg_patterns_per_stock = df['pattern_count'].mean()
+            logger.info(f"Pattern detection complete: {patterns_detected} patterns found, "
+                       f"{stocks_with_patterns} stocks with patterns, "
+                       f"avg {avg_patterns_per_stock:.1f} patterns/stock")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Pattern detection failed: {str(e)}")
+            # Return DataFrame with empty pattern columns to prevent crashes
+            df['patterns'] = ''
+            df['pattern_confidence'] = 0.0
+            df['pattern_count'] = 0
+            df['pattern_categories'] = ''
+            return df
 
     @staticmethod
     def _calculate_pattern_confidence(df: pd.DataFrame) -> pd.DataFrame:
