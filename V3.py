@@ -10335,11 +10335,8 @@ def main():
             # Show different GID input based on source type
             if url_source_type == "drive":
                 st.success("📁 Google Drive CSV file detected - GID not needed")
-                st.info(f"🔗 File ID: `{sheet_id}`")
                 gid = CONFIG.DEFAULT_GID
             elif url_source_type == "sheets":
-                st.success("📊 Google Sheets detected")
-                st.info(f"🔗 Sheet ID: `{sheet_id}`")
                 gid_input = st.text_input(
                     "Sheet Tab GID (Optional)",
                     value=st.session_state.get('gid', CONFIG.DEFAULT_GID),
