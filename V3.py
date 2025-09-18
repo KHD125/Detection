@@ -739,13 +739,17 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
             # Construct CSV URL based on source type
             if url_source_type == "drive":
                 csv_url = f"https://drive.usercontent.google.com/download?id={sheet_id}&export=download&authuser=0"
-                logger.info(f"Loading data from Google Drive file ID: {sheet_id}")
+                logger.info(f"🔍 DETECTED: Google Drive file | ID: {sheet_id}")
                 metadata['source'] = "Google Drive"
+                metadata['detected_type'] = "drive"
             else:
                 # Default to Google Sheets format
                 csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
-                logger.info(f"Loading data from Google Sheets ID: {sheet_id}")
+                logger.info(f"🔍 DETECTED: Google Sheets | ID: {sheet_id} | GID: {gid}")
                 metadata['source'] = "Google Sheets"
+                metadata['detected_type'] = "sheets"
+            
+            logger.info(f"📂 Constructed URL: {csv_url}")
             
             try:
                 df = pd.read_csv(csv_url, low_memory=False)
@@ -10314,17 +10318,28 @@ def main():
                 help="Supports:\n• Google Sheets: 1OEQ_qxL4lzlO9LlKnDGlDku2yQC1iYvOYeXF0mTQlJM\n• Google Drive CSV: https://drive.google.com/file/d/ID/view"
             )
             
+            # Always re-detect the URL type from current input (don't rely on session state)
+            sheet_id = None
             url_source_type = "sheets"  # Default
+            
             if sheet_input:
                 sheet_id, url_source_type = extract_spreadsheet_id(sheet_input)
+                # Store in session state for persistence
                 st.session_state.sheet_id = sheet_id
                 st.session_state.url_source_type = url_source_type
+            else:
+                # If no input, get from session state as fallback
+                sheet_id = st.session_state.get('sheet_id', '')
+                url_source_type = st.session_state.get('url_source_type', 'sheets')
             
             # Show different GID input based on source type
             if url_source_type == "drive":
-                st.info("📁 Google Drive CSV file detected - GID not needed")
+                st.success("📁 Google Drive CSV file detected - GID not needed")
+                st.info(f"🔗 File ID: `{sheet_id}`")
                 gid = CONFIG.DEFAULT_GID
-            else:
+            elif url_source_type == "sheets":
+                st.success("📊 Google Sheets detected")
+                st.info(f"🔗 Sheet ID: `{sheet_id}`")
                 gid_input = st.text_input(
                     "Sheet Tab GID (Optional)",
                     value=st.session_state.get('gid', CONFIG.DEFAULT_GID),
@@ -10336,6 +10351,9 @@ def main():
                     gid = gid_input.strip()
                 else:
                     gid = CONFIG.DEFAULT_GID
+            else:
+                st.warning(f"⚠️ Unknown URL type detected: {url_source_type}")
+                gid = CONFIG.DEFAULT_GID
             
             if not sheet_id:
                 st.warning("Please enter a Google Sheets ID or Google Drive CSV file URL to continue")
@@ -10461,7 +10479,7 @@ def main():
                         "upload", file_data=uploaded_file
                     )
                 else:
-                    url_source_type = st.session_state.get('url_source_type', 'sheets')
+                    # Use the current detected url_source_type, not session state
                     ranked_df, data_timestamp, metadata = load_and_process_data(
                         "sheet", 
                         sheet_id=sheet_id,
