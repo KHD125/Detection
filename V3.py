@@ -10799,7 +10799,7 @@ def main():
         # - Combined market leaders and top movers in one ticker
         # - Professional V9.py color scheme
         
-        main_speed = 60  # Slower normal speed
+        main_speed = 80  # Slower normal speed
         
         # Create single combined ticker
         create_market_ticker(main_speed)
