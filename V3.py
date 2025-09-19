@@ -10285,17 +10285,18 @@ def main():
                 top_gainers = df.nlargest(5, 'master_score')
                 top_losers = df.nsmallest(5, 'master_score')
             
-            # Build comprehensive ticker content in one clean line
+            # Build comprehensive ticker content with clear sections
             ticker_items = []
             
-            # Add top performers with company names
-            for _, row in top_performers.head(4).iterrows():  # Reduced to 4 for cleaner display
+            # 1. MARKET LEADERS SECTION
+            ticker_items.append("🏆 MARKET LEADERS")
+            for _, row in top_performers.head(10).iterrows():
                 ticker = row['ticker']
                 score = row['master_score']
                 company = row.get('company_name', '')
                 
-                # Format with company name if available and not too long
-                if company and len(company) <= 20:  # Shortened length limit
+                # Format with company name if available
+                if company and len(company) <= 25:
                     display_name = f"{ticker} ({company})"
                 else:
                     display_name = ticker
@@ -10311,60 +10312,111 @@ def main():
                 
                 ticker_items.append(f"{emoji} {display_name} {change_str}")
             
-            # Add separator
-            ticker_items.append("••• TOP MOVERS •••")
+            # Add section separator
+            ticker_items.append("••••••••••")
             
-            # Add biggest movers (2 gainers + 2 losers for balance)
+            # 2. TOP GAINERS SECTION
             if 'ret_1d' in df.columns:
-                top_gainers_short = df.nlargest(2, 'ret_1d')
-                top_losers_short = df.nsmallest(2, 'ret_1d')
+                ticker_items.append("🟢 TOP GAINERS")
+                top_gainers_clean = df[df['ret_1d'] > 0].nlargest(10, 'ret_1d')
                 
-                # Add top gainers with company names
-                for _, row in top_gainers_short.iterrows():
+                for _, row in top_gainers_clean.iterrows():
                     ticker = row['ticker']
                     company = row.get('company_name', '')
+                    ret_1d = row['ret_1d']
                     
-                    if company and len(company) <= 20:
+                    if company and len(company) <= 25:
                         display_name = f"{ticker} ({company})"
                     else:
                         display_name = ticker
                     
-                    if 'ret_1d' in row and pd.notna(row['ret_1d']):
-                        ret_1d = row['ret_1d']
-                        if ret_1d > 0:
-                            emoji = "🟢" if ret_1d < 5 else "🚀"
-                            ticker_items.append(f"{emoji} {display_name} +{ret_1d:.1f}%")
-                
-                # Add top losers with company names
-                for _, row in top_losers_short.iterrows():
-                    ticker = row['ticker']
-                    company = row.get('company_name', '')
-                    
-                    if company and len(company) <= 20:
-                        display_name = f"{ticker} ({company})"
-                    else:
-                        display_name = ticker
-                    
-                    if 'ret_1d' in row and pd.notna(row['ret_1d']):
-                        ret_1d = row['ret_1d']
-                        if ret_1d < 0:
-                            emoji = "🔴" if ret_1d > -5 else "💥"
-                            ticker_items.append(f"{emoji} {display_name} {ret_1d:.1f}%")
+                    emoji = "🚀" if ret_1d >= 10 else "📈" if ret_1d >= 5 else "🟢"
+                    ticker_items.append(f"{emoji} {display_name} +{ret_1d:.1f}%")
             
-            # Add top sector info for context
+            # Add section separator
+            ticker_items.append("••••••••••")
+            
+            # 3. TOP LOSERS SECTION
+            if 'ret_1d' in df.columns:
+                ticker_items.append("🔴 TOP LOSERS")
+                top_losers_clean = df[df['ret_1d'] < 0].nsmallest(10, 'ret_1d')
+                
+                for _, row in top_losers_clean.iterrows():
+                    ticker = row['ticker']
+                    company = row.get('company_name', '')
+                    ret_1d = row['ret_1d']
+                    
+                    if company and len(company) <= 25:
+                        display_name = f"{ticker} ({company})"
+                    else:
+                        display_name = ticker
+                    
+                    emoji = "💥" if ret_1d <= -10 else "📉" if ret_1d <= -5 else "🔴"
+                    ticker_items.append(f"{emoji} {display_name} {ret_1d:.1f}%")
+            
+            # Add section separator
+            ticker_items.append("••••••••••")
+            
+            # 4. TOP SECTOR SECTION
             if 'sector' in df.columns:
-                if 'ret_30d' in df.columns:
-                    sector_perf = df.groupby('sector')['ret_30d'].mean()
-                    top_sector = sector_perf.idxmax()
-                    top_perf = sector_perf.max()
-                    ticker_items.append(f"🏭 TOP SECTOR: {top_sector} +{top_perf:.1f}%")
+                ticker_items.append("🏭 TOP SECTORS")
+                if 'ret_1d' in df.columns:
+                    sector_perf = df.groupby('sector')['ret_1d'].mean().round(2)
+                    top_sectors = sector_perf.nlargest(min(10, len(sector_perf)))
+                    for sector, perf in top_sectors.items():
+                        emoji = "�" if perf >= 3 else "�" if perf >= 0 else "📉"
+                        ticker_items.append(f"{emoji} {sector} {perf:+.1f}%")
                 else:
-                    sector_perf = df.groupby('sector')['master_score'].mean()
-                    top_sector = sector_perf.idxmax()
-                    top_score = sector_perf.max()
-                    ticker_items.append(f"🏭 TOP SECTOR: {top_sector} {top_score:.0f}")
+                    sector_perf = df.groupby('sector')['master_score'].mean().round(1)
+                    top_sectors = sector_perf.nlargest(min(10, len(sector_perf)))
+                    for sector, score in top_sectors.items():
+                        emoji = "⭐" if score >= 75 else "📊"
+                        ticker_items.append(f"{emoji} {sector} {score:.0f}")
             
-            # Create professional single ticker HTML
+            # Add section separator
+            ticker_items.append("••••••••••")
+            
+            # 5. TOP INDUSTRY SECTION
+            if 'industry' in df.columns:
+                ticker_items.append("🏢 TOP INDUSTRIES")
+                if 'ret_1d' in df.columns:
+                    industry_perf = df.groupby('industry')['ret_1d'].mean().round(2)
+                    top_industries = industry_perf.nlargest(min(10, len(industry_perf)))
+                    for industry, perf in top_industries.items():
+                        # Truncate long industry names
+                        industry_short = industry[:20] + "..." if len(industry) > 20 else industry
+                        emoji = "🚀" if perf >= 3 else "📈" if perf >= 0 else "📉"
+                        ticker_items.append(f"{emoji} {industry_short} {perf:+.1f}%")
+                else:
+                    industry_perf = df.groupby('industry')['master_score'].mean().round(1)
+                    top_industries = industry_perf.nlargest(min(10, len(industry_perf)))
+                    for industry, score in top_industries.items():
+                        industry_short = industry[:20] + "..." if len(industry) > 20 else industry
+                        emoji = "⭐" if score >= 75 else "�"
+                        ticker_items.append(f"{emoji} {industry_short} {score:.0f}")
+            
+            # Add section separator
+            ticker_items.append("••••••••••")
+            
+            # 6. TOP CATEGORY SECTION (if category column exists)
+            if 'category' in df.columns:
+                ticker_items.append("📂 TOP CATEGORIES")
+                if 'ret_1d' in df.columns:
+                    category_perf = df.groupby('category')['ret_1d'].mean().round(2)
+                    top_categories = category_perf.nlargest(min(10, len(category_perf)))
+                    for category, perf in top_categories.items():
+                        category_short = category[:15] + "..." if len(category) > 15 else category
+                        emoji = "🚀" if perf >= 3 else "📈" if perf >= 0 else "📉"
+                        ticker_items.append(f"{emoji} {category_short} {perf:+.1f}%")
+                else:
+                    category_perf = df.groupby('category')['master_score'].mean().round(1)
+                    top_categories = category_perf.nlargest(min(10, len(category_perf)))
+                    for category, score in top_categories.items():
+                        category_short = category[:15] + "..." if len(category) > 15 else category
+                        emoji = "⭐" if score >= 75 else "📊"
+                        ticker_items.append(f"{emoji} {category_short} {score:.0f}")
+            
+            # Create professional comprehensive ticker HTML
             ticker_content = " | ".join(ticker_items)
             
             ticker_html = f"""
@@ -10389,7 +10441,7 @@ def main():
                     font-size: 14px;
                     letter-spacing: 1px;
                 ">
-                    📊 LIVE MARKET INTEL: {ticker_content} | 🌊 WAVE DETECTION 3.0 | COMPREHENSIVE MARKET OVERVIEW
+                    📊 COMPREHENSIVE MARKET INTEL: {ticker_content} | 🌊 WAVE DETECTION 3.0 | COMPLETE MARKET OVERVIEW
                 </div>
                 <div style="
                     position: absolute;
