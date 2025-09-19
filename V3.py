@@ -10351,15 +10351,15 @@ def main():
             
             ticker_html = f"""
             <div style="
-                background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: #ffffff;
                 padding: 12px 0;
                 white-space: nowrap;
                 overflow: hidden;
                 border-radius: 8px;
                 margin: -10px 0 20px 0;
-                border: 1px solid #333;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                border: 1px solid #3498db;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                 font-family: 'Courier New', monospace;
                 font-weight: bold;
                 position: relative;
@@ -10371,7 +10371,7 @@ def main():
                     font-size: 14px;
                     letter-spacing: 1px;
                 ">
-                    📊 LIVE MARKET INTEL: {ticker_content} | 🌊 WAVE DETECTION 3.0 | PROFESSIONAL TRADING SIGNALS
+                    📊 MARKET LEADERS: {ticker_content} | 🌊 WAVE DETECTION 3.0 | PROFESSIONAL SIGNALS
                 </div>
                 <div style="
                     position: absolute;
@@ -10380,12 +10380,13 @@ def main():
                     bottom: 0;
                     display: flex;
                     align-items: center;
-                    background: linear-gradient(90deg, transparent, #1a1a1a);
+                    background: linear-gradient(90deg, transparent, #764ba2);
                     padding-left: 20px;
                     font-size: 12px;
-                    color: #00ff88;
+                    color: #ffffff;
+                    font-weight: bold;
                 ">
-                    LIVE
+                    LEADERS
                 </div>
             </div>
             <style>
@@ -10469,15 +10470,15 @@ def main():
             
             ticker_html = f"""
             <div style="
-                background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 50%, #1e3a8a 100%);
+                background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
                 color: #ffffff;
                 padding: 12px 0;
                 white-space: nowrap;
                 overflow: hidden;
                 border-radius: 8px;
                 margin: 10px 0 20px 0;
-                border: 1px solid #3b82f6;
-                box-shadow: 0 2px 10px rgba(59,130,246,0.3);
+                border: 1px solid #3498db;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                 font-family: 'Courier New', monospace;
                 font-weight: bold;
                 position: relative;
@@ -10498,10 +10499,11 @@ def main():
                     bottom: 0;
                     display: flex;
                     align-items: center;
-                    background: linear-gradient(90deg, transparent, #1e3a8a);
+                    background: linear-gradient(90deg, transparent, #2980b9);
                     padding-left: 20px;
                     font-size: 12px;
-                    color: #60a5fa;
+                    color: #ffffff;
+                    font-weight: bold;
                 ">
                     MOVERS
                 </div>
@@ -10581,20 +10583,42 @@ def main():
                 
                 sector_html = f"""
                 <div style="
-                    background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
-                    color: #e6e6e6;
-                    padding: 8px 0;
+                    background: rgba(28, 131, 225, 0.1);
+                    color: #2c3e50;
+                    padding: 10px 0;
                     white-space: nowrap;
                     overflow: hidden;
-                    border-left: 4px solid #00d4aa;
-                    border-radius: 4px;
+                    border: 1px solid rgba(28, 131, 225, 0.2);
+                    border-left: 4px solid #3498db;
+                    border-radius: 8px;
                     margin-bottom: 15px;
-                    font-family: 'Arial', sans-serif;
+                    font-family: 'Courier New', monospace;
                     font-size: 13px;
-                    box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+                    font-weight: bold;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    position: relative;
                 ">
-                    <div style="animation: sectorScroll {speed}s linear infinite; padding-left: 100%;">
-                        🏭 SECTOR INTEL ({perf_label}): {sector_content}
+                    <div style="
+                        animation: sectorScroll {speed}s linear infinite; 
+                        padding-left: 100%;
+                        letter-spacing: 1px;
+                    ">
+                        🏭 SECTOR PERFORMANCE ({perf_label}): {sector_content}
+                    </div>
+                    <div style="
+                        position: absolute;
+                        top: 0;
+                        right: 10px;
+                        bottom: 0;
+                        display: flex;
+                        align-items: center;
+                        background: linear-gradient(90deg, transparent, rgba(28, 131, 225, 0.1));
+                        padding-left: 20px;
+                        font-size: 11px;
+                        color: #3498db;
+                        font-weight: bold;
+                    ">
+                        SECTORS
                     </div>
                 </div>
                 <style>
@@ -10699,14 +10723,15 @@ def main():
     
     # Render all ticker bars if data is available
     if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
-        # Hardcoded ticker settings for clean interface
-        # - Fast speed for responsive feel
+        # Professional ticker settings matching V9.py color scheme
+        # - Normal speed for balanced performance
         # - Show company names for better identification
         # - Show both Market Leaders and Top Movers
         # - Sectors enabled for comprehensive coverage
+        # - Colors match V9.py professional theme
         
-        main_speed = 30  # Fast speed
-        sector_speed = 20  # Fast speed
+        main_speed = 45  # Normal speed
+        sector_speed = 35  # Normal speed
         
         # Create Market Leaders ticker
         create_market_ticker(main_speed)
