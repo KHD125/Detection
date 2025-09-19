@@ -10285,17 +10285,17 @@ def main():
                 top_gainers = df.nlargest(5, 'master_score')
                 top_losers = df.nsmallest(5, 'master_score')
             
-            # Build ticker content
+            # Build comprehensive ticker content in one clean line
             ticker_items = []
             
             # Add top performers with company names
-            for _, row in top_performers.iterrows():
+            for _, row in top_performers.head(4).iterrows():  # Reduced to 4 for cleaner display
                 ticker = row['ticker']
                 score = row['master_score']
                 company = row.get('company_name', '')
                 
                 # Format with company name if available and not too long
-                if company and len(company) <= 25:
+                if company and len(company) <= 20:  # Shortened length limit
                     display_name = f"{ticker} ({company})"
                 else:
                     display_name = ticker
@@ -10312,41 +10312,59 @@ def main():
                 ticker_items.append(f"{emoji} {display_name} {change_str}")
             
             # Add separator
-            ticker_items.append("••••")
+            ticker_items.append("••• TOP MOVERS •••")
             
-            # Add top gainers with company names
-            for _, row in top_gainers.iterrows():
-                ticker = row['ticker']
-                company = row.get('company_name', '')
+            # Add biggest movers (2 gainers + 2 losers for balance)
+            if 'ret_1d' in df.columns:
+                top_gainers_short = df.nlargest(2, 'ret_1d')
+                top_losers_short = df.nsmallest(2, 'ret_1d')
                 
-                # Format with company name if available and not too long
-                if company and len(company) <= 25:
-                    display_name = f"{ticker} ({company})"
+                # Add top gainers with company names
+                for _, row in top_gainers_short.iterrows():
+                    ticker = row['ticker']
+                    company = row.get('company_name', '')
+                    
+                    if company and len(company) <= 20:
+                        display_name = f"{ticker} ({company})"
+                    else:
+                        display_name = ticker
+                    
+                    if 'ret_1d' in row and pd.notna(row['ret_1d']):
+                        ret_1d = row['ret_1d']
+                        if ret_1d > 0:
+                            emoji = "🟢" if ret_1d < 5 else "🚀"
+                            ticker_items.append(f"{emoji} {display_name} +{ret_1d:.1f}%")
+                
+                # Add top losers with company names
+                for _, row in top_losers_short.iterrows():
+                    ticker = row['ticker']
+                    company = row.get('company_name', '')
+                    
+                    if company and len(company) <= 20:
+                        display_name = f"{ticker} ({company})"
+                    else:
+                        display_name = ticker
+                    
+                    if 'ret_1d' in row and pd.notna(row['ret_1d']):
+                        ret_1d = row['ret_1d']
+                        if ret_1d < 0:
+                            emoji = "🔴" if ret_1d > -5 else "💥"
+                            ticker_items.append(f"{emoji} {display_name} {ret_1d:.1f}%")
+            
+            # Add top sector info for context
+            if 'sector' in df.columns:
+                if 'ret_30d' in df.columns:
+                    sector_perf = df.groupby('sector')['ret_30d'].mean()
+                    top_sector = sector_perf.idxmax()
+                    top_perf = sector_perf.max()
+                    ticker_items.append(f"🏭 TOP SECTOR: {top_sector} +{top_perf:.1f}%")
                 else:
-                    display_name = ticker
-                
-                if 'ret_1d' in row and pd.notna(row['ret_1d']):
-                    ret_1d = row['ret_1d']
-                    if ret_1d > 0:
-                        ticker_items.append(f"🟢 {display_name} +{ret_1d:.1f}%")
+                    sector_perf = df.groupby('sector')['master_score'].mean()
+                    top_sector = sector_perf.idxmax()
+                    top_score = sector_perf.max()
+                    ticker_items.append(f"🏭 TOP SECTOR: {top_sector} {top_score:.0f}")
             
-            # Add top losers with company names
-            for _, row in top_losers.iterrows():
-                ticker = row['ticker']
-                company = row.get('company_name', '')
-                
-                # Format with company name if available and not too long
-                if company and len(company) <= 25:
-                    display_name = f"{ticker} ({company})"
-                else:
-                    display_name = ticker
-                
-                if 'ret_1d' in row and pd.notna(row['ret_1d']):
-                    ret_1d = row['ret_1d']
-                    if ret_1d < 0:
-                        ticker_items.append(f"🔴 {display_name} {ret_1d:.1f}%")
-            
-            # Create professional ticker HTML
+            # Create professional single ticker HTML
             ticker_content = " | ".join(ticker_items)
             
             ticker_html = f"""
@@ -10371,7 +10389,7 @@ def main():
                     font-size: 14px;
                     letter-spacing: 1px;
                 ">
-                    📊 MARKET LEADERS: {ticker_content} | 🌊 WAVE DETECTION 3.0 | PROFESSIONAL SIGNALS
+                    📊 LIVE MARKET INTEL: {ticker_content} | 🌊 WAVE DETECTION 3.0 | COMPREHENSIVE MARKET OVERVIEW
                 </div>
                 <div style="
                     position: absolute;
@@ -10386,7 +10404,7 @@ def main():
                     color: #ffffff;
                     font-weight: bold;
                 ">
-                    LEADERS
+                    LIVE
                 </div>
             </div>
             <style>
@@ -10723,24 +10741,16 @@ def main():
     
     # Render all ticker bars if data is available
     if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
-        # Professional ticker settings matching V9.py color scheme
+        # Single professional ticker - clean and uncluttered
         # - Normal speed for balanced performance
         # - Show company names for better identification
-        # - Show both Market Leaders and Top Movers
-        # - Sectors enabled for comprehensive coverage
-        # - Colors match V9.py professional theme
+        # - Combined market leaders and top movers in one ticker
+        # - Professional V9.py color scheme
         
         main_speed = 45  # Normal speed
-        sector_speed = 35  # Normal speed
         
-        # Create Market Leaders ticker
+        # Create single combined ticker
         create_market_ticker(main_speed)
-        
-        # Create Top Movers ticker (add after Market Leaders)
-        create_top_movers_ticker(main_speed)
-        
-        # Show sector ticker
-        create_sector_ticker(sector_speed)
     
     # Sidebar configuration
     with st.sidebar:
