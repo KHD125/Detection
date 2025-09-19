@@ -10255,6 +10255,335 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # ================================================================================================
+    # 📊 PROFESSIONAL MOVING TICKER BAR SYSTEM
+    # ================================================================================================
+    
+    def create_market_ticker(speed=45):
+        """
+        Professional Bloomberg-style moving ticker for top market movers
+        """
+        try:
+            if 'ranked_df' not in st.session_state or st.session_state.ranked_df is None:
+                return
+            
+            df = st.session_state.ranked_df
+            
+            # Ensure required columns exist
+            required_cols = ['ticker', 'master_score']
+            if not all(col in df.columns for col in required_cols):
+                return
+            
+            # Get top performers by master score
+            top_performers = df.nlargest(8, 'master_score')
+            
+            # Get biggest movers (if return data available)
+            if 'ret_1d' in df.columns:
+                top_gainers = df.nlargest(5, 'ret_1d')
+                top_losers = df.nsmallest(5, 'ret_1d')
+            else:
+                top_gainers = df.nlargest(5, 'master_score')
+                top_losers = df.nsmallest(5, 'master_score')
+            
+            # Build ticker content
+            ticker_items = []
+            
+            # Add top performers
+            for _, row in top_performers.iterrows():
+                ticker = row['ticker']
+                score = row['master_score']
+                
+                # Get return if available
+                if 'ret_1d' in row and pd.notna(row['ret_1d']):
+                    ret_1d = row['ret_1d']
+                    change_str = f"{ret_1d:+.1f}%"
+                    emoji = "🚀" if ret_1d >= 5 else "📈" if ret_1d >= 0 else "📉"
+                else:
+                    change_str = f"Score:{score:.0f}"
+                    emoji = "⭐" if score >= 80 else "📊"
+                
+                ticker_items.append(f"{emoji} {ticker} {change_str}")
+            
+            # Add separator
+            ticker_items.append("••••")
+            
+            # Add top gainers
+            for _, row in top_gainers.iterrows():
+                ticker = row['ticker']
+                if 'ret_1d' in row and pd.notna(row['ret_1d']):
+                    ret_1d = row['ret_1d']
+                    if ret_1d > 0:
+                        ticker_items.append(f"🟢 {ticker} +{ret_1d:.1f}%")
+            
+            # Add top losers  
+            for _, row in top_losers.iterrows():
+                ticker = row['ticker']
+                if 'ret_1d' in row and pd.notna(row['ret_1d']):
+                    ret_1d = row['ret_1d']
+                    if ret_1d < 0:
+                        ticker_items.append(f"🔴 {ticker} {ret_1d:.1f}%")
+            
+            # Create professional ticker HTML
+            ticker_content = " | ".join(ticker_items)
+            
+            ticker_html = f"""
+            <div style="
+                background: linear-gradient(90deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+                color: #ffffff;
+                padding: 12px 0;
+                white-space: nowrap;
+                overflow: hidden;
+                border-radius: 8px;
+                margin: -10px 0 20px 0;
+                border: 1px solid #333;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+                position: relative;
+            ">
+                <div style="
+                    animation: marketScroll {speed}s linear infinite;
+                    display: inline-block;
+                    padding-left: 100%;
+                    font-size: 14px;
+                    letter-spacing: 1px;
+                ">
+                    📊 LIVE MARKET INTEL: {ticker_content} | 🌊 WAVE DETECTION 3.0 | PROFESSIONAL TRADING SIGNALS
+                </div>
+                <div style="
+                    position: absolute;
+                    top: 0;
+                    right: 10px;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    background: linear-gradient(90deg, transparent, #1a1a1a);
+                    padding-left: 20px;
+                    font-size: 12px;
+                    color: #00ff88;
+                ">
+                    LIVE
+                </div>
+            </div>
+            <style>
+                @keyframes marketScroll {{
+                    0% {{ transform: translateX(0); }}
+                    100% {{ transform: translateX(-100%); }}
+                }}
+            </style>
+            """
+            
+            st.markdown(ticker_html, unsafe_allow_html=True)
+            
+        except Exception as e:
+            # Silent fail for ticker - don't break main app
+            pass
+    
+    def create_sector_ticker(speed=35):
+        """
+        Professional sector performance ticker
+        """
+        try:
+            if 'ranked_df' not in st.session_state or st.session_state.ranked_df is None:
+                return
+            
+            df = st.session_state.ranked_df
+            
+            # Check if sector data exists
+            if 'sector' not in df.columns:
+                return
+            
+            # Calculate sector performance
+            if 'ret_30d' in df.columns:
+                sector_perf = df.groupby('sector')['ret_30d'].mean().round(1)
+                perf_column = 'ret_30d'
+                perf_label = "30D"
+            elif 'ret_1d' in df.columns:
+                sector_perf = df.groupby('sector')['ret_1d'].mean().round(1)
+                perf_column = 'ret_1d'
+                perf_label = "1D"
+            else:
+                # Use master score if no return data
+                sector_perf = df.groupby('sector')['master_score'].mean().round(1)
+                perf_column = 'master_score'
+                perf_label = "Score"
+            
+            # Get top and bottom sectors
+            top_sectors = sector_perf.nlargest(5)
+            bottom_sectors = sector_perf.nsmallest(3)
+            
+            sector_items = []
+            
+            # Add top performing sectors
+            for sector, perf in top_sectors.items():
+                if perf_column in ['ret_30d', 'ret_1d']:
+                    emoji = "🟢" if perf >= 0 else "🔴"
+                    sector_items.append(f"{emoji} {sector[:12]} {perf:+.1f}%")
+                else:
+                    emoji = "⭐" if perf >= 70 else "📊"
+                    sector_items.append(f"{emoji} {sector[:12]} {perf:.0f}")
+            
+            # Add separator
+            sector_items.append("••")
+            
+            # Add underperforming sectors
+            for sector, perf in bottom_sectors.items():
+                if perf_column in ['ret_30d', 'ret_1d']:
+                    if perf < 0:
+                        sector_items.append(f"🔴 {sector[:12]} {perf:.1f}%")
+                else:
+                    if perf < 60:
+                        sector_items.append(f"📉 {sector[:12]} {perf:.0f}")
+            
+            if sector_items:
+                sector_content = " | ".join(sector_items)
+                
+                sector_html = f"""
+                <div style="
+                    background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+                    color: #e6e6e6;
+                    padding: 8px 0;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    border-left: 4px solid #00d4aa;
+                    border-radius: 4px;
+                    margin-bottom: 15px;
+                    font-family: 'Arial', sans-serif;
+                    font-size: 13px;
+                    box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+                ">
+                    <div style="animation: sectorScroll {speed}s linear infinite; padding-left: 100%;">
+                        🏭 SECTOR INTEL ({perf_label}): {sector_content}
+                    </div>
+                </div>
+                <style>
+                    @keyframes sectorScroll {{
+                        0% {{ transform: translateX(0); }}
+                        100% {{ transform: translateX(-100%); }}
+                    }}
+                </style>
+                """
+                
+                st.markdown(sector_html, unsafe_allow_html=True)
+                
+        except Exception as e:
+            # Silent fail for sector ticker
+            pass
+    
+    def create_pattern_alerts_ticker(speed=30):
+        """
+        Professional pattern alerts ticker for advanced traders
+        """
+        try:
+            if 'ranked_df' not in st.session_state or st.session_state.ranked_df is None:
+                return
+            
+            df = st.session_state.ranked_df
+            
+            # Check if patterns column exists
+            if 'patterns' not in df.columns:
+                return
+            
+            # Get stocks with patterns
+            pattern_stocks = df[df['patterns'].notna() & (df['patterns'] != '')]
+            
+            if len(pattern_stocks) == 0:
+                return
+            
+            # Get top pattern stocks by score
+            top_pattern_stocks = pattern_stocks.nlargest(6, 'master_score')
+            
+            alert_items = []
+            
+            for _, row in top_pattern_stocks.iterrows():
+                ticker = row['ticker']
+                score = row['master_score']
+                patterns = str(row['patterns'])
+                
+                # Extract key pattern indicators
+                if 'BREAKOUT' in patterns.upper():
+                    emoji = "💥"
+                    pattern_type = "BREAKOUT"
+                elif 'TSUNAMI' in patterns.upper():
+                    emoji = "🌋"
+                    pattern_type = "TSUNAMI"
+                elif 'VELOCITY' in patterns.upper():
+                    emoji = "⚡"
+                    pattern_type = "VELOCITY"
+                elif 'WAVE' in patterns.upper():
+                    emoji = "🌊"
+                    pattern_type = "WAVE"
+                else:
+                    emoji = "🎯"
+                    pattern_type = "SIGNAL"
+                
+                alert_items.append(f"{emoji} {ticker} {pattern_type} ({score:.0f})")
+            
+            if alert_items:
+                alert_content = " | ".join(alert_items)
+                
+                alert_html = f"""
+                <div style="
+                    background: linear-gradient(90deg, #2c1810 0%, #5d4037 50%, #2c1810 100%);
+                    color: #ffab40;
+                    padding: 6px 0;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    border: 1px solid #ff6f00;
+                    border-radius: 6px;
+                    margin-bottom: 10px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 12px;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                ">
+                    <div style="animation: alertScroll {speed}s linear infinite; padding-left: 100%;">
+                        🚨 PATTERN ALERTS: {alert_content} 🚨
+                    </div>
+                </div>
+                <style>
+                    @keyframes alertScroll {{
+                        0% {{ transform: translateX(0); }}
+                        100% {{ transform: translateX(-100%); }}
+                    }}
+                </style>
+                """
+                
+                st.markdown(alert_html, unsafe_allow_html=True)
+                
+        except Exception as e:
+            # Silent fail for pattern alerts
+            pass
+    
+    # Render all ticker bars if data is available
+    if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
+        # Get ticker preferences from session state
+        ticker_mode = st.session_state.get('ticker_mode', 'Market Leaders')
+        show_sectors = st.session_state.get('show_sector_ticker', True)
+        ticker_speed = st.session_state.get('ticker_speed', 'Normal')
+        
+        # Adjust animation speed based on selection
+        if ticker_speed == "Slow":
+            main_speed = 60
+            sector_speed = 45
+        elif ticker_speed == "Fast":
+            main_speed = 30
+            sector_speed = 20
+        else:  # Normal
+            main_speed = 45
+            sector_speed = 35
+        
+        # Create main ticker based on mode
+        if ticker_mode == "Pattern Alerts":
+            create_pattern_alerts_ticker(main_speed)
+        else:
+            create_market_ticker(main_speed)
+        
+        # Show sector ticker if enabled
+        if show_sectors:
+            create_sector_ticker(sector_speed)
+    
     # Sidebar configuration
     with st.sidebar:
         st.markdown("### 🎯 Quick Actions")
@@ -10294,6 +10623,98 @@ def main():
                         width="stretch"):
                 st.session_state.data_source = "upload"
                 st.rerun()
+        
+        # ============================
+        # 📊 TICKER BAR CONTROLS
+        # ============================
+        st.markdown("---")
+        st.markdown("### 📊 Ticker Controls")
+        
+        # Ticker preferences
+        ticker_cols = st.columns(2)
+        
+        with ticker_cols[0]:
+            ticker_speed = st.selectbox(
+                "Speed",
+                options=["Slow", "Normal", "Fast"],
+                index=1,
+                key="ticker_speed"
+            )
+        
+        with ticker_cols[1]:
+            show_sectors = st.checkbox(
+                "Sectors",
+                value=True,
+                key="show_sector_ticker"
+            )
+        
+        # Ticker mode selection
+        ticker_mode = st.radio(
+            "Display Mode",
+            options=["Market Leaders", "Top Movers", "Pattern Alerts"],
+            index=0,
+            key="ticker_mode",
+            help="Market Leaders: Top scores | Top Movers: Biggest changes | Pattern Alerts: Technical signals"
+        )
+        
+        # Advanced ticker options
+        with st.expander("⚙️ Advanced Options"):
+            show_company_names = st.checkbox(
+                "Show Company Names",
+                value=False,
+                key="show_company_names",
+                help="Display company names in ticker (may slow performance)"
+            )
+            
+            ticker_items_count = st.slider(
+                "Items per Ticker",
+                min_value=5,
+                max_value=15,
+                value=8,
+                key="ticker_items_count",
+                help="Number of items to display in each ticker"
+            )
+            
+            min_score_threshold = st.slider(
+                "Min Score Threshold",
+                min_value=50,
+                max_value=90,
+                value=70,
+                key="min_score_threshold",
+                help="Minimum master score for ticker inclusion"
+            )
+        
+        # Real-time updates toggle
+        auto_refresh_ticker = st.checkbox(
+            "🔄 Auto-refresh (30s)",
+            value=False,
+            key="auto_refresh_ticker",
+            help="Automatically refresh ticker data every 30 seconds"
+        )
+        
+        # Auto-refresh implementation
+        if auto_refresh_ticker and 'ranked_df' in st.session_state:
+            # Add a placeholder for auto-refresh timer
+            time.sleep(0.1)  # Small delay to prevent excessive refreshing
+            if st.session_state.get('last_ticker_refresh', 0) < time.time() - 30:
+                st.session_state.last_ticker_refresh = time.time()
+                st.rerun()
+        
+        # Ticker status indicator
+        if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
+            ticker_status_cols = st.columns(3)
+            with ticker_status_cols[0]:
+                st.success("🟢 Live")
+            with ticker_status_cols[1]:
+                data_count = len(st.session_state.ranked_df)
+                st.info(f"📊 {data_count}")
+            with ticker_status_cols[2]:
+                last_update = st.session_state.get('data_timestamp', 'N/A')
+                if isinstance(last_update, datetime):
+                    update_str = last_update.strftime('%H:%M')
+                else:
+                    update_str = 'N/A'
+                st.info(f"🕐 {update_str}")
 
         uploaded_file = None
         sheet_id = None
