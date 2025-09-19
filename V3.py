@@ -10794,12 +10794,12 @@ def main():
     # Render all ticker bars if data is available
     if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
         # Single professional ticker - clean and uncluttered
-        # - Fast speed for dynamic performance
+        # - Normal speed for balanced readability
         # - Show company names for better identification
         # - Combined market leaders and top movers in one ticker
         # - Professional V9.py color scheme
         
-        main_speed = 30  # Fast speed
+        main_speed = 45  # Normal speed
         
         # Create single combined ticker
         create_market_ticker(main_speed)
