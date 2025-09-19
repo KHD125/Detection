@@ -636,16 +636,21 @@ class DataValidator:
 
 def extract_spreadsheet_id(url_or_id: str) -> tuple:
     """
-    Extracts the spreadsheet/file ID from a Google Sheets or Google Drive URL.
+    Handles Google Sheets URLs, Google Drive URLs, or just IDs.
+    For Google Drive URLs, returns the full URL to avoid unnecessary processing.
 
     Args:
         url_or_id (str): A Google Sheets URL, Google Drive URL, or just the ID.
 
     Returns:
-        tuple: (extracted_id, source_type) where source_type is 'sheets', 'drive', or 'unknown'
+        tuple: (id_or_url, source_type) where source_type is 'sheets', 'drive', or 'unknown'
     """
     if not url_or_id:
         return "", "unknown"
+    
+    # If it's a full Google Drive URL, return it as-is
+    if "drive.google.com/file/d/" in url_or_id:
+        return url_or_id.strip(), "drive"
     
     # If it's already just an ID (no slashes), assume Google Sheets
     if '/' not in url_or_id:
@@ -657,7 +662,7 @@ def extract_spreadsheet_id(url_or_id: str) -> tuple:
     if sheets_match:
         return sheets_match.group(1), "sheets"
     
-    # Check for Google Drive URL pattern
+    # Check for Google Drive URL pattern - extract ID only if it's not a full URL
     drive_pattern = r'/file/d/([a-zA-Z0-9-_]+)'
     drive_match = re.search(drive_pattern, url_or_id)
     if drive_match:
@@ -738,8 +743,20 @@ def load_and_process_data(source_type: str = "sheet", file_data=None,
             
             # Construct CSV URL based on source type
             if url_source_type == "drive":
-                csv_url = f"https://drive.usercontent.google.com/download?id={sheet_id}&export=download&authuser=0"
-                logger.info(f"🔍 DETECTED: Google Drive file | ID: {sheet_id}")
+                # If sheet_id is already a full URL, convert it to download URL
+                if sheet_id.startswith("https://drive.google.com/file/d/"):
+                    # Extract ID from full URL for download format
+                    drive_pattern = r'/file/d/([a-zA-Z0-9-_]+)'
+                    drive_match = re.search(drive_pattern, sheet_id)
+                    if drive_match:
+                        file_id = drive_match.group(1)
+                        csv_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0"
+                    else:
+                        raise ValueError("Invalid Google Drive URL format")
+                else:
+                    # sheet_id is just the file ID
+                    csv_url = f"https://drive.usercontent.google.com/download?id={sheet_id}&export=download&authuser=0"
+                logger.info(f"🔍 DETECTED: Google Drive file | URL: {csv_url}")
                 metadata['source'] = "Google Drive"
                 metadata['detected_type'] = "drive"
             else:
