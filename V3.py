@@ -10288,10 +10288,17 @@ def main():
             # Build ticker content
             ticker_items = []
             
-            # Add top performers
+            # Add top performers with company names
             for _, row in top_performers.iterrows():
                 ticker = row['ticker']
                 score = row['master_score']
+                company = row.get('company_name', '')
+                
+                # Format with company name if available and not too long
+                if company and len(company) <= 25:
+                    display_name = f"{ticker} ({company})"
+                else:
+                    display_name = ticker
                 
                 # Get return if available
                 if 'ret_1d' in row and pd.notna(row['ret_1d']):
@@ -10302,26 +10309,42 @@ def main():
                     change_str = f"Score:{score:.0f}"
                     emoji = "⭐" if score >= 80 else "📊"
                 
-                ticker_items.append(f"{emoji} {ticker} {change_str}")
+                ticker_items.append(f"{emoji} {display_name} {change_str}")
             
             # Add separator
             ticker_items.append("••••")
             
-            # Add top gainers
+            # Add top gainers with company names
             for _, row in top_gainers.iterrows():
                 ticker = row['ticker']
+                company = row.get('company_name', '')
+                
+                # Format with company name if available and not too long
+                if company and len(company) <= 25:
+                    display_name = f"{ticker} ({company})"
+                else:
+                    display_name = ticker
+                
                 if 'ret_1d' in row and pd.notna(row['ret_1d']):
                     ret_1d = row['ret_1d']
                     if ret_1d > 0:
-                        ticker_items.append(f"🟢 {ticker} +{ret_1d:.1f}%")
+                        ticker_items.append(f"🟢 {display_name} +{ret_1d:.1f}%")
             
-            # Add top losers  
+            # Add top losers with company names
             for _, row in top_losers.iterrows():
                 ticker = row['ticker']
+                company = row.get('company_name', '')
+                
+                # Format with company name if available and not too long
+                if company and len(company) <= 25:
+                    display_name = f"{ticker} ({company})"
+                else:
+                    display_name = ticker
+                
                 if 'ret_1d' in row and pd.notna(row['ret_1d']):
                     ret_1d = row['ret_1d']
                     if ret_1d < 0:
-                        ticker_items.append(f"🔴 {ticker} {ret_1d:.1f}%")
+                        ticker_items.append(f"🔴 {display_name} {ret_1d:.1f}%")
             
             # Create professional ticker HTML
             ticker_content = " | ".join(ticker_items)
@@ -10367,6 +10390,124 @@ def main():
             </div>
             <style>
                 @keyframes marketScroll {{
+                    0% {{ transform: translateX(0); }}
+                    100% {{ transform: translateX(-100%); }}
+                }}
+            </style>
+            """
+            
+            st.markdown(ticker_html, unsafe_allow_html=True)
+            
+        except Exception as e:
+            # Silent fail for ticker - don't break main app
+            pass
+    
+    def create_top_movers_ticker(speed=45):
+        """
+        Professional ticker focused on biggest daily movers with company names
+        """
+        try:
+            if 'ranked_df' not in st.session_state or st.session_state.ranked_df is None:
+                return
+            
+            df = st.session_state.ranked_df
+            
+            # Check if return data exists
+            if 'ret_1d' not in df.columns:
+                return
+            
+            # Get biggest daily movers (both up and down)
+            df_with_returns = df[df['ret_1d'].notna()]
+            
+            if len(df_with_returns) == 0:
+                return
+            
+            # Get top gainers and losers
+            top_gainers = df_with_returns.nlargest(6, 'ret_1d')
+            top_losers = df_with_returns.nsmallest(6, 'ret_1d')
+            
+            # Build ticker content with company names when available
+            ticker_items = []
+            
+            # Add top gainers
+            for _, row in top_gainers.iterrows():
+                ticker = row['ticker']
+                ret_1d = row['ret_1d']
+                company = row.get('company_name', '')
+                
+                # Format with company name if available and not too long
+                if company and len(company) <= 25:
+                    display_name = f"{ticker} ({company})"
+                else:
+                    display_name = ticker
+                
+                if ret_1d > 0:
+                    emoji = "🚀" if ret_1d >= 10 else "📈" if ret_1d >= 5 else "🟢"
+                    ticker_items.append(f"{emoji} {display_name} +{ret_1d:.1f}%")
+            
+            # Add separator
+            ticker_items.append("•••• TOP LOSERS ••••")
+            
+            # Add top losers
+            for _, row in top_losers.iterrows():
+                ticker = row['ticker']
+                ret_1d = row['ret_1d']
+                company = row.get('company_name', '')
+                
+                # Format with company name if available and not too long
+                if company and len(company) <= 25:
+                    display_name = f"{ticker} ({company})"
+                else:
+                    display_name = ticker
+                
+                if ret_1d < 0:
+                    emoji = "💥" if ret_1d <= -10 else "📉" if ret_1d <= -5 else "🔴"
+                    ticker_items.append(f"{emoji} {display_name} {ret_1d:.1f}%")
+            
+            # Create professional ticker HTML
+            ticker_content = " | ".join(ticker_items)
+            
+            ticker_html = f"""
+            <div style="
+                background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 50%, #1e3a8a 100%);
+                color: #ffffff;
+                padding: 12px 0;
+                white-space: nowrap;
+                overflow: hidden;
+                border-radius: 8px;
+                margin: 10px 0 20px 0;
+                border: 1px solid #3b82f6;
+                box-shadow: 0 2px 10px rgba(59,130,246,0.3);
+                font-family: 'Courier New', monospace;
+                font-weight: bold;
+                position: relative;
+            ">
+                <div style="
+                    animation: topMoversScroll {speed}s linear infinite;
+                    display: inline-block;
+                    padding-left: 100%;
+                    font-size: 14px;
+                    letter-spacing: 1px;
+                ">
+                    🎯 TOP DAILY MOVERS: {ticker_content} | 📊 REAL-TIME MARKET MOVEMENTS
+                </div>
+                <div style="
+                    position: absolute;
+                    top: 0;
+                    right: 10px;
+                    bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    background: linear-gradient(90deg, transparent, #1e3a8a);
+                    padding-left: 20px;
+                    font-size: 12px;
+                    color: #60a5fa;
+                ">
+                    MOVERS
+                </div>
+            </div>
+            <style>
+                @keyframes topMoversScroll {{
                     0% {{ transform: translateX(0); }}
                     100% {{ transform: translateX(-100%); }}
                 }}
@@ -10558,31 +10699,23 @@ def main():
     
     # Render all ticker bars if data is available
     if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
-        # Get ticker preferences from session state
-        ticker_mode = st.session_state.get('ticker_mode', 'Market Leaders')
-        show_sectors = st.session_state.get('show_sector_ticker', True)
-        ticker_speed = st.session_state.get('ticker_speed', 'Normal')
+        # Hardcoded ticker settings for clean interface
+        # - Fast speed for responsive feel
+        # - Show company names for better identification
+        # - Show both Market Leaders and Top Movers
+        # - Sectors enabled for comprehensive coverage
         
-        # Adjust animation speed based on selection
-        if ticker_speed == "Slow":
-            main_speed = 60
-            sector_speed = 45
-        elif ticker_speed == "Fast":
-            main_speed = 30
-            sector_speed = 20
-        else:  # Normal
-            main_speed = 45
-            sector_speed = 35
+        main_speed = 30  # Fast speed
+        sector_speed = 20  # Fast speed
         
-        # Create main ticker based on mode
-        if ticker_mode == "Pattern Alerts":
-            create_pattern_alerts_ticker(main_speed)
-        else:
-            create_market_ticker(main_speed)
+        # Create Market Leaders ticker
+        create_market_ticker(main_speed)
         
-        # Show sector ticker if enabled
-        if show_sectors:
-            create_sector_ticker(sector_speed)
+        # Create Top Movers ticker (add after Market Leaders)
+        create_top_movers_ticker(main_speed)
+        
+        # Show sector ticker
+        create_sector_ticker(sector_speed)
     
     # Sidebar configuration
     with st.sidebar:
@@ -10623,98 +10756,6 @@ def main():
                         width="stretch"):
                 st.session_state.data_source = "upload"
                 st.rerun()
-        
-        # ============================
-        # 📊 TICKER BAR CONTROLS
-        # ============================
-        st.markdown("---")
-        st.markdown("### 📊 Ticker Controls")
-        
-        # Ticker preferences
-        ticker_cols = st.columns(2)
-        
-        with ticker_cols[0]:
-            ticker_speed = st.selectbox(
-                "Speed",
-                options=["Slow", "Normal", "Fast"],
-                index=1,
-                key="ticker_speed"
-            )
-        
-        with ticker_cols[1]:
-            show_sectors = st.checkbox(
-                "Sectors",
-                value=True,
-                key="show_sector_ticker"
-            )
-        
-        # Ticker mode selection
-        ticker_mode = st.radio(
-            "Display Mode",
-            options=["Market Leaders", "Top Movers", "Pattern Alerts"],
-            index=0,
-            key="ticker_mode",
-            help="Market Leaders: Top scores | Top Movers: Biggest changes | Pattern Alerts: Technical signals"
-        )
-        
-        # Advanced ticker options
-        with st.expander("⚙️ Advanced Options"):
-            show_company_names = st.checkbox(
-                "Show Company Names",
-                value=False,
-                key="show_company_names",
-                help="Display company names in ticker (may slow performance)"
-            )
-            
-            ticker_items_count = st.slider(
-                "Items per Ticker",
-                min_value=5,
-                max_value=15,
-                value=8,
-                key="ticker_items_count",
-                help="Number of items to display in each ticker"
-            )
-            
-            min_score_threshold = st.slider(
-                "Min Score Threshold",
-                min_value=50,
-                max_value=90,
-                value=70,
-                key="min_score_threshold",
-                help="Minimum master score for ticker inclusion"
-            )
-        
-        # Real-time updates toggle
-        auto_refresh_ticker = st.checkbox(
-            "🔄 Auto-refresh (30s)",
-            value=False,
-            key="auto_refresh_ticker",
-            help="Automatically refresh ticker data every 30 seconds"
-        )
-        
-        # Auto-refresh implementation
-        if auto_refresh_ticker and 'ranked_df' in st.session_state:
-            # Add a placeholder for auto-refresh timer
-            time.sleep(0.1)  # Small delay to prevent excessive refreshing
-            if st.session_state.get('last_ticker_refresh', 0) < time.time() - 30:
-                st.session_state.last_ticker_refresh = time.time()
-                st.rerun()
-        
-        # Ticker status indicator
-        if 'ranked_df' in st.session_state and st.session_state.ranked_df is not None:
-            ticker_status_cols = st.columns(3)
-            with ticker_status_cols[0]:
-                st.success("🟢 Live")
-            with ticker_status_cols[1]:
-                data_count = len(st.session_state.ranked_df)
-                st.info(f"📊 {data_count}")
-            with ticker_status_cols[2]:
-                last_update = st.session_state.get('data_timestamp', 'N/A')
-                if isinstance(last_update, datetime):
-                    update_str = last_update.strftime('%H:%M')
-                else:
-                    update_str = 'N/A'
-                st.info(f"🕐 {update_str}")
 
         uploaded_file = None
         sheet_id = None
