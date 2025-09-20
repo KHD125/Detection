@@ -7526,10 +7526,6 @@ class FilterEngine:
             'pe_tiers': [],
             'price_tiers': [],
             'eps_change_tiers': [],
-            'eps_range': (-50.0, 500.0),
-            'pe_range': (-10.0, 200.0),
-            'price_range': (0.0, 150000.0),
-            'eps_change_range': (-100.0, 500.0),
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
@@ -7606,7 +7602,6 @@ class FilterEngine:
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
-            'eps_range_slider', 'pe_range_slider', 'price_range_slider', 'eps_change_range_slider',
             'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
             'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
@@ -8110,54 +8105,13 @@ class FilterEngine:
         if filters.get('max_pe') is not None and 'pe' in df.columns:
             masks.append(df['pe'] <= filters['max_pe'])
         
-        # 7. Tier filters with custom ranges
-        # EPS tier filter
+        # 7. Tier filters
         if 'eps_tiers' in filters:
-            selected_tiers = filters['eps_tiers']
-            if selected_tiers and "🎯 Custom EPS Range" not in selected_tiers:
-                masks.append(create_mask_from_isin('eps_tier', selected_tiers))
-        
-        # Custom EPS range filter (only if "🎯 Custom EPS Range" is selected)
-        if 'eps_tiers' in filters and "🎯 Custom EPS Range" in filters['eps_tiers']:
-            if 'eps_range' in filters and 'eps_current' in df.columns:
-                eps_range_val = filters['eps_range']
-                masks.append(df['eps_current'].between(eps_range_val[0], eps_range_val[1], inclusive='both'))
-        
-        # PE tier filter
+            masks.append(create_mask_from_isin('eps_tier', filters['eps_tiers']))
         if 'pe_tiers' in filters:
-            selected_tiers = filters['pe_tiers']
-            if selected_tiers and "🎯 Custom PE Range" not in selected_tiers:
-                masks.append(create_mask_from_isin('pe_tier', selected_tiers))
-        
-        # Custom PE range filter (only if "🎯 Custom PE Range" is selected)
-        if 'pe_tiers' in filters and "🎯 Custom PE Range" in filters['pe_tiers']:
-            if 'pe_range' in filters and 'pe' in df.columns:
-                pe_range_val = filters['pe_range']
-                masks.append(df['pe'].between(pe_range_val[0], pe_range_val[1], inclusive='both'))
-        
-        # Price tier filter
+            masks.append(create_mask_from_isin('pe_tier', filters['pe_tiers']))
         if 'price_tiers' in filters:
-            selected_tiers = filters['price_tiers']
-            if selected_tiers and "🎯 Custom Price Range" not in selected_tiers:
-                masks.append(create_mask_from_isin('price_tier', selected_tiers))
-        
-        # Custom Price range filter (only if "🎯 Custom Price Range" is selected)
-        if 'price_tiers' in filters and "🎯 Custom Price Range" in filters['price_tiers']:
-            if 'price_range' in filters and 'price' in df.columns:
-                price_range_val = filters['price_range']
-                masks.append(df['price'].between(price_range_val[0], price_range_val[1], inclusive='both'))
-        
-        # EPS Change tier filter
-        if 'eps_change_tiers' in filters:
-            selected_tiers = filters['eps_change_tiers']
-            if selected_tiers and "🎯 Custom EPS Change Range" not in selected_tiers:
-                masks.append(create_mask_from_isin('eps_change_tier', selected_tiers))
-        
-        # Custom EPS Change range filter (only if "🎯 Custom EPS Change Range" is selected)
-        if 'eps_change_tiers' in filters and "🎯 Custom EPS Change Range" in filters['eps_change_tiers']:
-            if 'eps_change_range' in filters and 'eps_change_pct' in df.columns:
-                eps_change_range_val = filters['eps_change_range']
-                masks.append(df['eps_change_pct'].between(eps_change_range_val[0], eps_change_range_val[1], inclusive='both'))
+            masks.append(create_mask_from_isin('price_tier', filters['price_tiers']))
         
         # 8. Data completeness filter
         if filters.get('require_fundamental_data', False):
@@ -9813,10 +9767,6 @@ class SessionStateManager:
                 'pe_tiers': [],
                 'price_tiers': [],
                 'eps_change_tiers': [],
-                'eps_range': (-50.0, 500.0),
-                'pe_range': (-10.0, 200.0),
-                'price_range': (0.0, 150000.0),
-                'eps_change_range': (-100.0, 500.0),
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'performance_tiers': [],
@@ -9923,7 +9873,6 @@ class SessionStateManager:
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
-            'eps_range_slider', 'pe_range_slider', 'price_range_slider', 'eps_change_range_slider',
             'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
             'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
@@ -10748,22 +10697,6 @@ def main():
         def sync_rvol_range():
             if 'rvol_range_slider' in st.session_state:
                 st.session_state.filter_state['rvol_range'] = st.session_state.rvol_range_slider
-        
-        def sync_eps_range():
-            if 'eps_range_slider' in st.session_state:
-                st.session_state.filter_state['eps_range'] = st.session_state.eps_range_slider
-        
-        def sync_pe_range():
-            if 'pe_range_slider' in st.session_state:
-                st.session_state.filter_state['pe_range'] = st.session_state.pe_range_slider
-        
-        def sync_price_range():
-            if 'price_range_slider' in st.session_state:
-                st.session_state.filter_state['price_range'] = st.session_state.price_range_slider
-        
-        def sync_eps_change_range():
-            if 'eps_change_range_slider' in st.session_state:
-                st.session_state.filter_state['eps_change_range'] = st.session_state.eps_change_range_slider
         
         # Performance Filter Sync Functions
         def sync_performance_dropdowns():
@@ -11868,137 +11801,41 @@ def main():
                 if 'require_fundamental_checkbox' in st.session_state:
                     st.session_state.filter_state['require_fundamental_data'] = st.session_state.require_fundamental_checkbox
             
-            # 💰 EPS Tier Filter with Custom Range
-            if 'eps_tier' in ranked_df_display.columns:
-                eps_tier_options = list(CONFIG.TIERS['eps'].keys()) + ["🎯 Custom EPS Range"]
-                eps_tiers = st.multiselect(
-                    "EPS Tier",
-                    options=eps_tier_options,
-                    default=st.session_state.filter_state.get('eps_tiers', []),
-                    key='eps_tier_multiselect',
-                    on_change=sync_eps_tier,
-                    help="Select EPS tiers or use Custom EPS Range for precise control"
-                )
-                
-                if eps_tiers:
-                    filters['eps_tiers'] = eps_tiers
-                
-                # Show custom EPS range slider when "🎯 Custom EPS Range" is selected
-                custom_eps_range_selected = any("Custom EPS Range" in tier for tier in eps_tiers) if eps_tiers else False
-                if custom_eps_range_selected:
-                    st.write("📊 **Custom EPS Range Filter**")
+            # Tier filters
+            for tier_type, col_name, filter_key, sync_func in [
+                ('eps_tiers', 'eps_tier', 'eps_tiers', sync_eps_tier),
+                ('pe_tiers', 'pe_tier', 'pe_tiers', sync_pe_tier),
+                ('price_tiers', 'price_tier', 'price_tiers', sync_price_tier)
+            ]:
+                if col_name in ranked_df_display.columns:
+                    tier_options = FilterEngine.get_filter_options(ranked_df_display, col_name, filters)
                     
-                    eps_range = st.slider(
-                        "EPS Range",
-                        min_value=-50.0,
-                        max_value=500.0,
-                        value=st.session_state.filter_state.get('eps_range', (-50.0, 500.0)),
-                        step=0.1,
-                        help="Filter by Earnings Per Share (EPS) range",
-                        key="eps_range_slider",
-                        on_change=sync_eps_range
+                    selected_tiers = st.multiselect(
+                        f"{col_name.replace('_', ' ').title()}",
+                        options=tier_options,
+                        default=st.session_state.filter_state.get(filter_key, []),
+                        placeholder=f"Select {col_name.replace('_', ' ')}s (empty = All)",
+                        key=f"{col_name}_multiselect",
+                        on_change=sync_func  # SYNC ON CHANGE
                     )
-                    if eps_range != (-50.0, 500.0):
-                        filters['eps_range'] = eps_range
-            
-            # 📊 PE Tier Filter with Custom Range
-            if 'pe_tier' in ranked_df_display.columns:
-                pe_tier_options = list(CONFIG.TIERS['pe'].keys()) + ["🎯 Custom PE Range"]
-                pe_tiers = st.multiselect(
-                    "PE Tier",
-                    options=pe_tier_options,
-                    default=st.session_state.filter_state.get('pe_tiers', []),
-                    key='pe_tier_multiselect',
-                    on_change=sync_pe_tier,
-                    help="Select PE tiers or use Custom PE Range for precise control"
-                )
-                
-                if pe_tiers:
-                    filters['pe_tiers'] = pe_tiers
-                
-                # Show custom PE range slider when "🎯 Custom PE Range" is selected
-                custom_pe_range_selected = any("Custom PE Range" in tier for tier in pe_tiers) if pe_tiers else False
-                if custom_pe_range_selected:
-                    st.write("📊 **Custom PE Range Filter**")
                     
-                    pe_range = st.slider(
-                        "PE Range",
-                        min_value=-10.0,
-                        max_value=200.0,
-                        value=st.session_state.filter_state.get('pe_range', (-10.0, 200.0)),
-                        step=0.1,
-                        help="Filter by Price-to-Earnings (PE) ratio range",
-                        key="pe_range_slider",
-                        on_change=sync_pe_range
-                    )
-                    if pe_range != (-10.0, 200.0):
-                        filters['pe_range'] = pe_range
+                    if selected_tiers:
+                        filters[tier_type] = selected_tiers
             
-            # 💲 Price Tier Filter with Custom Range
-            if 'price_tier' in ranked_df_display.columns:
-                price_tier_options = list(CONFIG.TIERS['price'].keys()) + ["🎯 Custom Price Range"]
-                price_tiers = st.multiselect(
-                    "Price Tier",
-                    options=price_tier_options,
-                    default=st.session_state.filter_state.get('price_tiers', []),
-                    key='price_tier_multiselect',
-                    on_change=sync_price_tier,
-                    help="Select price tiers or use Custom Price Range for precise control"
-                )
-                
-                if price_tiers:
-                    filters['price_tiers'] = price_tiers
-                
-                # Show custom price range slider when "🎯 Custom Price Range" is selected
-                custom_price_range_selected = any("Custom Price Range" in tier for tier in price_tiers) if price_tiers else False
-                if custom_price_range_selected:
-                    st.write("📊 **Custom Price Range Filter**")
-                    
-                    price_range = st.slider(
-                        "Price Range (₹)",
-                        min_value=0.0,
-                        max_value=150000.0,
-                        value=st.session_state.filter_state.get('price_range', (0.0, 150000.0)),
-                        step=1.0,
-                        help="Filter by stock price range",
-                        key="price_range_slider",
-                        on_change=sync_price_range
-                    )
-                    if price_range != (0.0, 150000.0):
-                        filters['price_range'] = price_range
-            
-            # 📈 EPS Change Tier Filter with Custom Range
+            # EPS change tier filter
             if 'eps_change_tier' in ranked_df_display.columns:
-                eps_change_tier_options = list(CONFIG.TIERS['eps_change_pct'].keys()) + ["🎯 Custom EPS Change Range"]
+                # EPS Change Tier Filter
                 eps_change_tiers = st.multiselect(
                     "EPS Change Tier",
-                    options=eps_change_tier_options,
+                    options=list(CONFIG.TIERS['eps_change_pct'].keys()),
                     default=st.session_state.filter_state.get('eps_change_tiers', []),
                     key='eps_change_tiers_widget',
                     on_change=sync_eps_change_tier,
-                    help="Select EPS change tiers or use Custom EPS Change Range for precise control"
+                    help="Select EPS change tiers to include"
                 )
                 
                 if eps_change_tiers:
                     filters['eps_change_tiers'] = eps_change_tiers
-                
-                # Show custom EPS change range slider when "🎯 Custom EPS Change Range" is selected
-                custom_eps_change_range_selected = any("Custom EPS Change Range" in tier for tier in eps_change_tiers) if eps_change_tiers else False
-                if custom_eps_change_range_selected:
-                    st.write("📊 **Custom EPS Change Range Filter**")
-                    
-                    eps_change_range = st.slider(
-                        "EPS Change Range (%)",
-                        min_value=-100.0,
-                        max_value=500.0,
-                        value=st.session_state.filter_state.get('eps_change_range', (-100.0, 500.0)),
-                        step=1.0,
-                        help="Filter by EPS change percentage range",
-                        key="eps_change_range_slider",
-                        on_change=sync_eps_change_range
-                    )
-                    if eps_change_range != (-100.0, 500.0):
-                        filters['eps_change_range'] = eps_change_range
             
             # PE filters (only in hybrid mode)
             if show_fundamentals and 'pe' in ranked_df_display.columns:
