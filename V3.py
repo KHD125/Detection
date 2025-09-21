@@ -6050,7 +6050,7 @@ class PatternDetector:
             )
             patterns.append(('🏃 RUNAWAY GAP', mask))
         
-        # 27. ROTATION LEADER - First mover in sector leadership transition
+        # 27. ROTATION LEADER - First mover in sector rotation
         if all(col in df.columns for col in ['ret_7d', 'sector', 'rvol']):
             ret_7d = get_col_safe('ret_7d', 0)
             
@@ -6865,14 +6865,8 @@ class MarketIntelligence:
         return ad_metrics
     
     @staticmethod
-    def analyze_sector_leadership_strength(df: pd.DataFrame) -> pd.DataFrame:
-        """Analyze sector leadership concentration using Leadership Density Index
-        
-        Measures current leadership strength by calculating the percentage of market leaders
-        within each sector. Higher values indicate stronger leadership concentration.
-        
-        Note: This measures current leadership strength, not predictive rotation signals.
-        """
+    def detect_sector_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced sector rotation detection using Leadership Density Index"""
         
         if df.empty or 'sector' not in df.columns:
             return pd.DataFrame()
@@ -6912,19 +6906,13 @@ class MarketIntelligence:
             return display_df.sort_values('flow_score', ascending=False)
             
         except Exception as e:
-            logger.error(f"Error in LDI sector leadership analysis: {str(e)}")
+            logger.error(f"Error in LDI sector rotation: {str(e)}")
             # Fallback to traditional method
             return MarketIntelligence._calculate_traditional_sectors(df)
     
     @staticmethod
-    def analyze_industry_leadership_strength(df: pd.DataFrame) -> pd.DataFrame:
-        """Analyze industry leadership concentration using Leadership Density Index
-        
-        Measures current leadership strength by calculating the percentage of market leaders
-        within each industry. Higher values indicate stronger leadership concentration.
-        
-        Note: This measures current leadership strength, not predictive rotation signals.
-        """
+    def detect_industry_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced industry rotation detection using Leadership Density Index"""
         
         if df.empty or 'industry' not in df.columns:
             return pd.DataFrame()
@@ -6964,19 +6952,13 @@ class MarketIntelligence:
             return display_df.sort_values('flow_score', ascending=False)
             
         except Exception as e:
-            logger.error(f"Error in LDI industry leadership analysis: {str(e)}")
+            logger.error(f"Error in LDI industry rotation: {str(e)}")
             # Fallback to traditional method
             return MarketIntelligence._calculate_traditional_industries(df)
     
     @staticmethod
-    def analyze_category_leadership_strength(df: pd.DataFrame) -> pd.DataFrame:
-        """Analyze category leadership concentration using Leadership Density Index
-        
-        Measures current leadership strength by calculating the percentage of market leaders
-        within each category. Higher values indicate stronger leadership concentration.
-        
-        Note: This measures current leadership strength, not predictive rotation signals.
-        """
+    def detect_category_rotation(df: pd.DataFrame) -> pd.DataFrame:
+        """Enhanced category rotation detection using Leadership Density Index"""
         
         if df.empty or 'category' not in df.columns:
             return pd.DataFrame()
@@ -7016,7 +6998,7 @@ class MarketIntelligence:
             return display_df.sort_values('flow_score', ascending=False)
             
         except Exception as e:
-            logger.error(f"Error in LDI category leadership: {str(e)}")
+            logger.error(f"Error in LDI category rotation: {str(e)}")
             # Fallback to traditional method
             return MarketIntelligence._calculate_traditional_categories(df)
     
@@ -8523,15 +8505,15 @@ class ExportEngine:
                 intel_df = pd.DataFrame(intel_data)
                 intel_df.to_excel(writer, sheet_name='Market Intelligence', index=False)
                 
-                # 3. Sector Leadership Analysis
-                sector_leadership = MarketIntelligence.analyze_sector_leadership_strength(df)
-                if not sector_leadership.empty:
-                    sector_leadership.to_excel(writer, sheet_name='Sector Leadership')
+                # 3. Sector Rotation
+                sector_rotation = MarketIntelligence.detect_sector_rotation(df)
+                if not sector_rotation.empty:
+                    sector_rotation.to_excel(writer, sheet_name='Sector Rotation')
                 
-                # 4. Industry Leadership Analysis
-                industry_leadership = MarketIntelligence.analyze_industry_leadership_strength(df)
-                if not industry_leadership.empty:
-                    industry_leadership.to_excel(writer, sheet_name='Industry Leadership')
+                # 4. Industry Rotation
+                industry_rotation = MarketIntelligence.detect_industry_rotation(df)
+                if not industry_rotation.empty:
+                    industry_rotation.to_excel(writer, sheet_name='Industry Rotation')
                 
                 # 5. Pattern Analysis
                 pattern_counts = {}
@@ -8989,79 +8971,53 @@ class UIComponents:
                 st.warning("Pattern data unavailable")
         
         # ================================================================================================
-        # ADVANCED MARKET INTELLIGENCE & LEADERSHIP ANALYSIS
+        # ADVANCED MARKET INTELLIGENCE & SECTOR ROTATION
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🎯 **Leadership Strength Analysis**")
-        
-        # Educational context and honest disclaimers
-        with st.expander("ℹ️ **About Leadership Strength Analysis**", expanded=False):
-            st.markdown("""
-            **What This Analysis Measures:**
-            - **Leadership Density Index (LDI)**: Percentage of market leaders within each sector/industry
-            - **Current Strength**: Concentration of high-performing stocks right now
-            - **Quality Metrics**: Average scores and momentum of sector leaders
-            
-            **What This Analysis Does NOT Measure:**
-            - **Rotation Prediction**: This is not predictive of future sector rotations
-            - **Market Timing**: Does not indicate when to buy or sell sectors
-            - **Flow Direction**: Does not track money moving between sectors
-            
-            **How to Interpret Results:**
-            - **High LDI**: Many stocks in sector are currently market leaders
-            - **Low LDI**: Few stocks in sector meet leadership criteria
-            - **Flow Score**: Composite of leadership density, quality, and momentum
-            
-            **Important Notes:**
-            - Based on current market snapshot, not historical trends
-            - Smaller sectors may show higher volatility in measurements
-            - Use as sector strength indicator, not rotation timing tool
-            """)
+        st.markdown("### 🧠 **Market Intelligence**")
         
         intel_col1, intel_col2 = st.columns([3, 2])
         
         with intel_col1:
-            # Smart Context-Aware Leadership Analysis
-            # Switches between SECTOR and INDUSTRY leadership analysis based on filter context
+            # Smart Context-Aware Rotation Intelligence
+            # Switches between SECTOR and INDUSTRY rotation based on filter context
             selected_sectors = st.session_state.filter_state.get('sectors', [])
             
-            # Determine analysis mode based on filter context
+            # Determine rotation mode based on filter context
             if len(selected_sectors) == 1:
-                # Single sector selected → Focus on INDUSTRY leadership within that sector
-                analysis_mode = "INDUSTRY"
-                analysis_title = "🎯 INDUSTRY LEADERSHIP STRENGTH ANALYSIS"
+                # Single sector selected → Focus on INDUSTRY rotation within that sector
+                rotation_mode = "INDUSTRY"
+                rotation_title = "🔄 INDUSTRY ROTATION INTELLIGENCE"
                 sector_name = selected_sectors[0]
-                analysis_subtitle = f"📍 **{sector_name} Sector** - Industry Leadership Analysis"
-                chart_title = f"🎯 INDUSTRY LEADERSHIP MAP - {sector_name}"
+                rotation_subtitle = f"📍 **{sector_name} Sector** - Industry Performance Analysis"
+                chart_title = f"🎯 INDUSTRY ROTATION MAP - {sector_name}"
                 x_axis_title = "Industry"
-                strong_label = "STRONG LEADERSHIP CONCENTRATION"
-                weak_label = "WEAK LEADERSHIP CONCENTRATION"
-                analysis_data = MarketIntelligence.analyze_industry_leadership_strength(df)
+                hot_label = "HOT INDUSTRIES"
+                avoid_label = "AVOID INDUSTRIES"
+                rotation_data = MarketIntelligence.detect_industry_rotation(df)
             else:
-                # Multiple sectors or no filter → Standard SECTOR leadership analysis
-                analysis_mode = "SECTOR"
-                analysis_title = "🎯 SECTOR LEADERSHIP STRENGTH ANALYSIS"
+                # Multiple sectors or no filter → Standard SECTOR rotation
+                rotation_mode = "SECTOR"
+                rotation_title = "🔄 SECTOR ROTATION INTELLIGENCE"
                 if len(selected_sectors) > 1:
-                    analysis_subtitle = f"📍 **{len(selected_sectors)} Selected Sectors** - Cross-Sector Analysis"
+                    rotation_subtitle = f"📍 **{len(selected_sectors)} Selected Sectors** - Cross-Sector Analysis"
                 else:
-                    analysis_subtitle = "📍 **Market-Wide Analysis** - All Sectors"
-                chart_title = "🎯 SECTOR LEADERSHIP STRENGTH MAP"
+                    rotation_subtitle = "📍 **Market-Wide Analysis** - All Sectors"
+                chart_title = "🎯 INSTITUTIONAL SECTOR ROTATION MAP"
                 x_axis_title = "Sector"
-                strong_label = "STRONG LEADERSHIP CONCENTRATION"
-                weak_label = "WEAK LEADERSHIP CONCENTRATION"
-                analysis_data = MarketIntelligence.analyze_sector_leadership_strength(df)
+                hot_label = "HOT SECTORS"
+                avoid_label = "AVOID SECTORS"
+                rotation_data = MarketIntelligence.detect_sector_rotation(df)
             
             # Display dynamic title
-            st.markdown(f"**{analysis_title}**")
-            st.caption(f"{analysis_subtitle}")
-            st.caption("📊 *Current leadership concentration - not predictive rotation signals*")
+            st.markdown(f"**{rotation_title}**")
             
-            if not analysis_data.empty:
+            if not rotation_data.empty:
                 # Enhanced visualization with institutional perspective
                 fig = go.Figure()
                 
-                top_12 = analysis_data.head(12)  # Show top analysis items
+                top_12 = rotation_data.head(12)  # Show top analysis items
                 
                 # Create color mapping based on flow score and LDI
                 colors = []
@@ -9086,20 +9042,18 @@ class UIComponents:
                     marker_line=dict(color='rgba(0,0,0,0.3)', width=1),
                     hovertemplate=(
                         '<b>%{x}</b><br>'
-                        'Leadership Flow Score: %{y:.1f}<br>'
-                        'Leadership Density (LDI): %{customdata[0]:.1f}%<br>'
-                        'Market Leaders: %{customdata[1]} of %{customdata[2]} stocks<br>'
-                        'Leadership Concentration: %{customdata[3]}<br>'
-                        'Elite Average Score: %{customdata[4]:.1f}<br>'
-                        'Quality Rating: %{customdata[5]}<br>'
-                        '<i>Higher LDI = More concentrated leadership</i><extra></extra>'
+                        'Flow Score: %{y:.1f}<br>'
+                        'LDI Score: %{customdata[0]:.1f}%<br>'
+                        'Market Leaders: %{customdata[1]} of %{customdata[2]}<br>'
+                        'Leadership Density: %{customdata[3]}<br>'
+                        'Elite Avg Score: %{customdata[4]:.1f}<br>'
+                        'Intelligence: %{customdata[5]}<extra></extra>'
                     ) if all(col in top_12.columns for col in ['ldi_score', 'elite_avg_score', 'ldi_quality']) else (
                         '<b>%{x}</b><br>'
-                        'Leadership Flow Score: %{y:.1f}<br>'
+                        'Flow Score: %{y:.1f}<br>'
                         'Stocks Analyzed: %{customdata[0]} of %{customdata[1]}<br>'
                         'Coverage: %{customdata[2]:.1f}%<br>'
-                        'Average Score: %{customdata[3]:.1f}<br>'
-                        '<i>Shows current leadership strength</i><extra></extra>'
+                        'Avg Score: %{customdata[3]:.1f}<extra></extra>'
                     ),
                     customdata=np.column_stack((
                         top_12['ldi_score'] if 'ldi_score' in top_12.columns else [0] * len(top_12),
@@ -9120,7 +9074,7 @@ class UIComponents:
                 fig.update_layout(
                     title=chart_title,
                     xaxis_title=x_axis_title,
-                    yaxis_title="Leadership Flow Score",
+                    yaxis_title="Enhanced Flow Score",
                     height=450,
                     template='plotly_white',
                     showlegend=False,
@@ -9130,25 +9084,25 @@ class UIComponents:
                     title_font=dict(size=16, color='#2c3e50')
                 )
                 
-                # Add horizontal reference lines with leadership context
-                fig.add_hline(y=75, line_dash="dash", line_color="green", annotation_text="Strong Leadership Zone")
-                fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Moderate Leadership Zone")
-                fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Weak Leadership Zone")
+                # Add horizontal reference lines
+                fig.add_hline(y=75, line_dash="dash", line_color="green", annotation_text="Hot Zone")
+                fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
+                fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
                 st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
                 # Add context-aware insights
-                strong_items = top_12[top_12['flow_score'] > 75]
-                if len(strong_items) > 0:
-                    st.success(f"� **{strong_label}**: {', '.join(strong_items.index[:3])}")
+                hot_items = top_12[top_12['flow_score'] > 75]
+                if len(hot_items) > 0:
+                    st.success(f"🔥 **{hot_label}**: {', '.join(hot_items.index[:3])}")
                 
-                weak_items = top_12[top_12['flow_score'] < 35]
-                if len(weak_items) > 0:
-                    st.info(f"📊 **{weak_label}**: {', '.join(weak_items.index[-2:])}")
+                cold_items = top_12[top_12['flow_score'] < 35]
+                if len(cold_items) > 0:
+                    st.warning(f"❄️ **{avoid_label}**: {', '.join(cold_items.index[-2:])}")
                     
             else:
-                processing_message = f"📊 {analysis_mode.title()} leadership analysis processing..."
-                data_requirement = f"Ensure {analysis_mode.lower()} data is available in your dataset"
+                processing_message = f"📊 {rotation_mode.title()} rotation data processing..."
+                data_requirement = f"Ensure {rotation_mode.lower()} data is available in your dataset"
                 st.info(processing_message)
                 st.caption(data_requirement)
         
@@ -13247,7 +13201,7 @@ def main():
             "📊 Show Market Regime",
             value=True,
             key="show_market_regime",
-            help="Display market regime and category leadership analysis"
+            help="Display market regime and category rotation analysis"
         )
         
         st.markdown("---")
@@ -13758,18 +13712,18 @@ def main():
                 st.info(f"No stocks meet the acceleration threshold ({accel_threshold}+) for {sensitivity_level} sensitivity.")
             
             if show_market_regime:
-                st.markdown("#### 🎯 Category Leadership Strength - Market Cap Analysis")
+                st.markdown("#### 💰 Category Rotation - Smart Money Flow")
                 
                 col1, col2 = st.columns([3, 2])
                 
                 with col1:
                     try:
-                        # Use professional category leadership analysis
-                        category_leadership = MarketIntelligence.analyze_category_leadership_strength(wave_filtered_df)
+                        # Use professional category rotation detection
+                        category_rotation = MarketIntelligence.detect_category_rotation(wave_filtered_df)
                         
-                        if not category_leadership.empty:
+                        if not category_rotation.empty:
                             # Prepare data for visualization
-                            category_flow = category_leadership.copy()
+                            category_flow = category_rotation.copy()
                             
                             # Rename columns for display compatibility
                             if 'flow_score' in category_flow.columns:
@@ -13816,7 +13770,7 @@ def main():
                             # Create professional visualization with color zones
                             fig_flow = go.Figure()
                             
-                            # Create color mapping based on flow score (same as sector leadership)
+                            # Create color mapping based on flow score (same as sector rotation)
                             colors = []
                             for score in category_flow['Flow Score']:
                                 if score > 75:
@@ -13845,17 +13799,17 @@ def main():
                                     'Leadership Quality: %{customdata[3]}<br>'
                                     'Avg Score: %{customdata[4]:.1f}<extra></extra>'
                                 ),
-                                customdata=[[category_leadership.loc[cat, 'ldi_score'] if 'ldi_score' in category_leadership.columns else 0,
+                                customdata=[[category_rotation.loc[cat, 'ldi_score'] if 'ldi_score' in category_rotation.columns else 0,
                                            category_flow.loc[cat, 'Count'],
-                                           category_leadership.loc[cat, 'total_stocks'] if 'total_stocks' in category_leadership.columns else category_flow.loc[cat, 'Count'],
-                                           category_leadership.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_leadership.columns else 'N/A',
+                                           category_rotation.loc[cat, 'total_stocks'] if 'total_stocks' in category_rotation.columns else category_flow.loc[cat, 'Count'],
+                                           category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else 'N/A',
                                            category_flow.loc[cat, 'Avg Score'] if 'Avg Score' in category_flow.columns else 0] 
                                           for cat in category_flow.index]
                             ))
                             
                             # Enhanced layout with professional styling
                             fig_flow.update_layout(
-                                title=f"🎯 INSTITUTIONAL CATEGORY LEADERSHIP MAP - {flow_direction}",
+                                title=f"🎯 INSTITUTIONAL CATEGORY ROTATION MAP - {flow_direction}",
                                 xaxis_title="Market Cap Category",
                                 yaxis_title="Enhanced Flow Score",
                                 height=450,
@@ -13868,30 +13822,30 @@ def main():
                             )
                             
                             # Add horizontal reference lines for zones
-                            fig_flow.add_hline(y=75, line_dash="dash", line_color="green", annotation_text="Strong Leadership Zone")
-                            fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Moderate Leadership Zone")
-                            fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Weak Leadership Zone")
+                            fig_flow.add_hline(y=75, line_dash="dash", line_color="green", annotation_text="Hot Zone")
+                            fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
+                            fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
                             st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                             
                             # Add zone-based insights
-                            strong_categories = category_flow[category_flow['Flow Score'] > 75]
-                            if len(strong_categories) > 0:
-                                st.success(f"� **STRONG LEADERSHIP CATEGORIES**: {', '.join(strong_categories.index[:3])}")
+                            hot_categories = category_flow[category_flow['Flow Score'] > 75]
+                            if len(hot_categories) > 0:
+                                st.success(f"🔥 **HOT CATEGORIES**: {', '.join(hot_categories.index[:3])}")
                             
-                            weak_categories = category_flow[category_flow['Flow Score'] < 35]
-                            if len(weak_categories) > 0:
-                                st.warning(f"📉 **WEAK LEADERSHIP CATEGORIES**: {', '.join(weak_categories.index[-2:])}")
+                            cold_categories = category_flow[category_flow['Flow Score'] < 35]
+                            if len(cold_categories) > 0:
+                                st.warning(f"❄️ **AVOID CATEGORIES**: {', '.join(cold_categories.index[-2:])}")
                             
-                            moderate_categories = category_flow[(category_flow['Flow Score'] >= 45) & (category_flow['Flow Score'] <= 60)]
-                            if len(moderate_categories) > 0:
-                                st.info(f"⚖️ **MODERATE LEADERSHIP CATEGORIES**: {', '.join(moderate_categories.index[:2])}")
+                            neutral_categories = category_flow[(category_flow['Flow Score'] >= 45) & (category_flow['Flow Score'] <= 60)]
+                            if len(neutral_categories) > 0:
+                                st.info(f"⚖️ **NEUTRAL CATEGORIES**: {', '.join(neutral_categories.index[:2])}")
                         else:
-                            st.info("Insufficient data for professional category leadership analysis.")
+                            st.info("Insufficient data for professional category rotation analysis.")
                             
                     except Exception as e:
-                        logger.error(f"Error in professional category leadership analysis: {str(e)}")
-                        st.error("Unable to analyze category leadership")
+                        logger.error(f"Error in professional category rotation analysis: {str(e)}")
+                        st.error("Unable to analyze category rotation")
                 
                 with col2:
                     if 'category_flow' in locals() and not category_flow.empty:
@@ -13900,7 +13854,7 @@ def main():
                         st.markdown("**💎 Strongest Categories:**")
                         for i, (cat, row) in enumerate(category_flow.head(3).iterrows()):
                             emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
-                            quality = category_leadership.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_leadership.columns else ''
+                            quality = category_rotation.loc[cat, 'ldi_quality'] if 'ldi_quality' in category_rotation.columns else ''
                             quality_emoji = {'Elite': '🏆', 'Strong': '💪', 'Moderate': '📈', 'Weak': '😐'}.get(quality, '')
                             st.write(f"{emoji} **{cat}**: Score {row['Flow Score']:.1f} {quality_emoji}{quality}")
                         
@@ -13931,9 +13885,9 @@ def main():
                             st.info(f"📊 **Mixed Market** (Avg Score: {avg_score:.1f})")
                         
                         # Show LDI quality breakdown
-                        if 'ldi_quality' in category_leadership.columns:
+                        if 'ldi_quality' in category_rotation.columns:
                             st.markdown("**🎯 Leadership Quality:**")
-                            quality_counts = category_leadership['ldi_quality'].value_counts()
+                            quality_counts = category_rotation['ldi_quality'].value_counts()
                             for quality, count in quality_counts.items():
                                 emoji = {'Elite': '🏆', 'Strong': '💪', 'Moderate': '📈', 'Weak': '😐'}.get(quality, '')
                                 st.write(f"{emoji} {quality}: {count} categories")
@@ -15392,7 +15346,7 @@ def main():
             with viz_tabs[4]:
                 st.markdown("#### 🏢 **Comprehensive Sector Intelligence**")
                 
-                sector_overview_df_local = MarketIntelligence.analyze_sector_leadership_strength(filtered_df)
+                sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
                 
                 if not sector_overview_df_local.empty:
                     sector_intel_cols = st.columns(2)
@@ -16797,7 +16751,7 @@ def main():
                 "Comprehensive multi-sheet report including:\n"
                 "- Top 100 stocks with all scores\n"
                 "- Market intelligence dashboard\n"
-                "- Sector leadership analysis\n"
+                "- Sector rotation analysis\n"
                 "- Pattern frequency analysis\n"
                 "- Wave Radar signals\n"
                 "- Summary statistics"
