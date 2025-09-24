@@ -7765,10 +7765,34 @@ class FilterEngine:
             'wave_sensitivity', 'score_component_expander'
         ]
         
-        # Delete each known widget key if it exists
+        # Reset widget keys to default values first, then delete them
+        # This ensures proper widget refresh in Streamlit
         deleted_count = 0
         for key in widget_keys_to_delete:
             if key in st.session_state:
+                # Reset to appropriate default based on widget type
+                if 'multiselect' in key:
+                    st.session_state[key] = []
+                elif 'slider' in key:
+                    if 'range' in key:
+                        st.session_state[key] = (0, 100)
+                    else:
+                        st.session_state[key] = 0
+                elif 'selectbox' in key or 'dropdown' in key:
+                    if 'trend' in key:
+                        st.session_state[key] = "All Trends"
+                    elif 'score' in key:
+                        st.session_state[key] = "All Scores"
+                    else:
+                        st.session_state[key] = None
+                elif 'checkbox' in key:
+                    st.session_state[key] = False
+                elif 'input' in key:
+                    st.session_state[key] = ""
+                else:
+                    st.session_state[key] = None
+                
+                # Now delete the key to force widget recreation
                 del st.session_state[key]
                 deleted_count += 1
                 
@@ -12399,8 +12423,8 @@ def main():
         
         with filter_status_col2:
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
+                # Use ONLY FilterEngine.clear_all_filters - it's more comprehensive and avoids conflicts
                 FilterEngine.clear_all_filters()
-                SessionStateManager.clear_filters()
                 st.rerun()
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
