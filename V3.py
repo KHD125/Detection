@@ -399,6 +399,13 @@ class Config:
             "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
             "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
             "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
+        },
+        "daily_turnover_tiers": {
+            "🏜️ Very Low (<1L)": (0, 1_000_000),
+            "💧 Low (1L-10L)": (1_000_000, 10_000_000),
+            "💦 Moderate (10L-1Cr)": (10_000_000, 100_000_000),
+            "🌊 High (1Cr-10Cr)": (100_000_000, 1_000_000_000),
+            "🌊🌊 Very High (>10Cr)": (1_000_000_000, float('inf'))
         }
     })
     
@@ -1015,6 +1022,15 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
             logger.info(f"Position tiers created from from_low_pct. Sample tiers: {df['position_tier'].value_counts().head()}")
+        
+        # Daily turnover calculation and tier classification
+        if all(col in df.columns for col in ['volume_1d', 'price']):
+            # Calculate daily turnover in rupees
+            df['daily_turnover'] = df['volume_1d'] * df['price']
+            df['daily_turnover_tier'] = df['daily_turnover'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
         
         # Performance tier classifications - Unified approach
         # Enhanced performance tier classification with ALL return periods
@@ -7547,6 +7563,7 @@ class FilterEngine:
             'ret_5y_range': (75.0, 5000.0),
             'position_tiers': [],
             'position_range': (0, 100),
+            'turnover_tiers': [],
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
             'vmi_tiers': [],
@@ -7590,7 +7607,7 @@ class FilterEngine:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
             # Combination Pattern Filter Widget
@@ -7748,45 +7765,63 @@ class FilterEngine:
     
     @staticmethod
     def build_filter_dict() -> Dict[str, Any]:
-        """Build filter dictionary for apply_filters method"""
+        """
+        Build comprehensive filter dictionary for apply_filters method.
+        This ensures all filter types are properly included.
+        """
         FilterEngine.initialize_filters()
         filters = {}
-        state = st.session_state.filter_state
         
-        # Map internal state to filter dict format
-        if state.get('categories'):
-            filters['categories'] = state['categories']
-        if state.get('sectors'):
-            filters['sectors'] = state['sectors']
-        if state.get('industries'):
-            filters['industries'] = state['industries']
-        if state.get('min_score', 0) > 0:
-            filters['min_score'] = state['min_score']
-        if state.get('patterns'):
-            filters['patterns'] = state['patterns']
-        if state.get('trend_filter') != "All Trends":
-            filters['trend_filter'] = state['trend_filter']
-            filters['trend_range'] = state.get('trend_range', (0, 100))
-        if state.get('eps_tiers'):
-            filters['eps_tiers'] = state['eps_tiers']
-        if state.get('pe_tiers'):
-            filters['pe_tiers'] = state['pe_tiers']
-        if state.get('price_tiers'):
-            filters['price_tiers'] = state['price_tiers']
-        if state.get('eps_change_tiers'):
-            filters['eps_change_tiers'] = state['eps_change_tiers']
-        if state.get('min_pe') is not None:
-            filters['min_pe'] = state['min_pe']
-        if state.get('max_pe') is not None:
-            filters['max_pe'] = state['max_pe']
-        if state.get('require_fundamental_data'):
-            filters['require_fundamental_data'] = True
-        if state.get('market_states'):
-            filters['market_states'] = state['market_states']
-        if state.get('market_strength_range') != (0, 100):
-            filters['market_strength_range'] = state['market_strength_range']
-        if state.get('long_term_strength_range') != (0, 100):
-            filters['long_term_strength_range'] = state['long_term_strength_range']
+        # Use centralized filter state if available
+        if 'filter_state' in st.session_state:
+            state = st.session_state.filter_state
+            
+            # Map centralized state to filter dict
+            if state.get('categories'):
+                filters['categories'] = state['categories']
+            if state.get('sectors'):
+                filters['sectors'] = state['sectors']
+            if state.get('industries'):
+                filters['industries'] = state['industries']
+            if state.get('min_score', 0) > 0:
+                filters['min_score'] = state['min_score']
+            if state.get('patterns'):
+                filters['patterns'] = state['patterns']
+            if state.get('trend_filter') != "All Trends":
+                filters['trend_filter'] = state['trend_filter']
+                filters['trend_range'] = state.get('trend_range', (0, 100))
+            if state.get('eps_tiers'):
+                filters['eps_tiers'] = state['eps_tiers']
+            if state.get('pe_tiers'):
+                filters['pe_tiers'] = state['pe_tiers']
+            if state.get('price_tiers'):
+                filters['price_tiers'] = state['price_tiers']
+            if state.get('eps_change_tiers'):
+                filters['eps_change_tiers'] = state['eps_change_tiers']
+            if state.get('position_tiers'):
+                filters['position_tiers'] = state['position_tiers']
+            if state.get('turnover_tiers'):
+                filters['turnover_tiers'] = state['turnover_tiers']
+            if state.get('performance_tiers'):
+                filters['performance_tiers'] = state['performance_tiers']
+            if state.get('volume_tiers'):
+                filters['volume_tiers'] = state['volume_tiers']
+            if state.get('vmi_tiers'):
+                filters['vmi_tiers'] = state['vmi_tiers']
+            if state.get('momentum_harmony_tiers'):
+                filters['momentum_harmony_tiers'] = state['momentum_harmony_tiers']
+            if state.get('min_pe') is not None:
+                filters['min_pe'] = state['min_pe']
+            if state.get('max_pe') is not None:
+                filters['max_pe'] = state['max_pe']
+            if state.get('require_fundamental_data'):
+                filters['require_fundamental_data'] = True
+            if state.get('market_states'):
+                filters['market_states'] = state['market_states']
+            if state.get('market_strength_range') != (0, 100):
+                filters['market_strength_range'] = state['market_strength_range']
+            if state.get('long_term_strength_range') != (0, 100):
+                filters['long_term_strength_range'] = state['long_term_strength_range']
             
         return filters
     
@@ -7936,6 +7971,12 @@ class FilterEngine:
                 position_range = filters['position_range']
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
+        
+        # 5.55. Daily Turnover Intelligence filters
+        if 'turnover_tiers' in filters:
+            selected_tiers = filters['turnover_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('daily_turnover_tier', selected_tiers))
         
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
@@ -8294,12 +8335,52 @@ class FilterEngine:
             'pe_tiers': [],
             'price_tiers': [],
             'eps_change_tiers': [],
+            'position_tiers': [],
+            'position_range': (0, 100),
+            'turnover_tiers': [],
+            'performance_tiers': [],
+            'performance_custom_range': (-100, 500),
+            'volume_tiers': [],
+            'rvol_range': (0.1, 20.0),
+            'vmi_tiers': [],
+            'custom_vmi_range': (0.5, 3.0),
+            'momentum_harmony_tiers': [],
+            'ret_1d_range': (2.0, 25.0),
+            'ret_3d_range': (3.0, 50.0),
+            'ret_7d_range': (5.0, 75.0),
+            'ret_30d_range': (10.0, 150.0),
+            'ret_3m_range': (15.0, 200.0),
+            'ret_6m_range': (20.0, 500.0),
+            'ret_1y_range': (25.0, 1000.0),
+            'ret_3y_range': (50.0, 2000.0),
+            'ret_5y_range': (75.0, 5000.0),
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
             'long_term_strength_range': (0, 100),
+            'position_score_range': (0, 100),
+            'volume_score_range': (0, 100),
+            'momentum_score_range': (0, 100),
+            'acceleration_score_range': (0, 100),
+            'breakout_score_range': (0, 100),
+            'rvol_score_range': (0, 100),
+            'position_score_selection': "All Scores",
+            'volume_score_selection': "All Scores",
+            'momentum_score_selection': "All Scores",
+            'acceleration_score_selection': "All Scores",
+            'breakout_score_selection': "All Scores",
+            'rvol_score_selection': "All Scores",
+            'ret_1d_selection': "All Returns",
+            'ret_3d_selection': "All Returns",
+            'ret_7d_selection': "All Returns",
+            'ret_30d_selection': "All Returns",
+            'ret_3m_selection': "All Returns",
+            'ret_6m_selection': "All Returns",
+            'ret_1y_selection': "All Returns",
+            'ret_3y_selection': "All Returns",
+            'ret_5y_selection': "All Returns",
             'quick_filter': None,
             'quick_filter_applied': False,
             # Three-Stage Pattern Filtering System
@@ -9489,6 +9570,7 @@ class SessionStateManager:
                 'eps_change_tiers': [],
                 'position_tiers': [],
                 'position_range': (0, 100),
+                'turnover_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9625,6 +9707,8 @@ class SessionStateManager:
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
                 filters['position_tiers'] = state['position_tiers']
+            if state.get('turnover_tiers'):
+                filters['turnover_tiers'] = state['turnover_tiers']
             if state.get('volume_tiers'):
                 filters['volume_tiers'] = state['volume_tiers']
             if state.get('vmi_tiers'):
@@ -9769,6 +9853,7 @@ class SessionStateManager:
                 'eps_change_tiers': [],
                 'position_tiers': [],
                 'position_range': (0, 100),
+                'turnover_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9865,7 +9950,7 @@ class SessionStateManager:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -11755,6 +11840,22 @@ def main():
                     )
                     if position_range != (0, 100):
                         filters['position_range'] = position_range
+            
+            # 💧 Daily Turnover Intelligence
+            if 'daily_turnover_tier' in ranked_df_display.columns:
+                # Daily turnover tier multiselect (tier-only filtering)
+                turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                turnover_tiers = st.multiselect(
+                    "💧 Daily Turnover Tiers",
+                    options=turnover_tier_options,
+                    default=st.session_state.filter_state.get('turnover_tiers', []),
+                    key='turnover_tier_multiselect_intelligence',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
+                    help="Select daily turnover tiers for filtering"
+                )
+                
+                if turnover_tiers:
+                    filters['turnover_tiers'] = turnover_tiers
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
