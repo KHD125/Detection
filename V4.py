@@ -7377,9 +7377,10 @@ class FilterEngine:
     
     @staticmethod
     def initialize_filters():
-        """Initialize single filter state object"""
+        """Initialize single filter state object - MASTER DEFINITION"""
         if 'filter_state' not in st.session_state:
             st.session_state.filter_state = {
+                # Basic filters
                 'categories': [],
                 'sectors': [],
                 'industries': [],
@@ -7388,12 +7389,38 @@ class FilterEngine:
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
                 'trend_custom_range': (0, 100),
+                
+                # Fundamental filters
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
                 'eps_change_tiers': [],
+                'min_pe': None,
+                'max_pe': None,
+                'require_fundamental_data': False,
+                
+                # Market state filters
+                'market_states': [],
+                'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
+                
+                # Position filters
                 'position_tiers': [],
                 'position_range': (0, 100),
+                
+                # Volume filters
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
+                'turnover_tiers': [],
+                
+                # VMI filters
+                'vmi_tiers': [],
+                'custom_vmi_range': (0.5, 3.0),
+                
+                # Momentum filters
+                'momentum_harmony_tiers': [],
+                
+                # Performance filters
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'ret_1d_range': (2.0, 25.0),
@@ -7405,31 +7432,23 @@ class FilterEngine:
                 'ret_1y_range': (25.0, 1000.0),
                 'ret_3y_range': (50.0, 2000.0),
                 'ret_5y_range': (75.0, 5000.0),
-                'min_pe': None,
-                'max_pe': None,
-                'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
+                
+                # Score range filters
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
                 'acceleration_score_range': (0, 100),
                 'breakout_score_range': (0, 100),
                 'rvol_score_range': (0, 100),
+                
+                # Score selection filters
                 'position_score_selection': "All Scores",
                 'volume_score_selection': "All Scores",
                 'momentum_score_selection': "All Scores",
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
-                'quick_filter': None,
-                'quick_filter_applied': False,
-                'volume_tiers': [],
-                'rvol_range': (0.1, 20.0),
-                'vmi_tiers': [],
-                'custom_vmi_range': (0.5, 3.0),
-                'momentum_harmony_tiers': [],
+                
                 # Performance filter selections
                 'ret_1d_selection': "All Returns",
                 'ret_3d_selection': "All Returns", 
@@ -7440,6 +7459,11 @@ class FilterEngine:
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
+                
+                # Quick filter
+                'quick_filter': None,
+                'quick_filter_applied': False,
+                
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
@@ -7490,13 +7514,16 @@ class FilterEngine:
         count = 0
         filters = st.session_state.filter_state
         
-        # Check each filter type
+        # COMPLETE filter checking - synchronized with SessionStateManager.get_active_filter_count()
+        # Basic filters
         if filters.get('categories'): count += 1
         if filters.get('sectors'): count += 1
         if filters.get('industries'): count += 1
         if filters.get('min_score', 0) > 0: count += 1
         if filters.get('patterns'): count += 1
         if filters.get('trend_filter') != "All Trends": count += 1
+        
+        # Fundamental filters
         if filters.get('eps_tiers'): count += 1
         if filters.get('pe_tiers'): count += 1
         if filters.get('price_tiers'): count += 1
@@ -7504,21 +7531,77 @@ class FilterEngine:
         if filters.get('min_pe') is not None: count += 1
         if filters.get('max_pe') is not None: count += 1
         if filters.get('require_fundamental_data'): count += 1
+        
+        # Market state filters
         if filters.get('market_states'): count += 1
         if filters.get('market_strength_range') != (0, 100): count += 1
         if filters.get('long_term_strength_range') != (0, 100): count += 1
-        if filters.get('performance_tiers'): count += 1
+        
+        # Position filters
         if filters.get('position_tiers'): count += 1
+        if filters.get('position_range') != (0, 100): count += 1
+        
+        # Volume filters
         if filters.get('volume_tiers'): count += 1
+        if filters.get('rvol_range') != (0.1, 20.0): count += 1
+        if filters.get('turnover_tiers'): count += 1
+        
+        # VMI filters
         if filters.get('vmi_tiers'): count += 1
+        if filters.get('custom_vmi_range') != (0.5, 3.0): count += 1
+        
+        # Momentum filters
         if filters.get('momentum_harmony_tiers'): count += 1
-        if filters.get('custom_vmi_range') and filters.get('custom_vmi_range') != (0.5, 3.0): count += 1
+        
+        # Performance filters
+        if filters.get('performance_tiers'): count += 1
+        if filters.get('performance_custom_range') != (-100, 500): count += 1
+        
+        # Performance range filters (non-default values indicate active filters)
+        if filters.get('ret_1d_range') != (2.0, 25.0): count += 1
+        if filters.get('ret_3d_range') != (3.0, 50.0): count += 1
+        if filters.get('ret_7d_range') != (5.0, 75.0): count += 1
+        if filters.get('ret_30d_range') != (10.0, 150.0): count += 1
+        if filters.get('ret_3m_range') != (15.0, 200.0): count += 1
+        if filters.get('ret_6m_range') != (20.0, 500.0): count += 1
+        if filters.get('ret_1y_range') != (25.0, 1000.0): count += 1
+        if filters.get('ret_3y_range') != (50.0, 2000.0): count += 1
+        if filters.get('ret_5y_range') != (75.0, 5000.0): count += 1
+        
+        # Score selection filters (non-default values indicate active filters)
+        if filters.get('position_score_selection') != "All Scores": count += 1
+        if filters.get('volume_score_selection') != "All Scores": count += 1
+        if filters.get('momentum_score_selection') != "All Scores": count += 1
+        if filters.get('acceleration_score_selection') != "All Scores": count += 1
+        if filters.get('breakout_score_selection') != "All Scores": count += 1
+        if filters.get('rvol_score_selection') != "All Scores": count += 1
+        
+        # Performance selection filters (non-default values indicate active filters)
+        if filters.get('ret_1d_selection') != "All Returns": count += 1
+        if filters.get('ret_3d_selection') != "All Returns": count += 1
+        if filters.get('ret_7d_selection') != "All Returns": count += 1
+        if filters.get('ret_30d_selection') != "All Returns": count += 1
+        if filters.get('ret_3m_selection') != "All Returns": count += 1
+        if filters.get('ret_6m_selection') != "All Returns": count += 1
+        if filters.get('ret_1y_selection') != "All Returns": count += 1
+        if filters.get('ret_3y_selection') != "All Returns": count += 1
+        if filters.get('ret_5y_selection') != "All Returns": count += 1
+        
+        # Score range filters (non-default values indicate active filters)
         if filters.get('position_score_range') != (0, 100): count += 1
         if filters.get('volume_score_range') != (0, 100): count += 1
         if filters.get('momentum_score_range') != (0, 100): count += 1
         if filters.get('acceleration_score_range') != (0, 100): count += 1
         if filters.get('breakout_score_range') != (0, 100): count += 1
         if filters.get('rvol_score_range') != (0, 100): count += 1
+        
+        # Pattern filters
+        if filters.get('exclude_patterns'): count += 1
+        if filters.get('include_patterns'): count += 1
+        if filters.get('combination_patterns'): count += 1
+        
+        # Quick filter
+        if filters.get('quick_filter_applied'): count += 1
         
         return count
     
@@ -7528,8 +7611,9 @@ class FilterEngine:
         Reset all filters to defaults and clear widget states.
         FIXED: Now properly deletes ALL dynamic widget keys to prevent memory leaks.
         """
-        # Reset centralized filter state
+        # Reset centralized filter state - SYNCHRONIZED WITH MASTER
         st.session_state.filter_state = {
+            # Basic filters
             'categories': [],
             'sectors': [],
             'industries': [],
@@ -7538,6 +7622,8 @@ class FilterEngine:
             'trend_filter': "All Trends",
             'trend_range': (0, 100),
             'trend_custom_range': (0, 100),
+            
+            # Fundamental filters
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
@@ -7545,11 +7631,29 @@ class FilterEngine:
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
+            
+            # Market state filters
             'market_states': [],
             'market_strength_range': (0, 100),
             'long_term_strength_range': (0, 100),
-            'quick_filter': None,
-            'quick_filter_applied': False,
+            
+            # Position filters
+            'position_tiers': [],
+            'position_range': (0, 100),
+            
+            # Volume filters
+            'volume_tiers': [],
+            'rvol_range': (0.1, 20.0),
+            'turnover_tiers': [],
+            
+            # VMI filters
+            'vmi_tiers': [],
+            'custom_vmi_range': (0.5, 3.0),
+            
+            # Momentum filters
+            'momentum_harmony_tiers': [],
+            
+            # Performance filters
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'ret_1d_range': (2.0, 25.0),
@@ -7561,26 +7665,23 @@ class FilterEngine:
             'ret_1y_range': (25.0, 1000.0),
             'ret_3y_range': (50.0, 2000.0),
             'ret_5y_range': (75.0, 5000.0),
-            'position_tiers': [],
-            'position_range': (0, 100),
-            'turnover_tiers': [],
-            'volume_tiers': [],
-            'rvol_range': (0.1, 20.0),
-            'vmi_tiers': [],
-            'custom_vmi_range': (0.5, 3.0),
-            'momentum_harmony_tiers': [],
+            
+            # Score range filters
             'position_score_range': (0, 100),
             'volume_score_range': (0, 100),
             'momentum_score_range': (0, 100),
             'acceleration_score_range': (0, 100),
             'breakout_score_range': (0, 100),
             'rvol_score_range': (0, 100),
+            
+            # Score selection filters
             'position_score_selection': "All Scores",
             'volume_score_selection': "All Scores",
             'momentum_score_selection': "All Scores",
             'acceleration_score_selection': "All Scores",
             'breakout_score_selection': "All Scores",
             'rvol_score_selection': "All Scores",
+            
             # Performance filter selections
             'ret_1d_selection': "All Returns",
             'ret_3d_selection': "All Returns", 
@@ -7591,6 +7692,11 @@ class FilterEngine:
             'ret_1y_selection': "All Returns",
             'ret_3y_selection': "All Returns",
             'ret_5y_selection': "All Returns",
+            
+            # Quick filter
+            'quick_filter': None,
+            'quick_filter_applied': False,
+            
             # Two-Stage Pattern Filtering System
             'exclude_patterns': [],
             'include_patterns': [],
@@ -7598,27 +7704,41 @@ class FilterEngine:
         }
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
-        # First, delete known widget keys
+        # COMPLETE list of known widget keys - synchronized with clear_filters()
         widget_keys_to_delete = [
-            # Multiselect widgets
+            # Multiselect widgets - Basic filters
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
             'patterns_multiselect', 'market_states_multiselect', 'custom_market_states_multiselect',
+            
+            # Multiselect widgets - Fundamental filters
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
-            'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
-            'volume_tier_multiselect',
+            'eps_change_tiers_widget',
+            
+            # Multiselect widgets - Volume/Position/Performance filters
+            'performance_tier_multiselect', 'position_tier_multiselect', 'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
             'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
+            
+            # Multiselect widgets - VMI and Momentum filters
+            'vmi_tier_multiselect', 'momentum_harmony_tier_multiselect', 'turnover_tier_multiselect',
+            
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
-            # Combination Pattern Filter Widget
             'combination_patterns_multiselect',
             
-            # Slider widgets
-            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            # Slider widgets - Basic
+            'min_score_slider', 'market_strength_slider', 'long_term_strength_slider',
             'trend_custom_range_slider',
+            
+            # Slider widgets - Performance ranges
+            'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
-            'position_range_slider', 'rvol_range_slider',
+            
+            # Slider widgets - Position/Volume
+            'position_range_slider', 'rvol_range_slider', 'custom_vmi_range_slider',
+            
+            # Slider widgets - Score ranges
             'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
             'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
@@ -7631,18 +7751,18 @@ class FilterEngine:
             'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
             
             # Selectbox widgets
-            'trend_selectbox', 'wave_timeframe_select',
+            'trend_selectbox', 'wave_timeframe_select', 'display_mode_toggle',
             
             # Text input widgets
             'eps_change_input', 'min_pe_input', 'max_pe_input',
+            'search_input', 'sheet_input', 'gid_input',
             
             # Checkbox widgets
-            'require_fundamental_checkbox',
+            'require_fundamental_checkbox', 'show_sensitivity_details', 'show_market_regime',
             
             # Additional filter-related keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
-            'wave_sensitivity', 'show_sensitivity_details', 'show_market_regime',
-            'score_component_expander'
+            'wave_sensitivity', 'score_component_expander'
         ]
         
         # Delete each known widget key if it exists
@@ -7656,7 +7776,7 @@ class FilterEngine:
         # Now clean up ANY dynamically created widget keys
         # This is crucial for preventing memory leaks
         
-        # Define all possible widget suffixes used by Streamlit
+        # SYNCHRONIZED: Define all possible widget suffixes used by Streamlit
         widget_suffixes = [
             '_multiselect', '_slider', '_selectbox', '_checkbox',
             '_input', '_radio', '_button', '_expander', '_toggle',
@@ -7664,7 +7784,7 @@ class FilterEngine:
             '_color_picker', '_file_uploader', '_camera_input', '_select_slider'
         ]
         
-        # Also check for common prefixes used in dynamic widgets
+        # SYNCHRONIZED: Check for common prefixes used in dynamic widgets
         widget_prefixes = [
             'FormSubmitter', 'temp_', 'dynamic_', 'filter_', 'widget_'
         ]
@@ -8322,8 +8442,9 @@ class FilterEngine:
         """Reset filters to default state but keep widget keys"""
         FilterEngine.initialize_filters()
         
-        # Reset only the filter values, not the widgets
+        # Reset only the filter values, not the widgets - SYNCHRONIZED WITH MASTER
         st.session_state.filter_state = {
+            # Basic filters
             'categories': [],
             'sectors': [],
             'industries': [],
@@ -8331,20 +8452,41 @@ class FilterEngine:
             'patterns': [],
             'trend_filter': "All Trends",
             'trend_range': (0, 100),
+            'trend_custom_range': (0, 100),
+            
+            # Fundamental filters
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
             'eps_change_tiers': [],
+            'min_pe': None,
+            'max_pe': None,
+            'require_fundamental_data': False,
+            
+            # Market state filters
+            'market_states': [],
+            'market_strength_range': (0, 100),
+            'long_term_strength_range': (0, 100),
+            
+            # Position filters
             'position_tiers': [],
             'position_range': (0, 100),
-            'turnover_tiers': [],
-            'performance_tiers': [],
-            'performance_custom_range': (-100, 500),
+            
+            # Volume filters
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
+            'turnover_tiers': [],
+            
+            # VMI filters
             'vmi_tiers': [],
             'custom_vmi_range': (0.5, 3.0),
+            
+            # Momentum filters
             'momentum_harmony_tiers': [],
+            
+            # Performance filters
+            'performance_tiers': [],
+            'performance_custom_range': (-100, 500),
             'ret_1d_range': (2.0, 25.0),
             'ret_3d_range': (3.0, 50.0),
             'ret_7d_range': (5.0, 75.0),
@@ -8354,26 +8496,26 @@ class FilterEngine:
             'ret_1y_range': (25.0, 1000.0),
             'ret_3y_range': (50.0, 2000.0),
             'ret_5y_range': (75.0, 5000.0),
-            'min_pe': None,
-            'max_pe': None,
-            'require_fundamental_data': False,
-            'market_states': [],
-            'market_strength_range': (0, 100),
-            'long_term_strength_range': (0, 100),
+            
+            # Score range filters
             'position_score_range': (0, 100),
             'volume_score_range': (0, 100),
             'momentum_score_range': (0, 100),
             'acceleration_score_range': (0, 100),
             'breakout_score_range': (0, 100),
             'rvol_score_range': (0, 100),
+            
+            # Score selection filters
             'position_score_selection': "All Scores",
             'volume_score_selection': "All Scores",
             'momentum_score_selection': "All Scores",
             'acceleration_score_selection': "All Scores",
             'breakout_score_selection': "All Scores",
             'rvol_score_selection': "All Scores",
+            
+            # Performance filter selections
             'ret_1d_selection': "All Returns",
-            'ret_3d_selection': "All Returns",
+            'ret_3d_selection': "All Returns", 
             'ret_7d_selection': "All Returns",
             'ret_30d_selection': "All Returns",
             'ret_3m_selection': "All Returns",
@@ -8381,20 +8523,28 @@ class FilterEngine:
             'ret_1y_selection': "All Returns",
             'ret_3y_selection': "All Returns",
             'ret_5y_selection': "All Returns",
+            
+            # Quick filter
             'quick_filter': None,
             'quick_filter_applied': False,
-            # Three-Stage Pattern Filtering System
+            
+            # Two-Stage Pattern Filtering System
             'exclude_patterns': [],
             'include_patterns': [],
             'combination_patterns': []
         }
 
-        # Clean up ALL dynamically created widget keys
+        # SYNCHRONIZED: Clean up ALL dynamically created widget keys - same logic as other clear functions
         all_widget_patterns = [
-            '_multiselect', '_slider', '_selectbox', '_checkbox', 
+            '_multiselect', '_slider', '_selectbox', '_checkbox',
             '_input', '_radio', '_button', '_expander', '_toggle',
             '_number_input', '_text_area', '_date_input', '_time_input',
-            '_color_picker', '_file_uploader', '_camera_input'
+            '_color_picker', '_file_uploader', '_camera_input', '_select_slider'
+        ]
+        
+        # SYNCHRONIZED: Check for same prefixes as other clear functions
+        widget_prefixes = [
+            'FormSubmitter', 'temp_', 'dynamic_', 'filter_', 'widget_'
         ]
         
         # Collect keys to delete (can't modify dict during iteration)
@@ -8406,6 +8556,13 @@ class FilterEngine:
                 if pattern in key:
                     dynamic_keys_to_delete.append(key)
                     break
+            
+            # Check if key has widget prefix (if not already found)
+            if key not in dynamic_keys_to_delete:
+                for prefix in widget_prefixes:
+                    if key.startswith(prefix):
+                        dynamic_keys_to_delete.append(key)
+                        break
         
         # Delete the dynamic keys
         for key in dynamic_keys_to_delete:
@@ -8415,15 +8572,6 @@ class FilterEngine:
             except KeyError:
                 # Key might have been deleted already
                 pass
-        
-        # Also clean up any keys that start with 'FormSubmitter'
-        form_keys_to_delete = [key for key in st.session_state.keys() if key.startswith('FormSubmitter')]
-        for key in form_keys_to_delete:
-            try:
-                del st.session_state[key]
-            except KeyError:
-                pass
-        # ==== COMPREHENSIVE WIDGET CLEANUP - END ====
         st.session_state.active_filter_count = 0
         logger.info("Filters reset to defaults")
         
@@ -9554,9 +9702,10 @@ class SessionStateManager:
             if key not in st.session_state:
                 st.session_state[key] = default_value
         
-        # Initialize centralized filter state (NEW)
+        # Initialize centralized filter state - SYNCHRONIZED WITH MASTER
         if 'filter_state' not in st.session_state:
             st.session_state.filter_state = {
+                # Basic filters
                 'categories': [],
                 'sectors': [],
                 'industries': [],
@@ -9564,20 +9713,41 @@ class SessionStateManager:
                 'patterns': [],
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
+                'trend_custom_range': (0, 100),
+                
+                # Fundamental filters
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
                 'eps_change_tiers': [],
+                'min_pe': None,
+                'max_pe': None,
+                'require_fundamental_data': False,
+                
+                # Market state filters
+                'market_states': [],
+                'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
+                
+                # Position filters
                 'position_tiers': [],
                 'position_range': (0, 100),
-                'turnover_tiers': [],
-                'performance_tiers': [],
-                'performance_custom_range': (-100, 500),
+                
+                # Volume filters
                 'volume_tiers': [],
                 'rvol_range': (0.1, 20.0),
+                'turnover_tiers': [],
+                
+                # VMI filters
                 'vmi_tiers': [],
                 'custom_vmi_range': (0.5, 3.0),
+                
+                # Momentum filters
                 'momentum_harmony_tiers': [],
+                
+                # Performance filters
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
                 'ret_1d_range': (2.0, 25.0),
                 'ret_3d_range': (3.0, 50.0),
                 'ret_7d_range': (5.0, 75.0),
@@ -9587,27 +9757,26 @@ class SessionStateManager:
                 'ret_1y_range': (25.0, 1000.0),
                 'ret_3y_range': (50.0, 2000.0),
                 'ret_5y_range': (75.0, 5000.0),
-                'min_eps_change': None,
-                'min_pe': None,
-                'max_pe': None,
-                'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
+                
+                # Score range filters
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
                 'acceleration_score_range': (0, 100),
                 'breakout_score_range': (0, 100),
                 'rvol_score_range': (0, 100),
+                
+                # Score selection filters
                 'position_score_selection': "All Scores",
                 'volume_score_selection': "All Scores",
                 'momentum_score_selection': "All Scores",
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
+                
+                # Performance filter selections
                 'ret_1d_selection': "All Returns",
-                'ret_3d_selection': "All Returns",
+                'ret_3d_selection': "All Returns", 
                 'ret_7d_selection': "All Returns",
                 'ret_30d_selection': "All Returns",
                 'ret_3m_selection': "All Returns",
@@ -9615,8 +9784,11 @@ class SessionStateManager:
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
+                
+                # Quick filter
                 'quick_filter': None,
                 'quick_filter_applied': False,
+                
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
@@ -9836,9 +10008,10 @@ class SessionStateManager:
         This provides a clean slate for the user.
         FIXED: Now properly cleans ALL dynamic widget keys.
         """
-        # Clear the centralized filter state
+        # Clear the centralized filter state - SYNCHRONIZED WITH MASTER
         if 'filter_state' in st.session_state:
             st.session_state.filter_state = {
+                # Basic filters
                 'categories': [],
                 'sectors': [],
                 'industries': [],
@@ -9847,36 +10020,66 @@ class SessionStateManager:
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
                 'trend_custom_range': (0, 100),
+                
+                # Fundamental filters
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
                 'eps_change_tiers': [],
-                'position_tiers': [],
-                'position_range': (0, 100),
-                'turnover_tiers': [],
-                'performance_tiers': [],
-                'performance_custom_range': (-100, 500),
-                'volume_tiers': [],
-                'rvol_range': (0.1, 20.0),
-                'min_eps_change': None,
                 'min_pe': None,
                 'max_pe': None,
                 'require_fundamental_data': False,
+                
+                # Market state filters
                 'market_states': [],
                 'market_strength_range': (0, 100),
                 'long_term_strength_range': (0, 100),
+                
+                # Position filters
+                'position_tiers': [],
+                'position_range': (0, 100),
+                
+                # Volume filters
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
+                'turnover_tiers': [],
+                
+                # VMI filters
+                'vmi_tiers': [],
+                'custom_vmi_range': (0.5, 3.0),
+                
+                # Momentum filters
+                'momentum_harmony_tiers': [],
+                
+                # Performance filters
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
+                
+                # Score range filters
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
                 'acceleration_score_range': (0, 100),
                 'breakout_score_range': (0, 100),
                 'rvol_score_range': (0, 100),
+                
+                # Score selection filters
                 'position_score_selection': "All Scores",
                 'volume_score_selection': "All Scores",
                 'momentum_score_selection': "All Scores",
                 'acceleration_score_selection': "All Scores",
                 'breakout_score_selection': "All Scores",
                 'rvol_score_selection': "All Scores",
+                
                 # Performance filter selections
                 'ret_1d_selection': "All Returns",
                 'ret_3d_selection': "All Returns", 
@@ -9887,22 +10090,15 @@ class SessionStateManager:
                 'ret_1y_selection': "All Returns",
                 'ret_3y_selection': "All Returns",
                 'ret_5y_selection': "All Returns",
+                
+                # Quick filter
+                'quick_filter': None,
+                'quick_filter_applied': False,
+                
                 # Two-Stage Pattern Filtering System
                 'exclude_patterns': [],
                 'include_patterns': [],
-                'combination_patterns': [],
-                # Performance filter ranges
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0),
-                'quick_filter': None,
-                'quick_filter_applied': False
+                'combination_patterns': []
             }
         
         # Clear individual legacy filter keys
@@ -9942,24 +10138,41 @@ class SessionStateManager:
                     st.session_state[key] = None
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
+        # COMPLETE list of known widget keys - synchronized with clear_all_filters()
         widget_keys_to_delete = [
-            # Multiselect widgets
+            # Multiselect widgets - Basic filters
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
             'patterns_multiselect', 'market_states_multiselect', 'custom_market_states_multiselect',
+            
+            # Multiselect widgets - Fundamental filters
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
-            'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
-            'volume_tier_multiselect',
+            'eps_change_tiers_widget',
+            
+            # Multiselect widgets - Volume/Position/Performance filters
+            'performance_tier_multiselect', 'position_tier_multiselect', 'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
             'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
-            # Pattern Filter Widgets  
-            'exclude_patterns_multiselect', 'include_patterns_multiselect', 'combination_patterns_multiselect',
             
-            # Slider widgets
-            'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
+            # Multiselect widgets - VMI and Momentum filters
+            'vmi_tier_multiselect', 'momentum_harmony_tier_multiselect', 'turnover_tier_multiselect',
+            
+            # Two-Stage Pattern Filter Widgets
+            'exclude_patterns_multiselect', 'include_patterns_multiselect',
+            'combination_patterns_multiselect',
+            
+            # Slider widgets - Basic
+            'min_score_slider', 'market_strength_slider', 'long_term_strength_slider',
             'trend_custom_range_slider',
+            
+            # Slider widgets - Performance ranges
+            'performance_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
-            'position_range_slider', 'rvol_range_slider',
+            
+            # Slider widgets - Position/Volume
+            'position_range_slider', 'rvol_range_slider', 'custom_vmi_range_slider',
+            
+            # Slider widgets - Score ranges
             'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
             'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
@@ -9967,18 +10180,23 @@ class SessionStateManager:
             'position_score_dropdown', 'volume_score_dropdown', 'momentum_score_dropdown',
             'acceleration_score_dropdown', 'breakout_score_dropdown', 'rvol_score_dropdown',
             
+            # Performance dropdown widgets
+            'ret_1d_dropdown', 'ret_3d_dropdown', 'ret_7d_dropdown', 'ret_30d_dropdown',
+            'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
+            
             # Selectbox widgets
             'trend_selectbox', 'wave_timeframe_select', 'display_mode_toggle',
             
             # Text input widgets
             'eps_change_input', 'min_pe_input', 'max_pe_input',
+            'search_input', 'sheet_input', 'gid_input',
             
             # Checkbox widgets
             'require_fundamental_checkbox', 'show_sensitivity_details', 'show_market_regime',
             
-            # Additional keys
+            # Additional filter-related keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
-            'wave_sensitivity', 'search_input', 'sheet_input', 'gid_input'
+            'wave_sensitivity', 'score_component_expander'
         ]
         
         # Delete each widget key if it exists
@@ -9991,12 +10209,18 @@ class SessionStateManager:
         # ==== MEMORY LEAK FIX - START ====
         # Clean up ANY dynamically created widget keys that weren't in the predefined list
         # This catches widgets created on the fly or with dynamic keys
+        # SYNCHRONIZED: Use same widget patterns as clear_all_filters()
         
         all_widget_patterns = [
-            '_multiselect', '_slider', '_selectbox', '_checkbox', 
+            '_multiselect', '_slider', '_selectbox', '_checkbox',
             '_input', '_radio', '_button', '_expander', '_toggle',
             '_number_input', '_text_area', '_date_input', '_time_input',
-            '_color_picker', '_file_uploader', '_camera_input'
+            '_color_picker', '_file_uploader', '_camera_input', '_select_slider'
+        ]
+        
+        # SYNCHRONIZED: Check for same prefixes as clear_all_filters()
+        widget_prefixes = [
+            'FormSubmitter', 'temp_', 'dynamic_', 'filter_', 'widget_'
         ]
         
         # Collect keys to delete (can't modify dict during iteration)
@@ -10008,6 +10232,13 @@ class SessionStateManager:
                 if pattern in key and key not in widget_keys_to_delete:
                     dynamic_keys_to_delete.append(key)
                     break
+            
+            # Check if key has widget prefix (if not already found)
+            if key not in dynamic_keys_to_delete:
+                for prefix in widget_prefixes:
+                    if key.startswith(prefix) and key not in widget_keys_to_delete:
+                        dynamic_keys_to_delete.append(key)
+                        break
         
         # Delete the dynamic keys
         for key in dynamic_keys_to_delete:
@@ -10017,15 +10248,6 @@ class SessionStateManager:
                 logger.debug(f"Deleted dynamic widget key: {key}")
             except KeyError:
                 # Key might have been deleted already
-                pass
-        
-        # Also clean up any keys that start with 'FormSubmitter'
-        form_keys_to_delete = [key for key in st.session_state.keys() if key.startswith('FormSubmitter')]
-        for key in form_keys_to_delete:
-            try:
-                del st.session_state[key]
-                deleted_count += 1
-            except KeyError:
                 pass
         
         # ==== MEMORY LEAK FIX - END ====
@@ -10086,14 +10308,17 @@ class SessionStateManager:
         
         state = st.session_state.filter_state
         
-        # Sync from centralized to individual (for widgets that still use old keys)
+        # COMPLETE sync mappings from centralized to individual (for widgets that still use old keys)
         mappings = [
+            # Basic filters
             ('categories', 'category_filter'),
             ('sectors', 'sector_filter'),
             ('industries', 'industry_filter'),
             ('min_score', 'min_score'),
             ('patterns', 'patterns'),
             ('trend_filter', 'trend_filter'),
+            
+            # Fundamental filters
             ('eps_tiers', 'eps_tier_filter'),
             ('pe_tiers', 'pe_tier_filter'),
             ('price_tiers', 'price_tier_filter'),
@@ -10101,8 +10326,35 @@ class SessionStateManager:
             ('min_pe', 'min_pe'),
             ('max_pe', 'max_pe'),
             ('require_fundamental_data', 'require_fundamental_data'),
+            
+            # Market state filters
             ('market_states', 'market_states_filter'),
             ('market_strength_range', 'market_strength_range_slider'),
+            ('long_term_strength_range', 'long_term_strength_range_slider'),
+            
+            # Position filters
+            ('position_tiers', 'position_tier_filter'),
+            ('position_range', 'position_range_slider'),
+            
+            # Volume filters
+            ('volume_tiers', 'volume_tier_filter'),
+            ('rvol_range', 'rvol_range_slider'),
+            ('turnover_tiers', 'turnover_tier_filter'),
+            
+            # VMI filters
+            ('vmi_tiers', 'vmi_tier_filter'),
+            ('custom_vmi_range', 'custom_vmi_range_slider'),
+            
+            # Momentum filters
+            ('momentum_harmony_tiers', 'momentum_harmony_tier_filter'),
+            
+            # Performance filters
+            ('performance_tiers', 'performance_tier_filter'),
+            ('performance_custom_range', 'performance_custom_range_slider'),
+            
+            # Quick filter
+            ('quick_filter', 'quick_filter'),
+            ('quick_filter_applied', 'quick_filter_applied')
         ]
         
         for state_key, session_key in mappings:
@@ -10122,12 +10374,15 @@ class SessionStateManager:
         if 'filter_state' in st.session_state:
             state = st.session_state.filter_state
             
+            # Basic filters
             if state.get('categories'): count += 1
             if state.get('sectors'): count += 1
             if state.get('industries'): count += 1
             if state.get('min_score', 0) > 0: count += 1
             if state.get('patterns'): count += 1
             if state.get('trend_filter') != "All Trends": count += 1
+            
+            # Fundamental filters
             if state.get('eps_tiers'): count += 1
             if state.get('pe_tiers'): count += 1
             if state.get('price_tiers'): count += 1
@@ -10135,9 +10390,77 @@ class SessionStateManager:
             if state.get('min_pe') is not None: count += 1
             if state.get('max_pe') is not None: count += 1
             if state.get('require_fundamental_data'): count += 1
+            
+            # Market state filters
             if state.get('market_states'): count += 1
             if state.get('market_strength_range') != (0, 100): count += 1
             if state.get('long_term_strength_range') != (0, 100): count += 1
+            
+            # Position filters
+            if state.get('position_tiers'): count += 1
+            if state.get('position_range') != (0, 100): count += 1
+            
+            # Volume filters
+            if state.get('volume_tiers'): count += 1
+            if state.get('rvol_range') != (0.1, 20.0): count += 1
+            if state.get('turnover_tiers'): count += 1
+            
+            # VMI filters
+            if state.get('vmi_tiers'): count += 1
+            if state.get('custom_vmi_range') != (0.5, 3.0): count += 1
+            
+            # Momentum filters
+            if state.get('momentum_harmony_tiers'): count += 1
+            
+            # Performance filters
+            if state.get('performance_tiers'): count += 1
+            if state.get('performance_custom_range') != (-100, 500): count += 1
+            
+            # Performance range filters (non-default values indicate active filters)
+            if state.get('ret_1d_range') != (2.0, 25.0): count += 1
+            if state.get('ret_3d_range') != (3.0, 50.0): count += 1
+            if state.get('ret_7d_range') != (5.0, 75.0): count += 1
+            if state.get('ret_30d_range') != (10.0, 150.0): count += 1
+            if state.get('ret_3m_range') != (15.0, 200.0): count += 1
+            if state.get('ret_6m_range') != (20.0, 500.0): count += 1
+            if state.get('ret_1y_range') != (25.0, 1000.0): count += 1
+            if state.get('ret_3y_range') != (50.0, 2000.0): count += 1
+            if state.get('ret_5y_range') != (75.0, 5000.0): count += 1
+            
+            # Score selection filters (non-default values indicate active filters)
+            if state.get('position_score_selection') != "All Scores": count += 1
+            if state.get('volume_score_selection') != "All Scores": count += 1
+            if state.get('momentum_score_selection') != "All Scores": count += 1
+            if state.get('acceleration_score_selection') != "All Scores": count += 1
+            if state.get('breakout_score_selection') != "All Scores": count += 1
+            if state.get('rvol_score_selection') != "All Scores": count += 1
+            
+            # Performance selection filters (non-default values indicate active filters)
+            if state.get('ret_1d_selection') != "All Returns": count += 1
+            if state.get('ret_3d_selection') != "All Returns": count += 1
+            if state.get('ret_7d_selection') != "All Returns": count += 1
+            if state.get('ret_30d_selection') != "All Returns": count += 1
+            if state.get('ret_3m_selection') != "All Returns": count += 1
+            if state.get('ret_6m_selection') != "All Returns": count += 1
+            if state.get('ret_1y_selection') != "All Returns": count += 1
+            if state.get('ret_3y_selection') != "All Returns": count += 1
+            if state.get('ret_5y_selection') != "All Returns": count += 1
+            
+            # Score range filters (non-default values indicate active filters)
+            if state.get('position_score_range') != (0, 100): count += 1
+            if state.get('volume_score_range') != (0, 100): count += 1
+            if state.get('momentum_score_range') != (0, 100): count += 1
+            if state.get('acceleration_score_range') != (0, 100): count += 1
+            if state.get('breakout_score_range') != (0, 100): count += 1
+            if state.get('rvol_score_range') != (0, 100): count += 1
+            
+            # Pattern filters
+            if state.get('exclude_patterns'): count += 1
+            if state.get('include_patterns'): count += 1
+            if state.get('combination_patterns'): count += 1
+            
+            # Quick filter
+            if state.get('quick_filter_applied'): count += 1
         else:
             # Fallback to old method
             filter_checks = [
