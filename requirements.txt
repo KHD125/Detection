@@ -1,59 +1,18 @@
 # ===================================
-# V9.PY STABLE REQUIREMENTS
+# V9.PY REQUIREMENTS - UNIVERSAL COMPATIBILITY
 # ===================================
-# LOCKED VERSIONS: Tested and verified to work together
-# Last Updated: December 2024
-# Python Version: 3.9+ recommended
+# Works with Python 3.9 - 3.13
 
 # Core Framework
-# -----------------------------------
-streamlit==1.29.0        # Main framework - locked to stable version
-                        # Provides UI, session state, caching
+streamlit==1.29.0
 
-# Data Processing (CRITICAL)
-# -----------------------------------
-pandas==2.0.3           # DataFrame operations, data manipulation
-                       # Used throughout for stock data processing
-numpy==1.24.3          # Numerical computations, array operations
-                      # Required for scoring calculations
+# Data Processing - Latest stable versions
+pandas==2.2.3          # Latest stable, supports all Python versions
+numpy==2.0.2           # Latest stable, fully compatible
 
-# Visualization (ESSENTIAL)
-# -----------------------------------
-plotly==5.17.0         # Interactive charts and visualizations
-                      # Used in: plotly.graph_objects for all charts
+# Visualization
+plotly==5.24.1         # Latest stable
 
-# Excel Export (REQUIRED)
-# -----------------------------------
-xlsxwriter==3.1.9      # Primary Excel writer
-                      # Used in: ExportEngine.create_excel_report()
-openpyxl==3.1.2       # Secondary Excel support
-                     # Used for: multi-sheet operations
-
-# Optional Performance Enhancements
-# -----------------------------------
-# Uncomment if needed for performance:
-# pyarrow==14.0.1      # Faster parquet file operations
-# numba==0.58.1        # JIT compilation for numerical functions
-
-# ===================================
-# DEPLOYMENT NOTES
-# ===================================
-# 1. Use exact versions (==) not ranges (>=)
-# 2. Test thoroughly when updating any version
-# 3. Python 3.9+ recommended for best compatibility
-# 4. Total install size: ~150MB
-# 5. Memory usage: ~200-500MB typical runtime
-
-# ===================================
-# VERSION COMPATIBILITY MATRIX
-# ===================================
-# streamlit 1.29.0 + pandas 2.0.3 ✓
-# pandas 2.0.3 + numpy 1.24.3 ✓
-# plotly 5.17.0 + pandas 2.0.3 ✓
-# xlsxwriter 3.1.9 + pandas 2.0.3 ✓
-
-# ===================================
-# INSTALL COMMAND
-# ===================================
-# pip install -r requirements.txt --no-cache-dir
-
+# Excel Export
+xlsxwriter==3.2.0      # Latest stable
+openpyxl==3.1.5        # Latest stable
