@@ -10482,6 +10482,7 @@ def main():
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
             FilterEngine.clear_all_filters()
+            SessionStateManager.clear_filters()
             st.success("✅ All filters cleared!")
             st.rerun()
         
@@ -11943,6 +11944,7 @@ def main():
                     key="clear_filters_sidebar_btn"):
             
             FilterEngine.clear_all_filters()
+            SessionStateManager.clear_filters()
             st.success("✅ All filters cleared!")
             st.rerun()
     
@@ -13095,6 +13097,7 @@ def main():
                 
                 if st.button("Clear All Filters", type="primary", key="clear_filters_ranking_btn"):
                     FilterEngine.clear_all_filters()
+                    SessionStateManager.clear_filters()
                     st.success("✅ All filters cleared!")
                     st.rerun()
             else:
