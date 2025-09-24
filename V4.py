@@ -10878,7 +10878,8 @@ def main():
         if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
-            SessionStateManager.clear_filters()
+            # Use ONLY FilterEngine.clear_all_filters - it's more comprehensive
+            FilterEngine.clear_all_filters()
             st.success("✅ All filters cleared!")
             st.rerun()
         
@@ -12339,9 +12340,8 @@ def main():
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
             
-            # Use both FilterEngine and SessionStateManager clear methods
+            # Use ONLY FilterEngine.clear_all_filters - it's more comprehensive and avoids conflicts
             FilterEngine.clear_all_filters()
-            SessionStateManager.clear_filters()
             
             st.success("✅ All filters cleared!")
             time.sleep(0.3)
@@ -13495,8 +13495,8 @@ def main():
                     st.write(f"• {filter_text}")
                 
                 if st.button("Clear All Filters", type="primary", key="clear_filters_ranking_btn"):
+                    # Use ONLY FilterEngine.clear_all_filters - it's more comprehensive and avoids conflicts
                     FilterEngine.clear_all_filters()
-                    SessionStateManager.clear_filters()
                     st.rerun()
             else:
                 st.info("No filters applied. All stocks should be visible unless there's no data loaded.")
