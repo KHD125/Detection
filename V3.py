@@ -9089,7 +9089,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
                 # Add context-aware insights
                 hot_items = top_12[top_12['flow_score'] > 75]
@@ -13696,7 +13696,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -13826,7 +13826,7 @@ def main():
                             fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                             fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
-                            st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                            st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                             
                             # Add zone-based insights
                             hot_categories = category_flow[category_flow['Flow Score'] > 75]
@@ -14936,7 +14936,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_dist, width='stretch', theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -15152,7 +15152,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, use_container_width=True)
+                            st.plotly_chart(fig_momentum, width='stretch')
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -15176,7 +15176,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, use_container_width=True)
+                            st.plotly_chart(fig_single, width='stretch')
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
