@@ -10894,20 +10894,13 @@ def main():
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
         
-        # Clean default values to only include available options (INTERCONNECTION FIX)
+        # Clean default values to only include available options (INTERCONNECTION FIX)  
         stored_categories = st.session_state.filter_state.get('categories', [])
         valid_category_defaults = [cat for cat in stored_categories if cat in categories]
         
-        # CRITICAL DEBUG: Force empty defaults if filter state shows empty categories
-        if not st.session_state.filter_state.get('categories'):
+        # SMART FIX: If filter state is empty, defaults should be empty too
+        if not stored_categories:
             valid_category_defaults = []
-            
-        # ADDITIONAL FIX: Force clear widget if it exists with old values
-        if ('category_multiselect' in st.session_state and 
-            st.session_state.category_multiselect and 
-            not st.session_state.filter_state.get('categories')):
-            # Widget has values but filter state is empty - clear the widget
-            del st.session_state.category_multiselect
         
         selected_categories = st.multiselect(
             f"Market Cap Category ({len(categories)} available)",
