@@ -10901,6 +10901,13 @@ def main():
         # CRITICAL DEBUG: Force empty defaults if filter state shows empty categories
         if not st.session_state.filter_state.get('categories'):
             valid_category_defaults = []
+            
+        # ADDITIONAL FIX: Force clear widget if it exists with old values
+        if ('category_multiselect' in st.session_state and 
+            st.session_state.category_multiselect and 
+            not st.session_state.filter_state.get('categories')):
+            # Widget has values but filter state is empty - clear the widget
+            del st.session_state.category_multiselect
         
         selected_categories = st.multiselect(
             f"Market Cap Category ({len(categories)} available)",
