@@ -7766,20 +7766,100 @@ class FilterEngine:
             'wave_sensitivity', 'score_component_expander'
         ]
         
-        # CRITICAL FIX: Only delete widget keys, don't modify them first
-        # Streamlit prevents modification of widget keys after instantiation
-        deleted_count = 0
+        # ENHANCED FIX: Synchronize widget keys with cleared filter_state values
+        # This forces widgets to show cleared values immediately
+        updated_count = 0
         for key in widget_keys_to_delete:
             if key in st.session_state:
                 try:
-                    # Delete the key directly to force widget recreation with defaults from filter_state
-                    del st.session_state[key]
-                    deleted_count += 1
-                    logger.debug(f"Deleted widget key: {key}")
+                    # Map widget keys to their corresponding filter_state keys and default values
+                    filter_key_mapping = {
+                        # Multiselects - should be empty lists
+                        'category_multiselect': ('categories', []),
+                        'sector_multiselect': ('sectors', []),
+                        'industry_multiselect': ('industries', []),
+                        'patterns_multiselect': ('patterns', []),
+                        'market_states_multiselect': ('market_states', []),
+                        'custom_market_states_multiselect': ('custom_market_states', []),
+                        'eps_tier_multiselect': ('eps_tiers', []),
+                        'pe_tier_multiselect': ('pe_tiers', []),
+                        'price_tier_multiselect': ('price_tiers', []),
+                        'eps_change_tiers_widget': ('eps_change_tiers', []),
+                        'performance_tier_multiselect': ('performance_tiers', []),
+                        'position_tier_multiselect': ('position_tiers', []),
+                        'volume_tier_multiselect': ('volume_tiers', []),
+                        'vmi_tier_multiselect': ('vmi_tiers', []),
+                        'momentum_harmony_tier_multiselect': ('momentum_harmony_tiers', []),
+                        'turnover_tier_multiselect': ('turnover_tiers', []),
+                        'exclude_patterns_multiselect': ('exclude_patterns', []),
+                        'include_patterns_multiselect': ('include_patterns', []),
+                        'combination_patterns_multiselect': ('combination_patterns', []),
+                        
+                        # Sliders - should match cleared filter_state values
+                        'min_score_slider': ('min_score', 0),
+                        'long_term_strength_slider': ('long_term_strength_range', (0, 100)),
+                        'market_strength_slider': ('market_strength_range', (0, 100)),
+                        'trend_custom_range_slider': ('trend_custom_range', (0, 100)),
+                        'position_range_slider': ('position_range', (0, 100)),
+                        'rvol_range_slider': ('rvol_range', (0.1, 20.0)),
+                        'custom_vmi_range_slider': ('custom_vmi_range', (0.5, 3.0)),
+                        'position_score_slider': ('position_score_range', (0, 100)),
+                        'volume_score_slider': ('volume_score_range', (0, 100)),
+                        'momentum_score_slider': ('momentum_score_range', (0, 100)),
+                        'acceleration_score_slider': ('acceleration_score_range', (0, 100)),
+                        'breakout_score_slider': ('breakout_score_range', (0, 100)),
+                        'rvol_score_slider': ('rvol_score_range', (0, 100)),
+                        'performance_custom_range_slider': ('performance_custom_range', (-100, 500)),
+                        'ret_1d_range_slider': ('ret_1d_range', (2.0, 25.0)),
+                        'ret_3d_range_slider': ('ret_3d_range', (3.0, 50.0)),
+                        'ret_7d_range_slider': ('ret_7d_range', (5.0, 75.0)),
+                        'ret_30d_range_slider': ('ret_30d_range', (10.0, 150.0)),
+                        'ret_3m_range_slider': ('ret_3m_range', (15.0, 200.0)),
+                        'ret_6m_range_slider': ('ret_6m_range', (20.0, 500.0)),
+                        'ret_1y_range_slider': ('ret_1y_range', (25.0, 1000.0)),
+                        'ret_3y_range_slider': ('ret_3y_range', (50.0, 2000.0)),
+                        'ret_5y_range_slider': ('ret_5y_range', (75.0, 5000.0)),
+                        
+                        # Checkboxes - should be False
+                        'require_fundamental_checkbox': ('require_fundamental_data', False),
+                        
+                        # Selectboxes - should match filter_state defaults
+                        'trend_selectbox': ('trend_filter', "All Trends"),
+                        'position_score_dropdown': ('position_score_selection', "All Scores"),
+                        'volume_score_dropdown': ('volume_score_selection', "All Scores"),
+                        'momentum_score_dropdown': ('momentum_score_selection', "All Scores"),
+                        'acceleration_score_dropdown': ('acceleration_score_selection', "All Scores"),
+                        'breakout_score_dropdown': ('breakout_score_selection', "All Scores"),
+                        'rvol_score_dropdown': ('rvol_score_selection', "All Scores"),
+                        'ret_1d_dropdown': ('ret_1d_selection', "All Returns"),
+                        'ret_3d_dropdown': ('ret_3d_selection', "All Returns"),
+                        'ret_7d_dropdown': ('ret_7d_selection', "All Returns"),
+                        'ret_30d_dropdown': ('ret_30d_selection', "All Returns"),
+                        'ret_3m_dropdown': ('ret_3m_selection', "All Returns"),
+                        'ret_6m_dropdown': ('ret_6m_selection', "All Returns"),
+                        'ret_1y_dropdown': ('ret_1y_selection', "All Returns"),
+                        'ret_3y_dropdown': ('ret_3y_selection', "All Returns"),
+                        'ret_5y_dropdown': ('ret_5y_selection', "All Returns"),
+                    }
+                    
+                    if key in filter_key_mapping:
+                        filter_key, default_value = filter_key_mapping[key]
+                        # Set widget key to match the cleared filter_state value
+                        cleared_value = st.session_state.filter_state.get(filter_key, default_value)
+                        st.session_state[key] = cleared_value
+                        updated_count += 1
+                        logger.debug(f"Reset widget {key} to cleared value: {cleared_value}")
+                    else:
+                        # For unmapped keys, just delete them
+                        del st.session_state[key]
+                        logger.debug(f"Deleted unmapped widget key: {key}")
+                        
                 except (KeyError, ValueError) as e:
                     # Widget might be locked or already deleted
-                    logger.debug(f"Could not delete widget key {key}: {e}")
+                    logger.debug(f"Could not update widget key {key}: {e}")
                     pass
+        
+        deleted_count = updated_count
                 
         # ==== MEMORY LEAK FIX - START ====
         # Now clean up ANY dynamically created widget keys
@@ -10218,12 +10298,100 @@ class SessionStateManager:
             'wave_sensitivity', 'score_component_expander'
         ]
         
-        # Delete each widget key if it exists
-        deleted_count = 0
+        # ENHANCED FIX: Synchronize widget keys with cleared filter_state values
+        # This forces widgets to show cleared values immediately
+        updated_count = 0
         for key in widget_keys_to_delete:
             if key in st.session_state:
-                del st.session_state[key]
-                deleted_count += 1
+                try:
+                    # Map widget keys to their corresponding filter_state keys and default values
+                    filter_key_mapping = {
+                        # Multiselects - should be empty lists
+                        'category_multiselect': ('categories', []),
+                        'sector_multiselect': ('sectors', []),
+                        'industry_multiselect': ('industries', []),
+                        'patterns_multiselect': ('patterns', []),
+                        'market_states_multiselect': ('market_states', []),
+                        'custom_market_states_multiselect': ('custom_market_states', []),
+                        'eps_tier_multiselect': ('eps_tiers', []),
+                        'pe_tier_multiselect': ('pe_tiers', []),
+                        'price_tier_multiselect': ('price_tiers', []),
+                        'eps_change_tiers_widget': ('eps_change_tiers', []),
+                        'performance_tier_multiselect': ('performance_tiers', []),
+                        'position_tier_multiselect': ('position_tiers', []),
+                        'volume_tier_multiselect': ('volume_tiers', []),
+                        'vmi_tier_multiselect': ('vmi_tiers', []),
+                        'momentum_harmony_tier_multiselect': ('momentum_harmony_tiers', []),
+                        'turnover_tier_multiselect': ('turnover_tiers', []),
+                        'exclude_patterns_multiselect': ('exclude_patterns', []),
+                        'include_patterns_multiselect': ('include_patterns', []),
+                        'combination_patterns_multiselect': ('combination_patterns', []),
+                        
+                        # Sliders - should match cleared filter_state values
+                        'min_score_slider': ('min_score', 0),
+                        'long_term_strength_slider': ('long_term_strength_range', (0, 100)),
+                        'market_strength_slider': ('market_strength_range', (0, 100)),
+                        'trend_custom_range_slider': ('trend_custom_range', (0, 100)),
+                        'position_range_slider': ('position_range', (0, 100)),
+                        'rvol_range_slider': ('rvol_range', (0.1, 20.0)),
+                        'custom_vmi_range_slider': ('custom_vmi_range', (0.5, 3.0)),
+                        'position_score_slider': ('position_score_range', (0, 100)),
+                        'volume_score_slider': ('volume_score_range', (0, 100)),
+                        'momentum_score_slider': ('momentum_score_range', (0, 100)),
+                        'acceleration_score_slider': ('acceleration_score_range', (0, 100)),
+                        'breakout_score_slider': ('breakout_score_range', (0, 100)),
+                        'rvol_score_slider': ('rvol_score_range', (0, 100)),
+                        'performance_custom_range_slider': ('performance_custom_range', (-100, 500)),
+                        'ret_1d_range_slider': ('ret_1d_range', (2.0, 25.0)),
+                        'ret_3d_range_slider': ('ret_3d_range', (3.0, 50.0)),
+                        'ret_7d_range_slider': ('ret_7d_range', (5.0, 75.0)),
+                        'ret_30d_range_slider': ('ret_30d_range', (10.0, 150.0)),
+                        'ret_3m_range_slider': ('ret_3m_range', (15.0, 200.0)),
+                        'ret_6m_range_slider': ('ret_6m_range', (20.0, 500.0)),
+                        'ret_1y_range_slider': ('ret_1y_range', (25.0, 1000.0)),
+                        'ret_3y_range_slider': ('ret_3y_range', (50.0, 2000.0)),
+                        'ret_5y_range_slider': ('ret_5y_range', (75.0, 5000.0)),
+                        
+                        # Checkboxes - should be False
+                        'require_fundamental_checkbox': ('require_fundamental_data', False),
+                        
+                        # Selectboxes - should match filter_state defaults
+                        'trend_selectbox': ('trend_filter', "All Trends"),
+                        'position_score_dropdown': ('position_score_selection', "All Scores"),
+                        'volume_score_dropdown': ('volume_score_selection', "All Scores"),
+                        'momentum_score_dropdown': ('momentum_score_selection', "All Scores"),
+                        'acceleration_score_dropdown': ('acceleration_score_selection', "All Scores"),
+                        'breakout_score_dropdown': ('breakout_score_selection', "All Scores"),
+                        'rvol_score_dropdown': ('rvol_score_selection', "All Scores"),
+                        'ret_1d_dropdown': ('ret_1d_selection', "All Returns"),
+                        'ret_3d_dropdown': ('ret_3d_selection', "All Returns"),
+                        'ret_7d_dropdown': ('ret_7d_selection', "All Returns"),
+                        'ret_30d_dropdown': ('ret_30d_selection', "All Returns"),
+                        'ret_3m_dropdown': ('ret_3m_selection', "All Returns"),
+                        'ret_6m_dropdown': ('ret_6m_selection', "All Returns"),
+                        'ret_1y_dropdown': ('ret_1y_selection', "All Returns"),
+                        'ret_3y_dropdown': ('ret_3y_selection', "All Returns"),
+                        'ret_5y_dropdown': ('ret_5y_selection', "All Returns"),
+                    }
+                    
+                    if key in filter_key_mapping:
+                        filter_key, default_value = filter_key_mapping[key]
+                        # Set widget key to match the cleared filter_state value
+                        cleared_value = st.session_state.filter_state.get(filter_key, default_value)
+                        st.session_state[key] = cleared_value
+                        updated_count += 1
+                        logger.debug(f"Reset widget {key} to cleared value: {cleared_value}")
+                    else:
+                        # For unmapped keys, just delete them
+                        del st.session_state[key]
+                        logger.debug(f"Deleted unmapped widget key: {key}")
+                        
+                except (KeyError, ValueError) as e:
+                    # Widget might be locked or already deleted
+                    logger.debug(f"Could not update widget key {key}: {e}")
+                    pass
+        
+        deleted_count = updated_count
         
         # ==== MEMORY LEAK FIX - START ====
         # Clean up ANY dynamically created widget keys that weren't in the predefined list
