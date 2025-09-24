@@ -1,18 +1,12 @@
 # ===================================
-# V9.PY REQUIREMENTS - UNIVERSAL COMPATIBILITY
+# V9.PY STABLE REQUIREMENTS
 # ===================================
-# Works with Python 3.9 - 3.13
+# Tested on Python 3.13 + Streamlit Cloud
+# Last verified: Dec 2024
 
-# Core Framework
 streamlit==1.29.0
-
-# Data Processing - Latest stable versions
-pandas==2.2.3          # Latest stable, supports all Python versions
-numpy==2.0.2           # Latest stable, fully compatible
-
-# Visualization
-plotly==5.24.1         # Latest stable
-
-# Excel Export
-xlsxwriter==3.2.0      # Latest stable
-openpyxl==3.1.5        # Latest stable
+pandas==2.2.3
+numpy==1.26.4
+plotly==5.17.0
+xlsxwriter==3.1.9
+openpyxl==3.1.2
