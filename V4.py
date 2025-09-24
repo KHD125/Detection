@@ -7597,6 +7597,15 @@ class FilterEngine:
             'combination_patterns': []
         }
         
+        # CRITICAL FIX: Force widget synchronization by explicitly clearing widget values
+        # This prevents race conditions where widgets retain old values during rerun
+        if 'category_multiselect' in st.session_state:
+            st.session_state.category_multiselect = []
+        if 'sector_multiselect' in st.session_state:
+            st.session_state.sector_multiselect = []
+        if 'industry_multiselect' in st.session_state:
+            st.session_state.industry_multiselect = []
+        
         # CRITICAL FIX: Delete all widget keys to force UI reset
         # First, delete known widget keys
         widget_keys_to_delete = [
@@ -9941,6 +9950,15 @@ class SessionStateManager:
                 else:
                     st.session_state[key] = None
         
+        # CRITICAL FIX: Force widget synchronization by explicitly clearing widget values
+        # This prevents race conditions where widgets retain old values during rerun
+        if 'category_multiselect' in st.session_state:
+            st.session_state.category_multiselect = []
+        if 'sector_multiselect' in st.session_state:
+            st.session_state.sector_multiselect = []
+        if 'industry_multiselect' in st.session_state:
+            st.session_state.industry_multiselect = []
+            
         # CRITICAL FIX: Delete all widget keys to force UI reset
         widget_keys_to_delete = [
             # Multiselect widgets
