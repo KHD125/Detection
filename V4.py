@@ -7584,89 +7584,53 @@ class FilterEngine:
             'quick_filter_applied': False
         }
         
-        # Step 2: CRITICAL - Set all widget keys to their default values
-        # DO NOT DELETE KEYS - only set them to defaults
-        widget_defaults = {
-            # Multiselect widgets - empty list clears the display
-            'category_multiselect': [],
-            'sector_multiselect': [],
-            'industry_multiselect': [],
-            'patterns_multiselect': [],
-            'market_states_multiselect': [],
-            'eps_tier_multiselect': [],
-            'pe_tier_multiselect': [],
-            'price_tier_multiselect': [],
-            'eps_change_tiers_widget': [],
-            'performance_tier_multiselect': [],
-            'position_tier_multiselect': [],
-            'volume_tier_multiselect': [],
-            'vmi_tier_multiselect_intelligence': [],
-            'momentum_harmony_tier_multiselect_intelligence': [],
+        # Step 2: Delete widget keys to avoid "cannot be modified" errors  
+        # This allows them to be recreated fresh on next render with default values
+        widget_keys = [
+            # Multiselect widgets
+            'category_multiselect', 'sector_multiselect', 'industry_multiselect',
+            'patterns_multiselect', 'market_states_multiselect', 'eps_tier_multiselect',
+            'pe_tier_multiselect', 'price_tier_multiselect', 'eps_change_tiers_widget',
+            'performance_tier_multiselect', 'position_tier_multiselect', 'volume_tier_multiselect',
+            'vmi_tier_multiselect_intelligence', 'momentum_harmony_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider': 0,
-            'market_strength_slider': (0, 100),
-            'long_term_strength_slider': (0, 100),
-            'market_strength_range_slider': (0, 100),
-            'long_term_strength_range_slider': (0, 100),
-            'performance_custom_range_slider': (-100, 500),
-            'trend_custom_range_slider': (0, 100),
-            'position_range_slider': (0, 100),
-            'rvol_range_slider': (0.1, 20.0),
-            'custom_vmi_range_slider': (0.5, 3.0),
-            'position_score_slider': (0, 100),
-            'volume_score_slider': (0, 100),
-            'momentum_score_slider': (0, 100),
-            'acceleration_score_slider': (0, 100),
-            'breakout_score_slider': (0, 100),
-            'rvol_score_slider': (0, 100),
+            'min_score_slider', 'market_strength_slider', 'long_term_strength_slider',
+            'market_strength_range_slider', 'long_term_strength_range_slider',
+            'performance_custom_range_slider', 'trend_custom_range_slider',
+            'position_range_slider', 'rvol_range_slider', 'custom_vmi_range_slider',
+            'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
+            'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
             # Selectbox/dropdown widgets
-            'trend_filter': "All Trends",
-            'trend_selectbox': "All Trends",
-            'position_score_dropdown': "All Scores",
-            'volume_score_dropdown': "All Scores",
-            'momentum_score_dropdown': "All Scores",
-            'acceleration_score_dropdown': "All Scores",
-            'breakout_score_dropdown': "All Scores",
-            'rvol_score_dropdown': "All Scores",
+            'trend_filter', 'trend_selectbox', 'position_score_dropdown',
+            'volume_score_dropdown', 'momentum_score_dropdown', 'acceleration_score_dropdown',
+            'breakout_score_dropdown', 'rvol_score_dropdown',
             
-            # Text input widgets - empty string clears them
-            'min_eps_change': "",
-            'eps_change_input': "",
-            'min_pe': "",
-            'min_pe_input': "",
-            'max_pe': "",
-            'max_pe_input': "",
+            # Text input widgets
+            'min_eps_change', 'eps_change_input', 'min_pe', 'min_pe_input', 
+            'max_pe', 'max_pe_input',
             
             # Checkbox widgets
-            'require_fundamental_data': False,
-            'require_fundamental_checkbox': False
-        }
+            'require_fundamental_data', 'require_fundamental_checkbox'
+        ]
         
-        # Apply defaults to session state
-        for key, default_value in widget_defaults.items():
-            st.session_state[key] = default_value
+        # Delete widget keys (safe because we rerun immediately after this)
+        for key in widget_keys:
+            if key in st.session_state:
+                del st.session_state[key]
         
-        # Step 3: Clear any legacy keys (backward compatibility)
+        # Step 3: Clear legacy keys (backward compatibility)
         legacy_keys = [
             'category_filter', 'sector_filter', 'industry_filter',
             'min_score', 'patterns', 'eps_tier_filter', 'pe_tier_filter',
             'price_tier_filter', 'eps_change_tier_filter', 'market_states_filter'
         ]
         
+        # Delete legacy keys to ensure clean state
         for key in legacy_keys:
             if key in st.session_state:
-                if isinstance(st.session_state[key], list):
-                    st.session_state[key] = []
-                elif isinstance(st.session_state[key], bool):
-                    st.session_state[key] = False
-                elif isinstance(st.session_state[key], str):
-                    st.session_state[key] = "All Trends" if key == 'trend_filter' else ""
-                elif isinstance(st.session_state[key], tuple):
-                    st.session_state[key] = (0, 100)
-                else:
-                    st.session_state[key] = 0 if isinstance(st.session_state.get(key), (int, float)) else None
+                del st.session_state[key]
         
         # Step 4: Reset filter tracking
         st.session_state.active_filter_count = 0
@@ -7677,7 +7641,7 @@ class FilterEngine:
         if 'user_preferences' in st.session_state:
             st.session_state.user_preferences['last_filters'] = {}
         
-        logger.info("✅ All filters cleared and widget states synchronized successfully")
+        logger.info("✅ All filters cleared - widget keys deleted for clean restart")
     
 
     @staticmethod
@@ -9892,69 +9856,41 @@ class SessionStateManager:
                 else:
                     st.session_state[key] = None
         
-        # CRITICAL FIX: Set widget keys to defaults instead of deleting them
-        # This prevents the two-system problem where widgets display old values
-        widget_defaults = {
-            # Multiselect widgets - empty list clears the display
-            'category_multiselect': [],
-            'sector_multiselect': [],
-            'industry_multiselect': [],
-            'patterns_multiselect': [],
-            'market_states_multiselect': [],
-            'eps_tier_multiselect': [],
-            'pe_tier_multiselect': [],
-            'price_tier_multiselect': [],
-            'eps_change_tiers_widget': [],
-            'performance_tier_multiselect': [],
-            'position_tier_multiselect': [],
-            'volume_tier_multiselect': [],
-            'vmi_tier_multiselect_intelligence': [],
-            'momentum_harmony_tier_multiselect_intelligence': [],
+        # CRITICAL FIX: Delete widget keys to avoid modification errors
+        # Widgets will be recreated with default values on next render
+        widget_keys = [
+            # Multiselect widgets
+            'category_multiselect', 'sector_multiselect', 'industry_multiselect',
+            'patterns_multiselect', 'market_states_multiselect', 'eps_tier_multiselect',
+            'pe_tier_multiselect', 'price_tier_multiselect', 'eps_change_tiers_widget',
+            'performance_tier_multiselect', 'position_tier_multiselect', 'volume_tier_multiselect',
+            'vmi_tier_multiselect_intelligence', 'momentum_harmony_tier_multiselect_intelligence',
             
             # Slider widgets
-            'min_score_slider': 0,
-            'market_strength_slider': (0, 100),
-            'long_term_strength_slider': (0, 100),
-            'market_strength_range_slider': (0, 100),
-            'long_term_strength_range_slider': (0, 100),
-            'performance_custom_range_slider': (-100, 500),
-            'trend_custom_range_slider': (0, 100),
-            'position_range_slider': (0, 100),
-            'rvol_range_slider': (0.1, 20.0),
-            'custom_vmi_range_slider': (0.5, 3.0),
-            'position_score_slider': (0, 100),
-            'volume_score_slider': (0, 100),
-            'momentum_score_slider': (0, 100),
-            'acceleration_score_slider': (0, 100),
-            'breakout_score_slider': (0, 100),
-            'rvol_score_slider': (0, 100),
+            'min_score_slider', 'market_strength_slider', 'long_term_strength_slider',
+            'market_strength_range_slider', 'long_term_strength_range_slider',
+            'performance_custom_range_slider', 'trend_custom_range_slider',
+            'position_range_slider', 'rvol_range_slider', 'custom_vmi_range_slider',
+            'position_score_slider', 'volume_score_slider', 'momentum_score_slider',
+            'acceleration_score_slider', 'breakout_score_slider', 'rvol_score_slider',
             
             # Selectbox/dropdown widgets
-            'trend_filter': "All Trends",
-            'trend_selectbox': "All Trends",
-            'position_score_dropdown': "All Scores",
-            'volume_score_dropdown': "All Scores",
-            'momentum_score_dropdown': "All Scores",
-            'acceleration_score_dropdown': "All Scores",
-            'breakout_score_dropdown': "All Scores",
-            'rvol_score_dropdown': "All Scores",
+            'trend_filter', 'trend_selectbox', 'position_score_dropdown',
+            'volume_score_dropdown', 'momentum_score_dropdown', 'acceleration_score_dropdown',
+            'breakout_score_dropdown', 'rvol_score_dropdown',
             
-            # Text input widgets - empty string clears them
-            'min_eps_change': "",
-            'eps_change_input': "",
-            'min_pe': "",
-            'min_pe_input': "",
-            'max_pe': "",
-            'max_pe_input': "",
+            # Text input widgets
+            'min_eps_change', 'eps_change_input', 'min_pe', 'min_pe_input', 
+            'max_pe', 'max_pe_input',
             
             # Checkbox widgets
-            'require_fundamental_data': False,
-            'require_fundamental_checkbox': False
-        }
+            'require_fundamental_data', 'require_fundamental_checkbox'
+        ]
         
-        # Apply defaults to session state (DO NOT DELETE)
-        for key, default_value in widget_defaults.items():
-            st.session_state[key] = default_value
+        # Delete widget keys (safe because we rerun immediately after)
+        for key in widget_keys:
+            if key in st.session_state:
+                del st.session_state[key]
         
         # Also clear legacy filter keys for backward compatibility
         legacy_keys = [
@@ -9999,7 +9935,7 @@ class SessionStateManager:
         if 'user_preferences' in st.session_state:
             st.session_state.user_preferences['last_filters'] = {}
         
-        logger.info("All filters and widget states cleared successfully with proper synchronization.")
+        logger.info("All filters and widget states cleared - widgets will be recreated fresh.")
     
     @staticmethod
     def sync_filter_states():
@@ -12001,6 +11937,7 @@ def main():
         with filter_status_col2:
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
                 FilterEngine.clear_all_filters()
+                SessionStateManager.clear_filters()
                 st.success("✅ All filters cleared!")
                 st.rerun()
     
