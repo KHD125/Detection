@@ -7614,7 +7614,7 @@ class FilterEngine:
             'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
             
             # Selectbox widgets
-            'trend_selectbox', 'wave_timeframe_select',
+            'trend_selectbox', 'wave_timeframe_select', 'display_mode_toggle',
             
             # Text input widgets
             'eps_change_input', 'min_pe_input', 'max_pe_input',
@@ -7625,7 +7625,23 @@ class FilterEngine:
             # Additional filter-related keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
             'wave_sensitivity', 'show_sensitivity_details', 'show_market_regime',
-            'score_component_expander'
+            'score_component_expander',
+            
+            # Missing UI Control widgets
+            'custom_market_states_multiselect', 'long_term_strength_slider',
+            'ranking_view_mode', 'perf_timeframe', 'export_format',
+            'custom_columns_select', 'reset_timeframe',
+            
+            # Missing Radar Section widgets
+            'radar_mode_select', 'timeframe_focus_select', 'sensitivity_level_select',
+            'risk_filter_select', 'market_regime_select', 'enable_ai_signals',
+            'show_institutional', 'enable_alerts', 'show_correlations', 'export_signals',
+            
+            # Missing Debug and Search widgets
+            'regime_debug', 'show_debug', 'search_input', 'search_btn',
+            
+            # Clear button keys (to reset button states)
+            'clear_filters_sidebar_btn', 'clear_filters_main_btn', 'clear_filters_ranking_btn'
         ]
         
         # Delete each known widget key if it exists
@@ -9089,7 +9105,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, width="stretch", theme="streamlit")
+                st.plotly_chart(fig, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
                 
                 # Add context-aware insights
                 hot_items = top_12[top_12['flow_score'] > 75]
@@ -9891,7 +9907,23 @@ class SessionStateManager:
             
             # Additional keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
-            'wave_sensitivity', 'search_input', 'sheet_input', 'gid_input'
+            'wave_sensitivity', 'search_input', 'sheet_input', 'gid_input',
+            
+            # Missing UI Control widgets (matching FilterEngine)
+            'custom_market_states_multiselect', 'long_term_strength_slider',
+            'ranking_view_mode', 'perf_timeframe', 'export_format',
+            'custom_columns_select', 'reset_timeframe',
+            
+            # Missing Radar Section widgets (matching FilterEngine)
+            'radar_mode_select', 'timeframe_focus_select', 'sensitivity_level_select',
+            'risk_filter_select', 'market_regime_select', 'enable_ai_signals',
+            'show_institutional', 'enable_alerts', 'show_correlations', 'export_signals',
+            
+            # Missing Debug and Search widgets (matching FilterEngine)
+            'regime_debug', 'search_btn',
+            
+            # Clear button keys (matching FilterEngine)
+            'clear_filters_sidebar_btn', 'clear_filters_main_btn', 'clear_filters_ranking_btn'
         ]
         
         # Delete each widget key if it exists
@@ -13696,7 +13728,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
+                st.plotly_chart(fig_accel, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -13826,7 +13858,7 @@ def main():
                             fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                             fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
-                            st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
+                            st.plotly_chart(fig_flow, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
                             
                             # Add zone-based insights
                             hot_categories = category_flow[category_flow['Flow Score'] > 75]
@@ -14936,7 +14968,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, width='stretch', theme="streamlit")
+                    st.plotly_chart(fig_dist, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -15152,7 +15184,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, width='stretch')
+                            st.plotly_chart(fig_momentum, config={'displayModeBar': True}, use_container_width=True)
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -15176,7 +15208,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, width='stretch')
+                            st.plotly_chart(fig_single, config={'displayModeBar': True}, use_container_width=True)
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
