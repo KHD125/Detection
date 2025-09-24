@@ -7597,17 +7597,6 @@ class FilterEngine:
             'combination_patterns': []
         }
         
-        # PROFESSIONAL FIX: Explicitly clear ALL Intelligence Filter widgets to prevent persistence
-        intelligence_widgets = [
-            'performance_tier_multiselect_intelligence',
-            'volume_tier_multiselect_intelligence', 
-            'position_tier_multiselect_intelligence',
-            'turnover_tier_multiselect_intelligence'
-        ]
-        for widget in intelligence_widgets:
-            if widget in st.session_state:
-                st.session_state[widget] = []
-        
         # CRITICAL FIX: Delete all widget keys to force UI reset
         # First, delete known widget keys
         widget_keys_to_delete = [
@@ -9952,17 +9941,6 @@ class SessionStateManager:
                 else:
                     st.session_state[key] = None
         
-        # PROFESSIONAL FIX: Explicitly clear ALL Intelligence Filter widgets to prevent persistence
-        intelligence_widgets = [
-            'performance_tier_multiselect_intelligence',
-            'volume_tier_multiselect_intelligence', 
-            'position_tier_multiselect_intelligence',
-            'turnover_tier_multiselect_intelligence'
-        ]
-        for widget in intelligence_widgets:
-            if widget in st.session_state:
-                st.session_state[widget] = []
-        
         # CRITICAL FIX: Delete all widget keys to force UI reset
         widget_keys_to_delete = [
             # Multiselect widgets
@@ -10794,14 +10772,8 @@ def main():
                 st.session_state.filter_state['volume_tiers'] = st.session_state.volume_tier_multiselect_intelligence
         
         def sync_turnover_tier():
-            # Professional widget state synchronization for Daily Turnover filter
             if 'turnover_tier_multiselect_intelligence' in st.session_state:
-                widget_value = st.session_state.turnover_tier_multiselect_intelligence
-                # Ensure we handle both selection and clearing cases
-                st.session_state.filter_state['turnover_tiers'] = widget_value if widget_value else []
-            else:
-                # Widget doesn't exist (cleared), ensure filter state is also empty
-                st.session_state.filter_state['turnover_tiers'] = []
+                st.session_state.filter_state['turnover_tiers'] = st.session_state.turnover_tier_multiselect_intelligence
         
         def sync_vmi_tier():
             if 'vmi_tier_multiselect_intelligence' in st.session_state:
@@ -11878,22 +11850,11 @@ def main():
                 # Daily turnover tier multiselect (tier-only filtering)
                 turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
                 
-                # Professional widget state synchronization - ensures UI stays in sync with filter state
-                current_turnover_selection = st.session_state.filter_state.get('turnover_tiers', [])
-                
-                # CRITICAL FIX: Force widget sync if there's a mismatch between widget and filter state
-                widget_key = 'turnover_tier_multiselect_intelligence'
-                if widget_key in st.session_state:
-                    widget_value = st.session_state[widget_key]
-                    if widget_value != current_turnover_selection:
-                        # Force widget to match filter state (handles clearing properly)
-                        st.session_state[widget_key] = current_turnover_selection
-                
                 turnover_tiers = st.multiselect(
                     "💧 Daily Turnover Tiers",
                     options=turnover_tier_options,
-                    default=current_turnover_selection,
-                    key=widget_key,
+                    default=st.session_state.filter_state.get('turnover_tiers', []),
+                    key='turnover_tier_multiselect_intelligence',
                     on_change=sync_turnover_tier,
                     help="Select daily turnover tiers for filtering"
                 )
