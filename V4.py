@@ -7765,36 +7765,20 @@ class FilterEngine:
             'wave_sensitivity', 'score_component_expander'
         ]
         
-        # Reset widget keys to default values first, then delete them
-        # This ensures proper widget refresh in Streamlit
+        # CRITICAL FIX: Only delete widget keys, don't modify them first
+        # Streamlit prevents modification of widget keys after instantiation
         deleted_count = 0
         for key in widget_keys_to_delete:
             if key in st.session_state:
-                # Reset to appropriate default based on widget type
-                if 'multiselect' in key:
-                    st.session_state[key] = []
-                elif 'slider' in key:
-                    if 'range' in key:
-                        st.session_state[key] = (0, 100)
-                    else:
-                        st.session_state[key] = 0
-                elif 'selectbox' in key or 'dropdown' in key:
-                    if 'trend' in key:
-                        st.session_state[key] = "All Trends"
-                    elif 'score' in key:
-                        st.session_state[key] = "All Scores"
-                    else:
-                        st.session_state[key] = None
-                elif 'checkbox' in key:
-                    st.session_state[key] = False
-                elif 'input' in key:
-                    st.session_state[key] = ""
-                else:
-                    st.session_state[key] = None
-                
-                # Now delete the key to force widget recreation
-                del st.session_state[key]
-                deleted_count += 1
+                try:
+                    # Delete the key directly to force widget recreation with defaults from filter_state
+                    del st.session_state[key]
+                    deleted_count += 1
+                    logger.debug(f"Deleted widget key: {key}")
+                except (KeyError, ValueError) as e:
+                    # Widget might be locked or already deleted
+                    logger.debug(f"Could not delete widget key {key}: {e}")
+                    pass
                 
         # ==== MEMORY LEAK FIX - START ====
         # Now clean up ANY dynamically created widget keys
