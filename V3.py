@@ -11846,7 +11846,7 @@ def main():
                 # Daily turnover tier multiselect (tier-only filtering)
                 turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
                 turnover_tiers = st.multiselect(
-                    "💧 Daily Turnover Tiers",
+                    "Daily Turnover Tiers",
                     options=turnover_tier_options,
                     default=st.session_state.filter_state.get('turnover_tiers', []),
                     key='turnover_tier_multiselect_intelligence',
