@@ -10897,7 +10897,7 @@ def main():
             valid_include_defaults = [pat for pat in stored_include_patterns if pat in sorted_patterns]
             
             included_patterns = st.multiselect(
-                f"✅ Include Patterns ({len(sorted_patterns)} available)",
+                f"✅ Include Patterns",
                 options=sorted_patterns,
                 default=valid_include_defaults,
                 placeholder="Select patterns to include (empty = include all remaining)",
@@ -10916,7 +10916,7 @@ def main():
             valid_combination_defaults = [pat for pat in stored_combination_patterns if pat in sorted_patterns]
             
             combination_patterns = st.multiselect(
-                f"🔗 Combination Patterns ({len(sorted_patterns)} available)",
+                f"🔗 Combination Patterns",
                 options=sorted_patterns,
                 default=valid_combination_defaults,
                 placeholder="Select patterns for AND logic (empty = no combination filter)",
