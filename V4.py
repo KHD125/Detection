@@ -7610,6 +7610,7 @@ class FilterEngine:
         """
         Reset all filters to defaults and clear widget states.
         FIXED: Now properly deletes ALL dynamic widget keys to prevent memory leaks.
+        FIXED: Streamlit-compliant - only deletes keys, never modifies after instantiation.
         """
         # Reset centralized filter state - SYNCHRONIZED WITH MASTER
         st.session_state.filter_state = {
@@ -7859,8 +7860,18 @@ class FilterEngine:
                         st.session_state[key] = 0
                     else:
                         st.session_state[key] = None
-                else:
-                    st.session_state[key] = None
+        # CRITICAL FIX: Only delete legacy keys, don't modify them
+        # Streamlit prevents modification of keys after widget instantiation
+        for key in legacy_keys:
+            if key in st.session_state:
+                try:
+                    del st.session_state[key]
+                    deleted_count += 1
+                    logger.debug(f"Deleted legacy key: {key}")
+                except (KeyError, ValueError) as e:
+                    # Key might be locked or already deleted
+                    logger.debug(f"Could not delete legacy key {key}: {e}")
+                    pass
         
         # Reset active filter count
         st.session_state.active_filter_count = 0
@@ -10289,8 +10300,18 @@ class SessionStateManager:
                         st.session_state[key] = 0
                     else:
                         st.session_state[key] = None
-                else:
-                    st.session_state[key] = None
+        # CRITICAL FIX: Only delete legacy keys, don't modify them
+        # Streamlit prevents modification of keys after widget instantiation
+        for key in legacy_keys:
+            if key in st.session_state:
+                try:
+                    del st.session_state[key]
+                    deleted_count += 1
+                    logger.debug(f"Deleted legacy key: {key}")
+                except (KeyError, ValueError) as e:
+                    # Key might be locked or already deleted
+                    logger.debug(f"Could not delete legacy key {key}: {e}")
+                    pass
         
         # Reset active filter count
         st.session_state.active_filter_count = 0
@@ -10849,34 +10870,9 @@ def main():
         st.markdown("---")
         st.markdown("### 🔍 Smart Filters")
         
-        active_filter_count = 0
-        
-        if st.session_state.get('quick_filter_applied', False):
-            active_filter_count += 1
-        
-        filter_checks = [
-            ('category_filter', lambda x: x and len(x) > 0),
-            ('sector_filter', lambda x: x and len(x) > 0),
-            ('industry_filter', lambda x: x and len(x) > 0),
-            ('min_score', lambda x: x > 0),
-            ('patterns', lambda x: x and len(x) > 0),
-            ('trend_filter', lambda x: x != 'All Trends'),
-            ('eps_tier_filter', lambda x: x and len(x) > 0),
-            ('pe_tier_filter', lambda x: x and len(x) > 0),
-            ('price_tier_filter', lambda x: x and len(x) > 0),
-            ('min_eps_change', lambda x: x is not None and str(x).strip() != ''),
-            ('min_pe', lambda x: x is not None and str(x).strip() != ''),
-            ('max_pe', lambda x: x is not None and str(x).strip() != ''),
-            ('require_fundamental_data', lambda x: x),
-            ('market_states_filter', lambda x: x and len(x) > 0),
-            ('market_strength_range_slider', lambda x: x != (0, 100)),
-            ('long_term_strength_range_slider', lambda x: x != (0, 100))
-        ]
-        
-        for key, check_func in filter_checks:
-            value = st.session_state.get(key)
-            if value is not None and check_func(value):
-                active_filter_count += 1
+        # FIXED: Use modern centralized filter counting system instead of legacy approach
+        # This ensures consistency with FilterEngine.clear_all_filters() function
+        active_filter_count = FilterEngine.get_active_count()
         
         st.session_state.active_filter_count = active_filter_count
         
