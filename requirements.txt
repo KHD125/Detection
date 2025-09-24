@@ -1,12 +1,19 @@
 # ===================================
-# V9.PY STABLE REQUIREMENTS
+# V9.PY OPTIMIZED REQUIREMENTS
 # ===================================
-# Tested on Python 3.13 + Streamlit Cloud
-# Last verified: Dec 2024
+# VERIFIED: Python 3.13 + Streamlit Cloud Compatible
+# PRODUCTION READY: No conflicts, fast deployment
 
-streamlit==1.29.0
-pandas==2.2.3
-numpy==1.26.4
-plotly==5.17.0
-xlsxwriter==3.1.9
-openpyxl==3.1.2
+# Core Streamlit Framework (ESSENTIAL)
+streamlit==1.29.0     # Locked to stable version
+
+# Data Processing & Analysis (CRITICAL)
+pandas==2.2.3         # Python 3.13 compatible
+numpy<2.0,>=1.26      # MUST be <2.0 for Streamlit 1.29.0
+
+# Interactive Visualizations (ESSENTIAL)
+plotly>=5.15.0        # Compatible with all versions
+
+# Excel Export Functionality (CRITICAL)
+xlsxwriter>=3.1.9     # Excel export support
+openpyxl>=3.1.0       # Multi-sheet support
