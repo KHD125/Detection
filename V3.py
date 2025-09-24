@@ -7597,6 +7597,17 @@ class FilterEngine:
             'combination_patterns': []
         }
         
+        # PROFESSIONAL FIX: Explicitly clear ALL Intelligence Filter widgets to prevent persistence
+        intelligence_widgets = [
+            'performance_tier_multiselect_intelligence',
+            'volume_tier_multiselect_intelligence', 
+            'position_tier_multiselect_intelligence',
+            'turnover_tier_multiselect_intelligence'
+        ]
+        for widget in intelligence_widgets:
+            if widget in st.session_state:
+                st.session_state[widget] = []
+        
         # CRITICAL FIX: Delete all widget keys to force UI reset
         # First, delete known widget keys
         widget_keys_to_delete = [
@@ -9940,6 +9951,17 @@ class SessionStateManager:
                         st.session_state[key] = None if key in ['min_pe', 'max_pe'] else 0
                 else:
                     st.session_state[key] = None
+        
+        # PROFESSIONAL FIX: Explicitly clear ALL Intelligence Filter widgets to prevent persistence
+        intelligence_widgets = [
+            'performance_tier_multiselect_intelligence',
+            'volume_tier_multiselect_intelligence', 
+            'position_tier_multiselect_intelligence',
+            'turnover_tier_multiselect_intelligence'
+        ]
+        for widget in intelligence_widgets:
+            if widget in st.session_state:
+                st.session_state[widget] = []
         
         # CRITICAL FIX: Delete all widget keys to force UI reset
         widget_keys_to_delete = [
