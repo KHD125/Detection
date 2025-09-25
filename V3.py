@@ -7430,6 +7430,7 @@ class FilterEngine:
                 'vmi_tiers': [],
                 'custom_vmi_range': (0.5, 3.0),
                 'momentum_harmony_tiers': [],
+                'turnover_tiers': [],
                 # Performance filter selections
                 'ret_1d_selection': "All Returns",
                 'ret_3d_selection': "All Returns", 
@@ -10304,6 +10305,9 @@ def main():
     # Initialize robust session state
     SessionStateManager.initialize()
     
+    # CRITICAL: Initialize filter state immediately to prevent widget callback errors
+    FilterEngine.initialize_filters()
+    
     # Custom CSS for production UI
     st.markdown("""
     <style>
@@ -11859,9 +11863,12 @@ def main():
                 turnover_tiers = st.multiselect(
                     "Daily Turnover Tiers",
                     options=turnover_tier_options,
-                    default=st.session_state.filter_state.get('turnover_tiers', []),
+                    default=st.session_state.filter_state.get('turnover_tiers', []) if 'filter_state' in st.session_state else [],
                     key='turnover_tier_multiselect_intelligence',
-                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
+                    on_change=lambda: (
+                        st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence})
+                        if 'filter_state' in st.session_state else None
+                    ),
                     help="Select daily turnover tiers for filtering"
                 )
                 
