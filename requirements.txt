@@ -4,17 +4,17 @@
 # VERIFIED: Only dependencies actually used in v9.py code
 # PRODUCTION READY: Minimal, efficient, fast deployment
 
-# Core Streamlit Framework (ESSENTIAL)
-streamlit>=1.25.0
+# Core Streamlit and Data Processing
+streamlit>=1.28.0
+pandas>=1.5.0
+numpy>=1.21.0
 
-# Data Processing & Analysis (CRITICAL)
-pandas>=1.5.3
-numpy>=1.24.2
-
-# Interactive Visualizations (ESSENTIAL - plotly.graph_objects used extensively)
+# Visualization
 plotly>=5.15.0
 
-# Excel Export Functionality (CRITICAL for ExportEngine class)
-xlsxwriter>=3.1.9     # Primary Excel engine used in create_excel_report()
-openpyxl>=3.1.0       # Secondary Excel engine for multi-sheet exports
+# Excel/CSV Processing  
+openpyxl>=3.1.0
+xlsxwriter>=3.0.0
 
+# HTTP Requests
+requests>=2.28.0
