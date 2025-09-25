@@ -1,11 +1,11 @@
 # ===================================
-# MOST STABLE STREAMLIT VERSION - PRODUCTION READY
+# OPTIMAL STREAMLIT VERSION FOR V10.PY - PRODUCTION READY
 # ===================================
-# Based on extensive community research and GitHub issue analysis
-# RECOMMENDED: Streamlit 1.32.2 - Most stable version for production
+# Based on feature compatibility + stability analysis
+# RECOMMENDED: Streamlit 1.36.0 - Last stable version before major issues
 
-# Core Streamlit Framework - MOST STABLE VERSION
-streamlit==1.32.2
+# Core Streamlit Framework - OPTIMAL VERSION for V10.py
+streamlit==1.36.0
 
 # Data Processing & Analysis - Compatible versions
 pandas>=1.5.3
