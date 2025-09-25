@@ -288,9 +288,9 @@ class Config:
         }
     })
     
-    # Default filter for swing/momentum trading
-    DEFAULT_MARKET_FILTER: str = 'MOMENTUM'
-    ENABLE_MARKET_STATE_FILTER: bool = True  # Can be toggled
+    # Default filter for swing/momentum trading - Changed to ALL for better user experience
+    DEFAULT_MARKET_FILTER: str = 'ALL'
+    ENABLE_MARKET_STATE_FILTER: bool = False  # Disabled by default to prevent aggressive filtering
     
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
@@ -7665,9 +7665,8 @@ class FilterEngine:
         ]
         
         # Also check for common prefixes used in dynamic widgets
-        # NOTE: Exclude 'filter_' prefix to avoid deleting 'filter_state'
         widget_prefixes = [
-            'FormSubmitter', 'temp_', 'dynamic_', 'widget_'
+            'FormSubmitter', 'temp_', 'dynamic_', 'filter_', 'widget_'
         ]
         
         # Collect all keys to delete (can't modify dict during iteration)
@@ -7756,62 +7755,7 @@ class FilterEngine:
             del st.session_state[key]
             deleted_count += 1
         
-        # CRITICAL FIX: Reinitialize filter_state after clearing
-        # This prevents crashes when widgets try to access filter_state.get() during recreation
-        FilterEngine.initialize_filters()
-        
         logger.info(f"All filters and widget states cleared successfully. Deleted {deleted_count} keys total.")
-    
-    @staticmethod
-    def is_cloud_environment():
-        """Detect if running on Streamlit Community Cloud"""
-        import platform
-        import socket
-        
-        # Check for cloud indicators
-        hostname = socket.gethostname().lower()
-        platform_info = platform.platform().lower()
-        
-        cloud_indicators = [
-            'streamlit' in hostname,
-            'cloud' in hostname,
-            'container' in hostname,
-            'docker' in platform_info,
-            os.getenv('STREAMLIT_SHARING') is not None,
-            os.getenv('STREAMLIT_CLOUD') is not None,
-            hasattr(st, 'secrets') and len(st.secrets) > 0  # Cloud often has secrets
-        ]
-        
-        return any(cloud_indicators)
-    
-    @staticmethod
-    def clear_filters_cloud_compatible():
-        """
-        Simple, reliable filter clearing that works in both local and cloud.
-        """
-        try:
-            # Reset filter state to defaults
-            st.session_state.filter_state = FilterEngine.get_default_filter_state()
-            
-            # Increment widget refresh ID to force new widget keys (for cloud)
-            current_id = st.session_state.get('_widget_refresh_id', 0)
-            st.session_state._widget_refresh_id = current_id + 1
-            
-            # Reset counter
-            st.session_state.active_filter_count = 0
-            
-            # Clear quick filter
-            st.session_state.quick_filter = None
-            st.session_state.quick_filter_applied = False
-            
-            logger.info(f"Filters cleared successfully. Widget ID: {current_id} → {current_id + 1}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error clearing filters: {e}")
-            # Fallback
-            FilterEngine.initialize_filters()
-            return False
     
     @staticmethod
     def sync_widget_to_filter(widget_key: str, filter_key: str):
@@ -10127,77 +10071,6 @@ class SessionStateManager:
         if 'user_preferences' in st.session_state:
             st.session_state.user_preferences['last_filters'] = {}
         
-        # CRITICAL FIX: Ensure filter_state exists after clearing
-        # This prevents crashes when widgets try to access filter_state.get() during recreation
-        if 'filter_state' not in st.session_state:
-            # Initialize the centralized filter state that was just cleared
-            st.session_state.filter_state = {
-                'categories': [],
-                'sectors': [],
-                'industries': [],
-                'min_score': 0,
-                'patterns': [],
-                'trend_filter': "All Trends",
-                'trend_range': (0, 100),
-                'trend_custom_range': (0, 100),
-                'eps_tiers': [],
-                'pe_tiers': [],
-                'price_tiers': [],
-                'eps_change_tiers': [],
-                'position_tiers': [],
-                'position_range': (0, 100),
-                'turnover_tiers': [],
-                'performance_tiers': [],
-                'performance_custom_range': (-100, 500),
-                'volume_tiers': [],
-                'rvol_range': (0.1, 20.0),
-                'min_eps_change': None,
-                'min_pe': None,
-                'max_pe': None,
-                'require_fundamental_data': False,
-                'market_states': [],
-                'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
-                'position_score_range': (0, 100),
-                'volume_score_range': (0, 100),
-                'momentum_score_range': (0, 100),
-                'acceleration_score_range': (0, 100),
-                'breakout_score_range': (0, 100),
-                'rvol_score_range': (0, 100),
-                'position_score_selection': "All Scores",
-                'volume_score_selection': "All Scores",
-                'momentum_score_selection': "All Scores",
-                'acceleration_score_selection': "All Scores",
-                'breakout_score_selection': "All Scores",
-                'rvol_score_selection': "All Scores",
-                # Performance filter selections
-                'ret_1d_selection': "All Returns",
-                'ret_3d_selection': "All Returns", 
-                'ret_7d_selection': "All Returns",
-                'ret_30d_selection': "All Returns",
-                'ret_3m_selection': "All Returns",
-                'ret_6m_selection': "All Returns",
-                'ret_1y_selection': "All Returns",
-                'ret_3y_selection': "All Returns",
-                'ret_5y_selection': "All Returns",
-                # Two-Stage Pattern Filtering System
-                'exclude_patterns': [],
-                'include_patterns': [],
-                'combination_patterns': [],
-                # Performance filter ranges
-                'ret_1d_range': (2.0, 25.0),
-                'ret_3d_range': (3.0, 50.0),
-                'ret_7d_range': (5.0, 75.0),
-                'ret_30d_range': (10.0, 150.0),
-                'ret_3m_range': (15.0, 200.0),
-                'ret_6m_range': (20.0, 500.0),
-                'ret_1y_range': (25.0, 1000.0),
-                'ret_3y_range': (50.0, 2000.0),
-                'ret_5y_range': (75.0, 5000.0),
-                'quick_filter': None,
-                'quick_filter_applied': False
-            }
-        
         logger.info(f"All filters and widget states cleared successfully. Deleted {deleted_count} widget keys.")
     
     @staticmethod
@@ -10680,15 +10553,8 @@ def main():
         if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
-            # Use cloud-compatible clearing method
-            success = FilterEngine.clear_filters_cloud_compatible()
-            if success:
-                st.success("✅ All filters cleared successfully!")
-            else:
-                st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
-            
-            # Cloud-compatible rerun with delay
-            time.sleep(0.1)
+            SessionStateManager.clear_filters()
+            st.success("✅ All filters cleared!")
             st.rerun()
         
         st.markdown("---")
@@ -10848,34 +10714,22 @@ def main():
         
         st.markdown("---")
         
-        # CRITICAL: Define callback functions BEFORE widgets - CLOUD COMPATIBLE
+        # CRITICAL: Define callback functions BEFORE widgets
         def sync_categories():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('category_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['categories'] = st.session_state[key]
-                    break
+            if 'category_multiselect' in st.session_state:
+                st.session_state.filter_state['categories'] = st.session_state.category_multiselect
         
         def sync_sectors():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('sector_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['sectors'] = st.session_state[key]
-                    break
+            if 'sector_multiselect' in st.session_state:
+                st.session_state.filter_state['sectors'] = st.session_state.sector_multiselect
         
         def sync_industries():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('industry_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['industries'] = st.session_state[key]
-                    break
+            if 'industry_multiselect' in st.session_state:
+                st.session_state.filter_state['industries'] = st.session_state.industry_multiselect
         
         def sync_min_score():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('min_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['min_score'] = st.session_state[key]
-                    break
+            if 'min_score_slider' in st.session_state:
+                st.session_state.filter_state['min_score'] = st.session_state.min_score_slider
         
         def sync_position_tier():
             if 'position_tier_multiselect_intelligence' in st.session_state:
@@ -10948,133 +10802,79 @@ def main():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
 
-        # NEW: Two-stage pattern filtering sync functions - CLOUD COMPATIBLE
+        # NEW: Two-stage pattern filtering sync functions
         def sync_exclude_patterns():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('exclude_patterns_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['exclude_patterns'] = st.session_state[key]
-                    break
+            if 'exclude_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['exclude_patterns'] = st.session_state.exclude_patterns_multiselect
 
         def sync_include_patterns():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('include_patterns_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['include_patterns'] = st.session_state[key]
-                    break
+            if 'include_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['include_patterns'] = st.session_state.include_patterns_multiselect
 
         def sync_combination_patterns():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('combination_patterns_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['combination_patterns'] = st.session_state[key]
-                    break
+            if 'combination_patterns_multiselect' in st.session_state:
+                st.session_state.filter_state['combination_patterns'] = st.session_state.combination_patterns_multiselect
 
         def sync_market_states():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('market_states_multiselect_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['market_states'] = st.session_state[key]
-                    break
+            if 'market_states_multiselect' in st.session_state:
+                st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
         
         # Intelligence Score Dropdown and Slider Sync Functions
         def sync_position_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('position_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['position_score_selection'] = st.session_state[key]
-                    break
+            if 'position_score_dropdown' in st.session_state:
+                st.session_state.filter_state['position_score_selection'] = st.session_state.position_score_dropdown
         
         def sync_position_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('position_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['position_score_range'] = st.session_state[key]
-                    break
+            if 'position_score_slider' in st.session_state:
+                st.session_state.filter_state['position_score_range'] = st.session_state.position_score_slider
         
         def sync_volume_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('volume_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['volume_score_selection'] = st.session_state[key]
-                    break
+            if 'volume_score_dropdown' in st.session_state:
+                st.session_state.filter_state['volume_score_selection'] = st.session_state.volume_score_dropdown
         
         def sync_volume_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('volume_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['volume_score_range'] = st.session_state[key]
-                    break
+            if 'volume_score_slider' in st.session_state:
+                st.session_state.filter_state['volume_score_range'] = st.session_state.volume_score_slider
         
         def sync_market_strength():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('market_strength_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['market_strength_range'] = st.session_state[key]
-                    break
+            if 'market_strength_slider' in st.session_state:
+                st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
         
         def sync_long_term_strength():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('long_term_strength_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['long_term_strength_range'] = st.session_state[key]
-                    break
+            if 'long_term_strength_slider' in st.session_state:
+                st.session_state.filter_state['long_term_strength_range'] = st.session_state.long_term_strength_slider
         
         def sync_momentum_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('momentum_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['momentum_score_selection'] = st.session_state[key]
-                    break
+            if 'momentum_score_dropdown' in st.session_state:
+                st.session_state.filter_state['momentum_score_selection'] = st.session_state.momentum_score_dropdown
         
         def sync_momentum_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('momentum_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['momentum_score_range'] = st.session_state[key]
-                    break
+            if 'momentum_score_slider' in st.session_state:
+                st.session_state.filter_state['momentum_score_range'] = st.session_state.momentum_score_slider
         
         def sync_acceleration_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('acceleration_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['acceleration_score_selection'] = st.session_state[key]
-                    break
+            if 'acceleration_score_dropdown' in st.session_state:
+                st.session_state.filter_state['acceleration_score_selection'] = st.session_state.acceleration_score_dropdown
         
         def sync_acceleration_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('acceleration_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['acceleration_score_range'] = st.session_state[key]
-                    break
+            if 'acceleration_score_slider' in st.session_state:
+                st.session_state.filter_state['acceleration_score_range'] = st.session_state.acceleration_score_slider
         
         def sync_breakout_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('breakout_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['breakout_score_selection'] = st.session_state[key]
-                    break
+            if 'breakout_score_dropdown' in st.session_state:
+                st.session_state.filter_state['breakout_score_selection'] = st.session_state.breakout_score_dropdown
         
         def sync_breakout_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('breakout_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['breakout_score_range'] = st.session_state[key]
-                    break
+            if 'breakout_score_slider' in st.session_state:
+                st.session_state.filter_state['breakout_score_range'] = st.session_state.breakout_score_slider
         
         def sync_rvol_score_dropdown():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('rvol_score_dropdown_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['rvol_score_selection'] = st.session_state[key]
-                    break
+            if 'rvol_score_dropdown' in st.session_state:
+                st.session_state.filter_state['rvol_score_selection'] = st.session_state.rvol_score_dropdown
         
         def sync_rvol_score_slider():
-            # Handle dynamic keys for cloud UI refresh
-            for key in st.session_state.keys():
-                if key.startswith('rvol_score_slider_') and 'filter_state' in st.session_state:
-                    st.session_state.filter_state['rvol_score_range'] = st.session_state[key]
-                    break
+            if 'rvol_score_slider' in st.session_state:
+                st.session_state.filter_state['rvol_score_range'] = st.session_state.rvol_score_slider
         
         # BIDIRECTIONAL SMART INTERCONNECTED FILTERS: Category ↔ Sector ↔ Industry
         # Any selection affects the other two filters bidirectionally
@@ -11084,28 +10884,6 @@ def main():
         if ranked_df_display is None or ranked_df_display.empty:
             st.warning("No data available for filtering. Please check your data source.")
             return
-        
-        # CRITICAL FIX: Ensure filter_state exists before widget creation
-        # This prevents crashes when accessing filter_state.get() methods
-        if 'filter_state' not in st.session_state:
-            FilterEngine.initialize_filters()
-        
-        # CLOUD FIX: Handle recent clearing in cloud environments
-        # Generate dynamic widget keys to force UI refresh in cloud
-        widget_refresh_id = st.session_state.get('_widget_refresh_id', 0)
-        
-        if st.session_state.get('_filters_just_cleared', False):
-            # Clear the flag and force widget defaults in cloud
-            clear_time = st.session_state.get('_clear_timestamp', 0)
-            if time.time() - clear_time < 2:  # Within 2 seconds of clearing
-                st.session_state._filters_just_cleared = False
-                # Increment widget refresh ID to force new widget keys
-                widget_refresh_id += 1
-                st.session_state._widget_refresh_id = widget_refresh_id
-                # Force all stored values to empty for cloud widget reset
-                for key in st.session_state.filter_state:
-                    if isinstance(st.session_state.filter_state[key], list):
-                        st.session_state.filter_state[key] = []
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -11120,7 +10898,7 @@ def main():
             default=valid_category_defaults,
             placeholder="Select categories (empty = All)",
             help="📊 Filter by market cap category. Updates based on selected sectors and industries.",
-            key=f"category_multiselect_{widget_refresh_id}",  # Dynamic key for cloud UI refresh
+            key="category_multiselect",
             on_change=sync_categories  # SYNC ON CHANGE
         )
         
@@ -11140,8 +10918,8 @@ def main():
             default=valid_sector_defaults,
             placeholder="Select sectors (empty = All)",
             help="🏭 Filter by business sector. Updates based on selected categories and industries.",
-            key=f"sector_multiselect_{widget_refresh_id}",
-            on_change=sync_sectors  # SYNC ON CHANGE - CLOUD COMPATIBLE
+            key="sector_multiselect",
+            on_change=sync_sectors  # SYNC ON CHANGE
         )
         
         if selected_sectors:
@@ -11160,8 +10938,8 @@ def main():
             default=valid_industry_defaults,
             placeholder="Select industries (empty = All)",
             help="🏢 Filter by specific industry. Updates categories and sectors to show only relevant options.",
-            key=f"industry_multiselect_{widget_refresh_id}",
-            on_change=sync_industries  # SYNC ON CHANGE - CLOUD COMPATIBLE
+            key="industry_multiselect",
+            on_change=sync_industries  # SYNC ON CHANGE
         )
         
         if selected_industries:
@@ -11190,7 +10968,7 @@ def main():
                 default=valid_exclude_defaults,
                 placeholder="Select patterns to exclude (empty = exclude none)",
                 help="Stocks containing ANY of these patterns will be REMOVED from results",
-                key=f"exclude_patterns_multiselect_{widget_refresh_id}",
+                key="exclude_patterns_multiselect",
                 on_change=sync_exclude_patterns
             )
             
@@ -11209,7 +10987,7 @@ def main():
                 default=valid_include_defaults,
                 placeholder="Select patterns to include (empty = include all remaining)",
                 help="From stocks remaining after exclusion, show only those with ANY of these patterns",
-                key=f"include_patterns_multiselect_{widget_refresh_id}", 
+                key="include_patterns_multiselect", 
                 on_change=sync_include_patterns
             )
             
@@ -11228,7 +11006,7 @@ def main():
                 default=valid_combination_defaults,
                 placeholder="Select patterns for AND logic (empty = no combination filter)",
                 help="Show only stocks that have ALL of these patterns simultaneously (AND logic)",
-                key=f"combination_patterns_multiselect_{widget_refresh_id}",
+                key="combination_patterns_multiselect",
                 on_change=sync_combination_patterns
             )
             
@@ -11292,7 +11070,7 @@ def main():
                 value=current_custom_range,
                 step=1,
                 help="🔥 85+: Exceptional | 🚀 70-84: Strong | ✅ 55-69: Good | ➡️ 40-54: Neutral | ⚠️ 25-39: Weak | 🔻 <25: Poor",
-                key=f"trend_custom_range_slider_{widget_refresh_id}",
+                key="trend_custom_range_slider",
                 on_change=sync_trend_custom_slider
             )
             
@@ -11338,7 +11116,7 @@ def main():
             default=st.session_state.filter_state.get('market_states', []),
             placeholder="Select market states or use preset strategy",
             help="Filter by market momentum state. Use presets for different trading strategies or select Custom Selection for individual states",
-            key=f"market_states_multiselect_{widget_refresh_id}",
+            key="market_states_multiselect",
             on_change=sync_market_states  # SYNC ON CHANGE
         )
         
@@ -11359,13 +11137,10 @@ def main():
                 "UPTREND"
             ]
             
-            # Add sync function for custom states - CLOUD COMPATIBLE
+            # Add sync function for custom states
             def sync_custom_market_states():
-                # Handle dynamic keys for cloud UI refresh
-                for key in st.session_state.keys():
-                    if key.startswith('custom_market_states_multiselect_') and 'filter_state' in st.session_state:
-                        st.session_state.filter_state['custom_market_states'] = st.session_state[key]
-                        break
+                if 'custom_market_states_multiselect' in st.session_state:
+                    st.session_state.filter_state['custom_market_states'] = st.session_state.custom_market_states_multiselect
             
             custom_states_selection = st.multiselect(
                 "Select Individual Market States",
@@ -11373,7 +11148,7 @@ def main():
                 default=st.session_state.filter_state.get('custom_market_states', []),
                 placeholder="Choose specific market states to filter",
                 help="Select one or more market states to include in your filter",
-                key=f"custom_market_states_multiselect_{widget_refresh_id}",
+                key="custom_market_states_multiselect",
                 on_change=sync_custom_market_states
             )
             
@@ -11386,7 +11161,7 @@ def main():
                 value=st.session_state.filter_state.get('long_term_strength_range', (0, 100)),
                 step=5,
                 help="Filter by long term strength score (0-100). Higher values indicate stronger long-term trend consistency, momentum harmony, and sustained performance characteristics.",
-                key=f"long_term_strength_slider_{widget_refresh_id}",
+                key="long_term_strength_slider",
                 on_change=sync_long_term_strength
             )
             
@@ -11399,7 +11174,7 @@ def main():
                 value=st.session_state.filter_state.get('market_strength_range', (0, 100)),
                 step=5,
                 help="Filter by overall market strength score (0-100). Higher values indicate stronger market conditions with better momentum, acceleration, and volume characteristics.",
-                key=f"market_strength_slider_{widget_refresh_id}",
+                key="market_strength_slider",
                 on_change=sync_market_strength
             )
             
@@ -11433,7 +11208,7 @@ def main():
                 value=st.session_state.filter_state.get('min_score', 0),
                 step=5,
                 help="Filter stocks by minimum master score (0-100). Higher scores indicate better overall ranking.",
-                key=f"min_score_slider_{widget_refresh_id}",
+                key="min_score_slider",
                 on_change=sync_min_score
             )
             
@@ -11460,7 +11235,7 @@ def main():
                     options=position_score_options,
                     index=position_score_options.index(current_position_selection),
                     help="Filter stocks by position score strength",
-                    key=f"position_score_dropdown_{widget_refresh_id}",
+                    key="position_score_dropdown",
                     on_change=sync_position_score_dropdown
                 )
                 
@@ -11473,7 +11248,7 @@ def main():
                         value=st.session_state.filter_state.get('position_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by position score custom range (0-100)",
-                        key=f"position_score_slider_{widget_refresh_id}",
+                        key="position_score_slider",
                         on_change=sync_position_score_slider
                     )
                     
@@ -11510,7 +11285,7 @@ def main():
                     options=volume_score_options,
                     index=volume_score_options.index(current_volume_selection),
                     help="Filter stocks by volume score strength",
-                    key=f"volume_score_dropdown_{widget_refresh_id}",
+                    key="volume_score_dropdown",
                     on_change=sync_volume_score_dropdown
                 )
                 
@@ -11523,7 +11298,7 @@ def main():
                         value=st.session_state.filter_state.get('volume_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by volume score custom range (0-100)",
-                        key=f"volume_score_slider_{widget_refresh_id}",
+                        key="volume_score_slider",
                         on_change=sync_volume_score_slider
                     )
                     
@@ -11560,7 +11335,7 @@ def main():
                     options=momentum_score_options,
                     index=momentum_score_options.index(current_momentum_selection),
                     help="Filter stocks by momentum score strength",
-                    key=f"momentum_score_dropdown_{widget_refresh_id}",
+                    key="momentum_score_dropdown",
                     on_change=sync_momentum_score_dropdown
                 )
                 
@@ -11573,7 +11348,7 @@ def main():
                         value=st.session_state.filter_state.get('momentum_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by momentum score custom range (0-100)",
-                        key=f"momentum_score_slider_{widget_refresh_id}",
+                        key="momentum_score_slider",
                         on_change=sync_momentum_score_slider
                     )
                     
@@ -11610,7 +11385,7 @@ def main():
                     options=acceleration_score_options,
                     index=acceleration_score_options.index(current_acceleration_selection),
                     help="Filter stocks by acceleration score strength",
-                    key=f"acceleration_score_dropdown_{widget_refresh_id}",
+                    key="acceleration_score_dropdown",
                     on_change=sync_acceleration_score_dropdown
                 )
                 
@@ -11623,7 +11398,7 @@ def main():
                         value=st.session_state.filter_state.get('acceleration_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by acceleration score custom range (0-100)",
-                        key=f"acceleration_score_slider_{widget_refresh_id}",
+                        key="acceleration_score_slider",
                         on_change=sync_acceleration_score_slider
                     )
                     
@@ -11660,7 +11435,7 @@ def main():
                     options=breakout_score_options,
                     index=breakout_score_options.index(current_breakout_selection),
                     help="Filter stocks by breakout score strength",
-                    key=f"breakout_score_dropdown_{widget_refresh_id}",
+                    key="breakout_score_dropdown",
                     on_change=sync_breakout_score_dropdown
                 )
                 
@@ -11673,7 +11448,7 @@ def main():
                         value=st.session_state.filter_state.get('breakout_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by breakout score custom range (0-100)",
-                        key=f"breakout_score_slider_{widget_refresh_id}",
+                        key="breakout_score_slider",
                         on_change=sync_breakout_score_slider
                     )
                     
@@ -11710,7 +11485,7 @@ def main():
                     options=rvol_score_options,
                     index=rvol_score_options.index(current_rvol_selection),
                     help="Filter stocks by RVOL score strength",
-                    key=f"rvol_score_dropdown_{widget_refresh_id}",
+                    key="rvol_score_dropdown",
                     on_change=sync_rvol_score_dropdown
                 )
                 
@@ -11723,7 +11498,7 @@ def main():
                         value=st.session_state.filter_state.get('rvol_score_range', (0, 100)),
                         step=5,
                         help="Filter stocks by RVOL score custom range (0-100)",
-                        key=f"rvol_score_slider_{widget_refresh_id}",
+                        key="rvol_score_slider",
                         on_change=sync_rvol_score_slider
                     )
                     
@@ -12026,7 +11801,7 @@ def main():
                         value=st.session_state.filter_state.get('rvol_range', (0.1, 20.0)),
                         step=0.1,
                         help="Filter by Relative Volume (RVOL) range",
-                        key=f"rvol_range_slider_{widget_refresh_id}",
+                        key="rvol_range_slider",
                         on_change=sync_rvol_range
                     )
                     if rvol_range != (0.1, 20.0):
@@ -12060,7 +11835,7 @@ def main():
                         value=st.session_state.filter_state.get('position_range', (0, 100)),
                         step=1,
                         help="Filter by position percentage range (distance from 52-week low)",
-                        key=f"position_range_slider_{widget_refresh_id}",
+                        key="position_range_slider",
                         on_change=sync_position_range
                     )
                     if position_range != (0, 100):
@@ -12210,7 +11985,7 @@ def main():
                 require_fundamental = st.checkbox(
                     "Only show stocks with PE and EPS data",
                     value=st.session_state.filter_state.get('require_fundamental_data', False),
-                    key=f"require_fundamental_checkbox_{widget_refresh_id}",
+                    key="require_fundamental_checkbox",
                     on_change=sync_fundamental  # SYNC ON CHANGE
                 )
                 
@@ -12224,22 +11999,18 @@ def main():
         if active_filter_count > 0:
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
-        # Clear filters button - CLOUD-COMPATIBLE VERSION
+        # Clear filters button - ENHANCED VERSION
         if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
             
-            # Use cloud-compatible clearing method for reliable operation on Streamlit Community Cloud
-            success = FilterEngine.clear_filters_cloud_compatible()
+            # Use both FilterEngine and SessionStateManager clear methods
+            FilterEngine.clear_all_filters()
+            SessionStateManager.clear_filters()
             
-            if success:
-                st.success("✅ All filters cleared successfully!")
-            else:
-                st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
-            
-            # Enhanced cloud-compatible rerun logic
-            time.sleep(0.2)  # Shorter delay for better UX
+            st.success("✅ All filters cleared!")
+            time.sleep(0.3)
             st.rerun()
     
     # Apply filters (outside sidebar)
@@ -13390,15 +13161,8 @@ def main():
                     st.write(f"• {filter_text}")
                 
                 if st.button("Clear All Filters", type="primary", key="clear_filters_ranking_btn"):
-                    # Use cloud-compatible clearing method
-                    success = FilterEngine.clear_filters_cloud_compatible()
-                    if success:
-                        st.success("✅ All filters cleared successfully!", icon="🎉")
-                    else:
-                        st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
-                    
-                    # Cloud-compatible rerun
-                    time.sleep(0.1)
+                    FilterEngine.clear_all_filters()
+                    SessionStateManager.clear_filters()
                     st.rerun()
             else:
                 st.info("No filters applied. All stocks should be visible unless there's no data loaded.")
