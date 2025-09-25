@@ -399,6 +399,13 @@ class Config:
             "⛅ Mixed (Score 2)": ("momentum_harmony", 2, 2),
             "🌤️ Aligned (Score 3)": ("momentum_harmony", 3, 3),
             "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
+        },
+        "daily_turnover_tiers": {
+            "🏜️ Very Low (<1L)": (0, 1_000_000),
+            "💧 Low (1L-10L)": (1_000_000, 10_000_000),
+            "💦 Moderate (10L-1Cr)": (10_000_000, 100_000_000),
+            "🌊 High (1Cr-10Cr)": (100_000_000, 1_000_000_000),
+            "🌊🌊 Very High (>10Cr)": (1_000_000_000, float('inf'))
         }
     })
     
@@ -1015,6 +1022,15 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['position_tiers'])
             )
             logger.info(f"Position tiers created from from_low_pct. Sample tiers: {df['position_tier'].value_counts().head()}")
+        
+        # Daily turnover calculation and tier classification
+        if all(col in df.columns for col in ['volume_1d', 'price']):
+            # Calculate daily turnover in rupees
+            df['daily_turnover'] = df['volume_1d'] * df['price']
+            df['daily_turnover_tier'] = df['daily_turnover'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
         
         # Performance tier classifications - Unified approach
         # Enhanced performance tier classification with ALL return periods
@@ -7547,6 +7563,7 @@ class FilterEngine:
             'ret_5y_range': (75.0, 5000.0),
             'position_tiers': [],
             'position_range': (0, 100),
+            'turnover_tiers': [],
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
             'vmi_tiers': [],
@@ -7590,7 +7607,7 @@ class FilterEngine:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
             # Combination Pattern Filter Widget
@@ -7614,7 +7631,7 @@ class FilterEngine:
             'ret_3m_dropdown', 'ret_6m_dropdown', 'ret_1y_dropdown', 'ret_3y_dropdown', 'ret_5y_dropdown',
             
             # Selectbox widgets
-            'trend_selectbox', 'wave_timeframe_select', 'display_mode_toggle',
+            'trend_selectbox', 'wave_timeframe_select',
             
             # Text input widgets
             'eps_change_input', 'min_pe_input', 'max_pe_input',
@@ -7625,23 +7642,7 @@ class FilterEngine:
             # Additional filter-related keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
             'wave_sensitivity', 'show_sensitivity_details', 'show_market_regime',
-            'score_component_expander',
-            
-            # Missing UI Control widgets
-            'custom_market_states_multiselect', 'long_term_strength_slider',
-            'ranking_view_mode', 'perf_timeframe', 'export_format',
-            'custom_columns_select', 'reset_timeframe',
-            
-            # Missing Radar Section widgets
-            'radar_mode_select', 'timeframe_focus_select', 'sensitivity_level_select',
-            'risk_filter_select', 'market_regime_select', 'enable_ai_signals',
-            'show_institutional', 'enable_alerts', 'show_correlations', 'export_signals',
-            
-            # Missing Debug and Search widgets
-            'regime_debug', 'show_debug', 'search_input', 'search_btn',
-            
-            # Clear button keys (to reset button states)
-            'clear_filters_sidebar_btn', 'clear_filters_main_btn', 'clear_filters_ranking_btn'
+            'score_component_expander'
         ]
         
         # Delete each known widget key if it exists
@@ -7764,45 +7765,63 @@ class FilterEngine:
     
     @staticmethod
     def build_filter_dict() -> Dict[str, Any]:
-        """Build filter dictionary for apply_filters method"""
+        """
+        Build comprehensive filter dictionary for apply_filters method.
+        This ensures all filter types are properly included.
+        """
         FilterEngine.initialize_filters()
         filters = {}
-        state = st.session_state.filter_state
         
-        # Map internal state to filter dict format
-        if state.get('categories'):
-            filters['categories'] = state['categories']
-        if state.get('sectors'):
-            filters['sectors'] = state['sectors']
-        if state.get('industries'):
-            filters['industries'] = state['industries']
-        if state.get('min_score', 0) > 0:
-            filters['min_score'] = state['min_score']
-        if state.get('patterns'):
-            filters['patterns'] = state['patterns']
-        if state.get('trend_filter') != "All Trends":
-            filters['trend_filter'] = state['trend_filter']
-            filters['trend_range'] = state.get('trend_range', (0, 100))
-        if state.get('eps_tiers'):
-            filters['eps_tiers'] = state['eps_tiers']
-        if state.get('pe_tiers'):
-            filters['pe_tiers'] = state['pe_tiers']
-        if state.get('price_tiers'):
-            filters['price_tiers'] = state['price_tiers']
-        if state.get('eps_change_tiers'):
-            filters['eps_change_tiers'] = state['eps_change_tiers']
-        if state.get('min_pe') is not None:
-            filters['min_pe'] = state['min_pe']
-        if state.get('max_pe') is not None:
-            filters['max_pe'] = state['max_pe']
-        if state.get('require_fundamental_data'):
-            filters['require_fundamental_data'] = True
-        if state.get('market_states'):
-            filters['market_states'] = state['market_states']
-        if state.get('market_strength_range') != (0, 100):
-            filters['market_strength_range'] = state['market_strength_range']
-        if state.get('long_term_strength_range') != (0, 100):
-            filters['long_term_strength_range'] = state['long_term_strength_range']
+        # Use centralized filter state if available
+        if 'filter_state' in st.session_state:
+            state = st.session_state.filter_state
+            
+            # Map centralized state to filter dict
+            if state.get('categories'):
+                filters['categories'] = state['categories']
+            if state.get('sectors'):
+                filters['sectors'] = state['sectors']
+            if state.get('industries'):
+                filters['industries'] = state['industries']
+            if state.get('min_score', 0) > 0:
+                filters['min_score'] = state['min_score']
+            if state.get('patterns'):
+                filters['patterns'] = state['patterns']
+            if state.get('trend_filter') != "All Trends":
+                filters['trend_filter'] = state['trend_filter']
+                filters['trend_range'] = state.get('trend_range', (0, 100))
+            if state.get('eps_tiers'):
+                filters['eps_tiers'] = state['eps_tiers']
+            if state.get('pe_tiers'):
+                filters['pe_tiers'] = state['pe_tiers']
+            if state.get('price_tiers'):
+                filters['price_tiers'] = state['price_tiers']
+            if state.get('eps_change_tiers'):
+                filters['eps_change_tiers'] = state['eps_change_tiers']
+            if state.get('position_tiers'):
+                filters['position_tiers'] = state['position_tiers']
+            if state.get('turnover_tiers'):
+                filters['turnover_tiers'] = state['turnover_tiers']
+            if state.get('performance_tiers'):
+                filters['performance_tiers'] = state['performance_tiers']
+            if state.get('volume_tiers'):
+                filters['volume_tiers'] = state['volume_tiers']
+            if state.get('vmi_tiers'):
+                filters['vmi_tiers'] = state['vmi_tiers']
+            if state.get('momentum_harmony_tiers'):
+                filters['momentum_harmony_tiers'] = state['momentum_harmony_tiers']
+            if state.get('min_pe') is not None:
+                filters['min_pe'] = state['min_pe']
+            if state.get('max_pe') is not None:
+                filters['max_pe'] = state['max_pe']
+            if state.get('require_fundamental_data'):
+                filters['require_fundamental_data'] = True
+            if state.get('market_states'):
+                filters['market_states'] = state['market_states']
+            if state.get('market_strength_range') != (0, 100):
+                filters['market_strength_range'] = state['market_strength_range']
+            if state.get('long_term_strength_range') != (0, 100):
+                filters['long_term_strength_range'] = state['long_term_strength_range']
             
         return filters
     
@@ -7952,6 +7971,12 @@ class FilterEngine:
                 position_range = filters['position_range']
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
+        
+        # 5.55. Daily Turnover Intelligence filters
+        if 'turnover_tiers' in filters:
+            selected_tiers = filters['turnover_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('daily_turnover_tier', selected_tiers))
         
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
@@ -8310,12 +8335,52 @@ class FilterEngine:
             'pe_tiers': [],
             'price_tiers': [],
             'eps_change_tiers': [],
+            'position_tiers': [],
+            'position_range': (0, 100),
+            'turnover_tiers': [],
+            'performance_tiers': [],
+            'performance_custom_range': (-100, 500),
+            'volume_tiers': [],
+            'rvol_range': (0.1, 20.0),
+            'vmi_tiers': [],
+            'custom_vmi_range': (0.5, 3.0),
+            'momentum_harmony_tiers': [],
+            'ret_1d_range': (2.0, 25.0),
+            'ret_3d_range': (3.0, 50.0),
+            'ret_7d_range': (5.0, 75.0),
+            'ret_30d_range': (10.0, 150.0),
+            'ret_3m_range': (15.0, 200.0),
+            'ret_6m_range': (20.0, 500.0),
+            'ret_1y_range': (25.0, 1000.0),
+            'ret_3y_range': (50.0, 2000.0),
+            'ret_5y_range': (75.0, 5000.0),
             'min_pe': None,
             'max_pe': None,
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
             'long_term_strength_range': (0, 100),
+            'position_score_range': (0, 100),
+            'volume_score_range': (0, 100),
+            'momentum_score_range': (0, 100),
+            'acceleration_score_range': (0, 100),
+            'breakout_score_range': (0, 100),
+            'rvol_score_range': (0, 100),
+            'position_score_selection': "All Scores",
+            'volume_score_selection': "All Scores",
+            'momentum_score_selection': "All Scores",
+            'acceleration_score_selection': "All Scores",
+            'breakout_score_selection': "All Scores",
+            'rvol_score_selection': "All Scores",
+            'ret_1d_selection': "All Returns",
+            'ret_3d_selection': "All Returns",
+            'ret_7d_selection': "All Returns",
+            'ret_30d_selection': "All Returns",
+            'ret_3m_selection': "All Returns",
+            'ret_6m_selection': "All Returns",
+            'ret_1y_selection': "All Returns",
+            'ret_3y_selection': "All Returns",
+            'ret_5y_selection': "All Returns",
             'quick_filter': None,
             'quick_filter_applied': False,
             # Three-Stage Pattern Filtering System
@@ -9105,7 +9170,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
                 
                 # Add context-aware insights
                 hot_items = top_12[top_12['flow_score'] > 75]
@@ -9505,6 +9570,7 @@ class SessionStateManager:
                 'eps_change_tiers': [],
                 'position_tiers': [],
                 'position_range': (0, 100),
+                'turnover_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9641,6 +9707,8 @@ class SessionStateManager:
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
                 filters['position_tiers'] = state['position_tiers']
+            if state.get('turnover_tiers'):
+                filters['turnover_tiers'] = state['turnover_tiers']
             if state.get('volume_tiers'):
                 filters['volume_tiers'] = state['volume_tiers']
             if state.get('vmi_tiers'):
@@ -9785,6 +9853,7 @@ class SessionStateManager:
                 'eps_change_tiers': [],
                 'position_tiers': [],
                 'position_range': (0, 100),
+                'turnover_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9881,7 +9950,7 @@ class SessionStateManager:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -9907,23 +9976,7 @@ class SessionStateManager:
             
             # Additional keys
             'display_count_select', 'sort_by_select', 'export_template_radio',
-            'wave_sensitivity', 'search_input', 'sheet_input', 'gid_input',
-            
-            # Missing UI Control widgets (matching FilterEngine)
-            'custom_market_states_multiselect', 'long_term_strength_slider',
-            'ranking_view_mode', 'perf_timeframe', 'export_format',
-            'custom_columns_select', 'reset_timeframe',
-            
-            # Missing Radar Section widgets (matching FilterEngine)
-            'radar_mode_select', 'timeframe_focus_select', 'sensitivity_level_select',
-            'risk_filter_select', 'market_regime_select', 'enable_ai_signals',
-            'show_institutional', 'enable_alerts', 'show_correlations', 'export_signals',
-            
-            # Missing Debug and Search widgets (matching FilterEngine)
-            'regime_debug', 'search_btn',
-            
-            # Clear button keys (matching FilterEngine)
-            'clear_filters_sidebar_btn', 'clear_filters_main_btn', 'clear_filters_ranking_btn'
+            'wave_sensitivity', 'search_input', 'sheet_input', 'gid_input'
         ]
         
         # Delete each widget key if it exists
@@ -10929,7 +10982,7 @@ def main():
             valid_include_defaults = [pat for pat in stored_include_patterns if pat in sorted_patterns]
             
             included_patterns = st.multiselect(
-                f"✅ Include Patterns",
+                f"✅ Include Patterns ({len(sorted_patterns)} available)",
                 options=sorted_patterns,
                 default=valid_include_defaults,
                 placeholder="Select patterns to include (empty = include all remaining)",
@@ -10948,7 +11001,7 @@ def main():
             valid_combination_defaults = [pat for pat in stored_combination_patterns if pat in sorted_patterns]
             
             combination_patterns = st.multiselect(
-                f"🔗 Combination Patterns",
+                f"🔗 Combination Patterns ({len(sorted_patterns)} available)",
                 options=sorted_patterns,
                 default=valid_combination_defaults,
                 placeholder="Select patterns for AND logic (empty = no combination filter)",
@@ -11787,6 +11840,22 @@ def main():
                     )
                     if position_range != (0, 100):
                         filters['position_range'] = position_range
+            
+            # 💧 Daily Turnover Intelligence
+            if 'daily_turnover_tier' in ranked_df_display.columns:
+                # Daily turnover tier multiselect (tier-only filtering)
+                turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                turnover_tiers = st.multiselect(
+                    "Daily Turnover Tiers",
+                    options=turnover_tier_options,
+                    default=st.session_state.filter_state.get('turnover_tiers', []),
+                    key='turnover_tier_multiselect_intelligence',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
+                    help="Select daily turnover tiers for filtering"
+                )
+                
+                if turnover_tiers:
+                    filters['turnover_tiers'] = turnover_tiers
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
@@ -13728,7 +13797,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -13858,7 +13927,7 @@ def main():
                             fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                             fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
-                            st.plotly_chart(fig_flow, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
+                            st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
                             
                             # Add zone-based insights
                             hot_categories = category_flow[category_flow['Flow Score'] > 75]
@@ -14968,7 +15037,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, config={'displayModeBar': True}, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -15184,7 +15253,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, config={'displayModeBar': True}, use_container_width=True)
+                            st.plotly_chart(fig_momentum, use_container_width=True)
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -15208,7 +15277,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, config={'displayModeBar': True}, use_container_width=True)
+                            st.plotly_chart(fig_single, use_container_width=True)
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
