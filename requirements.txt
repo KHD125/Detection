@@ -5,7 +5,7 @@
 # RECOMMENDED: Streamlit 1.36.0 - Last stable version before major issues
 
 # Core Streamlit Framework - OPTIMAL VERSION for V10.py
-streamlit==1.49.0
+streamlit==1.50.0
 
 # Data Processing & Analysis - Compatible versions
 pandas>=1.5.3
