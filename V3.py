@@ -7737,9 +7737,15 @@ class FilterEngine:
         # Reset active filter count
         st.session_state.active_filter_count = 0
         
-        # Clear quick filter
-        st.session_state.quick_filter = None
-        st.session_state.quick_filter_applied = False
+        # Clear quick filter - ENHANCED TO FIX UI PERSISTENCE
+        if 'quick_filter' in st.session_state:
+            del st.session_state['quick_filter']
+        if 'quick_filter_applied' in st.session_state:
+            del st.session_state['quick_filter_applied']
+        
+        # Force clear quick filter state in filter_state too
+        st.session_state.filter_state['quick_filter'] = None
+        st.session_state.filter_state['quick_filter_applied'] = False
         
         # Clear any cached filter results
         if 'user_preferences' in st.session_state:
@@ -8249,7 +8255,12 @@ class FilterEngine:
         else:
             filtered_df = df.copy()
         
-        logger.info(f"Filters reduced {len(df)} to {len(filtered_df)} stocks")
+        # ENHANCED LOGGING TO DEBUG FILTER ISSUES
+        if len(filtered_df) != len(df):
+            active_filters = [key for key, value in filters.items() if value]
+            logger.info(f"Filters reduced {len(df)} to {len(filtered_df)} stocks. Active filters: {active_filters}")
+        else:
+            logger.debug(f"No filters applied - showing all {len(df)} stocks")
         
         return filtered_df
     
@@ -12009,11 +12020,34 @@ def main():
             FilterEngine.clear_all_filters()
             SessionStateManager.clear_filters()
             
+            # Clear any lingering filter states
+            st.session_state.active_filter_count = 0
+            
             st.success("✅ All filters cleared!")
-            time.sleep(0.3)
+            time.sleep(0.1)  # Reduced sleep time
             st.rerun()
     
-    # Apply filters (outside sidebar)
+    # Apply filters (outside sidebar) - RE-READ STATE AFTER POTENTIAL CLEARING
+    quick_filter_applied = st.session_state.get('quick_filter_applied', False)
+    quick_filter = st.session_state.get('quick_filter', None)  # Re-read quick_filter too
+    filters = FilterEngine.build_filter_dict()  # Re-build filters after potential clearing
+    
+    # Safety check: If no filters are supposed to be active, force empty filters
+    if st.session_state.get('active_filter_count', 0) == 0 and not quick_filter_applied:
+        filters = {}
+    
+    # Re-evaluate ranked_df_display based on updated quick_filter state
+    ranked_df_display = ranked_df  # Reset to base
+    if quick_filter and quick_filter_applied:
+        if quick_filter == 'top_gainers':
+            ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80]
+        elif quick_filter == 'volume_surges':
+            ranked_df_display = ranked_df[ranked_df['rvol'] >= 3]
+        elif quick_filter == 'velocity_breakout':
+            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('VELOCITY BREAKOUT', na=False)]
+        elif quick_filter == 'institutional_tsunami':
+            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)]
+    
     if quick_filter_applied:
         filtered_df = FilterEngine.apply_filters(ranked_df_display, filters)
     else:
@@ -12067,6 +12101,7 @@ def main():
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
                 FilterEngine.clear_all_filters()
                 SessionStateManager.clear_filters()
+                st.session_state.active_filter_count = 0
                 st.rerun()
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
