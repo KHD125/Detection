@@ -17152,16 +17152,16 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        st.error(f"Critical Application Error: {str(e)}")
-        logger.error(f"Application crashed: {str(e)}", exc_info=True)
-        
-        if st.button("🔄 Restart Application"):
-            st.cache_data.clear()
-            st.rerun()
-        
-        if st.button("📧 Report Issue"):
-            st.info("Please take a screenshot and report this error.")
+# CRITICAL: For Streamlit apps, run main() at module level to ensure proper session state initialization
+try:
+    main()
+except Exception as e:
+    st.error(f"Critical Application Error: {str(e)}")
+    logger.error(f"Application crashed: {str(e)}", exc_info=True)
+    
+    if st.button("🔄 Restart Application"):
+        st.cache_data.clear()
+        st.rerun()
+    
+    if st.button("📧 Report Issue"):
+        st.info("Please take a screenshot and report this error.")
