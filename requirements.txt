@@ -2,9 +2,9 @@
 # OPTIMAL STREAMLIT VERSION FOR V10.PY - PRODUCTION READY
 # ===================================
 # Based on feature compatibility + stability analysis
-# RECOMMENDED: Streamlit 1.36.0 - Last stable version before major issues
+# RECOMMENDED: Streamlit 1.49.0 - Last stable version before major issues
 
-# Core Streamlit Framework - OPTIMAL VERSION for V10.py
+# Core Streamlit Framework 
 streamlit==1.49.0
 
 # Data Processing & Analysis - Compatible versions
