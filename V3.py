@@ -7897,6 +7897,34 @@ class FilterEngine:
                     logger.debug(f"Could not delete key {key}: {e}")
                     pass
             
+            # STRATEGY 3B: Specifically target dynamic keys for cloud UI refresh
+            dynamic_key_patterns = [
+                'category_multiselect_', 'sector_multiselect_', 'industry_multiselect_',
+                'exclude_patterns_multiselect_', 'include_patterns_multiselect_', 
+                'combination_patterns_multiselect_', 'market_states_multiselect_',
+                'custom_market_states_multiselect_', 'position_score_slider_',
+                'volume_score_slider_', 'momentum_score_slider_', 'acceleration_score_slider_',
+                'breakout_score_slider_', 'rvol_score_slider_', 'position_score_dropdown_',
+                'volume_score_dropdown_', 'momentum_score_dropdown_', 'acceleration_score_dropdown_',
+                'breakout_score_dropdown_', 'rvol_score_dropdown_', 'long_term_strength_slider_',
+                'market_strength_slider_', 'min_score_slider_', 'trend_custom_range_slider_',
+                'rvol_range_slider_', 'position_range_slider_'
+            ]
+            
+            dynamic_deleted_count = 0
+            for key in list(st.session_state.keys()):
+                for pattern in dynamic_key_patterns:
+                    if key.startswith(pattern):
+                        try:
+                            del st.session_state[key]
+                            dynamic_deleted_count += 1
+                            logger.debug(f"Deleted dynamic key: {key}")
+                        except Exception as e:
+                            logger.debug(f"Could not delete dynamic key {key}: {e}")
+                        break
+            
+            logger.info(f"Deleted {dynamic_deleted_count} dynamic widget keys for cloud UI refresh")
+            
             # CLOUD-SPECIFIC STRATEGY: Additional widget key reset for cloud persistence issues
             if is_cloud:
                 # Force reset known problematic keys in cloud
@@ -7980,12 +8008,16 @@ class FilterEngine:
                 if st.session_state.filter_state.get(key) != expected:
                     st.session_state.filter_state[key] = expected
             
+            # CRITICAL: Increment widget_refresh_id to force UI refresh in cloud
+            current_refresh_id = st.session_state.get('_widget_refresh_id', 0)
+            st.session_state._widget_refresh_id = current_refresh_id + 1
+            
             # For cloud environments, set a flag to trigger UI refresh
             if is_cloud:
                 st.session_state._filters_just_cleared = True
                 st.session_state._clear_timestamp = time.time()
             
-            logger.info(f"CLOUD-COMPATIBLE clear completed successfully. Deleted {deleted_count} widget keys. Verification: {'PASSED' if verification_passed else 'FIXED'}")
+            logger.info(f"CLOUD-COMPATIBLE clear completed successfully. Deleted {deleted_count} widget keys. Widget refresh ID: {current_refresh_id} → {st.session_state._widget_refresh_id}. Verification: {'PASSED' if verification_passed else 'FIXED'}")
             return True
             
         except Exception as e:
