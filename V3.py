@@ -288,9 +288,9 @@ class Config:
         }
     })
     
-    # Default filter for swing/momentum trading
-    DEFAULT_MARKET_FILTER: str = 'MOMENTUM'
-    ENABLE_MARKET_STATE_FILTER: bool = True  # Can be toggled
+    # Default filter for swing/momentum trading - Changed to ALL for better user experience
+    DEFAULT_MARKET_FILTER: str = 'ALL'
+    ENABLE_MARKET_STATE_FILTER: bool = False  # Disabled by default to prevent aggressive filtering
     
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
