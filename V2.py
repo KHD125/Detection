@@ -1,5 +1,5 @@
 """
-Wave Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
+Market Detection Ultimate 3.0 - FINAL ENHANCED PRODUCTION VERSION
 ==================================================================
 Professional Stock Ranking System with Advanced Market State Analytics
 All bugs fixed, optimized for Streamlit Community Cloud
@@ -17,12 +17,6 @@ MARKET STATE SYSTEM:
 """
 
 # ============================================
-# STREAMLIT CONFIGURATION - Prevent File Watcher Issues
-# ============================================
-import os
-os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'none'
-
-# ============================================
 # IMPORTS AND SETUP
 # ============================================
 
@@ -33,7 +27,7 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timezone, timedelta
 import logging
-from typing import Dict, List, Tuple, Optional, Any, Union  # Add Union back for type hints
+from typing import Dict, List, Tuple, Optional, Any  # Remove Union, Set
 from dataclasses import dataclass, field
 from functools import wraps  # Remove lru_cache
 import time
@@ -50,115 +44,6 @@ np.seterr(all='ignore')
 
 # Set random seed for reproducibility of any random-based operations.
 np.random.seed(42)
-
-# ============================================
-# SAFE DIVISION UTILITIES - CRITICAL BUG FIXES
-# ============================================
-
-def safe_divide(numerator: Union[float, int, np.ndarray, pd.Series],
-                denominator: Union[float, int, np.ndarray, pd.Series],
-                default: Union[float, int] = 0,
-                handle_inf: bool = True,
-                warn_on_zero: bool = False) -> Union[float, np.ndarray, pd.Series]:
-    """
-    Safely perform division operations, handling division by zero and other edge cases.
-
-    Parameters:
-    -----------
-    numerator : float, int, np.ndarray, or pd.Series
-        The numerator value(s)
-    denominator : float, int, np.ndarray, or pd.Series
-        The denominator value(s)
-    default : float or int, default=0
-        Value to return when division by zero occurs
-    handle_inf : bool, default=True
-        Whether to replace infinity values with default
-    warn_on_zero : bool, default=False
-        Whether to emit warnings when division by zero occurs
-
-    Returns:
-    --------
-    float, np.ndarray, or pd.Series
-        Result of safe division operation
-    """
-    # Handle pandas Series and numpy arrays
-    if isinstance(numerator, (pd.Series, np.ndarray)) or isinstance(denominator, (pd.Series, np.ndarray)):
-        # Convert to numpy arrays for consistent handling
-        num_array = np.asarray(numerator)
-        den_array = np.asarray(denominator)
-
-        # Create result array initialized with default values
-        result = np.full_like(num_array, default, dtype=float)
-
-        # Handle different cases
-        if isinstance(denominator, (pd.Series, np.ndarray)):
-            # Element-wise division with zero checking
-            valid_mask = (den_array != 0) & pd.notna(den_array) & pd.notna(num_array)
-
-            if warn_on_zero and np.any(den_array == 0):
-                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
-
-            # Perform division only for valid elements
-            result[valid_mask] = num_array[valid_mask] / den_array[valid_mask]
-        else:
-            # Scalar denominator
-            if denominator != 0 and pd.notna(denominator):
-                valid_mask = pd.notna(num_array)
-                result[valid_mask] = num_array[valid_mask] / denominator
-            elif warn_on_zero:
-                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
-
-        # Handle infinity values if requested
-        if handle_inf:
-            result = np.where(np.isinf(result), default, result)
-
-        # Return same type as input
-        if isinstance(numerator, pd.Series):
-            return pd.Series(result, index=numerator.index)
-        else:
-            return result
-
-    else:
-        # Handle scalar values
-        if denominator == 0 or pd.isna(denominator) or pd.isna(numerator):
-            if warn_on_zero and denominator == 0:
-                warnings.warn("Division by zero encountered in safe_divide", RuntimeWarning)
-            return default
-
-        result = numerator / denominator
-
-        # Handle infinity
-        if handle_inf and np.isinf(result):
-            return default
-
-        return result
-
-
-def safe_percentage(numerator: Union[float, int, np.ndarray, pd.Series],
-                   denominator: Union[float, int, np.ndarray, pd.Series],
-                   default: float = 0.0) -> Union[float, np.ndarray, pd.Series]:
-    """
-    Safely calculate percentage: (numerator / denominator) * 100
-    """
-    return safe_divide(numerator, denominator, default) * 100
-
-
-def safe_ratio(numerator: Union[float, int, np.ndarray, pd.Series],
-               denominator: Union[float, int, np.ndarray, pd.Series],
-               default: float = 1.0) -> Union[float, np.ndarray, pd.Series]:
-    """
-    Safely calculate ratio, with default of 1.0 for ratios
-    """
-    return safe_divide(numerator, denominator, default)
-
-
-def safe_normalize(values: Union[np.ndarray, pd.Series],
-                  total: Union[float, np.ndarray, pd.Series],
-                  default: float = 0.0) -> Union[np.ndarray, pd.Series]:
-    """
-    Safely normalize values by their sum or a total
-    """
-    return safe_divide(values, total, default)
 
 # ============================================
 # LOGGING CONFIGURATION
@@ -188,13 +73,13 @@ class Config:
     # Cache settings - Dynamic refresh
     CACHE_TTL: int = 3600  
     STALE_DATA_HOURS: int = 24
-
+    
     # Master Score 3.0 weights (total = 100%)
-    POSITION_WEIGHT: float = 0.27
-    VOLUME_WEIGHT: float = 0.23
-    MOMENTUM_WEIGHT: float = 0.20
-    ACCELERATION_WEIGHT: float = 0.02
-    BREAKOUT_WEIGHT: float = 0.18
+    POSITION_WEIGHT: float = 0.30
+    VOLUME_WEIGHT: float = 0.25
+    MOMENTUM_WEIGHT: float = 0.15
+    ACCELERATION_WEIGHT: float = 0.10
+    BREAKOUT_WEIGHT: float = 0.10
     RVOL_WEIGHT: float = 0.10
     
     # Display settings
@@ -233,32 +118,33 @@ class Config:
     
     # Pattern thresholds
     PATTERN_THRESHOLDS: Dict[str, float] = field(default_factory=lambda: {
-        "category_leader": 80,        # Reduced from 90 - more realistic for category leaders
-        "hidden_gem": 75,
-        "acceleration": 80,
-        "institutional": 70,
-        "vol_explosion": 90,          # Keep high - explosive volume should be rare
-        "market_leader": 85,          # Reduced from 95 - top 10% is more realistic
-        "momentum_wave": 70,
+        "category_leader": 90,
+        "hidden_gem": 80,
+        "acceleration": 85,
+        "institutional": 75,
+        "vol_explosion": 95,
+        "market_leader": 95,
+        "momentum_wave": 75,
         "liquid_leader": 80,
         "long_strength": 80,
-        "52w_high_approach": 85,      # Reduced from 90 - more opportunities near highs
+        "52w_high_approach": 90,
         "52w_low_bounce": 85,
         "golden_zone": 85,
         "vol_accumulation": 80,
-        "momentum_diverge": 85,       # Reduced from 90 - divergences are valuable signals
+        "momentum_diverge": 90,
         "range_compress": 75,
         "stealth": 70,
+        "vampire": 85,
         "perfect_storm": 80,
-        "bull_trap": 85,              # Reduced from 90 - more trap detection
-        "capitulation": 90,           # Reduced from 95 - still extreme but more realistic
-        "runaway_gap": 85,
-        "rotation_leader": 80,
-        "distribution_top": 85,
+        "bull_trap": 90,           # High confidence for shorting
+        "capitulation": 95,        # Extreme events only
+        "runaway_gap": 85,         # Strong continuation
+        "rotation_leader": 80,     # Sector relative strength
+        "distribution_top": 85,    # High confidence tops
         "velocity_squeeze": 85,
-        "volume_divergence": 85,      # Reduced from 90 - important early warning signal
-        "golden_cross": 75,           # Reduced from 80 - classic technical pattern
-        "exhaustion": 85,             # Reduced from 90 - exhaustion patterns are valuable
+        "volume_divergence": 90,
+        "golden_cross": 80,
+        "exhaustion": 90,
         "pyramid": 75,
         "vacuum": 85,
     })
@@ -368,15 +254,15 @@ class Config:
             "🌟 3-Day Surge (>6% 3D)": ("ret_3d", 6),
             "📈 Weekly Winners (>12% 7D)": ("ret_7d", 12),
             
-            # Medium-term growth (More realistic thresholds)
+            # Medium-term growth (Realistic thresholds)
             "🏆 Monthly Champions (>25% 30D)": ("ret_30d", 25),
-            "🎯 Quarterly Stars (>25% 3M)": ("ret_3m", 25),
-            "💎 Half-Year Heroes (>35% 6M)": ("ret_6m", 35),
+            "🎯 Quarterly Stars (>40% 3M)": ("ret_3m", 40),
+            "💎 Half-Year Heroes (>60% 6M)": ("ret_6m", 60),
             
-            # Long-term performance (More practical thresholds)
-            "🌙 Annual Winners (>50% 1Y)": ("ret_1y", 50),
-            "👑 Multi-Year Champions (>100% 3Y)": ("ret_3y", 100),
-            "🏛️ Long-Term Legends (>150% 5Y)": ("ret_5y", 150)
+            # Long-term performance (Fixed emoji + practical thresholds)
+            "🌙 Annual Winners (>80% 1Y)": ("ret_1y", 80),
+            "👑 Multi-Year Champions (>150% 3Y)": ("ret_3y", 150),
+            "🏛️ Long-Term Legends (>250% 5Y)": ("ret_5y", 250)
         },
         "volume_tiers": {
             "📈 Growing Interest (RVOL >1.5x)": ("rvol", 1.5),
@@ -504,7 +390,7 @@ class DataValidator:
         # Calculate data completeness
         total_cells = len(df) * len(df.columns)
         filled_cells = df.notna().sum().sum()
-        completeness = safe_percentage(filled_cells, total_cells, default=0.0)
+        completeness = (filled_cells / total_cells * 100) if total_cells > 0 else 0
         
         if completeness < 50:
             logger.warning(f"{context}: Low data completeness ({completeness:.1f}%)")
@@ -660,7 +546,7 @@ def extract_spreadsheet_id(url_or_id: str) -> str:
     # If no match, return as is.
     return url_or_id.strip()
 
-@st.cache_data(ttl=3600, show_spinner=False)  # 1 hour TTL to prevent stale data
+@st.cache_data(persist="disk", show_spinner=False)  # TTL not supported with persist="disk" 
 def load_and_process_data(source_type: str = "sheet", file_data=None, 
                          sheet_id: str = None, gid: str = None,
                          data_version: str = "1.0") -> Tuple[pd.DataFrame, datetime, Dict[str, Any]]:
@@ -887,15 +773,8 @@ class DataProcessor:
             df['from_low_pct'] = df['from_low_pct'].fillna(0)
         
         if 'from_high_pct' in df.columns:
-            # FIXED: Calculate proper from_high_pct - positive when above 52w high, negative when below
-            if all(col in df.columns for col in ['price', 'high_52w']):
-                # Recalculate from_high_pct properly: (current_price / 52w_high - 1) * 100
-                df['from_high_pct'] = ((df['price'] / df['high_52w']) - 1) * 100
-                # Fill any remaining NaN values (division by zero cases) with 0
-                df['from_high_pct'] = df['from_high_pct'].fillna(0)
-            else:
-                # Fallback if no price/high_52w data
-                df['from_high_pct'] = df['from_high_pct'].fillna(0)
+            # FIXED: When from_high_pct is NaN, it means stock is at its high (0% from high)
+            df['from_high_pct'] = df['from_high_pct'].fillna(0)
         
         # Default for Relative Volume (RVOL)
         if 'rvol' in df.columns:
@@ -1017,18 +896,18 @@ class DataProcessor:
                     return "🏆 Monthly Champions (>25% 30D)"
                 
                 # Medium-term performance
-                elif 'ret_3m' in returns and returns['ret_3m'] > 25:
-                    return "🎯 Quarterly Stars (>25% 3M)"
-                elif 'ret_6m' in returns and returns['ret_6m'] > 35:
-                    return "💎 Half-Year Heroes (>35% 6M)"
+                elif 'ret_3m' in returns and returns['ret_3m'] > 40:
+                    return "🎯 Quarterly Stars (>40% 3M)"
+                elif 'ret_6m' in returns and returns['ret_6m'] > 60:
+                    return "💎 Half-Year Heroes (>60% 6M)"
                 
                 # Long-term performance
-                elif 'ret_1y' in returns and returns['ret_1y'] > 50:
-                    return "🌙 Annual Winners (>50% 1Y)"
-                elif 'ret_3y' in returns and returns['ret_3y'] > 100:
-                    return "👑 Multi-Year Champions (>100% 3Y)"
-                elif 'ret_5y' in returns and returns['ret_5y'] > 150:
-                    return "🏛️ Long-Term Legends (>150% 5Y)"
+                elif 'ret_1y' in returns and returns['ret_1y'] > 80:
+                    return "🌙 Annual Winners (>80% 1Y)"
+                elif 'ret_3y' in returns and returns['ret_3y'] > 150:
+                    return "👑 Multi-Year Champions (>150% 3Y)"
+                elif 'ret_5y' in returns and returns['ret_5y'] > 250:
+                    return "🏛️ Long-Term Legends (>250% 5Y)"
                 
                 else:
                     return "Standard"
@@ -1070,7 +949,7 @@ class DataProcessor:
             range_52w = df['high_52w'] - df['low_52w']
             df['position_pct'] = np.where(
                 range_52w > 0,
-                safe_percentage(df['price'] - df['low_52w'], range_52w, default=50.0).clip(0, 100),
+                ((df['price'] - df['low_52w']) / range_52w * 100).clip(0, 100),
                 50  # Default to middle position when high equals low
             )
             df['position_tier'] = df['position_pct'].apply(
@@ -1110,8 +989,8 @@ class AdvancedMetrics:
         
         # Money Flow (in millions) - FIXED WITH OVERFLOW PREVENTION
         if all(col in df.columns for col in ['price', 'volume_1d', 'rvol']):
-            # Clip RVOL to prevent extreme multiplications - More realistic upper bound
-            safe_rvol = df['rvol'].fillna(1.0).clip(0, 50)  # Reduced from 100 to 50
+            # Clip RVOL to prevent extreme multiplications
+            safe_rvol = df['rvol'].fillna(1.0).clip(0, 100)
             
             # Calculate money flow with overflow prevention
             money_flow_raw = df['price'].fillna(0) * df['volume_1d'].fillna(0) * safe_rvol
@@ -1156,9 +1035,9 @@ class AdvancedMetrics:
                 # ENHANCED NaN HANDLING with explicit checks
                 safe_ret_7d = df['ret_7d'].fillna(0)
                 safe_ret_30d = df['ret_30d'].fillna(0)
-                daily_ret_7d = safe_divide(safe_ret_7d, 7, default=0.0)
+                daily_ret_7d = np.where((safe_ret_7d != 0) & pd.notna(safe_ret_7d), safe_ret_7d / 7, 0)
                 daily_ret_7d = pd.Series(daily_ret_7d, index=df.index)
-                daily_ret_30d = safe_divide(safe_ret_30d, 30, default=0.0)
+                daily_ret_30d = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
                 daily_ret_30d = pd.Series(daily_ret_30d, index=df.index)
             df['momentum_harmony'] += ((daily_ret_7d > daily_ret_30d)).astype(int)
         
@@ -1167,9 +1046,9 @@ class AdvancedMetrics:
                 # ENHANCED NaN HANDLING with explicit checks
                 safe_ret_30d = df['ret_30d'].fillna(0)
                 safe_ret_3m = df['ret_3m'].fillna(0)
-                daily_ret_30d_comp = safe_divide(safe_ret_30d, 30, default=0.0)
+                daily_ret_30d_comp = np.where((safe_ret_30d != 0) & pd.notna(safe_ret_30d), safe_ret_30d / 30, 0)
                 daily_ret_30d_comp = pd.Series(daily_ret_30d_comp, index=df.index)
-                daily_ret_3m_comp = safe_divide(safe_ret_3m, 90, default=0.0)
+                daily_ret_3m_comp = np.where((safe_ret_3m != 0) & pd.notna(safe_ret_3m), safe_ret_3m / 90, 0)
                 daily_ret_3m_comp = pd.Series(daily_ret_3m_comp, index=df.index)
             df['momentum_harmony'] += ((daily_ret_30d_comp.fillna(-np.inf) > daily_ret_3m_comp.fillna(-np.inf))).astype(int)
         
@@ -1179,22 +1058,18 @@ class AdvancedMetrics:
         # Market State Analysis
         df['market_state'] = df.apply(AdvancedMetrics._get_market_state_from_row, axis=1)
     
-        # Overall Market Strength - FOUNDATION FOCUS  
-        # This measures "How solid is the setup?"
-        if all(col in df.columns for col in ['position_score', 'volume_score']):
-            if 'momentum_score' in df.columns:
-                df['overall_market_strength'] = (
-                    df['position_score'] * 0.40 +
-                    df['volume_score'] * 0.35 +
-                    df['momentum_score'] * 0.25
-                )
-            else:
-                df['overall_market_strength'] = (
-                    df['position_score'] * 0.55 +
-                    df['volume_score'] * 0.45
-                )
+        # Overall Market Strength (renamed from wave strength)
+        score_cols = ['momentum_score', 'acceleration_score', 'rvol_score', 'breakout_score']
+        if all(col in df.columns for col in score_cols):
+            # FIXED: Use 0 for missing scores instead of arbitrary 50
+            df['overall_market_strength'] = (
+                df['momentum_score'].fillna(0) * 0.3 +
+                df['acceleration_score'].fillna(0) * 0.3 +
+                df['rvol_score'].fillna(0) * 0.2 +
+                df['breakout_score'].fillna(0) * 0.2
+            )
         else:
-            df['overall_market_strength'] = np.nan
+            df['overall_market_strength'] = pd.Series(np.nan, index=df.index)
         
         # VMI and Momentum Harmony Tier Classifications
         def classify_advanced_tier(value: float, tier_config: tuple) -> str:
@@ -1325,10 +1200,10 @@ class AdvancedMetrics:
         # Calculate momentum at different scales
         # Daily-equivalent rates for comparison
         very_short = ret_1d  # 1-day momentum
-        # ENHANCED DIVISION PROTECTION with safe division functions
-        short = safe_divide(ret_7d, 7, default=0.0)  # Daily rate over week
-        medium = safe_divide(ret_30d, 30, default=0.0)  # Daily rate over month
-        long = safe_divide(ret_90d, 90, default=0.0)  # Daily rate over quarter
+        # ENHANCED DIVISION PROTECTION with explicit zero checks
+        short = ret_7d / 7 if ret_7d != 0 and pd.notna(ret_7d) else 0  # Daily rate over week
+        medium = ret_30d / 30 if ret_30d != 0 and pd.notna(ret_30d) else 0  # Daily rate over month
+        long = ret_90d / 90 if ret_90d != 0 and pd.notna(ret_90d) else 0  # Daily rate over quarter
         
         # Count positive periods (direction consistency) - ENHANCED NULL HANDLING
         periods = [ret_1d, ret_3d, ret_7d, ret_30d, ret_90d, ret_180d]
@@ -1336,9 +1211,9 @@ class AdvancedMetrics:
         positive_count = sum(1 for r in valid_periods if r > 0)
         negative_count = sum(1 for r in valid_periods if r < 0)
         
-        # Trend alignment score (-100 to 100) - SAFE DIVISION IMPLEMENTATION
+        # Trend alignment score (-100 to 100) - DIVISION BY ZERO PROTECTION
         period_count = len(valid_periods) if valid_periods else 1  # Prevent division by zero
-        trend_alignment = safe_percentage(positive_count - negative_count, period_count, default=0.0)
+        trend_alignment = ((positive_count - negative_count) / period_count) * 100
         state['trend_alignment'] = trend_alignment
         
         # Overall momentum score
@@ -1414,7 +1289,7 @@ class AdvancedMetrics:
             state['description'] = 'Relief rally in downtrend. Could be dead cat bounce.'
         
         # 7. ROTATION/TRANSITION
-        elif (abs(ret_30d - safe_divide(ret_90d, 3, default=0)) > 10 or 
+        elif (abs(ret_30d - ret_90d/3) > 10 or 
               (positive_count == 3 and negative_count == 3)):
             state['state'] = 'ROTATION'
             state['strength'] = 50
@@ -1439,9 +1314,9 @@ class AdvancedMetrics:
             state['warning'] = 'POSITIVE_DIVERGENCE'
         
         # Extreme conditions
-        if ret_30d > 30:  # Reduced from 50% to 30%
+        if ret_30d > 50:
             state['extreme'] = 'OVERBOUGHT_MONTHLY'
-        elif ret_30d < -25:  # Adjusted from -30% to -25%
+        elif ret_30d < -30:
             state['extreme'] = 'OVERSOLD_MONTHLY'
         
         if ret_7d > 20:
@@ -1531,11 +1406,11 @@ class AdvancedMetrics:
         median_return_30d = valid_df['ret_30d'].median()
         mean_return_30d = valid_df['ret_30d'].mean()
         
-        # Percentage of stocks in different states - SAFE DIVISION IMPLEMENTATION
-        strong_up = safe_percentage((valid_df['ret_30d'] > 20).sum(), valid_count, default=0.0)
-        up = safe_percentage((valid_df['ret_30d'] > 5).sum(), valid_count, default=0.0)
-        down = safe_percentage((valid_df['ret_30d'] < -5).sum(), valid_count, default=0.0)
-        strong_down = safe_percentage((valid_df['ret_30d'] < -20).sum(), valid_count, default=0.0)
+        # Percentage of stocks in different states - DIVISION PROTECTED
+        strong_up = (valid_df['ret_30d'] > 20).sum() / valid_count * 100
+        up = (valid_df['ret_30d'] > 5).sum() / valid_count * 100
+        down = (valid_df['ret_30d'] < -5).sum() / valid_count * 100
+        strong_down = (valid_df['ret_30d'] < -20).sum() / valid_count * 100
         
         # Determine regime
         regime = {
@@ -1658,27 +1533,27 @@ class RankingEngine:
             'primary': {
                 'position_score': {
                     'func': RankingEngine._calculate_position_score,
-                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.27),
+                    'weight': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
                     'required': True
                 },
                 'volume_score': {
                     'func': RankingEngine._calculate_volume_score,
-                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.23),
+                    'weight': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
                     'required': True
                 },
                 'momentum_score': {
                     'func': RankingEngine._calculate_momentum_score,
-                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.20),
+                    'weight': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
                     'required': True
                 },
                 'acceleration_score': {
                     'func': RankingEngine._calculate_acceleration_score,
-                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.02),
+                    'weight': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
                     'required': True
                 },
                 'breakout_score': {
                     'func': RankingEngine._calculate_breakout_score,
-                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.18),
+                    'weight': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
                     'required': True
                 },
                 'rvol_score': {
@@ -1750,11 +1625,10 @@ class RankingEngine:
         primary_score_names = list(score_definitions['primary'].keys())
         primary_weights = np.array([score_definitions['primary'][s]['weight'] for s in primary_score_names])
         
-        # Ensure weights sum to 1 - SAFE DIVISION IMPLEMENTATION
+        # Ensure weights sum to 1
         if primary_weights.sum() != 1.0:
             logger.warning(f"Weights sum to {primary_weights.sum():.3f}, normalizing...")
-            default_weight = 1.0/len(primary_weights) if len(primary_weights) > 0 else 1.0
-            primary_weights = safe_normalize(primary_weights, primary_weights.sum(), default=default_weight)
+            primary_weights = primary_weights / primary_weights.sum()
         
         # Calculate data availability matrix
         scores_matrix = df[primary_score_names].values
@@ -1798,10 +1672,9 @@ class RankingEngine:
                     valid_scores = scores_matrix[idx][valid_mask]
                     valid_weights = primary_weights[valid_mask]
                     
-                    # Normalize weights - SAFE DIVISION IMPLEMENTATION
+                    # Normalize weights
                     if valid_weights.sum() > 0:
-                        default_weight = 1.0/len(valid_weights) if len(valid_weights) > 0 else 1.0
-                        normalized_weights = safe_normalize(valid_weights, valid_weights.sum(), default=default_weight)
+                        normalized_weights = valid_weights / valid_weights.sum()
                         # Calculate weighted average
                         master_scores[idx] = np.dot(valid_scores, normalized_weights)
                         # Store weights for transparency
@@ -1812,11 +1685,10 @@ class RankingEngine:
         
         # Calculate quality multiplier (no linear penalty, use curve)
         # 6/6 = 1.00, 5/6 = 0.88, 4/6 = 0.72
-        MAX_COMPONENTS = 6  # Make configurable instead of hard-coded
         df['quality_multiplier'] = np.where(
             df['components_available'] < MIN_REQUIRED_COMPONENTS,
             np.nan,  # No score if insufficient data
-            0.5 + 0.5 * safe_divide(df['components_available'], MAX_COMPONENTS, default=1.0) ** 1.5  # Exponential curve
+            0.5 + 0.5 * (df['components_available'] / 6) ** 1.5  # Exponential curve
         )
         
         # Apply quality adjustment
@@ -2069,11 +1941,13 @@ class RankingEngine:
                 market_regime = 'unknown'
             
             # Z-scores
-            df['z_score'] = safe_divide(
-                df['master_score'] - market_stats['mean_score'],
-                market_stats['std_score'],
-                default=0.0
-            ).clip(-3, 3)
+            if market_stats['std_score'] > 0:
+                df['z_score'] = (
+                    (df['master_score'] - market_stats['mean_score']) / 
+                    market_stats['std_score']
+                ).clip(-3, 3)
+            else:
+                df['z_score'] = 0
                 
         else:
             market_stats.update({
@@ -2200,11 +2074,11 @@ class RankingEngine:
         """
         # Get available score columns and their weights
         score_cols = {
-            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.27),
-            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.23),
-            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.20),
-            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.02),
-            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.18),
+            'position_score': getattr(CONFIG, 'POSITION_WEIGHT', 0.30),
+            'volume_score': getattr(CONFIG, 'VOLUME_WEIGHT', 0.25),
+            'momentum_score': getattr(CONFIG, 'MOMENTUM_WEIGHT', 0.15),
+            'acceleration_score': getattr(CONFIG, 'ACCELERATION_WEIGHT', 0.10),
+            'breakout_score': getattr(CONFIG, 'BREAKOUT_WEIGHT', 0.10),
             'rvol_score': getattr(CONFIG, 'RVOL_WEIGHT', 0.10)
         }
         
@@ -3049,10 +2923,10 @@ class RankingEngine:
             if has_30d:
                 ret_30d = df['ret_30d']
                 
-                # Progressive penalty for extreme returns - More realistic threshold
-                extreme_small = is_small & momentum_score.notna() & (ret_30d > 35)  # Reduced from 50%
+                # Progressive penalty for extreme returns
+                extreme_small = is_small & momentum_score.notna() & (ret_30d > 50)
                 if extreme_small.any():
-                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 35) / 35)  # Adjusted calculation
+                    penalty_factor = np.exp(-(ret_30d[extreme_small] - 50) / 50)
                     momentum_score[extreme_small] *= penalty_factor
                     logger.debug(f"Applied pump penalty to {extreme_small.sum()} small caps")
             
@@ -5172,10 +5046,10 @@ class RankingEngine:
             df[stat_col] = df['category'].map(category_stats[stat_col])
         
         # 4. Relative score vs category average
-        df['category_relative_score'] = safe_divide(
-            df['master_score'] - df['category_avg_score'],
-            df['category_std_score'],
-            default=0.0
+        df['category_relative_score'] = np.where(
+            df['category_std_score'] > 0,
+            (df['master_score'] - df['category_avg_score']) / df['category_std_score'],
+            0
         )
         
         # 5. Decile within category (1-10, 1 = best)
@@ -5642,7 +5516,7 @@ class PatternDetector:
             # Build momentum DNA without master_score
             momentum_dna_score = (
                 np.where((ret_1d > 0) & (ret_7d > 0) & (ret_30d > 0), 25, 0) +
-                np.where(ret_7d > safe_divide(ret_30d, 4, default=0), 30, 0) +
+                np.where(ret_7d > (ret_30d / 4), 30, 0) +
                 np.where(get_col_safe('rvol', 1) > 1.2, 20, 0) +
                 np.where(ret_30d > 20, 25, 0)  # Use return instead of score
             )
@@ -5939,7 +5813,7 @@ class PatternDetector:
             )
             patterns.append(('🤫 STEALTH', mask))
 
-        # 22. 🏎️ ACCELERATION - Momentum acceleration pattern
+        # 22. Momentum Vampire
         if all(col in df.columns for col in ['ret_1d', 'ret_7d', 'rvol', 'from_high_pct', 'category']):
             ret_1d, ret_7d = get_col_safe('ret_1d'), get_col_safe('ret_7d')
             with np.errstate(divide='ignore', invalid='ignore'):
@@ -6029,7 +5903,7 @@ class PatternDetector:
                 (get_col_safe('from_high_pct', -100) > -10) &    # Near highs
                 (get_col_safe('rvol', 0) > 2) &                  # High volume
                 (get_col_safe('ret_1d', 0) < 2) &                # Price not moving up
-                (get_col_safe('ret_30d', 0) > 25) &              # After reasonable rally (reduced from 50%)
+                (get_col_safe('ret_30d', 0) > 50) &              # After big rally
                 (get_col_safe('volume_7d', 0) > get_col_safe('volume_30d', 1) * 1.5)  # Volume spike
             )
             patterns.append(('📊 DISTRIBUTION', mask))
@@ -6764,9 +6638,9 @@ class MarketIntelligence:
             'advancing': advancing,
             'declining': declining,
             'unchanged': unchanged,
-            'ad_ratio': safe_divide(advancing, declining, default=1.0) if declining > 0 else (float('inf') if advancing > 0 else 1.0),
+            'ad_ratio': advancing / declining if declining > 0 else (float('inf') if advancing > 0 else 1.0),
             'ad_line': advancing - declining,
-            'breadth_pct': safe_percentage(advancing, len(df), default=0.0)
+            'breadth_pct': (advancing / len(df)) * 100 if len(df) > 0 else 0
         }
         
         return ad_metrics
@@ -7152,7 +7026,6 @@ class FilterEngine:
                 'patterns': [],
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
-                'trend_custom_range': (0, 100),
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
@@ -7175,7 +7048,6 @@ class FilterEngine:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -7267,7 +7139,6 @@ class FilterEngine:
         if filters.get('require_fundamental_data'): count += 1
         if filters.get('market_states'): count += 1
         if filters.get('market_strength_range') != (0, 100): count += 1
-        if filters.get('long_term_strength_range') != (0, 100): count += 1
         if filters.get('performance_tiers'): count += 1
         if filters.get('position_tiers'): count += 1
         if filters.get('volume_tiers'): count += 1
@@ -7298,7 +7169,6 @@ class FilterEngine:
             'patterns': [],
             'trend_filter': "All Trends",
             'trend_range': (0, 100),
-            'trend_custom_range': (0, 100),
             'eps_tiers': [],
             'pe_tiers': [],
             'price_tiers': [],
@@ -7308,7 +7178,6 @@ class FilterEngine:
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
-            'long_term_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False,
             'performance_tiers': [],
@@ -7367,7 +7236,6 @@ class FilterEngine:
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
-            'trend_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -7554,8 +7422,6 @@ class FilterEngine:
             filters['market_states'] = state['market_states']
         if state.get('market_strength_range') != (0, 100):
             filters['market_strength_range'] = state['market_strength_range']
-        if state.get('long_term_strength_range') != (0, 100):
-            filters['long_term_strength_range'] = state['long_term_strength_range']
             
         return filters
     
@@ -7931,15 +7797,6 @@ class FilterEngine:
                 masks.append(strength_mask)
                 logger.info(f"Applied Market Strength filter: {strength_range}, {strength_mask.sum()} stocks match")
         
-        # Long Term Strength Filter - Professional Implementation
-        if 'long_term_strength_range' in filters and 'long_term_strength' in df.columns:
-            lts_range = filters['long_term_strength_range']
-            if lts_range != (0, 100):
-                min_lts, max_lts = lts_range
-                lts_mask = (df['long_term_strength'] >= min_lts) & (df['long_term_strength'] <= max_lts)
-                masks.append(lts_mask)
-                logger.info(f"Applied Long Term Strength filter: {lts_range}, {lts_mask.sum()} stocks match")
-        
         # Combine all masks
         masks = [mask for mask in masks if mask is not None]
         
@@ -8040,7 +7897,6 @@ class FilterEngine:
             'require_fundamental_data': False,
             'market_states': [],
             'market_strength_range': (0, 100),
-            'long_term_strength_range': (0, 100),
             'quick_filter': None,
             'quick_filter_applied': False
         }
@@ -8368,6 +8224,23 @@ class UIComponents:
         # 🎯 EXECUTIVE COMMAND CENTER - REAL-TIME MARKET INTELLIGENCE
         # ================================================================================================
         
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        ">
+            <h2 style="margin: 0; font-size: 2rem;">🧠 EXECUTIVE MARKET INTELLIGENCE CENTER</h2>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
+                Real-Time Multi-Dimensional Market Analytics & Strategic Intelligence
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Market Regime Detection
         regime, regime_metrics = MarketIntelligence.detect_market_regime(df)
         
@@ -8375,7 +8248,7 @@ class UIComponents:
         # 💎 TIER 1: CRITICAL MARKET PULSE INDICATORS
         # ================================================================================================
         
-        st.markdown("### 📊 Market Pulse")
+        st.markdown("### 🔥 **TIER 1: CRITICAL MARKET PULSE**")
         
         pulse_col1, pulse_col2, pulse_col3, pulse_col4, pulse_col5 = st.columns(5)
         
@@ -8387,11 +8260,11 @@ class UIComponents:
             declining = ad_metrics.get('declining', 0)
             
             if ad_ratio == float('inf'):
-                ad_status = "🚀💥 EXPLOSIVE"
+                ad_status = "   EXPLOSIVE"
                 ad_display = "∞"
                 market_signal = "EXTREME BULLISH"
             elif ad_ratio > 3:
-                ad_status = "⚡ POWERFUL"
+                ad_status = "  POWERFUL"
                 ad_display = f"{ad_ratio:.1f}"
                 market_signal = "STRONG BULLISH"
             elif ad_ratio > 2:
@@ -8430,7 +8303,7 @@ class UIComponents:
                     momentum_status = "🚀 EXPLOSIVE"
                     momentum_quality = "INSTITUTIONAL GRADE"
                 elif momentum_pct > 15:
-                    momentum_status = "🔥 STRONG"
+                    momentum_status = "  STRONG"
                     momentum_quality = "PROFESSIONAL GRADE"
                 elif momentum_pct > 8:
                     momentum_status = "📈 BUILDING"
@@ -8563,10 +8436,10 @@ class UIComponents:
                 regime_emoji = "🚀🚀"
                 regime_action = "AGGRESSIVE LONG"
             elif regime in ['UPTREND', 'MOMENTUM_BUILD']:
-                regime_emoji = "📈"
+                regime_emoji = " "
                 regime_action = "LONG BIAS"
             elif regime in ['PULLBACK', 'HEALTHY_CORRECTION']:
-                regime_emoji = "🔄"
+                regime_emoji = " "
                 regime_action = "BUY DIPS"
             elif regime in ['CONSOLIDATION', 'SIDEWAYS']:
                 regime_emoji = "⚖️"
@@ -8590,7 +8463,7 @@ class UIComponents:
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🎯 Today's Best Opportunities")
+        st.markdown("### 💎 **TIER 2: TODAY'S ELITE OPPORTUNITIES**")
         
         opp_col1, opp_col2, opp_col3, opp_col4 = st.columns(4)
         
@@ -8708,11 +8581,11 @@ class UIComponents:
                 st.warning("Pattern data unavailable")
         
         # ================================================================================================
-        # ADVANCED MARKET INTELLIGENCE & SECTOR ROTATION
+        # 🧠 TIER 3: ADVANCED MARKET INTELLIGENCE & SECTOR ROTATION
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🧠 **Market Intelligence**")
+        st.markdown("### 🧠 **TIER 3: ADVANCED MARKET INTELLIGENCE**")
         
         intel_col1, intel_col2 = st.columns([3, 2])
         
@@ -8942,11 +8815,11 @@ class UIComponents:
                 st.error("• Defensive positioning\n• Cash preservation\n• Avoid new positions")
 
         # ================================================================================================
-        # PERFORMANCE ATTRIBUTION & ADVANCED METRICS
+        # 🏆 TIER 4: PERFORMANCE ATTRIBUTION & ADVANCED METRICS
         # ================================================================================================
         
         st.markdown("---")
-        st.markdown("### 🏆PERFORMANCE ATTRIBUTION ANALYSIS")
+        st.markdown("### 🏆 **TIER 4: PERFORMANCE ATTRIBUTION ANALYSIS**")
         
         perf_col1, perf_col2, perf_col3 = st.columns(3)
         
@@ -9027,7 +8900,7 @@ class UIComponents:
                     return_df,
                     width='stretch',
                     column_config={
-                        'Win Rate': st.column_config.ProgressColumn("Win Rate %", min_value=0, max_value=100, format="%.1f"),
+                        'Win Rate': st.column_config.ProgressColumn("Win Rate %", min_value=0, max_value=100, format="%.1f%%"),
                         'Avg Return': st.column_config.NumberColumn("Avg Return %", format="%.2f%%"),
                         'Quality': st.column_config.TextColumn("Signal", width="small")
                     }
@@ -9156,7 +9029,6 @@ class SessionStateManager:
             # Wave Radar specific filters
             'market_states_filter': [],
             'market_strength_range_slider': (0, 100),
-            'long_term_strength_range_slider': (0, 100),
             'show_sensitivity_details': False,
             'show_market_regime': True,
             'wave_timeframe_select': "All Waves",
@@ -9210,7 +9082,6 @@ class SessionStateManager:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -9314,8 +9185,6 @@ class SessionStateManager:
                 filters['market_states'] = state['market_states']
             if state.get('market_strength_range') != (0, 100):
                 filters['market_strength_range'] = state['market_strength_range']
-            if state.get('long_term_strength_range') != (0, 100):
-                filters['long_term_strength_range'] = state['long_term_strength_range']
             if state.get('performance_tiers'):
                 filters['performance_tiers'] = state['performance_tiers']
             if state.get('position_tiers'):
@@ -9414,12 +9283,10 @@ class SessionStateManager:
             # Trend filter
             if st.session_state.get('trend_filter') != "All Trends":
                 trend_options = {
-                    "🔥 Exceptional (85+)": (85, 100),
-                    "🚀 Strong (70-84)": (70, 84),
-                    "✅ Good (55-69)": (55, 69),
-                    "➡️ Neutral (40-54)": (40, 54),
-                    "⚠️ Weak (25-39)": (25, 39),
-                    "🔻 Poor (<25)": (0, 24)
+                    "🔥 Strong Uptrend (80+)": (80, 100), 
+                    "✅ Good Uptrend (60-79)": (60, 79),
+                    "➡️ Neutral Trend (40-59)": (40, 59), 
+                    "⚠️ Weak/Downtrend (<40)": (0, 39)
                 }
                 filters['trend_filter'] = st.session_state['trend_filter']
                 filters['trend_range'] = trend_options.get(st.session_state['trend_filter'], (0, 100))
@@ -9427,9 +9294,6 @@ class SessionStateManager:
             # Market filters
             if st.session_state.get('market_strength_range_slider') != (0, 100):
                 filters['market_strength_range'] = st.session_state['market_strength_range_slider']
-            
-            if st.session_state.get('long_term_strength_range_slider') != (0, 100):
-                filters['long_term_strength_range'] = st.session_state['long_term_strength_range_slider']
             
             if st.session_state.get('market_states_filter') and st.session_state['market_states_filter']:
                 filters['market_states'] = st.session_state['market_states_filter']
@@ -9457,7 +9321,6 @@ class SessionStateManager:
                 'patterns': [],
                 'trend_filter': "All Trends",
                 'trend_range': (0, 100),
-                'trend_custom_range': (0, 100),
                 'eps_tiers': [],
                 'pe_tiers': [],
                 'price_tiers': [],
@@ -9474,7 +9337,6 @@ class SessionStateManager:
                 'require_fundamental_data': False,
                 'market_states': [],
                 'market_strength_range': (0, 100),
-                'long_term_strength_range': (0, 100),
                 'position_score_range': (0, 100),
                 'volume_score_range': (0, 100),
                 'momentum_score_range': (0, 100),
@@ -9517,7 +9379,7 @@ class SessionStateManager:
             'pe_tier_filter', 'price_tier_filter', 'eps_change_tier_filter', 'patterns', 'min_score', 'trend_filter',
             'min_pe', 'max_pe', 'require_fundamental_data',
             'quick_filter', 'quick_filter_applied', 'market_states_filter',
-            'market_strength_range_slider', 'long_term_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
+            'market_strength_range_slider', 'show_sensitivity_details', 'show_market_regime',
             'wave_timeframe_select', 'wave_sensitivity'
         ]
         
@@ -9560,7 +9422,6 @@ class SessionStateManager:
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
-            'trend_custom_range_slider',
             'ret_1d_range_slider', 'ret_3d_range_slider', 'ret_7d_range_slider', 'ret_30d_range_slider',
             'ret_3m_range_slider', 'ret_6m_range_slider', 'ret_1y_range_slider', 'ret_3y_range_slider', 'ret_5y_range_slider',
             'position_range_slider', 'rvol_range_slider',
@@ -9741,7 +9602,6 @@ class SessionStateManager:
             if state.get('require_fundamental_data'): count += 1
             if state.get('market_states'): count += 1
             if state.get('market_strength_range') != (0, 100): count += 1
-            if state.get('long_term_strength_range') != (0, 100): count += 1
         else:
             # Fallback to old method
             filter_checks = [
@@ -9759,8 +9619,7 @@ class SessionStateManager:
                 ('max_pe', lambda x: x is not None and str(x).strip() != ''),
                 ('require_fundamental_data', lambda x: x),
                 ('market_states_filter', lambda x: x and len(x) > 0),
-                ('market_strength_range_slider', lambda x: x != (0, 100)),
-                ('long_term_strength_range_slider', lambda x: x != (0, 100))
+                ('market_strength_range_slider', lambda x: x != (0, 100))
             ]
             
             for key, check_func in filter_checks:
@@ -10129,8 +9988,7 @@ def main():
             ('max_pe', lambda x: x is not None and str(x).strip() != ''),
             ('require_fundamental_data', lambda x: x),
             ('market_states_filter', lambda x: x and len(x) > 0),
-            ('market_strength_range_slider', lambda x: x != (0, 100)),
-            ('long_term_strength_range_slider', lambda x: x != (0, 100))
+            ('market_strength_range_slider', lambda x: x != (0, 100))
         ]
         
         for key, check_func in filter_checks:
@@ -10243,12 +10101,6 @@ def main():
             st.session_state['quick_filter'] = None
             st.session_state['quick_filter_applied'] = False
             st.rerun()
-    
-    # Get ranked_df from session state
-    ranked_df = st.session_state.get('ranked_df')
-    if ranked_df is None:
-        st.error("No data available. Please check your data source configuration.")
-        st.stop()
     
     if quick_filter:
         if quick_filter == 'top_gainers':
@@ -10391,7 +10243,19 @@ def main():
         def sync_patterns():
             if 'patterns_multiselect' in st.session_state:
                 st.session_state.filter_state['patterns'] = st.session_state.patterns_multiselect
-
+        
+        def sync_trend():
+            if 'trend_selectbox' in st.session_state:
+                trend_options = {
+                    "All Trends": (0, 100),
+                    "🔥 Strong Uptrend (80+)": (80, 100),
+                    "✅ Good Uptrend (60-79)": (60, 79),
+                    "➡️ Neutral Trend (40-59)": (40, 59),
+                    "⚠️ Weak/Downtrend (<40)": (0, 39)
+                }
+                st.session_state.filter_state['trend_filter'] = st.session_state.trend_selectbox
+                st.session_state.filter_state['trend_range'] = trend_options[st.session_state.trend_selectbox]
+        
         def sync_market_states():
             if 'market_states_multiselect' in st.session_state:
                 st.session_state.filter_state['market_states'] = st.session_state.market_states_multiselect
@@ -10416,10 +10280,6 @@ def main():
         def sync_market_strength():
             if 'market_strength_slider' in st.session_state:
                 st.session_state.filter_state['market_strength_range'] = st.session_state.market_strength_slider
-        
-        def sync_long_term_strength():
-            if 'long_term_strength_slider' in st.session_state:
-                st.session_state.filter_state['long_term_strength_range'] = st.session_state.long_term_strength_slider
         
         def sync_momentum_score_dropdown():
             if 'momentum_score_dropdown' in st.session_state:
@@ -10543,90 +10403,30 @@ def main():
             if selected_patterns:
                 filters['patterns'] = selected_patterns
         
-        # Trend filter with callback and custom range
+        # Trend filter with callback
         st.markdown("#### 📈 Trend Strength")
         trend_options = {
             "All Trends": (0, 100),
-            "🔥 Exceptional (85+)": (85, 100),
-            "🚀 Strong (70-84)": (70, 84),
-            "✅ Good (55-69)": (55, 69),
-            "➡️ Neutral (40-54)": (40, 54),
-            "⚠️ Weak (25-39)": (25, 39),
-            "🔻 Poor (<25)": (0, 24),
-            "🎯 Custom Range": None  # Special option for custom range
+            "🔥 Strong Uptrend (80+)": (80, 100),
+            "✅ Good Uptrend (60-79)": (60, 79),
+            "➡️ Neutral Trend (40-59)": (40, 59),
+            "⚠️ Weak/Downtrend (<40)": (0, 39)
         }
         
         current_trend = st.session_state.filter_state.get('trend_filter', "All Trends")
         if current_trend not in trend_options:
             current_trend = "All Trends"
         
-        # Custom sync function for trend with custom range support
-        def sync_trend_with_custom():
-            if 'trend_selectbox' in st.session_state:
-                selected = st.session_state.trend_selectbox
-                st.session_state.filter_state['trend_filter'] = selected
-                
-                if selected == "🎯 Custom Range":
-                    # Don't set range here, will be set by slider
-                    pass
-                else:
-                    st.session_state.filter_state['trend_range'] = trend_options[selected]
-        
-        def sync_trend_custom_slider():
-            if 'trend_custom_range_slider' in st.session_state:
-                st.session_state.filter_state['trend_custom_range'] = st.session_state.trend_custom_range_slider
-        
         selected_trend = st.selectbox(
             "Trend Quality",
             options=list(trend_options.keys()),
             index=list(trend_options.keys()).index(current_trend),
-            help="Filter stocks by trend strength based on SMA alignment. Choose Custom Range for precise control.",
+            help="Filter stocks by trend strength based on SMA alignment",
             key="trend_selectbox",
-            on_change=sync_trend_with_custom
+            on_change=sync_trend  # SYNC ON CHANGE
         )
         
-        # Show custom range slider when Custom Range is selected
-        if selected_trend == "🎯 Custom Range":
-            # Get current custom range from session state, default to (0, 100)
-            current_custom_range = st.session_state.filter_state.get('trend_custom_range', (0, 100))
-            
-            custom_range = st.slider(
-                "Custom Trend Quality Range",
-                min_value=0,
-                max_value=100,
-                value=current_custom_range,
-                step=1,
-                help="🔥 85+: Exceptional | 🚀 70-84: Strong | ✅ 55-69: Good | ➡️ 40-54: Neutral | ⚠️ 25-39: Weak | 🔻 <25: Poor",
-                key="trend_custom_range_slider",
-                on_change=sync_trend_custom_slider
-            )
-            
-            # Set the filter range to custom slider value
-            filters['trend_filter'] = selected_trend
-            filters['trend_range'] = custom_range
-            # Also update session state for consistency
-            st.session_state.filter_state['trend_range'] = custom_range
-            
-            # Show indicator for selected range
-            def get_trend_indicator_for_range(min_val, max_val):
-                """Get appropriate indicator for the selected range"""
-                if min_val >= 85:
-                    return "🔥"
-                elif min_val >= 70:
-                    return "🚀"
-                elif min_val >= 55:
-                    return "✅"
-                elif min_val >= 40:
-                    return "➡️"
-                elif min_val >= 25:
-                    return "⚠️"
-                else:
-                    return "🔻"
-            
-            range_indicator = get_trend_indicator_for_range(custom_range[0], custom_range[1])
-            st.caption(f"{range_indicator} **Selected Range**: {custom_range[0]}-{custom_range[1]} | Filtering stocks with trend quality in this range")
-            
-        elif selected_trend != "All Trends":
+        if selected_trend != "All Trends":
             filters['trend_filter'] = selected_trend
             filters['trend_range'] = trend_options[selected_trend]
         
@@ -10679,19 +10479,6 @@ def main():
                 on_change=sync_custom_market_states
             )
             
-            # Long Term Strength Slider - Professional Implementation
-            st.markdown("**🏆 Long Term Strength Filter**")
-            long_term_strength_range = st.slider(
-                "Long Term Strength Range",
-                min_value=0,
-                max_value=100,
-                value=st.session_state.filter_state.get('long_term_strength_range', (0, 100)),
-                step=5,
-                help="Filter by long term strength score (0-100). Higher values indicate stronger long-term trend consistency, momentum harmony, and sustained performance characteristics.",
-                key="long_term_strength_slider",
-                on_change=sync_long_term_strength
-            )
-            
             # Market Strength Slider - Professional Implementation
             st.markdown("**📊 Market Strength Filter**")
             market_strength_range = st.slider(
@@ -10721,8 +10508,6 @@ def main():
         if custom_selection_active:
             if st.session_state.filter_state.get('market_strength_range', (0, 100)) != (0, 100):
                 filters['market_strength_range'] = st.session_state.filter_state['market_strength_range']
-            if st.session_state.filter_state.get('long_term_strength_range', (0, 100)) != (0, 100):
-                filters['long_term_strength_range'] = st.session_state.filter_state['long_term_strength_range']
         
         # 🎯 Score Component - Professional Expandable Section
         with st.expander("🎯 Score Component", expanded=False):
@@ -11667,7 +11452,7 @@ def main():
     
     with col6:
         if 'trend_quality' in filtered_df.columns:
-            strong_trends = (filtered_df['trend_quality'] >= 70).sum()
+            strong_trends = (filtered_df['trend_quality'] >= 80).sum()
             total = len(filtered_df)
             UIComponents.render_metric_card(
                 "Strong Trends", 
@@ -11788,7 +11573,7 @@ def main():
             performance_timeframe = st.selectbox(
                 "⏱️ Performance Period",
                 options=["1D", "3D", "7D", "30D", "All"],
-                index=4,
+                index=3,
                 key="perf_timeframe",
                 help="Focus on specific performance timeframe"
             )
@@ -12058,7 +11843,7 @@ def main():
                 'overall_market_strength': lambda x: f"{x:.0f}" if pd.notna(x) else '-',
                 'price': lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-',
                 'from_low_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
-                'from_high_pct': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
+                'from_high_pct': lambda x: f"{x:.0f}%" if pd.notna(x) else '-',
                 'ret_1d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_3d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
                 'ret_7d': lambda x: f"{x:+.1f}%" if pd.notna(x) else '-',
@@ -12869,7 +12654,7 @@ def main():
             
         # 📊 Full Spectrum uses all data (no additional filtering)
         elif radar_mode == "📊 Full Spectrum":
-            pass  # No filtering applied
+            st.info(f"📊 Full Spectrum Mode: Analyzing all {len(radar_df)} stocks")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: APPLY RISK PROFILE FILTERING (PREVIOUSLY MISSING!)
@@ -12906,7 +12691,7 @@ def main():
             
         # ⚖️ Balanced Risk uses current data (no additional filtering)
         elif risk_filter == "⚖️ Balanced Risk":
-            pass  # No filtering applied
+            st.info(f"⚖️ Balanced Risk Filter: Analyzing all {len(radar_df)} stocks")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: APPLY MARKET REGIME FILTERING (PREVIOUSLY MISSING!)
@@ -12940,7 +12725,7 @@ def main():
             
         # 📊 Auto-Detect uses current data
         elif market_regime == "📊 Auto-Detect":
-            pass  # No filtering applied
+            st.info(f"📊 Auto-Detect Mode: Analyzing all {len(radar_df)} stocks")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
@@ -13024,7 +12809,7 @@ def main():
                     if 'patterns' in radar_df.columns:
                         pattern_stocks = len(radar_df[radar_df['patterns'].str.len() > 0])
                         pattern_pct = (pattern_stocks / total_stocks * 100) if total_stocks > 0 else 0
-                        pattern_activity = "🎯 High" if pattern_pct > 20 else "📈 Moderate" if pattern_pct > 10 else "📊 Low"
+                        pattern_activity = "🎯 High" if pattern_pct > 20 else "📈 Moderate" if pattern_pct > 10 else "  Low"
                         
                         UIComponents.render_metric_card(
                             "Pattern Activity",
@@ -13732,10 +13517,10 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
-                            'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100, format="%.1f"),
+                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
+                            'acceleration_score': st.column_config.ProgressColumn("Acceleration", min_value=0, max_value=100),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
-                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120, format="%.1f")
+                            'momentum_strength': st.column_config.ProgressColumn("Strength", min_value=0, max_value=120)
                         }
                     )
                 else:
@@ -13829,7 +13614,7 @@ def main():
                             'Ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'Company': st.column_config.TextColumn("Company", width="medium"),
                             'Pattern': st.column_config.TextColumn("Pattern", width="medium"),
-                            'Score': st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%.1f"),
+                            'Score': st.column_config.ProgressColumn("Score", min_value=0, max_value=100),
                             'Reliability': st.column_config.TextColumn("Reliability", width="small")
                         }
                     )
@@ -14140,9 +13925,9 @@ def main():
                             column_config={
                                 'ticker': st.column_config.TextColumn("Ticker", width="small"),
                                 'company_name': st.column_config.TextColumn("Company", width="medium"),
-                                'probability_score': st.column_config.ProgressColumn("Probability", min_value=0, max_value=100, format="%.1f"),
+                                'probability_score': st.column_config.ProgressColumn("Probability", min_value=0, max_value=100, format="%.1f%%"),
                                 'confidence': st.column_config.TextColumn("Confidence", width="small"),
-                                'master_score': st.column_config.ProgressColumn("Technical", min_value=0, max_value=100, format="%.1f"),
+                                'master_score': st.column_config.ProgressColumn("Technical", min_value=0, max_value=100),
                                 'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx")
                             }
                         )
@@ -14151,7 +13936,7 @@ def main():
                         st.warning("⚠️ **Risk Warning**: High probability signals are statistical indicators. Always use proper risk management and position sizing.")
                         
                     else:
-                        st.info(f"No high probability signals found with {sensitivity_level} criteria (≥{prob_threshold}%)")
+                        st.info(f"No high probability signals found with {sensitivity_level} criteria (≥{high_prob_threshold}%)")
                 else:
                     st.info("Insufficient data for probability analysis")
                     
@@ -14276,9 +14061,9 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f"),
-                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f"),
-                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f"),
+                            'short_term_score': st.column_config.ProgressColumn("Short-term", min_value=0, max_value=100, format="%.1f%%"),
+                            'medium_term_score': st.column_config.ProgressColumn("Medium-term", min_value=0, max_value=100, format="%.1f%%"),
+                            'confluence_score': st.column_config.ProgressColumn("Confluence", min_value=0, max_value=100, format="%.1f%%"),
                             'alignment': st.column_config.TextColumn("Alignment", width="small")
                         }
                     )
@@ -14326,12 +14111,15 @@ def main():
 
     # Tab 3: 🏆 ALL TIME BEST ANALYSIS TAB - INSTITUTIONAL GRADE INTELLIGENCE
     with tabs[3]:
+        st.markdown("# 🧠 **ULTIMATE MARKET INTELLIGENCE CENTER**")
+        st.markdown("### *Professional-Grade Multi-Dimensional Analysis Platform*")
         
         if not filtered_df.empty:
             # ================================================================================================
             # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
             # ================================================================================================
             
+            st.markdown("---")
             st.markdown("### 📊 **EXECUTIVE MARKET DASHBOARD**")
             
             # Calculate comprehensive market intelligence metrics
@@ -14515,7 +14303,7 @@ def main():
                                 return_df,
                                 width='stretch',
                                 column_config={
-                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f"),
+                                    'Positive %': st.column_config.ProgressColumn("Win Rate", min_value=0, max_value=100, format="%.1f%%"),
                                     'Avg Return': st.column_config.NumberColumn("Avg Return", format="%.2f%%"),
                                     'Max Return': st.column_config.NumberColumn("Max Return", format="%.2f%%"),
                                     'Quality': st.column_config.TextColumn("Quality", width="small")
@@ -14553,7 +14341,7 @@ def main():
                             column_config={
                                 'Range': st.column_config.TextColumn("Volume Range", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
                             }
                         )
                         
@@ -14667,7 +14455,7 @@ def main():
                                 column_config={
                                     'Quadrant': st.column_config.TextColumn("Momentum Quadrant", width="medium"),
                                     'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
                                 }
                             )
                             
@@ -14702,7 +14490,7 @@ def main():
                                 column_config={
                                     'Category': st.column_config.TextColumn(f"{col_name} Range", width="medium"),
                                     'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
                                 }
                             )
                             
@@ -14749,7 +14537,7 @@ def main():
                                 column_config={
                                     'Pattern': st.column_config.TextColumn("Pattern Type", width="medium"),
                                     'Count': st.column_config.NumberColumn("Occurrences", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Stocks", min_value=0, max_value=50, format="%.1f%%"),
                                     'Quality': st.column_config.TextColumn("Quality", width="small")
                                 }
                             )
@@ -14788,7 +14576,7 @@ def main():
                             column_config={
                                 'Quality Level': st.column_config.TextColumn("Pattern Quality", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f")
+                                'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=100, format="%.1f%%")
                             }
                         )
                         
@@ -14834,8 +14622,8 @@ def main():
                             width='stretch',
                             column_config={
                                 'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
-                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100, format="%.1f"),
-                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
+                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100),
+                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100),
                                 'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
                             }
                         )
@@ -14869,7 +14657,7 @@ def main():
                                 column_config={
                                     'Sector': st.column_config.TextColumn("Sector", width="medium"),
                                     'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f"),
+                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f%%"),
                                     'Representation': st.column_config.TextColumn("Level", width="small")
                                 }
                             )
@@ -14962,7 +14750,7 @@ def main():
                             column_config={
                                 'Industry': st.column_config.TextColumn("Industry", width="medium"),
                                 'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Market Share': st.column_config.ProgressColumn("% of Market", min_value=0, max_value=50, format="%.1f"),
+                                'Market Share': st.column_config.ProgressColumn("% of Market", min_value=0, max_value=50, format="%.1f%%"),
                                 'Concentration': st.column_config.TextColumn("Level", width="small")
                             }
                         )
@@ -15038,7 +14826,7 @@ def main():
                             column_config={
                                 'Risk Level': st.column_config.TextColumn("Risk Category", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% of Portfolio", min_value=0, max_value=100, format="%.1f")
+                                'Percentage': st.column_config.ProgressColumn("% of Portfolio", min_value=0, max_value=100, format="%.1f%%")
                             }
                         )
                         
@@ -15084,7 +14872,7 @@ def main():
                             column_config={
                                 'Position Size': st.column_config.TextColumn("Recommended Size", width="medium"),
                                 'Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                'Percentage': st.column_config.ProgressColumn("% Allocation", min_value=0, max_value=100, format="%.1f")
+                                'Percentage': st.column_config.ProgressColumn("% Allocation", min_value=0, max_value=100, format="%.1f%%")
                             }
                         )
                         
@@ -15234,8 +15022,8 @@ def main():
                         column_config={
                             'ticker': st.column_config.TextColumn("Ticker", width="small"),
                             'company_name': st.column_config.TextColumn("Company", width="medium"),
-                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100, format="%.1f"),
-                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100, format="%.1f"),
+                            'master_score': st.column_config.ProgressColumn("Master Score", min_value=0, max_value=100),
+                            'momentum_score': st.column_config.ProgressColumn("Momentum", min_value=0, max_value=100),
                             'rvol': st.column_config.NumberColumn("RVOL", format="%.1fx"),
                             'ret_1d': st.column_config.NumberColumn("1D Return", format="%.2f%%"),
                             'Quality': st.column_config.TextColumn("Quality", width="small")
@@ -15804,23 +15592,17 @@ def main():
                             # Trend Analysis
                             if 'trend_quality' in stock.index and pd.notna(stock['trend_quality']):
                                 tq = stock['trend_quality']
-                                if tq >= 85:
-                                    trend_status = f"🔥 Exceptional ({tq:.0f})"
+                                if tq >= 80:
+                                    trend_status = f"🔥 Strong Uptrend ({tq:.0f})"
                                     trend_color = "success"
-                                elif tq >= 70:
-                                    trend_status = f"🚀 Strong ({tq:.0f})"
-                                    trend_color = "success"
-                                elif tq >= 55:
-                                    trend_status = f"✅ Good ({tq:.0f})"
+                                elif tq >= 60:
+                                    trend_status = f"✅ Good Uptrend ({tq:.0f})"
                                     trend_color = "success"
                                 elif tq >= 40:
-                                    trend_status = f"➡️ Neutral ({tq:.0f})"
-                                    trend_color = "warning"
-                                elif tq >= 25:
-                                    trend_status = f"⚠️ Weak ({tq:.0f})"
+                                    trend_status = f"➡️ Neutral Trend ({tq:.0f})"
                                     trend_color = "warning"
                                 else:
-                                    trend_status = f"🔻 Poor ({tq:.0f})"
+                                    trend_status = f"⚠️ Weak/Downtrend ({tq:.0f})"
                                     trend_color = "error"
                                 
                                 getattr(st, trend_color)(f"**Trend Status:** {trend_status}")
@@ -16063,19 +15845,12 @@ def main():
                                 adv_data['Metric'].append('Money Flow')
                                 adv_data['Value'].append(f"₹{stock['money_flow_mm']:.1f}M")
                                 adv_data['Description'].append('Price × Volume × RVOL')
-
                             
                             # Overall Market Strength
                             if 'overall_market_strength' in stock.index and pd.notna(stock['overall_market_strength']):
                                 adv_data['Metric'].append('Market Strength')
-                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}")
-                                adv_data['Description'].append('Combined momentum, acceleration & breakout strength')
-
-                            # Long Term Strength
-                            if 'long_term_strength' in stock.index and pd.notna(stock['long_term_strength']):
-                                adv_data['Metric'].append('Long Term Strength')
-                                adv_data['Value'].append(f"{stock['long_term_strength']:.1f}")
-                                adv_data['Description'].append('Long-term trend consistency & momentum harmony')
+                                adv_data['Value'].append(f"{stock['overall_market_strength']:.1f}%")
+                                adv_data['Description'].append('Composite market score')
                             
                             # Pattern Confidence
                             if 'pattern_confidence' in stock.index and pd.notna(stock['pattern_confidence']):
@@ -16292,12 +16067,12 @@ def main():
             #### 📊 Master Score 3.0 Algorithm
             Our proprietary ranking algorithm evaluates stocks across six key dimensions:
             
-            - **Position Analysis (27%)** - 52-week range positioning and momentum
-            - **Volume Dynamics (20%)** - Multi-timeframe volume pattern analysis  
-            - **Momentum Tracking (22%)** - 30-day price momentum measurement
-            - **Acceleration Detection (2%)** - Momentum acceleration signals
-            - **Breakout Probability (21%)** - Technical breakout readiness assessment
-            - **RVOL Integration (8%)** - Real-time relative volume analysis
+            - **Position Analysis (30%)** - 52-week range positioning and momentum
+            - **Volume Dynamics (25%)** - Multi-timeframe volume pattern analysis  
+            - **Momentum Tracking (15%)** - 30-day price momentum measurement
+            - **Acceleration Detection (10%)** - Momentum acceleration signals
+            - **Breakout Probability (10%)** - Technical breakout readiness assessment
+            - **RVOL Integration (10%)** - Real-time relative volume analysis
             
             #### 🔍 Pattern Detection System
             The system employs 41 sophisticated pattern detection algorithms organized into seven categories:
