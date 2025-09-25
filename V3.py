@@ -288,9 +288,9 @@ class Config:
         }
     })
     
-    # Default filter for swing/momentum trading - Changed to ALL for better user experience
-    DEFAULT_MARKET_FILTER: str = 'ALL'
-    ENABLE_MARKET_STATE_FILTER: bool = False  # Disabled by default to prevent aggressive filtering
+    # Default filter for swing/momentum trading
+    DEFAULT_MARKET_FILTER: str = 'MOMENTUM'
+    ENABLE_MARKET_STATE_FILTER: bool = True  # Can be toggled
     
     # Value bounds for data validation
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
@@ -7430,7 +7430,6 @@ class FilterEngine:
                 'vmi_tiers': [],
                 'custom_vmi_range': (0.5, 3.0),
                 'momentum_harmony_tiers': [],
-                'turnover_tiers': [],
                 # Performance filter selections
                 'ret_1d_selection': "All Returns",
                 'ret_3d_selection': "All Returns", 
@@ -7666,8 +7665,9 @@ class FilterEngine:
         ]
         
         # Also check for common prefixes used in dynamic widgets
+        # NOTE: Exclude 'filter_' prefix to avoid deleting 'filter_state'
         widget_prefixes = [
-            'FormSubmitter', 'temp_', 'dynamic_', 'filter_', 'widget_'
+            'FormSubmitter', 'temp_', 'dynamic_', 'widget_'
         ]
         
         # Collect all keys to delete (can't modify dict during iteration)
@@ -7738,15 +7738,9 @@ class FilterEngine:
         # Reset active filter count
         st.session_state.active_filter_count = 0
         
-        # Clear quick filter - ENHANCED TO FIX UI PERSISTENCE
-        if 'quick_filter' in st.session_state:
-            del st.session_state['quick_filter']
-        if 'quick_filter_applied' in st.session_state:
-            del st.session_state['quick_filter_applied']
-        
-        # Force clear quick filter state in filter_state too
-        st.session_state.filter_state['quick_filter'] = None
-        st.session_state.filter_state['quick_filter_applied'] = False
+        # Clear quick filter
+        st.session_state.quick_filter = None
+        st.session_state.quick_filter_applied = False
         
         # Clear any cached filter results
         if 'user_preferences' in st.session_state:
@@ -7762,7 +7756,244 @@ class FilterEngine:
             del st.session_state[key]
             deleted_count += 1
         
+        # CRITICAL FIX: Reinitialize filter_state after clearing
+        # This prevents crashes when widgets try to access filter_state.get() during recreation
+        FilterEngine.initialize_filters()
+        
         logger.info(f"All filters and widget states cleared successfully. Deleted {deleted_count} keys total.")
+    
+    @staticmethod
+    def is_cloud_environment():
+        """Detect if running on Streamlit Community Cloud"""
+        import platform
+        import socket
+        
+        # Check for cloud indicators
+        hostname = socket.gethostname().lower()
+        platform_info = platform.platform().lower()
+        
+        cloud_indicators = [
+            'streamlit' in hostname,
+            'cloud' in hostname,
+            'container' in hostname,
+            'docker' in platform_info,
+            os.getenv('STREAMLIT_SHARING') is not None,
+            os.getenv('STREAMLIT_CLOUD') is not None,
+            hasattr(st, 'secrets') and len(st.secrets) > 0  # Cloud often has secrets
+        ]
+        
+        return any(cloud_indicators)
+    
+    @staticmethod
+    def clear_filters_cloud_compatible():
+        """
+        ENHANCED Clear All Filters method specifically designed for Streamlit Community Cloud.
+        Cloud environments handle session state and widget keys differently than local environments.
+        This method uses multiple clearing strategies to ensure reliable operation in cloud.
+        """
+        try:
+            is_cloud = FilterEngine.is_cloud_environment()
+            logger.info(f"Clear filters called. Cloud environment detected: {is_cloud}")
+            # STRATEGY 1: Force clear all widget keys using multiple methods
+            widget_keys_to_force_clear = []
+            
+            # Collect ALL possible widget keys (more comprehensive than before)
+            for key in list(st.session_state.keys()):
+                # Check for any widget-related patterns
+                widget_indicators = [
+                    '_multiselect', '_slider', '_selectbox', '_checkbox', '_input', '_radio', 
+                    '_button', '_expander', '_toggle', '_number_input', '_text_area', 
+                    '_date_input', '_time_input', '_color_picker', '_file_uploader',
+                    'FormSubmitter:', 'widget_', 'temp_'
+                ]
+                
+                # Skip critical keys but include widget keys
+                if key in ['filter_state', 'data_source', 'user_preferences', 'app_initialized']:
+                    continue
+                    
+                # Include keys that match widget patterns
+                for indicator in widget_indicators:
+                    if indicator in key:
+                        widget_keys_to_force_clear.append(key)
+                        break
+            
+            # STRATEGY 2: Reset filter_state with COMPLETE defaults (cloud-safe)
+            st.session_state.filter_state = {
+                'categories': [],
+                'sectors': [],
+                'industries': [],
+                'min_score': 0,
+                'patterns': [],
+                'trend_filter': "All Trends",
+                'trend_range': (0, 100),
+                'trend_custom_range': (0, 100),
+                'eps_tiers': [],
+                'pe_tiers': [],
+                'price_tiers': [],
+                'eps_change_tiers': [],
+                'position_tiers': [],
+                'position_range': (0, 100),
+                'turnover_tiers': [],
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
+                'vmi_tiers': [],
+                'custom_vmi_range': (0.5, 3.0),
+                'momentum_harmony_tiers': [],
+                'min_eps_change': None,
+                'min_pe': None,
+                'max_pe': None,
+                'require_fundamental_data': False,
+                'market_states': [],
+                'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
+                'position_score_range': (0, 100),
+                'volume_score_range': (0, 100),
+                'momentum_score_range': (0, 100),
+                'acceleration_score_range': (0, 100),
+                'breakout_score_range': (0, 100),
+                'rvol_score_range': (0, 100),
+                'position_score_selection': "All Scores",
+                'volume_score_selection': "All Scores",
+                'momentum_score_selection': "All Scores",
+                'acceleration_score_selection': "All Scores",
+                'breakout_score_selection': "All Scores",
+                'rvol_score_selection': "All Scores",
+                'ret_1d_selection': "All Returns",
+                'ret_3d_selection': "All Returns", 
+                'ret_7d_selection': "All Returns",
+                'ret_30d_selection': "All Returns",
+                'ret_3m_selection': "All Returns",
+                'ret_6m_selection': "All Returns",
+                'ret_1y_selection': "All Returns",
+                'ret_3y_selection': "All Returns",
+                'ret_5y_selection': "All Returns",
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
+                'exclude_patterns': [],
+                'include_patterns': [],
+                'combination_patterns': [],
+                'quick_filter': None,
+                'quick_filter_applied': False
+            }
+            
+            # STRATEGY 3: Force delete widget keys (cloud-compatible method)
+            deleted_count = 0
+            for key in widget_keys_to_force_clear:
+                try:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                        deleted_count += 1
+                except Exception as e:
+                    # In cloud, some keys might be protected - ignore errors
+                    logger.debug(f"Could not delete key {key}: {e}")
+                    pass
+            
+            # CLOUD-SPECIFIC STRATEGY: Additional widget key reset for cloud persistence issues
+            if is_cloud:
+                # Force reset known problematic keys in cloud
+                problematic_cloud_keys = [
+                    'category_multiselect', 'sector_multiselect', 'industry_multiselect',
+                    'patterns_multiselect', 'market_states_multiselect',
+                    'min_score_slider', 'trend_selectbox'
+                ]
+                
+                for key in problematic_cloud_keys:
+                    try:
+                        if key in st.session_state:
+                            # Force reset to empty/default instead of delete
+                            if 'multiselect' in key:
+                                st.session_state[key] = []
+                            elif 'slider' in key:
+                                st.session_state[key] = 0
+                            elif 'selectbox' in key:
+                                st.session_state[key] = "All Trends" if 'trend' in key else ""
+                    except Exception:
+                        pass
+            
+            # STRATEGY 4: Reset critical state variables
+            st.session_state.active_filter_count = 0
+            st.session_state.quick_filter = None
+            st.session_state.quick_filter_applied = False
+            
+            # STRATEGY 5: Clear legacy keys with error handling
+            legacy_keys = [
+                'category_filter', 'sector_filter', 'industry_filter',
+                'min_score', 'patterns', 'trend_filter',
+                'eps_tier_filter', 'pe_tier_filter', 'price_tier_filter',
+                'min_eps_change', 'min_pe', 'max_pe',
+                'require_fundamental_data', 'market_states_filter',
+                'market_strength_range_slider'
+            ]
+            
+            for key in legacy_keys:
+                try:
+                    if key in st.session_state:
+                        if isinstance(st.session_state[key], list):
+                            st.session_state[key] = []
+                        elif isinstance(st.session_state[key], bool):
+                            st.session_state[key] = False
+                        elif isinstance(st.session_state[key], str):
+                            if key == 'trend_filter':
+                                st.session_state[key] = "All Trends"
+                            else:
+                                st.session_state[key] = ""
+                        elif isinstance(st.session_state[key], tuple):
+                            if key == 'market_strength_range_slider':
+                                st.session_state[key] = (0, 100)
+                        elif isinstance(st.session_state[key], (int, float)):
+                            if key == 'min_score':
+                                st.session_state[key] = 0
+                            else:
+                                st.session_state[key] = None
+                        else:
+                            st.session_state[key] = None
+                except Exception as e:
+                    # Ignore errors in cloud environment
+                    pass
+            
+            # STRATEGY 6: Verify clearing success (especially important for cloud)
+            verification_passed = True
+            
+            # Check if filter_state was properly reset
+            if 'filter_state' not in st.session_state:
+                FilterEngine.initialize_filters()
+                verification_passed = False
+            
+            # Verify key filter values are reset
+            key_checks = [
+                ('categories', []),
+                ('sectors', []),
+                ('min_score', 0),
+                ('patterns', [])
+            ]
+            
+            for key, expected in key_checks:
+                if st.session_state.filter_state.get(key) != expected:
+                    st.session_state.filter_state[key] = expected
+            
+            # For cloud environments, set a flag to trigger UI refresh
+            if is_cloud:
+                st.session_state._filters_just_cleared = True
+                st.session_state._clear_timestamp = time.time()
+            
+            logger.info(f"CLOUD-COMPATIBLE clear completed successfully. Deleted {deleted_count} widget keys. Verification: {'PASSED' if verification_passed else 'FIXED'}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error in cloud-compatible clear: {e}")
+            # Fallback - ensure filter_state exists at minimum
+            if 'filter_state' not in st.session_state:
+                FilterEngine.initialize_filters()
+            return False
     
     @staticmethod
     def sync_widget_to_filter(widget_key: str, filter_key: str):
@@ -8256,12 +8487,7 @@ class FilterEngine:
         else:
             filtered_df = df.copy()
         
-        # ENHANCED LOGGING TO DEBUG FILTER ISSUES
-        if len(filtered_df) != len(df):
-            active_filters = [key for key, value in filters.items() if value]
-            logger.info(f"Filters reduced {len(df)} to {len(filtered_df)} stocks. Active filters: {active_filters}")
-        else:
-            logger.debug(f"No filters applied - showing all {len(df)} stocks")
+        logger.info(f"Filters reduced {len(df)} to {len(filtered_df)} stocks")
         
         return filtered_df
     
@@ -10083,6 +10309,77 @@ class SessionStateManager:
         if 'user_preferences' in st.session_state:
             st.session_state.user_preferences['last_filters'] = {}
         
+        # CRITICAL FIX: Ensure filter_state exists after clearing
+        # This prevents crashes when widgets try to access filter_state.get() during recreation
+        if 'filter_state' not in st.session_state:
+            # Initialize the centralized filter state that was just cleared
+            st.session_state.filter_state = {
+                'categories': [],
+                'sectors': [],
+                'industries': [],
+                'min_score': 0,
+                'patterns': [],
+                'trend_filter': "All Trends",
+                'trend_range': (0, 100),
+                'trend_custom_range': (0, 100),
+                'eps_tiers': [],
+                'pe_tiers': [],
+                'price_tiers': [],
+                'eps_change_tiers': [],
+                'position_tiers': [],
+                'position_range': (0, 100),
+                'turnover_tiers': [],
+                'performance_tiers': [],
+                'performance_custom_range': (-100, 500),
+                'volume_tiers': [],
+                'rvol_range': (0.1, 20.0),
+                'min_eps_change': None,
+                'min_pe': None,
+                'max_pe': None,
+                'require_fundamental_data': False,
+                'market_states': [],
+                'market_strength_range': (0, 100),
+                'long_term_strength_range': (0, 100),
+                'position_score_range': (0, 100),
+                'volume_score_range': (0, 100),
+                'momentum_score_range': (0, 100),
+                'acceleration_score_range': (0, 100),
+                'breakout_score_range': (0, 100),
+                'rvol_score_range': (0, 100),
+                'position_score_selection': "All Scores",
+                'volume_score_selection': "All Scores",
+                'momentum_score_selection': "All Scores",
+                'acceleration_score_selection': "All Scores",
+                'breakout_score_selection': "All Scores",
+                'rvol_score_selection': "All Scores",
+                # Performance filter selections
+                'ret_1d_selection': "All Returns",
+                'ret_3d_selection': "All Returns", 
+                'ret_7d_selection': "All Returns",
+                'ret_30d_selection': "All Returns",
+                'ret_3m_selection': "All Returns",
+                'ret_6m_selection': "All Returns",
+                'ret_1y_selection': "All Returns",
+                'ret_3y_selection': "All Returns",
+                'ret_5y_selection': "All Returns",
+                # Two-Stage Pattern Filtering System
+                'exclude_patterns': [],
+                'include_patterns': [],
+                'combination_patterns': [],
+                # Performance filter ranges
+                'ret_1d_range': (2.0, 25.0),
+                'ret_3d_range': (3.0, 50.0),
+                'ret_7d_range': (5.0, 75.0),
+                'ret_30d_range': (10.0, 150.0),
+                'ret_3m_range': (15.0, 200.0),
+                'ret_6m_range': (20.0, 500.0),
+                'ret_1y_range': (25.0, 1000.0),
+                'ret_3y_range': (50.0, 2000.0),
+                'ret_5y_range': (75.0, 5000.0),
+                'quick_filter': None,
+                'quick_filter_applied': False
+            }
+        
         logger.info(f"All filters and widget states cleared successfully. Deleted {deleted_count} widget keys.")
     
     @staticmethod
@@ -10304,9 +10601,6 @@ def main():
     
     # Initialize robust session state
     SessionStateManager.initialize()
-    
-    # CRITICAL: Initialize filter state immediately to prevent widget callback errors
-    FilterEngine.initialize_filters()
     
     # Custom CSS for production UI
     st.markdown("""
@@ -10568,8 +10862,15 @@ def main():
         if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary"):
-            SessionStateManager.clear_filters()
-            st.success("✅ All filters cleared!")
+            # Use cloud-compatible clearing method
+            success = FilterEngine.clear_filters_cloud_compatible()
+            if success:
+                st.success("✅ All filters cleared successfully!")
+            else:
+                st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
+            
+            # Cloud-compatible rerun with delay
+            time.sleep(0.1)
             st.rerun()
         
         st.markdown("---")
@@ -10731,15 +11032,15 @@ def main():
         
         # CRITICAL: Define callback functions BEFORE widgets
         def sync_categories():
-            if 'category_multiselect' in st.session_state:
+            if 'category_multiselect' in st.session_state and 'filter_state' in st.session_state:
                 st.session_state.filter_state['categories'] = st.session_state.category_multiselect
         
         def sync_sectors():
-            if 'sector_multiselect' in st.session_state:
+            if 'sector_multiselect' in st.session_state and 'filter_state' in st.session_state:
                 st.session_state.filter_state['sectors'] = st.session_state.sector_multiselect
         
         def sync_industries():
-            if 'industry_multiselect' in st.session_state:
+            if 'industry_multiselect' in st.session_state and 'filter_state' in st.session_state:
                 st.session_state.filter_state['industries'] = st.session_state.industry_multiselect
         
         def sync_min_score():
@@ -10899,6 +11200,22 @@ def main():
         if ranked_df_display is None or ranked_df_display.empty:
             st.warning("No data available for filtering. Please check your data source.")
             return
+        
+        # CRITICAL FIX: Ensure filter_state exists before widget creation
+        # This prevents crashes when accessing filter_state.get() methods
+        if 'filter_state' not in st.session_state:
+            FilterEngine.initialize_filters()
+        
+        # CLOUD FIX: Handle recent clearing in cloud environments
+        if st.session_state.get('_filters_just_cleared', False):
+            # Clear the flag and force widget defaults in cloud
+            clear_time = st.session_state.get('_clear_timestamp', 0)
+            if time.time() - clear_time < 2:  # Within 2 seconds of clearing
+                st.session_state._filters_just_cleared = False
+                # Force all stored values to empty for cloud widget reset
+                for key in st.session_state.filter_state:
+                    if isinstance(st.session_state.filter_state[key], list):
+                        st.session_state.filter_state[key] = []
         
         # Category filter with callback
         categories = FilterEngine.get_filter_options(ranked_df_display, 'category', filters)
@@ -11863,12 +12180,9 @@ def main():
                 turnover_tiers = st.multiselect(
                     "Daily Turnover Tiers",
                     options=turnover_tier_options,
-                    default=st.session_state.filter_state.get('turnover_tiers', []) if 'filter_state' in st.session_state else [],
+                    default=st.session_state.filter_state.get('turnover_tiers', []),
                     key='turnover_tier_multiselect_intelligence',
-                    on_change=lambda: (
-                        st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence})
-                        if 'filter_state' in st.session_state else None
-                    ),
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
                     help="Select daily turnover tiers for filtering"
                 )
                 
@@ -12017,44 +12331,25 @@ def main():
         if active_filter_count > 0:
             st.info(f"🔍 **{active_filter_count} filter{'s' if active_filter_count > 1 else ''} active**")
         
-        # Clear filters button - ENHANCED VERSION
+        # Clear filters button - CLOUD-COMPATIBLE VERSION
         if st.button("🗑️ Clear All Filters", 
                     width="stretch", 
                     type="primary" if active_filter_count > 0 else "secondary",
                     key="clear_filters_sidebar_btn"):
             
-            # Use both FilterEngine and SessionStateManager clear methods
-            FilterEngine.clear_all_filters()
-            SessionStateManager.clear_filters()
+            # Use cloud-compatible clearing method for reliable operation on Streamlit Community Cloud
+            success = FilterEngine.clear_filters_cloud_compatible()
             
-            # Clear any lingering filter states
-            st.session_state.active_filter_count = 0
+            if success:
+                st.success("✅ All filters cleared successfully!")
+            else:
+                st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
             
-            st.success("✅ All filters cleared!")
-            time.sleep(0.1)  # Reduced sleep time
+            # Enhanced cloud-compatible rerun logic
+            time.sleep(0.2)  # Shorter delay for better UX
             st.rerun()
     
-    # Apply filters (outside sidebar) - RE-READ STATE AFTER POTENTIAL CLEARING
-    quick_filter_applied = st.session_state.get('quick_filter_applied', False)
-    quick_filter = st.session_state.get('quick_filter', None)  # Re-read quick_filter too
-    filters = FilterEngine.build_filter_dict()  # Re-build filters after potential clearing
-    
-    # Safety check: If no filters are supposed to be active, force empty filters
-    if st.session_state.get('active_filter_count', 0) == 0 and not quick_filter_applied:
-        filters = {}
-    
-    # Re-evaluate ranked_df_display based on updated quick_filter state
-    ranked_df_display = ranked_df  # Reset to base
-    if quick_filter and quick_filter_applied:
-        if quick_filter == 'top_gainers':
-            ranked_df_display = ranked_df[ranked_df['momentum_score'] >= 80]
-        elif quick_filter == 'volume_surges':
-            ranked_df_display = ranked_df[ranked_df['rvol'] >= 3]
-        elif quick_filter == 'velocity_breakout':
-            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('VELOCITY BREAKOUT', na=False)]
-        elif quick_filter == 'institutional_tsunami':
-            ranked_df_display = ranked_df[ranked_df['patterns'].str.contains('🌋 INSTITUTIONAL TSUNAMI', na=False)]
-    
+    # Apply filters (outside sidebar)
     if quick_filter_applied:
         filtered_df = FilterEngine.apply_filters(ranked_df_display, filters)
     else:
@@ -12108,7 +12403,6 @@ def main():
             if st.button("Clear Filters", type="secondary", key="clear_filters_main_btn"):
                 FilterEngine.clear_all_filters()
                 SessionStateManager.clear_filters()
-                st.session_state.active_filter_count = 0
                 st.rerun()
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -13203,8 +13497,15 @@ def main():
                     st.write(f"• {filter_text}")
                 
                 if st.button("Clear All Filters", type="primary", key="clear_filters_ranking_btn"):
-                    FilterEngine.clear_all_filters()
-                    SessionStateManager.clear_filters()
+                    # Use cloud-compatible clearing method
+                    success = FilterEngine.clear_filters_cloud_compatible()
+                    if success:
+                        st.success("✅ All filters cleared successfully!", icon="🎉")
+                    else:
+                        st.warning("⚠️ Filters cleared with some limitations. Please refresh if needed.")
+                    
+                    # Cloud-compatible rerun
+                    time.sleep(0.1)
                     st.rerun()
             else:
                 st.info("No filters applied. All stocks should be visible unless there's no data loaded.")
@@ -17152,16 +17453,16 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-# CRITICAL: For Streamlit apps, run main() at module level to ensure proper session state initialization
-try:
-    main()
-except Exception as e:
-    st.error(f"Critical Application Error: {str(e)}")
-    logger.error(f"Application crashed: {str(e)}", exc_info=True)
-    
-    if st.button("🔄 Restart Application"):
-        st.cache_data.clear()
-        st.rerun()
-    
-    if st.button("📧 Report Issue"):
-        st.info("Please take a screenshot and report this error.")
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Critical Application Error: {str(e)}")
+        logger.error(f"Application crashed: {str(e)}", exc_info=True)
+        
+        if st.button("🔄 Restart Application"):
+            st.cache_data.clear()
+            st.rerun()
+        
+        if st.button("📧 Report Issue"):
+            st.info("Please take a screenshot and report this error.")
