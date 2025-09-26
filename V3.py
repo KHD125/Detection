@@ -213,7 +213,9 @@ class Config:
         'from_low_pct', 'from_high_pct',
         'vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d',
         'vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d',
-        'vol_ratio_90d_180d'
+        'vol_ratio_90d_180d',
+        'volume_30d', 'volume_90d', 'volume_180d',
+        'daily_turnover', 'turnover_30d', 'turnover_90d', 'turnover_180d'
     ])
     
     # All percentage columns for consistent handling
@@ -1031,6 +1033,31 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
             logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
+        
+        # Enhanced turnover calculations (30-day, 90-day, 180-day) with proper volume periods
+        # 30 Days Turnover = 30-day volume × SMA 20d
+        if all(col in df.columns for col in ['volume_30d', 'sma_20d']):
+            df['turnover_30d'] = df['volume_30d'] * df['sma_20d']
+            df['turnover_30d_tier'] = df['turnover_30d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"30-day turnover (volume_30d × SMA 20d) calculated. Sample values: {df['turnover_30d'].describe()}")
+        
+        # 90 Days Turnover = 90-day volume × SMA 50d  
+        if all(col in df.columns for col in ['volume_90d', 'sma_50d']):
+            df['turnover_90d'] = df['volume_90d'] * df['sma_50d']
+            df['turnover_90d_tier'] = df['turnover_90d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"90-day turnover (volume_90d × SMA 50d) calculated. Sample values: {df['turnover_90d'].describe()}")
+        
+        # 180 Days Turnover = 180-day volume × SMA 200d
+        if all(col in df.columns for col in ['volume_180d', 'sma_200d']):
+            df['turnover_180d'] = df['volume_180d'] * df['sma_200d']
+            df['turnover_180d_tier'] = df['turnover_180d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"180-day turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
         
         # Performance tier classifications - Unified approach
         # Enhanced performance tier classification with ALL return periods
@@ -7564,6 +7591,9 @@ class FilterEngine:
             'position_tiers': [],
             'position_range': (0, 100),
             'turnover_tiers': [],
+            'turnover_30d_tiers': [],
+            'turnover_90d_tiers': [],
+            'turnover_180d_tiers': [],
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
             'vmi_tiers': [],
@@ -7607,7 +7637,8 @@ class FilterEngine:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_dedicated',
+            'turnover_30d_tier_multiselect_dedicated', 'turnover_90d_tier_multiselect_dedicated', 'turnover_180d_tier_multiselect_dedicated',
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
             # Combination Pattern Filter Widget
@@ -7972,11 +8003,29 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.55. Daily Turnover Intelligence filters
+        # 5.55. Enhanced Turnover Intelligence filters
         if 'turnover_tiers' in filters:
             selected_tiers = filters['turnover_tiers']
             if selected_tiers:
                 masks.append(create_mask_from_isin('daily_turnover_tier', selected_tiers))
+        
+        # 5.55.1. 30-Day Turnover filters (SMA 20d basis)
+        if 'turnover_30d_tiers' in filters:
+            selected_tiers = filters['turnover_30d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_30d_tier', selected_tiers))
+        
+        # 5.55.2. 90-Day Turnover filters (SMA 50d basis)
+        if 'turnover_90d_tiers' in filters:
+            selected_tiers = filters['turnover_90d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_90d_tier', selected_tiers))
+        
+        # 5.55.3. 180-Day Turnover filters (SMA 200d basis)
+        if 'turnover_180d_tiers' in filters:
+            selected_tiers = filters['turnover_180d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_180d_tier', selected_tiers))
         
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
@@ -8338,6 +8387,9 @@ class FilterEngine:
             'position_tiers': [],
             'position_range': (0, 100),
             'turnover_tiers': [],
+            'turnover_30d_tiers': [],
+            'turnover_90d_tiers': [],
+            'turnover_180d_tiers': [],
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'volume_tiers': [],
@@ -9571,6 +9623,9 @@ class SessionStateManager:
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'turnover_tiers': [],
+                'turnover_30d_tiers': [],
+                'turnover_90d_tiers': [],
+                'turnover_180d_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9854,6 +9909,9 @@ class SessionStateManager:
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'turnover_tiers': [],
+                'turnover_30d_tiers': [],
+                'turnover_90d_tiers': [],
+                'turnover_180d_tiers': [],
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9950,7 +10008,8 @@ class SessionStateManager:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_dedicated',
+            'turnover_30d_tier_multiselect_dedicated', 'turnover_90d_tier_multiselect_dedicated', 'turnover_180d_tier_multiselect_dedicated',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -11841,21 +11900,85 @@ def main():
                     if position_range != (0, 100):
                         filters['position_range'] = position_range
             
-            # 💧 Daily Turnover Intelligence
+        
+        # 💧 Turnover Filter - Dedicated Section
+        with st.expander("💧 Turnover Filter", expanded=False):
+            st.markdown("**💧 Liquidity Analysis - Multi-Period Turnover Intelligence**")
+            
+            # Daily Turnover Intelligence
             if 'daily_turnover_tier' in ranked_df_display.columns:
-                # Daily turnover tier multiselect (tier-only filtering)
                 turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
                 turnover_tiers = st.multiselect(
-                    "Daily Turnover Tiers",
+                    "📊 Daily Turnover Tiers",
                     options=turnover_tier_options,
                     default=st.session_state.filter_state.get('turnover_tiers', []),
-                    key='turnover_tier_multiselect_intelligence',
-                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
-                    help="Select daily turnover tiers for filtering"
+                    key='turnover_tier_multiselect_dedicated',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_dedicated}),
+                    help="📊 Filter by daily turnover tiers (volume_1d × Current Price)"
                 )
                 
                 if turnover_tiers:
                     filters['turnover_tiers'] = turnover_tiers
+            
+            # Enhanced Multi-Period Turnover Analysis
+            st.markdown("**🔄 Multi-Period Turnover Analysis**")
+            turnover_cols = st.columns(2)
+            
+            with turnover_cols[0]:
+                # 30-Day Turnover
+                if 'turnover_30d_tier' in ranked_df_display.columns:
+                    turnover_30d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                    turnover_30d_tiers = st.multiselect(
+                        "📈 30-Day Turnover Tiers",
+                        options=turnover_30d_tier_options,
+                        default=st.session_state.filter_state.get('turnover_30d_tiers', []),
+                        key='turnover_30d_tier_multiselect_dedicated',
+                        on_change=lambda: st.session_state.filter_state.update({'turnover_30d_tiers': st.session_state.turnover_30d_tier_multiselect_dedicated}),
+                        help="📈 Filter by 30-day turnover tiers (volume_30d × SMA 20d)"
+                    )
+                    
+                    if turnover_30d_tiers:
+                        filters['turnover_30d_tiers'] = turnover_30d_tiers
+                
+                # 90-Day Turnover
+                if 'turnover_90d_tier' in ranked_df_display.columns:
+                    turnover_90d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                    turnover_90d_tiers = st.multiselect(
+                        "📊 90-Day Turnover Tiers",
+                        options=turnover_90d_tier_options,
+                        default=st.session_state.filter_state.get('turnover_90d_tiers', []),
+                        key='turnover_90d_tier_multiselect_dedicated',
+                        on_change=lambda: st.session_state.filter_state.update({'turnover_90d_tiers': st.session_state.turnover_90d_tier_multiselect_dedicated}),
+                        help="📊 Filter by 90-day turnover tiers (volume_90d × SMA 50d)"
+                    )
+                    
+                    if turnover_90d_tiers:
+                        filters['turnover_90d_tiers'] = turnover_90d_tiers
+            
+            with turnover_cols[1]:
+                # 180-Day Turnover
+                if 'turnover_180d_tier' in ranked_df_display.columns:
+                    turnover_180d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                    turnover_180d_tiers = st.multiselect(
+                        "📉 180-Day Turnover Tiers",
+                        options=turnover_180d_tier_options,
+                        default=st.session_state.filter_state.get('turnover_180d_tiers', []),
+                        key='turnover_180d_tier_multiselect_dedicated',
+                        on_change=lambda: st.session_state.filter_state.update({'turnover_180d_tiers': st.session_state.turnover_180d_tier_multiselect_dedicated}),
+                        help="� Filter by 180-day turnover tiers (volume_180d × SMA 200d)"
+                    )
+                    
+                    if turnover_180d_tiers:
+                        filters['turnover_180d_tiers'] = turnover_180d_tiers
+                
+                # Professional Turnover Analysis Info
+                if any(col in ranked_df_display.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
+                    st.success("💡 **Professional Analysis**\n"
+                              "• **Daily**: volume_1d × Current Price\n"
+                              "• **30-Day**: volume_30d × SMA 20d\n"
+                              "• **90-Day**: volume_90d × SMA 50d\n"
+                              "• **180-Day**: volume_180d × SMA 200d\n\n"
+                              "🔍 *Compare liquidity across timeframes*")
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
@@ -16652,36 +16775,110 @@ def main():
                                         
                                         st.info(f"📊 {activity}")
                             
-                            # Liquidity Analysis
+                            # Enhanced Liquidity Analysis
                             if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
                                 st.markdown("---")
                                 st.markdown("**💧 Liquidity Analysis**")
                                 
                                 volume = stock['volume_1d']
                                 price = stock['price']
-                                turnover = volume * price
+                                daily_turnover = volume * price
                                 
-                                liq_col1, liq_col2 = st.columns(2)
+                                # Enhanced turnover calculations
+                                turnover_metrics = []
+                                
+                                # Daily Turnover
+                                turnover_metrics.append({
+                                    'label': 'Daily Turnover',
+                                    'value': daily_turnover,
+                                    'basis': 'Current Price'
+                                })
+                                
+                                # 30-Day Turnover (30-day volume × SMA 20d)
+                                if all(col in stock.index for col in ['volume_30d', 'sma_20d']) and all(pd.notna(stock[col]) for col in ['volume_30d', 'sma_20d']):
+                                    turnover_30d = stock['volume_30d'] * stock['sma_20d']
+                                    turnover_metrics.append({
+                                        'label': '30-Day Turnover',
+                                        'value': turnover_30d,
+                                        'basis': '30d Volume × SMA 20d'
+                                    })
+                                
+                                # 90-Day Turnover (90-day volume × SMA 50d)
+                                if all(col in stock.index for col in ['volume_90d', 'sma_50d']) and all(pd.notna(stock[col]) for col in ['volume_90d', 'sma_50d']):
+                                    turnover_90d = stock['volume_90d'] * stock['sma_50d']
+                                    turnover_metrics.append({
+                                        'label': '90-Day Turnover', 
+                                        'value': turnover_90d,
+                                        'basis': '90d Volume × SMA 50d'
+                                    })
+                                
+                                # 180-Day Turnover (180-day volume × SMA 200d)
+                                if all(col in stock.index for col in ['volume_180d', 'sma_200d']) and all(pd.notna(stock[col]) for col in ['volume_180d', 'sma_200d']):
+                                    turnover_180d = stock['volume_180d'] * stock['sma_200d']
+                                    turnover_metrics.append({
+                                        'label': '180-Day Turnover',
+                                        'value': turnover_180d,
+                                        'basis': '180d Volume × SMA 200d'
+                                    })
+                                
+                                # Display turnover metrics in a structured layout
+                                if len(turnover_metrics) >= 2:
+                                    # Create columns based on number of metrics
+                                    num_cols = min(len(turnover_metrics), 4)
+                                    cols = st.columns(num_cols)
+                                    
+                                    for i, metric in enumerate(turnover_metrics):
+                                        with cols[i % num_cols]:
+                                            value = metric['value']
+                                            formatted_value = f"₹{value/10_000_000:.1f}Cr" if value >= 10_000_000 else f"₹{value/100_000:.1f}L"
+                                            st.metric(
+                                                label=metric['label'],
+                                                value=formatted_value,
+                                                help=f"Based on {metric['basis']}"
+                                            )
+                                else:
+                                    # Fallback to original single column display
+                                    st.metric("Daily Turnover", f"₹{daily_turnover/10_000_000:.1f}Cr" if daily_turnover >= 10_000_000 else f"₹{daily_turnover/100_000:.1f}L")
+                                
+                                # Overall liquidity classification based on daily turnover
+                                st.markdown("---")
+                                liq_col1, liq_col2 = st.columns([1, 2])
                                 
                                 with liq_col1:
-                                    st.metric("Daily Turnover", f"₹{turnover/10_000_000:.1f}Cr" if turnover >= 10_000_000 else f"₹{turnover/100_000:.1f}L")
-                                
-                                with liq_col2:
-                                    # Liquidity classification
-                                    if turnover >= 100_000_000:  # 10Cr+
+                                    # Liquidity status
+                                    if daily_turnover >= 100_000_000:  # 10Cr+
                                         liq_status = "🌊 Highly Liquid"
                                         liq_color = "success"
-                                    elif turnover >= 10_000_000:  # 1Cr+
+                                    elif daily_turnover >= 10_000_000:  # 1Cr+
                                         liq_status = "💧 Good Liquidity"
                                         liq_color = "success"
-                                    elif turnover >= 1_000_000:  # 10L+
+                                    elif daily_turnover >= 1_000_000:  # 10L+
                                         liq_status = "💦 Moderate Liquidity"
                                         liq_color = "warning"
                                     else:
                                         liq_status = "🏜️ Low Liquidity"
                                         liq_color = "error"
                                     
-                                    getattr(st, liq_color)(f"**Liquidity:** {liq_status}")
+                                    getattr(st, liq_color)(f"**Status:** {liq_status}")
+                                
+                                with liq_col2:
+                                    # Turnover trend analysis (if multiple periods available)
+                                    if len(turnover_metrics) >= 3:
+                                        trend_info = "📈 **Trend Analysis**\n"
+                                        daily_val = turnover_metrics[0]['value']
+                                        
+                                        for metric in turnover_metrics[1:]:
+                                            period_val = metric['value']
+                                            if daily_val > period_val * 1.1:
+                                                trend = "📈 Above historical avg"
+                                            elif daily_val < period_val * 0.9:
+                                                trend = "📉 Below historical avg"
+                                            else:
+                                                trend = "➡️ Near historical avg"
+                                            
+                                            trend_info += f"vs {metric['label']}: {trend}\n"
+                                        
+                                        st.info(trend_info)
                         
                         with detail_tabs[5]:  # Advanced Metrics
                             st.markdown("**🎯 Advanced Metrics**")
