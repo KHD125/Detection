@@ -17246,78 +17246,205 @@ def main():
                                     st.markdown("---")
                                     st.markdown("**🌊 Liquidity Growth Analytics**")
                                     
-                                    # Primary Metrics Row
-                                    growth_cols = st.columns(3)
+                                    # Status Banner - Overall Growth Health (V9.py pattern: color-coded status)
+                                    composite_score = stock.get('composite_growth_score', 0)
+                                    growth_trend = stock.get('growth_trend', 'Unknown')
+                                    smart_money = stock.get('smart_money_flow', 'Unknown')
                                     
-                                    with growth_cols[0]:
-                                        composite_score = stock.get('composite_growth_score', 0)
-                                        score_color = "🟢" if composite_score >= 70 else "🟡" if composite_score >= 50 else "🔴"
+                                    # Determine overall growth health status (V9.py pattern)
+                                    if composite_score >= 80:
+                                        growth_status = "💎 Elite Growth Quality"
+                                        status_color = "success"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 65:
+                                        growth_status = "🌟 Excellent Growth"
+                                        status_color = "success"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 50:
+                                        growth_status = "✅ Good Growth"
+                                        status_color = "info"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 35:
+                                        growth_status = "⚪ Average Growth"
+                                        status_color = "warning"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    else:
+                                        growth_status = "⚠️ Weak Growth"
+                                        status_color = "error"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    
+                                    # Display status banner (V9.py pattern: getattr for dynamic color)
+                                    getattr(st, status_color)(status_msg)
+                                    
+                                    # Key Metrics Grid (V9.py pattern: 4-column compact layout)
+                                    st.markdown("---")
+                                    metric_cols = st.columns(4)
+                                    
+                                    with metric_cols[0]:
                                         st.metric(
                                             label="Composite Score",
                                             value=f"{composite_score:.1f}/100",
-                                            help="Overall liquidity growth health combining consistency, acceleration, and alignment"
+                                            help="Overall liquidity growth health"
                                         )
-                                        st.markdown(f"**{score_color} Quality:** {stock.get('growth_quality_tier', 'Unknown')}")
                                     
-                                    with growth_cols[1]:
+                                    with metric_cols[1]:
                                         momentum = stock.get('growth_momentum', 0)
-                                        momentum_icon = "⚡" if momentum > 20 else "➡️" if momentum > 0 else "📉"
+                                        momentum_delta = "↗️" if momentum > 20 else "→" if momentum > 0 else "↘️"
                                         st.metric(
-                                            label="Growth Momentum",
+                                            label="Momentum",
                                             value=f"{momentum:+.1f}%",
-                                            help="Acceleration/deceleration in growth rate (2nd derivative)"
+                                            delta=f"{momentum_delta}",
+                                            help="Growth acceleration rate"
                                         )
-                                        st.markdown(f"**{momentum_icon} Trend:** {stock.get('growth_trend', 'Unknown')}")
                                     
-                                    with growth_cols[2]:
-                                        smart_money = stock.get('smart_money_flow', 'Unknown')
-                                        st.metric(
-                                            label="Smart Money Flow",
-                                            value=smart_money.split(' ', 1)[1] if ' ' in smart_money else smart_money,
-                                            help="Institutional/smart money accumulation detection"
-                                        )
+                                    with metric_cols[2]:
                                         consistency = stock.get('growth_consistency', 0)
-                                        st.markdown(f"**🎯 Consistency:** {consistency:.0f}/100")
+                                        st.metric(
+                                            label="Consistency",
+                                            value=f"{consistency:.0f}/100",
+                                            help="Pattern reliability"
+                                        )
                                     
-                                    # Expandable detailed analytics
-                                    with st.expander("📊 Detailed Growth Analytics", expanded=False):
-                                        # Growth Expansion Metrics
-                                        st.markdown("**📈 Growth Expansion**")
-                                        exp_cols = st.columns(2)
+                                    with metric_cols[3]:
+                                        alignment = stock.get('growth_alignment', 0)
+                                        st.metric(
+                                            label="Alignment",
+                                            value=f"{alignment:.0f}/100",
+                                            help="Period synchronization"
+                                        )
+                                    
+                                    # Growth Period Analysis (V9.py pattern: 2-column status + analysis)
+                                    st.markdown("---")
+                                    period_col1, period_col2 = st.columns([1, 2])
+                                    
+                                    with period_col1:
+                                        st.markdown("**📈 Period Growth**")
+                                        growth_30_90 = stock.get('growth_30_to_90', 0)
+                                        growth_90_180 = stock.get('growth_90_to_180', 0)
                                         
-                                        with exp_cols[0]:
-                                            growth_30_90 = stock.get('growth_30_to_90', 0)
-                                            st.metric("30d → 90d Growth", f"{growth_30_90:+.1f}%")
+                                        # Growth rate interpretation (V9.py pattern)
+                                        if growth_30_90 > 50 and growth_90_180 > 50:
+                                            st.success("🚀 **Explosive** - Both periods surging")
+                                        elif growth_30_90 > 25 and growth_90_180 > 25:
+                                            st.success("📈 **Strong** - Consistent high growth")
+                                        elif growth_30_90 > 10 and growth_90_180 > 10:
+                                            st.info("✅ **Steady** - Reliable expansion")
+                                        elif momentum > 20:
+                                            st.info("⚡ **Accelerating** - Building momentum")
+                                        elif growth_30_90 > 0 and growth_90_180 > 0:
+                                            st.info("➡️ **Stable** - Mild growth")
+                                        elif growth_30_90 < -25 or growth_90_180 < -25:
+                                            st.warning("📉 **Declining** - Liquidity contraction")
+                                        else:
+                                            st.warning("⚪ **Mixed** - Divergent signals")
+                                    
+                                    with period_col2:
+                                        st.markdown("**📊 Growth Breakdown**")
                                         
-                                        with exp_cols[1]:
-                                            growth_90_180 = stock.get('growth_90_to_180', 0)
-                                            st.metric("90d → 180d Growth", f"{growth_90_180:+.1f}%")
+                                        # Compact growth display (V9.py pattern: formatted strings)
+                                        growth_info = f"""
+                                        - **30d → 90d:** {growth_30_90:+.1f}% {'📈' if growth_30_90 > 0 else '📉'}
+                                        - **90d → 180d:** {growth_90_180:+.1f}% {'📈' if growth_90_180 > 0 else '📉'}
+                                        - **Momentum:** {momentum:+.1f}% {'⚡ Accelerating' if momentum > 20 else '➡️ Neutral' if momentum > 0 else '🔻 Decelerating'}
+                                        - **Acceleration:** {stock.get('growth_acceleration', 0):.0f}/100 {'🚀' if stock.get('growth_acceleration', 0) >= 75 else '✅' if stock.get('growth_acceleration', 0) >= 50 else '⚪'}
+                                        """
+                                        st.markdown(growth_info)
+                                    
+                                    # Smart Money Detection (V9.py pattern: prominent alerts)
+                                    if "Strong Accumulation" in smart_money:
+                                        st.success("🎯 **Strong Institutional Accumulation Detected** - Clear signs of smart money buying pressure")
+                                    elif "Moderate Accumulation" in smart_money:
+                                        st.info("✅ **Moderate Institutional Interest** - Positive accumulation signals")
+                                    elif "Distribution" in smart_money:
+                                        st.error("❌ **Distribution Pattern Detected** - Institutional selling pressure")
+                                    
+                                    # Expandable Detailed Analytics (V9.py pattern: hide complexity)
+                                    with st.expander("🔬 Advanced Analytics & Interpretation", expanded=False):
+                                        # Quality & Consistency Matrix
+                                        st.markdown("**📊 Quality Metrics**")
+                                        quality_cols = st.columns(3)
+                                        
+                                        with quality_cols[0]:
+                                            st.metric("Quality Tier", stock.get('growth_quality_tier', 'Unknown'))
+                                        
+                                        with quality_cols[1]:
+                                            st.metric("Consistency", f"{consistency:.0f}/100")
+                                        
+                                        with quality_cols[2]:
+                                            st.metric("Alignment", f"{alignment:.0f}/100")
                                         
                                         st.markdown("---")
                                         
-                                        # Advanced Scores
-                                        st.markdown("**⚙️ Advanced Metrics**")
-                                        adv_cols = st.columns(2)
+                                        # Professional Interpretation (V9.py pattern: educational content)
+                                        st.markdown("**💡 Professional Interpretation**")
                                         
-                                        with adv_cols[0]:
-                                            acceleration = stock.get('growth_acceleration', 0)
-                                            st.metric("Acceleration Score", f"{acceleration:.0f}/100",
-                                                     help="Rate of change in growth momentum")
+                                        interpretation_data = {
+                                            'Indicator': [],
+                                            'Value': [],
+                                            'Signal': []
+                                        }
                                         
-                                        with adv_cols[1]:
-                                            alignment = stock.get('growth_alignment', 0)
-                                            st.metric("Growth Alignment", f"{alignment:.0f}/100",
-                                                     help="How well all periods move together")
+                                        # Composite Score
+                                        interpretation_data['Indicator'].append('Composite Score')
+                                        interpretation_data['Value'].append(f"{composite_score:.1f}/100")
+                                        if composite_score >= 80:
+                                            interpretation_data['Signal'].append('💎 Elite - Exceptional liquidity growth')
+                                        elif composite_score >= 65:
+                                            interpretation_data['Signal'].append('🌟 Excellent - Strong institutional interest')
+                                        elif composite_score >= 50:
+                                            interpretation_data['Signal'].append('✅ Good - Healthy growth pattern')
+                                        elif composite_score >= 35:
+                                            interpretation_data['Signal'].append('⚪ Average - Mixed signals')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Weak - Caution advised')
                                         
-                                        # Interpretation Guide
+                                        # Momentum
+                                        interpretation_data['Indicator'].append('Growth Momentum')
+                                        interpretation_data['Value'].append(f"{momentum:+.1f}%")
+                                        if momentum > 50:
+                                            interpretation_data['Signal'].append('🚀 Explosive - Rapid acceleration')
+                                        elif momentum > 20:
+                                            interpretation_data['Signal'].append('⚡ Strong - Clear acceleration')
+                                        elif momentum > 0:
+                                            interpretation_data['Signal'].append('➡️ Positive - Mild acceleration')
+                                        elif momentum > -20:
+                                            interpretation_data['Signal'].append('📉 Mild - Slight deceleration')
+                                        else:
+                                            interpretation_data['Signal'].append('🔻 Negative - Strong deceleration')
+                                        
+                                        # Consistency
+                                        interpretation_data['Indicator'].append('Consistency')
+                                        interpretation_data['Value'].append(f"{consistency:.0f}/100")
+                                        if consistency >= 70:
+                                            interpretation_data['Signal'].append('🎯 High - Very reliable pattern')
+                                        elif consistency >= 50:
+                                            interpretation_data['Signal'].append('✅ Good - Dependable growth')
+                                        elif consistency >= 30:
+                                            interpretation_data['Signal'].append('⚪ Fair - Some variance')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Low - Erratic pattern')
+                                        
+                                        # Alignment
+                                        interpretation_data['Indicator'].append('Alignment')
+                                        interpretation_data['Value'].append(f"{alignment:.0f}/100")
+                                        if alignment >= 80:
+                                            interpretation_data['Signal'].append('🎪 Perfect - All periods synchronized')
+                                        elif alignment >= 60:
+                                            interpretation_data['Signal'].append('✅ Good - Aligned growth')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Divergent - Mixed timeframes')
+                                        
+                                        interp_df = pd.DataFrame(interpretation_data)
+                                        st.dataframe(interp_df, hide_index=True, use_container_width=True)
+                                        
                                         st.markdown("---")
-                                        st.markdown("**💡 Interpretation Guide**")
+                                        st.markdown("**🎓 Key Insights**")
                                         st.markdown("""
-                                        - **Composite Score 80+:** Elite growth quality - strong, consistent liquidity expansion
-                                        - **Momentum 20+%:** Accelerating growth - recent periods stronger than older ones
-                                        - **Consistency 70+:** Reliable growth pattern across all timeframes
-                                        - **Strong Accumulation:** Clear signs of institutional buying pressure
-                                        - **High Alignment (80+):** All periods showing synchronized growth
+                                        - **High Composite + Strong Accumulation** = Institutional confidence, potential breakout
+                                        - **Positive Momentum + High Consistency** = Sustainable growth trend
+                                        - **High Alignment** = All timeframes confirm trend strength
+                                        - **Accelerating (momentum > 20%)** = Growth rate increasing, early institutional phase
+                                        - **Elite Quality (80+)** = Top-tier liquidity expansion, liquid bluechip behavior
                                         """)
                         
                         with detail_tabs[5]:  # Advanced Metrics
