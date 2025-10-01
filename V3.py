@@ -7779,6 +7779,8 @@ class FilterEngine:
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
             'growth_score_range': (0.0, 100.0),
+            'growth_trend_selection': "All Trends",
+            'growth_trend_custom_range': (0.0, 100.0),
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
@@ -8226,8 +8228,14 @@ class FilterEngine:
                 min_score, max_score = score_range
                 masks.append((df['composite_growth_score'] >= min_score) & (df['composite_growth_score'] <= max_score))
         
-        # 5.56.2. Growth Trend Classification Filter
-        if 'growth_trends' in filters and 'growth_trend' in df.columns:
+        # 5.56.2. Growth Trend Classification Filter (with Custom Range support)
+        if 'growth_trend_custom_range' in filters and 'composite_growth_score' in df.columns:
+            # Custom Range selected - filter by growth score range
+            custom_range = filters['growth_trend_custom_range']
+            min_score, max_score = custom_range
+            masks.append((df['composite_growth_score'] >= min_score) & (df['composite_growth_score'] <= max_score))
+        elif 'growth_trends' in filters and 'growth_trend' in df.columns:
+            # Preset trend selected - filter by trend classification
             selected_trends = filters['growth_trends']
             if selected_trends:
                 masks.append(create_mask_from_isin('growth_trend', selected_trends))
@@ -8622,6 +8630,8 @@ class FilterEngine:
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
             'growth_score_range': (0.0, 100.0),
+            'growth_trend_selection': "All Trends",
+            'growth_trend_custom_range': (0.0, 100.0),
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
@@ -9864,6 +9874,8 @@ class SessionStateManager:
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
                 'growth_score_range': (0.0, 100.0),
+                'growth_trend_selection': "All Trends",
+                'growth_trend_custom_range': (0.0, 100.0),
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
@@ -10156,6 +10168,8 @@ class SessionStateManager:
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
                 'growth_score_range': (0.0, 100.0),
+                'growth_trend_selection': "All Trends",
+                'growth_trend_custom_range': (0.0, 100.0),
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
@@ -12235,28 +12249,64 @@ def main():
                 if growth_score_range != (0.0, 100.0):
                     filters['growth_score_range'] = growth_score_range
             
-            # Growth Trend Classification Filter
+            # Growth Trend Classification Filter with Custom Range
             if 'growth_trend' in ranked_df_display.columns:
-                growth_trend_options = [
-                    "🚀 Explosive Growth",
-                    "📈 Strong Growth",
-                    "✅ Steady Growth",
-                    "⚡ Accelerating",
-                    "➡️ Stable",
-                    "📉 Declining",
-                    "⚪ Mixed"
-                ]
-                growth_trends = st.multiselect(
-                    "📈 Growth Trend Classification",
-                    options=growth_trend_options,
-                    default=st.session_state.filter_state.get('growth_trends', []),
-                    key='growth_trend_multiselect',
-                    on_change=lambda: st.session_state.filter_state.update({'growth_trends': st.session_state.growth_trend_multiselect}),
-                    help="📊 Filter by liquidity growth trend patterns"
+                st.markdown("**📈 Growth Trend Classification**")
+                
+                growth_trend_options = {
+                    "All Trends": None,
+                    "🚀 Explosive Growth": "🚀 Explosive Growth",
+                    "📈 Strong Growth": "📈 Strong Growth",
+                    "✅ Steady Growth": "✅ Steady Growth",
+                    "⚡ Accelerating": "⚡ Accelerating",
+                    "➡️ Stable": "➡️ Stable",
+                    "📉 Declining": "📉 Declining",
+                    "⚪ Mixed": "⚪ Mixed",
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_trend_selection = st.session_state.filter_state.get('growth_trend_selection', "All Trends")
+                if current_trend_selection not in growth_trend_options:
+                    current_trend_selection = "All Trends"
+                
+                # Custom sync function for growth trend with custom range support
+                def sync_growth_trend_with_custom():
+                    if 'growth_trend_selectbox' in st.session_state:
+                        selected = st.session_state.growth_trend_selectbox
+                        st.session_state.filter_state['growth_trend_selection'] = selected
+                
+                def sync_growth_trend_custom_slider():
+                    if 'growth_trend_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['growth_trend_custom_range'] = st.session_state.growth_trend_custom_range_slider
+                
+                selected_growth_trend = st.selectbox(
+                    "Growth Trend Quality",
+                    options=list(growth_trend_options.keys()),
+                    index=list(growth_trend_options.keys()).index(current_trend_selection),
+                    help="Filter stocks by liquidity growth trend patterns. Choose Custom Range for precise growth score control.",
+                    key="growth_trend_selectbox",
+                    on_change=sync_growth_trend_with_custom
                 )
                 
-                if growth_trends:
-                    filters['growth_trends'] = growth_trends
+                # Show custom range slider when Custom Range is selected
+                if selected_growth_trend == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (0, 100)
+                    current_custom_range = st.session_state.filter_state.get('growth_trend_custom_range', (0.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Growth Score Range",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="🚀 85+: Explosive | 📈 70-84: Strong | ✅ 55-69: Steady | ➡️ 40-54: Stable | 📉 25-39: Declining | ⚪ <25: Weak",
+                        key="growth_trend_custom_range_slider",
+                        on_change=sync_growth_trend_custom_slider
+                    )
+                    filters['growth_trend_custom_range'] = custom_range
+                elif selected_growth_trend != "All Trends":
+                    # Store the selected preset trend
+                    filters['growth_trends'] = [growth_trend_options[selected_growth_trend]]
             
             # Growth Quality Tier Filter
             if 'growth_quality_tier' in ranked_df_display.columns:
