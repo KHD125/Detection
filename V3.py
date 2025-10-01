@@ -5607,6 +5607,736 @@ class RankingEngine:
                 logger.info(f"Worst performing category: {worst_category}")
         
         return df
+
+# ============================================
+# MARKET OVERVIEW ANALYSIS - PROFESSIONAL MARKET INSIGHTS
+# ============================================
+
+class SimpleMarketAnalysis:
+    """Market analysis using actual V9.py columns
+    
+    This class provides market analysis functionality aligned with V9.py data structure.
+    It follows V9.py standards for error handling, data validation, and logging.
+    
+    Return columns mapping:
+    - 1 Day → ret_1d
+    - 7 Days → ret_7d  
+    - 30 Days → ret_30d
+    - 3 Months → ret_3m
+    - 6 Months → ret_6m
+    - 1 Year → ret_1y
+    
+    52-week metrics (existing in V9.py):
+    - from_low_pct: % distance FROM 52-week low
+    - from_high_pct: % distance FROM 52-week high
+    """
+    
+    @staticmethod
+    def calculate_52w_metrics(df: pd.DataFrame) -> pd.DataFrame:
+        """Use existing 52-week metrics from V9.py data
+        
+        V9.py already has:
+        - from_low_pct: percentage distance FROM 52-week low (how much above low)
+        - from_high_pct: percentage distance FROM 52-week high (how much below high)
+        
+        Args:
+            df: DataFrame with V9.py columns
+            
+        Returns:
+            DataFrame with calculated 52-week position metrics
+        """
+        if df is None or df.empty:
+            logger.warning("calculate_52w_metrics: Empty DataFrame received")
+            return df
+            
+        try:
+            df = df.copy()
+            
+            # Use existing columns directly with validation
+            if 'from_low_pct' in df.columns:
+                # Clean and validate numeric values
+                df['from_low_pct'] = pd.to_numeric(df['from_low_pct'], errors='coerce')
+                df['52w_low_distance'] = df['from_low_pct']
+            else:
+                logger.debug("calculate_52w_metrics: 'from_low_pct' column not found")
+            
+            if 'from_high_pct' in df.columns:
+                # Clean and validate numeric values
+                df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+                df['52w_high_distance'] = df['from_high_pct']
+                
+                # Calculate position: 0% from high = 100 position, 100% from high = 0 position
+                df['52w_position'] = np.maximum(0, 100 - df['from_high_pct'].fillna(100))
+            else:
+                logger.debug("calculate_52w_metrics: 'from_high_pct' column not found")
+            
+            logger.debug(f"calculate_52w_metrics: Processed {len(df)} rows")
+            return df
+            
+        except Exception as e:
+            logger.error(f"calculate_52w_metrics failed: {e}", exc_info=True)
+            return df  # Return original df on error
+    
+    @staticmethod
+    def get_return_column_for_period(period: str) -> str:
+        """Map time period to appropriate return column
+        
+        Args:
+            period: Time period string (e.g., "1 Day", "30 Days")
+            
+        Returns:
+            Column name for the return data (e.g., "ret_1d", "ret_30d")
+        """
+        period_map = {
+            "1 Day": "ret_1d",
+            "7 Days": "ret_7d", 
+            "30 Days": "ret_30d",
+            "3 Months": "ret_3m",
+            "6 Months": "ret_6m",
+            "1 Year": "ret_1y"
+        }
+        return period_map.get(period, "ret_30d")
+    
+    @staticmethod
+    def filter_stocks_by_universe(df: pd.DataFrame, universe: str) -> pd.DataFrame:
+        """Filter stocks based on selected universe
+        
+        Args:
+            df: DataFrame to filter
+            universe: Universe selection ("Top 500 Stocks" or "All Stocks")
+            
+        Returns:
+            Filtered DataFrame
+        """
+        if df is None or df.empty:
+            logger.warning("filter_stocks_by_universe: Empty DataFrame received")
+            return pd.DataFrame()
+            
+        try:
+            if universe == "Top 500 Stocks":
+                # Filter by rank or master_score to get top 500
+                if 'rank' in df.columns:
+                    result = df.nsmallest(500, 'rank')
+                    logger.info(f"filter_stocks_by_universe: Filtered to top 500 by rank")
+                elif 'master_score' in df.columns:
+                    result = df.nlargest(500, 'master_score')
+                    logger.info(f"filter_stocks_by_universe: Filtered to top 500 by master_score")
+                else:
+                    result = df.head(500)
+                    logger.warning(f"filter_stocks_by_universe: No rank/master_score, using first 500")
+            else:  # "All Stocks"
+                result = df
+                logger.info(f"filter_stocks_by_universe: Using all {len(df)} stocks")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"filter_stocks_by_universe failed: {e}", exc_info=True)
+            return df
+    
+    @staticmethod
+    def get_stock_views(df: pd.DataFrame, view_type: str, time_period: str, universe: str) -> pd.DataFrame:
+        """Get different stock views based on selection
+        
+        Args:
+            df: Source DataFrame with stock data
+            view_type: Type of view ("Gainers", "Losers", "52W High", "52W Low", "Active")
+            time_period: Time period for returns
+            universe: Stock universe filter
+            
+        Returns:
+            Filtered and sorted DataFrame for the requested view
+        """
+        # Critical validation - V9.py standard
+        if df is None or df.empty:
+            logger.warning("get_stock_views: Empty DataFrame received")
+            return pd.DataFrame()
+        
+        if 'ticker' not in df.columns:
+            logger.error("get_stock_views: Missing critical 'ticker' column")
+            return pd.DataFrame()
+        
+        try:
+            logger.info(f"get_stock_views: Processing {len(df)} stocks, view={view_type}, period={time_period}, universe={universe}")
+            
+            # First filter by universe
+            df = SimpleMarketAnalysis.filter_stocks_by_universe(df, universe)
+            
+            if df.empty:
+                logger.warning("get_stock_views: Empty DataFrame after universe filter")
+                return pd.DataFrame()
+            
+            # Calculate/map 52w metrics (uses existing from_low_pct and from_high_pct)
+            df = SimpleMarketAnalysis.calculate_52w_metrics(df)
+            
+            # Get the appropriate return column for the time period
+            return_col = SimpleMarketAnalysis.get_return_column_for_period(time_period)
+            
+            # Process based on view type
+            if view_type == "52W High":
+                if 'from_high_pct' in df.columns:
+                    # Clean numeric values
+                    df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+                    # Stocks close to 52W high have LOW from_high_pct
+                    result = df[df['from_high_pct'] < 15]  # Within 15% of high
+                    result = result.sort_values('from_high_pct', ascending=True)  # Closest to high first
+                    logger.info(f"get_stock_views: Found {len(result)} stocks near 52W high")
+                else:
+                    logger.warning("get_stock_views: 'from_high_pct' column not found for 52W High view")
+                    result = df
+                
+            elif view_type == "52W Low":
+                if 'from_low_pct' in df.columns:
+                    # Clean numeric values
+                    df['from_low_pct'] = pd.to_numeric(df['from_low_pct'], errors='coerce')
+                    # Stocks close to 52W low have LOW from_low_pct
+                    result = df[df['from_low_pct'] < 15]  # Within 15% of low
+                    result = result.sort_values('from_low_pct', ascending=True)  # Closest to low first
+                    logger.info(f"get_stock_views: Found {len(result)} stocks near 52W low")
+                else:
+                    logger.warning("get_stock_views: 'from_low_pct' column not found for 52W Low view")
+                    result = df
+                
+            elif view_type == "Gainers":
+                if return_col in df.columns:
+                    # Clean numeric values
+                    df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+                    result = df[df[return_col] > 0].sort_values(return_col, ascending=False)
+                    logger.info(f"get_stock_views: Found {len(result)} gainers for {time_period}")
+                else:
+                    logger.warning(f"get_stock_views: Column '{return_col}' not found for Gainers view")
+                    result = pd.DataFrame()
+                        
+            elif view_type == "Losers":
+                if return_col in df.columns:
+                    # Clean numeric values
+                    df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+                    result = df[df[return_col] < 0].sort_values(return_col, ascending=True)
+                    logger.info(f"get_stock_views: Found {len(result)} losers for {time_period}")
+                else:
+                    logger.warning(f"get_stock_views: Column '{return_col}' not found for Losers view")
+                    result = pd.DataFrame()
+                        
+            elif view_type == "Active":
+                if 'volume_30d' in df.columns:
+                    result = df.sort_values('volume_30d', ascending=False)
+                    logger.info(f"get_stock_views: Sorted by volume_30d")
+                elif 'rvol' in df.columns:
+                    result = df.sort_values('rvol', ascending=False)
+                    logger.info(f"get_stock_views: Sorted by rvol")
+                else:
+                    logger.warning("get_stock_views: No volume columns found for Active view")
+                    result = df
+            
+            else:  # Default view
+                if 'rank' in df.columns:
+                    result = df.sort_values('rank')
+                else:
+                    result = df
+                logger.info(f"get_stock_views: Using default view")
+            
+            # Return top 20 results
+            final_result = result.head(20)
+            logger.info(f"get_stock_views: Returning {len(final_result)} stocks")
+            return final_result
+            
+        except Exception as e:
+            logger.error(f"get_stock_views failed: {e}", exc_info=True)
+            return pd.DataFrame()
+    
+    @staticmethod
+    def get_industry_analysis(df: pd.DataFrame, group_by: str, time_period: str) -> pd.DataFrame:
+        """Analyze performance by Industry or Sector for specific time period
+        
+        Args:
+            df: Source DataFrame
+            group_by: Grouping type ("Industry" or "Sector")
+            time_period: Time period for analysis
+            
+        Returns:
+            Aggregated DataFrame with industry/sector metrics
+        """
+        if df is None or df.empty:
+            logger.warning("get_industry_analysis: Empty DataFrame received")
+            return pd.DataFrame()
+        
+        try:
+            logger.info(f"get_industry_analysis: Processing {len(df)} stocks, group_by={group_by}, period={time_period}")
+            
+            # Determine grouping column
+            if group_by == "Sector" and 'sector' in df.columns:
+                group_col = 'sector'
+            elif 'industry' in df.columns:
+                group_col = 'industry'
+            elif 'sector' in df.columns:
+                group_col = 'sector'
+            else:
+                logger.warning("get_industry_analysis: No industry or sector column found")
+                return pd.DataFrame()
+            
+            # Get return column for the selected period
+            return_col = SimpleMarketAnalysis.get_return_column_for_period(time_period)
+            
+            # Clean numeric columns before aggregation
+            if return_col in df.columns:
+                df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+            
+            if 'from_high_pct' in df.columns:
+                df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+            
+            if 'rvol' in df.columns:
+                df['rvol'] = pd.to_numeric(df['rvol'], errors='coerce')
+            
+            if 'master_score' in df.columns:
+                df['master_score'] = pd.to_numeric(df['master_score'], errors='coerce')
+            
+            # Build aggregation dict based on available columns
+            agg_dict = {'ticker': 'count'}
+            
+            if return_col in df.columns:
+                agg_dict[return_col] = ['mean', 'median']
+            
+            if 'rvol' in df.columns:
+                agg_dict['rvol'] = 'mean'
+                
+            if 'master_score' in df.columns:
+                agg_dict['master_score'] = 'mean'
+                
+            # Use actual 52w columns from V9.py
+            if 'from_high_pct' in df.columns:
+                agg_dict['from_high_pct'] = 'mean'  # Average distance from 52W high
+            
+            # Calculate metrics by group
+            grouped = df.groupby(group_col).agg(agg_dict).round(2)
+            
+            # Flatten column names
+            grouped.columns = ['_'.join(col).strip() if col[1] else col[0] 
+                              for col in grouped.columns.values]
+            grouped = grouped.reset_index()
+            
+            # Rename columns for display
+            rename_map = {'ticker_count': 'Companies'}
+            
+            if return_col in df.columns:
+                if f'{return_col}_mean' in grouped.columns:
+                    rename_map[f'{return_col}_mean'] = 'Avg Return'
+                if f'{return_col}_median' in grouped.columns:
+                    rename_map[f'{return_col}_median'] = 'Median Return'
+            
+            if 'rvol_mean' in grouped.columns:
+                rename_map['rvol_mean'] = 'Avg Volume'
+                
+            if 'master_score_mean' in grouped.columns:
+                rename_map['master_score_mean'] = 'Avg Score'
+                
+            if 'from_high_pct_mean' in grouped.columns:
+                rename_map['from_high_pct_mean'] = '52WH Distance'  # Distance from 52W high
+            
+            grouped = grouped.rename(columns=rename_map)
+            
+            # Sort by performance if available
+            if 'Avg Return' in grouped.columns:
+                grouped = grouped.sort_values('Avg Return', ascending=False)
+            
+            # Calculate market outperformance
+            if 'Avg Return' in grouped.columns and return_col in df.columns:
+                market_return = df[return_col].mean()
+                grouped['Outperformance'] = (grouped['Avg Return'] - market_return).round(2)
+            
+            logger.info(f"get_industry_analysis: Returning {len(grouped)} groups")
+            return grouped
+            
+        except Exception as e:
+            logger.error(f"get_industry_analysis failed: {e}", exc_info=True)
+            return pd.DataFrame()
+
+
+class SimpleMarketUI:
+    """UI Components for Simple Market Analysis
+    
+    This class provides Streamlit UI components following V9.py patterns for
+    session state management, error handling, and user experience.
+    """
+    
+    @staticmethod
+    def render_market_analysis(df: pd.DataFrame):
+        """Render market analysis with Stocks and Industries sections
+        
+        Args:
+            df: Source DataFrame with stock data
+        """
+        if df is None or df.empty:
+            st.warning("⚠️ No data available for market analysis")
+            logger.warning("render_market_analysis: Empty DataFrame received")
+            return
+        
+        try:
+            logger.info(f"render_market_analysis: Rendering with {len(df)} stocks")
+            
+            # Initialize session states for button persistence (V9.py pattern)
+            if 'market_analysis_stock_view' not in st.session_state:
+                st.session_state.market_analysis_stock_view = "Gainers"
+            if 'market_analysis_industry_filter' not in st.session_state:
+                st.session_state.market_analysis_industry_filter = "All"
+            
+            # Custom CSS for better styling
+            st.markdown("""
+            <style>
+            .stock-header {
+                background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 10px;
+            }
+            .industry-header {
+                background: linear-gradient(90deg, #16a085 0%, #27ae60 100%);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Create two columns for the two sections
+            col1, col2 = st.columns([1, 1])
+            
+            # ====================================
+            # STOCKS SECTION
+            # ====================================
+            with col1:
+                st.markdown('<div class="stock-header">📊 <b>Stocks</b></div>', unsafe_allow_html=True)
+                
+                # Create sub-columns for controls
+                control_col1, control_col2 = st.columns(2)
+                
+                with control_col1:
+                    # Stock universe filter
+                    stock_universe = st.selectbox(
+                        "Select Universe",
+                        ["Top 500 Stocks", "All Stocks"],
+                        key="stock_universe_filter"
+                    )
+                
+                with control_col2:
+                    # Time period selector
+                    stock_time_period = st.selectbox(
+                        "Time Period",
+                        ["1 Day", "7 Days", "30 Days", "3 Months", "6 Months", "1 Year"],
+                        index=2,  # Default to 30 Days
+                        key="stock_time_period"
+                    )
+                
+                # View type buttons
+                st.markdown("##### Select View")
+                view_cols = st.columns(5)
+                
+                with view_cols[0]:
+                    gainers_btn = st.button("📈 Gainers", key="gainers_btn", use_container_width=True)
+                with view_cols[1]:
+                    losers_btn = st.button("📉 Losers", key="losers_btn", use_container_width=True)
+                with view_cols[2]:
+                    high_btn = st.button("⬆️ 52W High", key="52w_high_btn", use_container_width=True)
+                with view_cols[3]:
+                    low_btn = st.button("⬇️ 52W Low", key="52w_low_btn", use_container_width=True)
+                with view_cols[4]:
+                    active_btn = st.button("🔥 Active", key="active_btn", use_container_width=True)
+                
+                # Update session state based on button clicks (V9.py pattern)
+                if gainers_btn:
+                    st.session_state.market_analysis_stock_view = "Gainers"
+                elif losers_btn:
+                    st.session_state.market_analysis_stock_view = "Losers"
+                elif high_btn:
+                    st.session_state.market_analysis_stock_view = "52W High"
+                elif low_btn:
+                    st.session_state.market_analysis_stock_view = "52W Low"
+                elif active_btn:
+                    st.session_state.market_analysis_stock_view = "Active"
+                
+                # Use the stored session state value
+                stock_view = st.session_state.market_analysis_stock_view
+                
+                # Show current selection
+                st.info(f"📊 Current View: **{stock_view}**")
+                
+                # Get filtered data
+                stocks_df = SimpleMarketAnalysis.get_stock_views(df, stock_view, stock_time_period, stock_universe)
+                
+                if stocks_df.empty:
+                    st.info(f"No stocks found for {stock_view} in {stock_time_period}")
+                else:
+                    # Determine which columns to display based on view
+                    return_col = SimpleMarketAnalysis.get_return_column_for_period(stock_time_period)
+                    
+                    # Check if return column exists for gainers/losers view
+                    if stock_view in ["Gainers", "Losers"] and return_col not in stocks_df.columns:
+                        st.warning(f"⚠️ Data for {stock_time_period} not available")
+                    else:
+                        # Determine company column name (V9.py uses 'company_name')
+                        company_col = None
+                        if 'company_name' in stocks_df.columns:
+                            company_col = 'company_name'
+                        elif 'company' in stocks_df.columns:
+                            company_col = 'company'
+                        
+                        # Build display columns based on view type
+                        if stock_view == "52W Low":
+                            base_cols = ['ticker', 'from_low_pct', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'from_low_pct', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'from_low_pct'
+                            metric_label = f"From 52W Low"
+                            
+                        elif stock_view == "52W High":
+                            base_cols = ['ticker', 'from_high_pct', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'from_high_pct', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'from_high_pct'
+                            metric_label = f"From 52W High"
+                            
+                        elif stock_view in ["Gainers", "Losers"]:
+                            base_cols = ['ticker', return_col, 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, return_col, 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = return_col
+                            metric_label = f"{stock_time_period}"
+                            
+                        elif stock_view == "Active":
+                            vol_col = 'volume_30d' if 'volume_30d' in stocks_df.columns else 'rvol'
+                            base_cols = ['ticker', vol_col, 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, vol_col, 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = vol_col
+                            metric_label = "Volume" if vol_col == 'volume_30d' else "Rel Volume"
+                            
+                        else:
+                            base_cols = ['ticker', 'master_score', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'master_score', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'master_score'
+                            metric_label = "Score"
+                        
+                        # Filter available columns
+                        available_cols = [col for col in display_cols if col in stocks_df.columns]
+                        display_df = stocks_df[available_cols].head(10).copy()
+                        
+                        # Format the display (V9.py formatting pattern)
+                        if 'price' in display_df.columns:
+                            display_df['Price'] = display_df['price'].apply(lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-')
+                            display_df = display_df.drop('price', axis=1)
+                        
+                        if metric_col in display_df.columns and metric_col != 'price':
+                            if 'ret' in metric_col or 'pct' in metric_col:
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:+.2f}%" if pd.notna(x) else '-'
+                                )
+                            elif metric_col == 'rvol':
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:.2f}x" if pd.notna(x) else '-'
+                                )
+                            elif metric_col == 'volume_30d':
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x/1000000:.1f}M" if pd.notna(x) and x > 1000000 
+                                    else f"{x/1000:.1f}K" if pd.notna(x) and x > 1000
+                                    else f"{x:.0f}" if pd.notna(x) else '-'
+                                )
+                            else:
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:.0f}" if pd.notna(x) else '-'
+                                )
+                            
+                            # Drop original column if we created a formatted version
+                            if metric_label != metric_col:
+                                display_df = display_df.drop(metric_col, axis=1)
+                        
+                        # Rename columns for display
+                        rename_map = {'ticker': 'Symbol'}
+                        if company_col:
+                            rename_map[company_col] = 'Company'
+                        display_df = display_df.rename(columns=rename_map)
+                        
+                        # Display the table
+                        st.dataframe(
+                            display_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            height=400
+                        )
+                        
+                        # Show summary
+                        st.caption(f"📊 {stock_view} • {stock_time_period} • {stock_universe} • Showing {len(display_df)} of {len(stocks_df)} stocks")
+            
+            # ====================================
+            # INDUSTRIES/SECTORS SECTION
+            # ====================================
+            with col2:
+                st.markdown('<div class="industry-header">🏭 <b>Industries</b></div>', unsafe_allow_html=True)
+                
+                # Create sub-columns for controls
+                ind_col1, ind_col2 = st.columns(2)
+                
+                with ind_col1:
+                    # Industry/Sector selector
+                    group_type = st.selectbox(
+                        "Group By",
+                        ["Industry", "Sector"],
+                        key="industry_sector_selector"
+                    )
+                
+                with ind_col2:
+                    # Time period selector
+                    industry_time_period = st.selectbox(
+                        "Time Period",
+                        ["1 Day", "7 Days", "30 Days", "3 Months", "6 Months", "1 Year"],
+                        index=2,  # Default to 30 Days
+                        key="industry_time_period"
+                    )
+                
+                # Performance filter buttons
+                st.markdown("##### Performance Filter")
+                perf_cols = st.columns(2)
+                
+                with perf_cols[0]:
+                    outperformers_btn = st.button("🚀 Outperformers", key="outperformers_btn", use_container_width=True)
+                with perf_cols[1]:
+                    underperformers_btn = st.button("📉 Underperformers", key="underperformers_btn", use_container_width=True)
+                
+                # Update session state based on button clicks (V9.py pattern)
+                if outperformers_btn:
+                    st.session_state.market_analysis_industry_filter = "Outperformers"
+                elif underperformers_btn:
+                    st.session_state.market_analysis_industry_filter = "Underperformers"
+                
+                # Show current filter
+                filter_status = st.session_state.market_analysis_industry_filter
+                if filter_status != "All":
+                    st.info(f"🏭 Showing: **{filter_status}**")
+                
+                # Get industry/sector analysis
+                industry_df = SimpleMarketAnalysis.get_industry_analysis(df, group_type, industry_time_period)
+                
+                if industry_df.empty:
+                    st.info(f"No {group_type.lower()} data available for {industry_time_period}")
+                else:
+                    # Filter based on session state
+                    if st.session_state.market_analysis_industry_filter == "Outperformers" and 'Avg Return' in industry_df.columns:
+                        industry_df = industry_df[industry_df['Avg Return'] > 0]
+                    elif st.session_state.market_analysis_industry_filter == "Underperformers" and 'Avg Return' in industry_df.columns:
+                        industry_df = industry_df[industry_df['Avg Return'] < 0]
+                    
+                    if not industry_df.empty:
+                        # Prepare display dataframe
+                        display_cols = []
+                        
+                        # Industry/Sector column
+                        group_col = group_type.lower() if group_type.lower() in industry_df.columns else industry_df.columns[0]
+                        display_cols.append(group_col)
+                        
+                        # Add available columns
+                        if 'Companies' in industry_df.columns:
+                            display_cols.append('Companies')
+                        if 'Avg Return' in industry_df.columns:
+                            display_cols.append('Avg Return')
+                        if '52WH Distance' in industry_df.columns:
+                            display_cols.append('52WH Distance')
+                        
+                        # Filter to available columns
+                        available_display = [col for col in display_cols if col in industry_df.columns]
+                        industry_display = industry_df[available_display].head(10).copy()
+                        
+                        # Format the display
+                        final_display = pd.DataFrame()
+                        
+                        # Industry/Sector column with company count
+                        if group_col in industry_display.columns:
+                            column_name = group_type  # "Industry" or "Sector"
+                            final_display[column_name] = industry_display[group_col]
+                            if 'Companies' in industry_display.columns:
+                                final_display[column_name] = final_display[column_name] + '\n' + industry_display['Companies'].apply(lambda x: f"{x} companies")
+                        
+                        # Returns column with indicator
+                        if 'Avg Return' in industry_display.columns:
+                            def get_arrow(val):
+                                if pd.isna(val):
+                                    return ""
+                                elif val > 0:
+                                    return "▲"
+                                else:
+                                    return "▼"
+                            
+                            arrows = industry_display['Avg Return'].apply(get_arrow)
+                            returns = industry_display['Avg Return'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else '-')
+                            
+                            return_col_name = f"{industry_time_period}"
+                            final_display[return_col_name] = arrows + " " + returns
+                            final_display['_return_value'] = industry_display['Avg Return']
+                        
+                        # 52WH Distance column
+                        if '52WH Distance' in industry_display.columns:
+                            final_display['52WH Distance'] = industry_display['52WH Distance'].apply(
+                                lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
+                            )
+                        
+                        # Remove internal columns
+                        display_columns = [col for col in final_display.columns if not col.startswith('_')]
+                        industry_display_clean = final_display[display_columns]
+                        
+                        # Build column config
+                        column_config = {}
+                        
+                        if "52WH Distance" in industry_display_clean.columns:
+                            column_config["52WH Distance"] = st.column_config.TextColumn(
+                                "52WH Distance", 
+                                width="small",
+                                help="Average distance from 52-week high"
+                            )
+                        
+                        if group_type in industry_display_clean.columns:
+                            column_config[group_type] = st.column_config.TextColumn(
+                                group_type,
+                                width="large",
+                                help=f"{group_type} name and company count"
+                            )
+                        
+                        if industry_time_period in industry_display_clean.columns:
+                            column_config[industry_time_period] = st.column_config.TextColumn(
+                                industry_time_period,
+                                width="small",
+                                help=f"Average {industry_time_period.lower()} returns"
+                            )
+                        
+                        # Display the table
+                        st.dataframe(
+                            industry_display_clean,
+                            use_container_width=True,
+                            hide_index=True,
+                            height=400,
+                            column_config=column_config
+                        )
+                        
+                        # Show summary
+                        filter_text = "Outperformers" if st.session_state.market_analysis_industry_filter == "Outperformers" else "Underperformers" if st.session_state.market_analysis_industry_filter == "Underperformers" else "All"
+                        st.caption(f"🏭 {filter_text} {group_type}s • {industry_time_period} • Showing {len(industry_display_clean)} of {len(industry_df)} items")
+                    else:
+                        st.info(f"No {filter_status.lower()} found for {group_type.lower()}s in {industry_time_period}")
+        
+        except Exception as e:
+            logger.error(f"render_market_analysis failed: {e}", exc_info=True)
+            st.error(f"⚠️ An error occurred while rendering the market analysis")
+
+
 # ============================================
 # PATTERN DETECTION ENGINE - FULLY OPTIMIZED & FIXED
 # ============================================
@@ -15504,7 +16234,23 @@ def main():
         
         if not filtered_df.empty:
             # ================================================================================================
-            # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
+            # � MARKET OVERVIEW - BROAD MARKET INSIGHTS
+            # ================================================================================================
+            
+            st.markdown("### 🌍 **MARKET OVERVIEW**")
+            st.markdown("*Get broad market insights with gainers, losers, and sector performance*")
+            
+            # Render Market Overview using SimpleMarketUI
+            try:
+                SimpleMarketUI.render_market_analysis(filtered_df)
+            except Exception as e:
+                logger.error(f"Market Overview rendering failed: {e}", exc_info=True)
+                st.error("⚠️ Unable to render Market Overview. Please try again.")
+            
+            st.markdown("---")
+            
+            # ================================================================================================
+            # �🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
             # ================================================================================================
             
             st.markdown("### 📊 **EXECUTIVE MARKET DASHBOARD**")
