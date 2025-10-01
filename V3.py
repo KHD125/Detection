@@ -6254,7 +6254,7 @@ class SimpleMarketUI:
                         
                         # Filter to available columns
                         available_display = [col for col in display_cols if col in industry_df.columns]
-                        industry_display = industry_df[available_display].head(20).copy()
+                        industry_display = industry_df[available_display].head(50).copy()
                         
                         # Format the display
                         final_display = pd.DataFrame()
@@ -6317,12 +6317,12 @@ class SimpleMarketUI:
                                 help=f"Average {industry_time_period.lower()} returns"
                             )
                         
-                        # Display the table with enhanced height for 20 industries/sectors
+                        # Display the table with enhanced height for 50 industries/sectors
                         st.dataframe(
                             industry_display_clean,
                             use_container_width=True,
                             hide_index=True,
-                            height=550,
+                            height=700,
                             column_config=column_config
                         )
                         
