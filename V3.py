@@ -5835,8 +5835,8 @@ class SimpleMarketAnalysis:
                     result = df
                 logger.info(f"get_stock_views: Using default view")
             
-            # Return top 20 results
-            final_result = result.head(20)
+            # Return top 100 results for comprehensive market overview
+            final_result = result.head(100)
             logger.info(f"get_stock_views: Returning {len(final_result)} stocks")
             return final_result
             
@@ -6130,7 +6130,7 @@ class SimpleMarketUI:
                         
                         # Filter available columns
                         available_cols = [col for col in display_cols if col in stocks_df.columns]
-                        display_df = stocks_df[available_cols].head(10).copy()
+                        display_df = stocks_df[available_cols].head(100).copy()
                         
                         # Format the display (V9.py formatting pattern)
                         if 'price' in display_df.columns:
@@ -6167,15 +6167,15 @@ class SimpleMarketUI:
                             rename_map[company_col] = 'Company'
                         display_df = display_df.rename(columns=rename_map)
                         
-                        # Display the table
+                        # Display the table with enhanced height for 100 stocks
                         st.dataframe(
                             display_df,
                             use_container_width=True,
                             hide_index=True,
-                            height=400
+                            height=600
                         )
                         
-                        # Show summary
+                        # Show summary with enhanced information
                         st.caption(f"📊 {stock_view} • {stock_time_period} • {stock_universe} • Showing {len(display_df)} of {len(stocks_df)} stocks")
             
             # ====================================
@@ -6254,7 +6254,7 @@ class SimpleMarketUI:
                         
                         # Filter to available columns
                         available_display = [col for col in display_cols if col in industry_df.columns]
-                        industry_display = industry_df[available_display].head(10).copy()
+                        industry_display = industry_df[available_display].head(20).copy()
                         
                         # Format the display
                         final_display = pd.DataFrame()
@@ -6317,16 +6317,16 @@ class SimpleMarketUI:
                                 help=f"Average {industry_time_period.lower()} returns"
                             )
                         
-                        # Display the table
+                        # Display the table with enhanced height for 20 industries/sectors
                         st.dataframe(
                             industry_display_clean,
                             use_container_width=True,
                             hide_index=True,
-                            height=400,
+                            height=550,
                             column_config=column_config
                         )
                         
-                        # Show summary
+                        # Show summary with enhanced information
                         filter_text = "Outperformers" if st.session_state.market_analysis_industry_filter == "Outperformers" else "Underperformers" if st.session_state.market_analysis_industry_filter == "Underperformers" else "All"
                         st.caption(f"🏭 {filter_text} {group_type}s • {industry_time_period} • Showing {len(industry_display_clean)} of {len(industry_df)} items")
                     else:
