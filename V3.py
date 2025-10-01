@@ -7783,7 +7783,11 @@ class FilterEngine:
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
+            'momentum_selection': "All Momentum",
+            'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
+            'consistency_selection': "All Consistency",
+            'consistency_custom_range': (0.0, 100.0),
             'consistency_range': (0.0, 100.0),
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
@@ -8244,15 +8248,27 @@ class FilterEngine:
             if selected_flows:
                 masks.append(create_mask_from_isin('smart_money_flow', selected_flows))
         
-        # 5.56.4. Growth Momentum Range Filter
-        if 'momentum_range' in filters and 'growth_momentum' in df.columns:
+        # 5.56.4. Growth Momentum Range Filter (with Custom Range support)
+        if 'momentum_custom_range' in filters and 'growth_momentum' in df.columns:
+            # Custom Range selected - filter by custom momentum range
+            custom_range = filters['momentum_custom_range']
+            min_momentum, max_momentum = custom_range
+            masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
+        elif 'momentum_range' in filters and 'growth_momentum' in df.columns:
+            # Preset momentum selected - filter by preset range
             momentum_range = filters['momentum_range']
             if momentum_range != (-100.0, 100.0):  # Only apply if not default
                 min_momentum, max_momentum = momentum_range
                 masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
         
-        # 5.56.5. Growth Consistency Range Filter
-        if 'consistency_range' in filters and 'growth_consistency' in df.columns:
+        # 5.56.5. Growth Consistency Range Filter (with Custom Range support)
+        if 'consistency_custom_range' in filters and 'growth_consistency' in df.columns:
+            # Custom Range selected - filter by custom consistency range
+            custom_range = filters['consistency_custom_range']
+            min_consistency, max_consistency = custom_range
+            masks.append((df['growth_consistency'] >= min_consistency) & (df['growth_consistency'] <= max_consistency))
+        elif 'consistency_range' in filters and 'growth_consistency' in df.columns:
+            # Preset consistency selected - filter by preset range
             consistency_range = filters['consistency_range']
             if consistency_range != (0.0, 100.0):  # Only apply if not default
                 min_consistency, max_consistency = consistency_range
@@ -8626,7 +8642,11 @@ class FilterEngine:
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
+            'momentum_selection': "All Momentum",
+            'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
+            'consistency_selection': "All Consistency",
+            'consistency_custom_range': (0.0, 100.0),
             'consistency_range': (0.0, 100.0),
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
@@ -9869,7 +9889,11 @@ class SessionStateManager:
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
+                'momentum_selection': "All Momentum",
+                'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
+                'consistency_selection': "All Consistency",
+                'consistency_custom_range': (0.0, 100.0),
                 'consistency_range': (0.0, 100.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
@@ -10162,7 +10186,11 @@ class SessionStateManager:
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
+                'momentum_selection': "All Momentum",
+                'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
+                'consistency_selection': "All Consistency",
+                'consistency_custom_range': (0.0, 100.0),
                 'consistency_range': (0.0, 100.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
@@ -12251,7 +12279,7 @@ def main():
                         st.session_state.filter_state['growth_trend_custom_range'] = st.session_state.growth_trend_custom_range_slider
                 
                 selected_growth_trend = st.selectbox(
-                    "Growth Trend Quality",
+                    "📈 Growth Trend Quality",
                     options=list(growth_trend_options.keys()),
                     index=list(growth_trend_options.keys()).index(current_trend_selection),
                     help="Filter stocks by liquidity growth trend patterns. Choose Custom Range for precise growth score control.",
@@ -12321,41 +12349,135 @@ def main():
                 if smart_money_flows:
                     filters['smart_money_flows'] = smart_money_flows
             
-            # Growth Momentum Range Filter
+            # Growth Momentum Filter with Custom Range
             if 'growth_momentum' in ranked_df_display.columns:
                 st.markdown("**⚡ Growth Momentum**")
                 
-                momentum_range = st.slider(
-                    "Select Momentum Range (%)",
-                    min_value=-100.0,
-                    max_value=100.0,
-                    value=st.session_state.filter_state.get('momentum_range', (-100.0, 100.0)),
-                    step=10.0,
-                    key='momentum_range_slider',
-                    on_change=lambda: st.session_state.filter_state.update({'momentum_range': st.session_state.momentum_range_slider}),
-                    help="⚡ Filter by growth acceleration/deceleration rate"
+                momentum_options = {
+                    "All Momentum": None,
+                    "🚀 Explosive Acceleration (50+)": (50.0, 100.0),
+                    "📈 Strong Acceleration (25-50)": (25.0, 50.0),
+                    "✅ Moderate Acceleration (10-25)": (10.0, 25.0),
+                    "⚡ Mild Acceleration (0-10)": (0.0, 10.0),
+                    "➡️ Stable (-10 to 0)": (-10.0, 0.0),
+                    "📉 Mild Deceleration (-25 to -10)": (-25.0, -10.0),
+                    "⚠️ Strong Deceleration (-50 to -25)": (-50.0, -25.0),
+                    "❌ Sharp Deceleration (<-50)": (-100.0, -50.0),
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_momentum_selection = st.session_state.filter_state.get('momentum_selection', "All Momentum")
+                if current_momentum_selection not in momentum_options:
+                    current_momentum_selection = "All Momentum"
+                
+                # Custom sync function for momentum with custom range support
+                def sync_momentum_with_custom():
+                    if 'momentum_selectbox' in st.session_state:
+                        selected = st.session_state.momentum_selectbox
+                        st.session_state.filter_state['momentum_selection'] = selected
+                        
+                        if selected == "🎯 Custom Range":
+                            # Don't set range here, will be set by slider
+                            pass
+                        elif selected != "All Momentum":
+                            st.session_state.filter_state['momentum_range'] = momentum_options[selected]
+                
+                def sync_momentum_custom_slider():
+                    if 'momentum_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['momentum_custom_range'] = st.session_state.momentum_custom_range_slider
+                
+                selected_momentum = st.selectbox(
+                    "Momentum Quality",
+                    options=list(momentum_options.keys()),
+                    index=list(momentum_options.keys()).index(current_momentum_selection),
+                    help="Filter stocks by growth momentum (acceleration/deceleration). Choose Custom Range for precise control.",
+                    key="momentum_selectbox",
+                    on_change=sync_momentum_with_custom
                 )
                 
-                if momentum_range != (-100.0, 100.0):
-                    filters['momentum_range'] = momentum_range
+                # Show custom range slider when Custom Range is selected
+                if selected_momentum == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (-100, 100)
+                    current_custom_range = st.session_state.filter_state.get('momentum_custom_range', (-100.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Momentum Range (%)",
+                        min_value=-100.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="🚀 50+: Explosive | 📈 25-50: Strong | ✅ 10-25: Moderate | ⚡ 0-10: Mild | ➡️ -10-0: Stable | 📉 -25--10: Mild Decel | ⚠️ -50--25: Strong Decel | ❌ <-50: Sharp Decel",
+                        key="momentum_custom_range_slider",
+                        on_change=sync_momentum_custom_slider
+                    )
+                    filters['momentum_custom_range'] = custom_range
+                elif selected_momentum != "All Momentum":
+                    # Store the selected preset range
+                    filters['momentum_range'] = momentum_options[selected_momentum]
             
-            # Growth Consistency Range Filter
+            # Growth Consistency Filter with Custom Range
             if 'growth_consistency' in ranked_df_display.columns:
                 st.markdown("**🎯 Growth Consistency**")
                 
-                consistency_range = st.slider(
-                    "Select Consistency Range (0-100)",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=st.session_state.filter_state.get('consistency_range', (0.0, 100.0)),
-                    step=10.0,
-                    key='consistency_range_slider',
-                    on_change=lambda: st.session_state.filter_state.update({'consistency_range': st.session_state.consistency_range_slider}),
-                    help="🎯 Filter by growth pattern consistency across periods"
+                consistency_options = {
+                    "All Consistency": None,
+                    "💎 Exceptional (85+)": (85.0, 100.0),
+                    "🌟 Excellent (70-84)": (70.0, 84.0),
+                    "✅ Good (55-69)": (55.0, 69.0),
+                    "⚪ Average (40-54)": (40.0, 54.0),
+                    "⚠️ Below Average (25-39)": (25.0, 39.0),
+                    "❌ Poor (<25)": (0.0, 24.0),
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_consistency_selection = st.session_state.filter_state.get('consistency_selection', "All Consistency")
+                if current_consistency_selection not in consistency_options:
+                    current_consistency_selection = "All Consistency"
+                
+                # Custom sync function for consistency with custom range support
+                def sync_consistency_with_custom():
+                    if 'consistency_selectbox' in st.session_state:
+                        selected = st.session_state.consistency_selectbox
+                        st.session_state.filter_state['consistency_selection'] = selected
+                        
+                        if selected == "🎯 Custom Range":
+                            # Don't set range here, will be set by slider
+                            pass
+                        elif selected != "All Consistency":
+                            st.session_state.filter_state['consistency_range'] = consistency_options[selected]
+                
+                def sync_consistency_custom_slider():
+                    if 'consistency_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['consistency_custom_range'] = st.session_state.consistency_custom_range_slider
+                
+                selected_consistency = st.selectbox(
+                    "Consistency Quality",
+                    options=list(consistency_options.keys()),
+                    index=list(consistency_options.keys()).index(current_consistency_selection),
+                    help="Filter stocks by growth pattern consistency across time periods. Choose Custom Range for precise control.",
+                    key="consistency_selectbox",
+                    on_change=sync_consistency_with_custom
                 )
                 
-                if consistency_range != (0.0, 100.0):
-                    filters['consistency_range'] = consistency_range
+                # Show custom range slider when Custom Range is selected
+                if selected_consistency == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (0, 100)
+                    current_custom_range = st.session_state.filter_state.get('consistency_custom_range', (0.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Consistency Range (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="💎 85+: Exceptional | 🌟 70-84: Excellent | ✅ 55-69: Good | ⚪ 40-54: Average | ⚠️ 25-39: Below Average | ❌ <25: Poor",
+                        key="consistency_custom_range_slider",
+                        on_change=sync_consistency_custom_slider
+                    )
+                    filters['consistency_custom_range'] = custom_range
+                elif selected_consistency != "All Consistency":
+                    # Store the selected preset range
+                    filters['consistency_range'] = consistency_options[selected_consistency]
 
         
         # Advanced filters with callbacks
