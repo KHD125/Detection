@@ -7778,7 +7778,6 @@ class FilterEngine:
             'turnover_30d_tiers': [],
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
-            'growth_score_range': (0.0, 100.0),
             'growth_trend_selection': "All Trends",
             'growth_trend_custom_range': (0.0, 100.0),
             'growth_trends': [],
@@ -8221,14 +8220,7 @@ class FilterEngine:
         
         # 5.56. 🌊 LIQUIDITY GROWTH ANALYTICS FILTERS - Advanced Multi-Period Analysis
         
-        # 5.56.1. Composite Growth Score Range Filter
-        if 'growth_score_range' in filters and 'composite_growth_score' in df.columns:
-            score_range = filters['growth_score_range']
-            if score_range != (0.0, 100.0):  # Only apply if not default
-                min_score, max_score = score_range
-                masks.append((df['composite_growth_score'] >= min_score) & (df['composite_growth_score'] <= max_score))
-        
-        # 5.56.2. Growth Trend Classification Filter (with Custom Range support)
+        # 5.56.1. Growth Trend Classification Filter (with Custom Range support)
         if 'growth_trend_custom_range' in filters and 'composite_growth_score' in df.columns:
             # Custom Range selected - filter by growth score range
             custom_range = filters['growth_trend_custom_range']
@@ -8240,26 +8232,26 @@ class FilterEngine:
             if selected_trends:
                 masks.append(create_mask_from_isin('growth_trend', selected_trends))
         
-        # 5.56.3. Growth Quality Tier Filter
+        # 5.56.2. Growth Quality Tier Filter
         if 'growth_quality_tiers' in filters and 'growth_quality_tier' in df.columns:
             selected_tiers = filters['growth_quality_tiers']
             if selected_tiers:
                 masks.append(create_mask_from_isin('growth_quality_tier', selected_tiers))
         
-        # 5.56.4. Smart Money Flow Detection Filter
+        # 5.56.3. Smart Money Flow Detection Filter
         if 'smart_money_flows' in filters and 'smart_money_flow' in df.columns:
             selected_flows = filters['smart_money_flows']
             if selected_flows:
                 masks.append(create_mask_from_isin('smart_money_flow', selected_flows))
         
-        # 5.56.5. Growth Momentum Range Filter
+        # 5.56.4. Growth Momentum Range Filter
         if 'momentum_range' in filters and 'growth_momentum' in df.columns:
             momentum_range = filters['momentum_range']
             if momentum_range != (-100.0, 100.0):  # Only apply if not default
                 min_momentum, max_momentum = momentum_range
                 masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
         
-        # 5.56.6. Growth Consistency Range Filter
+        # 5.56.5. Growth Consistency Range Filter
         if 'consistency_range' in filters and 'growth_consistency' in df.columns:
             consistency_range = filters['consistency_range']
             if consistency_range != (0.0, 100.0):  # Only apply if not default
@@ -8629,7 +8621,6 @@ class FilterEngine:
             'turnover_30d_tiers': [],
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
-            'growth_score_range': (0.0, 100.0),
             'growth_trend_selection': "All Trends",
             'growth_trend_custom_range': (0.0, 100.0),
             'growth_trends': [],
@@ -9873,7 +9864,6 @@ class SessionStateManager:
                 'turnover_30d_tiers': [],
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
-                'growth_score_range': (0.0, 100.0),
                 'growth_trend_selection': "All Trends",
                 'growth_trend_custom_range': (0.0, 100.0),
                 'growth_trends': [],
@@ -10167,7 +10157,6 @@ class SessionStateManager:
                 'turnover_30d_tiers': [],
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
-                'growth_score_range': (0.0, 100.0),
                 'growth_trend_selection': "All Trends",
                 'growth_trend_custom_range': (0.0, 100.0),
                 'growth_trends': [],
@@ -12230,24 +12219,6 @@ def main():
         
         # 🌊 LIQUIDITY GROWTH ANALYTICS FILTER - Advanced Multi-Period Analysis
         with st.expander("🌊 Liquidity Growth Analytics", expanded=False):
-            
-            # Composite Growth Score Range Filter
-            if 'composite_growth_score' in ranked_df_display.columns:
-                st.markdown("**📊 Composite Growth Score**")
-                
-                growth_score_range = st.slider(
-                    "Select Growth Score Range (0-100)",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=st.session_state.filter_state.get('growth_score_range', (0.0, 100.0)),
-                    step=5.0,
-                    key='growth_score_range_slider',
-                    on_change=lambda: st.session_state.filter_state.update({'growth_score_range': st.session_state.growth_score_range_slider}),
-                    help="🎯 Filter by overall liquidity growth health (combines consistency, acceleration, alignment)"
-                )
-                
-                if growth_score_range != (0.0, 100.0):
-                    filters['growth_score_range'] = growth_score_range
             
             # Growth Trend Classification Filter with Custom Range
             if 'growth_trend' in ranked_df_display.columns:
