@@ -215,7 +215,10 @@ class Config:
         'vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d',
         'vol_ratio_90d_180d',
         'volume_30d', 'volume_90d', 'volume_180d',
-        'daily_turnover', 'turnover_30d', 'turnover_90d', 'turnover_180d'
+        'daily_turnover', 'turnover_30d', 'turnover_90d', 'turnover_180d',
+        'growth_30_to_90', 'growth_90_to_180', 'growth_momentum', 'growth_consistency',
+        'growth_acceleration', 'growth_alignment', 'smart_money_flow', 'composite_growth_score',
+        'growth_quality_tier', 'growth_trend'
     ])
     
     # All percentage columns for consistent handling
@@ -1058,6 +1061,187 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
             logger.info(f"180-day turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
+        
+        # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
+        # Calculate growth rates, momentum, consistency, acceleration, and alignment
+        
+        # 1. Liquidity Growth Expansion (30d → 90d → 180d)
+        if all(col in df.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
+            # Growth from 30d to 90d
+            df['growth_30_to_90'] = df.apply(
+                lambda row: ((row['turnover_90d'] - row['turnover_30d']) / row['turnover_30d'] * 100) 
+                if pd.notna(row['turnover_30d']) and pd.notna(row['turnover_90d']) and row['turnover_30d'] > 0 
+                else 0.0,
+                axis=1
+            )
+            
+            # Growth from 90d to 180d
+            df['growth_90_to_180'] = df.apply(
+                lambda row: ((row['turnover_180d'] - row['turnover_90d']) / row['turnover_90d'] * 100) 
+                if pd.notna(row['turnover_90d']) and pd.notna(row['turnover_180d']) and row['turnover_90d'] > 0 
+                else 0.0,
+                axis=1
+            )
+            
+            logger.info(f"Liquidity growth expansion calculated. 30→90 range: [{df['growth_30_to_90'].min():.1f}% to {df['growth_30_to_90'].max():.1f}%], 90→180 range: [{df['growth_90_to_180'].min():.1f}% to {df['growth_90_to_180'].max():.1f}%]")
+        
+        # 2. Growth Momentum (acceleration detection)
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            # Momentum = difference between recent and older growth rates
+            # Positive momentum = accelerating growth (recent > older)
+            df['growth_momentum'] = df['growth_90_to_180'] - df['growth_30_to_90']
+            
+            logger.info(f"Growth momentum calculated. Range: [{df['growth_momentum'].min():.1f}% to {df['growth_momentum'].max():.1f}%]")
+        
+        # 3. Growth Consistency Score (0-100)
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            def calculate_consistency(row):
+                g1 = row['growth_30_to_90']
+                g2 = row['growth_90_to_180']
+                
+                # Both positive = consistent growth
+                if g1 > 0 and g2 > 0:
+                    # Score based on similarity (100 = identical growth rates)
+                    diff = abs(g1 - g2)
+                    avg = (g1 + g2) / 2
+                    if avg > 0:
+                        score = max(0, 100 - (diff / avg * 50))
+                        return min(100, score)
+                    return 50
+                # Both negative = consistent decline
+                elif g1 < 0 and g2 < 0:
+                    return 30  # Consistent but declining
+                # Mixed = inconsistent
+                else:
+                    return 0
+            
+            df['growth_consistency'] = df.apply(calculate_consistency, axis=1)
+            
+            logger.info(f"Growth consistency calculated. Range: [0 to {df['growth_consistency'].max():.0f}]")
+        
+        # 4. Growth Acceleration (2nd derivative - rate of change of growth rate)
+        if 'growth_momentum' in df.columns:
+            # Acceleration categories based on momentum strength
+            def calculate_acceleration(momentum):
+                if pd.isna(momentum):
+                    return 0.0
+                elif momentum > 50:
+                    return 100.0  # Explosive acceleration
+                elif momentum > 20:
+                    return 75.0   # Strong acceleration
+                elif momentum > 0:
+                    return 50.0   # Mild acceleration
+                elif momentum > -20:
+                    return 25.0   # Mild deceleration
+                else:
+                    return 0.0    # Strong deceleration
+            
+            df['growth_acceleration'] = df['growth_momentum'].apply(calculate_acceleration)
+            
+            logger.info(f"Growth acceleration calculated. Distribution: {df['growth_acceleration'].value_counts().to_dict()}")
+        
+        # 5. Growth Alignment Score (0-100) - All periods moving together
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            def calculate_alignment(row):
+                g1 = row['growth_30_to_90']
+                g2 = row['growth_90_to_180']
+                
+                # Perfect alignment = both strong positive or both strong negative
+                if g1 > 30 and g2 > 30:
+                    return 100  # Strong positive alignment
+                elif g1 > 15 and g2 > 15:
+                    return 80   # Good positive alignment
+                elif g1 > 0 and g2 > 0:
+                    return 60   # Mild positive alignment
+                elif g1 < -30 and g2 < -30:
+                    return 20   # Strong negative alignment
+                elif g1 < 0 and g2 < 0:
+                    return 40   # Mild negative alignment
+                else:
+                    return 30   # Divergent (mixed signals)
+            
+            df['growth_alignment'] = df.apply(calculate_alignment, axis=1)
+            
+            logger.info(f"Growth alignment calculated. Range: [{df['growth_alignment'].min():.0f} to {df['growth_alignment'].max():.0f}]")
+        
+        # 6. Smart Money Flow Detection
+        if all(col in df.columns for col in ['growth_momentum', 'growth_consistency', 'growth_alignment']):
+            def detect_smart_money(row):
+                momentum = row['growth_momentum']
+                consistency = row['growth_consistency']
+                alignment = row['growth_alignment']
+                
+                # Strong indicators of institutional/smart money accumulation
+                if momentum > 30 and consistency > 70 and alignment > 80:
+                    return "🎯 Strong Accumulation"
+                elif momentum > 15 and consistency > 50 and alignment > 60:
+                    return "✅ Moderate Accumulation"
+                elif momentum > 0 and consistency > 30:
+                    return "📊 Mild Interest"
+                elif momentum < -30:
+                    return "❌ Distribution"
+                else:
+                    return "⚪ Neutral"
+            
+            df['smart_money_flow'] = df.apply(detect_smart_money, axis=1)
+            
+            logger.info(f"Smart money flow detected. Distribution: {df['smart_money_flow'].value_counts().to_dict()}")
+        
+        # 7. Composite Growth Score (0-100) - Overall liquidity health
+        if all(col in df.columns for col in ['growth_consistency', 'growth_acceleration', 'growth_alignment']):
+            df['composite_growth_score'] = (
+                df['growth_consistency'] * 0.4 +
+                df['growth_acceleration'] * 0.3 +
+                df['growth_alignment'] * 0.3
+            ).round(1)
+            
+            logger.info(f"Composite growth score calculated. Range: [{df['composite_growth_score'].min():.1f} to {df['composite_growth_score'].max():.1f}]")
+        
+        # 8. Growth Quality Tiers
+        if 'composite_growth_score' in df.columns:
+            def classify_growth_quality(score):
+                if pd.isna(score):
+                    return "Unknown"
+                elif score >= 80:
+                    return "💎 Elite"
+                elif score >= 65:
+                    return "🌟 Excellent"
+                elif score >= 50:
+                    return "✅ Good"
+                elif score >= 35:
+                    return "⚪ Average"
+                else:
+                    return "⚠️ Weak"
+            
+            df['growth_quality_tier'] = df['composite_growth_score'].apply(classify_growth_quality)
+            
+            logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
+        
+        # 9. Growth Trend Classification
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
+            def classify_growth_trend(row):
+                g1 = row['growth_30_to_90']
+                g2 = row['growth_90_to_180']
+                momentum = row['growth_momentum']
+                
+                if g1 > 50 and g2 > 50:
+                    return "🚀 Explosive Growth"
+                elif g1 > 25 and g2 > 25:
+                    return "📈 Strong Growth"
+                elif g1 > 10 and g2 > 10:
+                    return "✅ Steady Growth"
+                elif momentum > 20:
+                    return "⚡ Accelerating"
+                elif g1 > 0 and g2 > 0:
+                    return "➡️ Stable"
+                elif g1 < -25 or g2 < -25:
+                    return "📉 Declining"
+                else:
+                    return "⚪ Mixed"
+            
+            df['growth_trend'] = df.apply(classify_growth_trend, axis=1)
+            
+            logger.info(f"Growth trends classified. Distribution: {df['growth_trend'].value_counts().to_dict()}")
         
         # Performance tier classifications - Unified approach
         # Enhanced performance tier classification with ALL return periods
@@ -7594,6 +7778,12 @@ class FilterEngine:
             'turnover_30d_tiers': [],
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
+            'growth_score_range': (0.0, 100.0),
+            'growth_trends': [],
+            'growth_quality_tiers': [],
+            'smart_money_flows': [],
+            'momentum_range': (-100.0, 100.0),
+            'consistency_range': (0.0, 100.0),
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
             'vmi_tiers': [],
@@ -8027,6 +8217,47 @@ class FilterEngine:
             if selected_tiers:
                 masks.append(create_mask_from_isin('turnover_180d_tier', selected_tiers))
         
+        # 5.56. 🌊 LIQUIDITY GROWTH ANALYTICS FILTERS - Advanced Multi-Period Analysis
+        
+        # 5.56.1. Composite Growth Score Range Filter
+        if 'growth_score_range' in filters and 'composite_growth_score' in df.columns:
+            score_range = filters['growth_score_range']
+            if score_range != (0.0, 100.0):  # Only apply if not default
+                min_score, max_score = score_range
+                masks.append((df['composite_growth_score'] >= min_score) & (df['composite_growth_score'] <= max_score))
+        
+        # 5.56.2. Growth Trend Classification Filter
+        if 'growth_trends' in filters and 'growth_trend' in df.columns:
+            selected_trends = filters['growth_trends']
+            if selected_trends:
+                masks.append(create_mask_from_isin('growth_trend', selected_trends))
+        
+        # 5.56.3. Growth Quality Tier Filter
+        if 'growth_quality_tiers' in filters and 'growth_quality_tier' in df.columns:
+            selected_tiers = filters['growth_quality_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('growth_quality_tier', selected_tiers))
+        
+        # 5.56.4. Smart Money Flow Detection Filter
+        if 'smart_money_flows' in filters and 'smart_money_flow' in df.columns:
+            selected_flows = filters['smart_money_flows']
+            if selected_flows:
+                masks.append(create_mask_from_isin('smart_money_flow', selected_flows))
+        
+        # 5.56.5. Growth Momentum Range Filter
+        if 'momentum_range' in filters and 'growth_momentum' in df.columns:
+            momentum_range = filters['momentum_range']
+            if momentum_range != (-100.0, 100.0):  # Only apply if not default
+                min_momentum, max_momentum = momentum_range
+                masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
+        
+        # 5.56.6. Growth Consistency Range Filter
+        if 'consistency_range' in filters and 'growth_consistency' in df.columns:
+            consistency_range = filters['consistency_range']
+            if consistency_range != (0.0, 100.0):  # Only apply if not default
+                min_consistency, max_consistency = consistency_range
+                masks.append((df['growth_consistency'] >= min_consistency) & (df['growth_consistency'] <= max_consistency))
+        
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
             selected_tiers = filters['performance_tiers']
@@ -8390,6 +8621,12 @@ class FilterEngine:
             'turnover_30d_tiers': [],
             'turnover_90d_tiers': [],
             'turnover_180d_tiers': [],
+            'growth_score_range': (0.0, 100.0),
+            'growth_trends': [],
+            'growth_quality_tiers': [],
+            'smart_money_flows': [],
+            'momentum_range': (-100.0, 100.0),
+            'consistency_range': (0.0, 100.0),
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'volume_tiers': [],
@@ -9626,6 +9863,12 @@ class SessionStateManager:
                 'turnover_30d_tiers': [],
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
+                'growth_score_range': (0.0, 100.0),
+                'growth_trends': [],
+                'growth_quality_tiers': [],
+                'smart_money_flows': [],
+                'momentum_range': (-100.0, 100.0),
+                'consistency_range': (0.0, 100.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9912,6 +10155,12 @@ class SessionStateManager:
                 'turnover_30d_tiers': [],
                 'turnover_90d_tiers': [],
                 'turnover_180d_tiers': [],
+                'growth_score_range': (0.0, 100.0),
+                'growth_trends': [],
+                'growth_quality_tiers': [],
+                'smart_money_flows': [],
+                'momentum_range': (-100.0, 100.0),
+                'consistency_range': (0.0, 100.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -11963,7 +12212,129 @@ def main():
                 
                 if turnover_180d_tiers:
                     filters['turnover_180d_tiers'] = turnover_180d_tiers
+        
+        
+        # 🌊 LIQUIDITY GROWTH ANALYTICS FILTER - Advanced Multi-Period Analysis
+        with st.expander("🌊 Liquidity Growth Analytics", expanded=False):
+            
+            # Composite Growth Score Range Filter
+            if 'composite_growth_score' in ranked_df_display.columns:
+                st.markdown("**📊 Composite Growth Score**")
                 
+                growth_score_range = st.slider(
+                    "Select Growth Score Range (0-100)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=st.session_state.filter_state.get('growth_score_range', (0.0, 100.0)),
+                    step=5.0,
+                    key='growth_score_range_slider',
+                    on_change=lambda: st.session_state.filter_state.update({'growth_score_range': st.session_state.growth_score_range_slider}),
+                    help="🎯 Filter by overall liquidity growth health (combines consistency, acceleration, alignment)"
+                )
+                
+                if growth_score_range != (0.0, 100.0):
+                    filters['growth_score_range'] = growth_score_range
+            
+            # Growth Trend Classification Filter
+            if 'growth_trend' in ranked_df_display.columns:
+                growth_trend_options = [
+                    "🚀 Explosive Growth",
+                    "📈 Strong Growth",
+                    "✅ Steady Growth",
+                    "⚡ Accelerating",
+                    "➡️ Stable",
+                    "📉 Declining",
+                    "⚪ Mixed"
+                ]
+                growth_trends = st.multiselect(
+                    "📈 Growth Trend Classification",
+                    options=growth_trend_options,
+                    default=st.session_state.filter_state.get('growth_trends', []),
+                    key='growth_trend_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'growth_trends': st.session_state.growth_trend_multiselect}),
+                    help="📊 Filter by liquidity growth trend patterns"
+                )
+                
+                if growth_trends:
+                    filters['growth_trends'] = growth_trends
+            
+            # Growth Quality Tier Filter
+            if 'growth_quality_tier' in ranked_df_display.columns:
+                growth_quality_options = [
+                    "💎 Elite",
+                    "🌟 Excellent", 
+                    "✅ Good",
+                    "⚪ Average",
+                    "⚠️ Weak"
+                ]
+                growth_quality_tiers = st.multiselect(
+                    "💎 Growth Quality Tiers",
+                    options=growth_quality_options,
+                    default=st.session_state.filter_state.get('growth_quality_tiers', []),
+                    key='growth_quality_tier_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'growth_quality_tiers': st.session_state.growth_quality_tier_multiselect}),
+                    help="⭐ Filter by composite growth quality rating"
+                )
+                
+                if growth_quality_tiers:
+                    filters['growth_quality_tiers'] = growth_quality_tiers
+            
+            # Smart Money Flow Filter
+            if 'smart_money_flow' in ranked_df_display.columns:
+                smart_money_options = [
+                    "🎯 Strong Accumulation",
+                    "✅ Moderate Accumulation",
+                    "📊 Mild Interest",
+                    "⚪ Neutral",
+                    "❌ Distribution"
+                ]
+                smart_money_flows = st.multiselect(
+                    "💰 Smart Money Flow Detection",
+                    options=smart_money_options,
+                    default=st.session_state.filter_state.get('smart_money_flows', []),
+                    key='smart_money_flow_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'smart_money_flows': st.session_state.smart_money_flow_multiselect}),
+                    help="🎯 Filter by institutional/smart money accumulation signals"
+                )
+                
+                if smart_money_flows:
+                    filters['smart_money_flows'] = smart_money_flows
+            
+            # Growth Momentum Range Filter
+            if 'growth_momentum' in ranked_df_display.columns:
+                st.markdown("**⚡ Growth Momentum**")
+                
+                momentum_range = st.slider(
+                    "Select Momentum Range (%)",
+                    min_value=-100.0,
+                    max_value=100.0,
+                    value=st.session_state.filter_state.get('momentum_range', (-100.0, 100.0)),
+                    step=10.0,
+                    key='momentum_range_slider',
+                    on_change=lambda: st.session_state.filter_state.update({'momentum_range': st.session_state.momentum_range_slider}),
+                    help="⚡ Filter by growth acceleration/deceleration rate"
+                )
+                
+                if momentum_range != (-100.0, 100.0):
+                    filters['momentum_range'] = momentum_range
+            
+            # Growth Consistency Range Filter
+            if 'growth_consistency' in ranked_df_display.columns:
+                st.markdown("**🎯 Growth Consistency**")
+                
+                consistency_range = st.slider(
+                    "Select Consistency Range (0-100)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=st.session_state.filter_state.get('consistency_range', (0.0, 100.0)),
+                    step=10.0,
+                    key='consistency_range_slider',
+                    on_change=lambda: st.session_state.filter_state.update({'consistency_range': st.session_state.consistency_range_slider}),
+                    help="🎯 Filter by growth pattern consistency across periods"
+                )
+                
+                if consistency_range != (0.0, 100.0):
+                    filters['consistency_range'] = consistency_range
 
         
         # Advanced filters with callbacks
@@ -16869,6 +17240,85 @@ def main():
                                             growth_info += f"vs {metric['label']}: {growth_status}\n"
                                         
                                         st.info(growth_info)
+                                
+                                # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Analysis
+                                if all(col in stock.index for col in ['composite_growth_score', 'growth_quality_tier', 'smart_money_flow']):
+                                    st.markdown("---")
+                                    st.markdown("**🌊 Liquidity Growth Analytics**")
+                                    
+                                    # Primary Metrics Row
+                                    growth_cols = st.columns(3)
+                                    
+                                    with growth_cols[0]:
+                                        composite_score = stock.get('composite_growth_score', 0)
+                                        score_color = "🟢" if composite_score >= 70 else "🟡" if composite_score >= 50 else "🔴"
+                                        st.metric(
+                                            label="Composite Score",
+                                            value=f"{composite_score:.1f}/100",
+                                            help="Overall liquidity growth health combining consistency, acceleration, and alignment"
+                                        )
+                                        st.markdown(f"**{score_color} Quality:** {stock.get('growth_quality_tier', 'Unknown')}")
+                                    
+                                    with growth_cols[1]:
+                                        momentum = stock.get('growth_momentum', 0)
+                                        momentum_icon = "⚡" if momentum > 20 else "➡️" if momentum > 0 else "📉"
+                                        st.metric(
+                                            label="Growth Momentum",
+                                            value=f"{momentum:+.1f}%",
+                                            help="Acceleration/deceleration in growth rate (2nd derivative)"
+                                        )
+                                        st.markdown(f"**{momentum_icon} Trend:** {stock.get('growth_trend', 'Unknown')}")
+                                    
+                                    with growth_cols[2]:
+                                        smart_money = stock.get('smart_money_flow', 'Unknown')
+                                        st.metric(
+                                            label="Smart Money Flow",
+                                            value=smart_money.split(' ', 1)[1] if ' ' in smart_money else smart_money,
+                                            help="Institutional/smart money accumulation detection"
+                                        )
+                                        consistency = stock.get('growth_consistency', 0)
+                                        st.markdown(f"**🎯 Consistency:** {consistency:.0f}/100")
+                                    
+                                    # Expandable detailed analytics
+                                    with st.expander("📊 Detailed Growth Analytics", expanded=False):
+                                        # Growth Expansion Metrics
+                                        st.markdown("**📈 Growth Expansion**")
+                                        exp_cols = st.columns(2)
+                                        
+                                        with exp_cols[0]:
+                                            growth_30_90 = stock.get('growth_30_to_90', 0)
+                                            st.metric("30d → 90d Growth", f"{growth_30_90:+.1f}%")
+                                        
+                                        with exp_cols[1]:
+                                            growth_90_180 = stock.get('growth_90_to_180', 0)
+                                            st.metric("90d → 180d Growth", f"{growth_90_180:+.1f}%")
+                                        
+                                        st.markdown("---")
+                                        
+                                        # Advanced Scores
+                                        st.markdown("**⚙️ Advanced Metrics**")
+                                        adv_cols = st.columns(2)
+                                        
+                                        with adv_cols[0]:
+                                            acceleration = stock.get('growth_acceleration', 0)
+                                            st.metric("Acceleration Score", f"{acceleration:.0f}/100",
+                                                     help="Rate of change in growth momentum")
+                                        
+                                        with adv_cols[1]:
+                                            alignment = stock.get('growth_alignment', 0)
+                                            st.metric("Growth Alignment", f"{alignment:.0f}/100",
+                                                     help="How well all periods move together")
+                                        
+                                        # Interpretation Guide
+                                        st.markdown("---")
+                                        st.markdown("**💡 Interpretation Guide**")
+                                        st.markdown("""
+                                        - **Composite Score 80+:** Elite growth quality - strong, consistent liquidity expansion
+                                        - **Momentum 20+%:** Accelerating growth - recent periods stronger than older ones
+                                        - **Consistency 70+:** Reliable growth pattern across all timeframes
+                                        - **Strong Accumulation:** Clear signs of institutional buying pressure
+                                        - **High Alignment (80+):** All periods showing synchronized growth
+                                        """)
                         
                         with detail_tabs[5]:  # Advanced Metrics
                             st.markdown("**🎯 Advanced Metrics**")
