@@ -16525,7 +16525,7 @@ def main():
         
         if not filtered_df.empty:
             # ================================================================================================
-            # � MARKET OVERVIEW - BROAD MARKET INSIGHTS
+            # 📊 MARKET OVERVIEW - BROAD MARKET INSIGHTS
             # ================================================================================================
             
             st.markdown("### 🌍 **MARKET OVERVIEW**")
@@ -16541,7 +16541,7 @@ def main():
             st.markdown("---")
             
             # ================================================================================================
-            # �🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
+            # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
             # ================================================================================================
             
             st.markdown("### 📊 **EXECUTIVE MARKET DASHBOARD**")
@@ -18409,7 +18409,7 @@ def main():
                                             growth_pct = ((daily_val - period_val) / period_val * 100) if period_val > 0 else 0
                                             
                                             if growth_pct > 10:
-                                                growth_status = f"� +{growth_pct:.0f}% growth"
+                                                growth_status = f"🚀 +{growth_pct:.0f}% growth"
                                             elif growth_pct > 0:
                                                 growth_status = f"📈 +{growth_pct:.1f}% growth"
                                             elif growth_pct > -10:
