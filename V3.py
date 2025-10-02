@@ -15078,9 +15078,38 @@ def main():
             radar_df = radar_df[regime_filter]
             st.info(f"🔄 Sideways Market Filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
             
-        # 📊 Auto-Detect uses current data
+        # 📊 Auto-Detect: Detect market regime and apply appropriate filter
         elif market_regime == "📊 Auto-Detect":
-            pass  # No filtering applied
+            # Detect the current market regime using the full filtered dataset
+            detected_regime, regime_metrics = MarketIntelligence.detect_market_regime(filtered_df)
+            
+            # Map detected regime to appropriate filter
+            if detected_regime == "🔥 RISK-ON BULL":
+                # Apply Bull Market filter
+                regime_filter = (
+                    (radar_df.get('trend_score', 0) >= 60) &
+                    (radar_df.get('momentum_score', 0) >= 50)
+                )
+                radar_df = radar_df[regime_filter]
+                st.success(f"📊 Auto-Detected: {detected_regime} → Applying Bull Market filter: {len(radar_df)}/{pre_regime_count} momentum stocks")
+                
+            elif detected_regime == "🛡️ RISK-OFF DEFENSIVE":
+                # Apply Bear Market filter
+                regime_filter = (
+                    (radar_df.get('from_high_pct', 0) < -20) &
+                    (radar_df.get('value_score', 0) >= 60)
+                )
+                radar_df = radar_df[regime_filter]
+                st.warning(f"📊 Auto-Detected: {detected_regime} → Applying Bear Market filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+                
+            else:
+                # For ⚡ VOLATILE OPPORTUNITY, 😴 RANGE-BOUND, 🔄 MIXED SIGNALS → Apply Sideways filter
+                regime_filter = (
+                    (radar_df.get('volatility_score', 50) >= 40) &
+                    (radar_df.get('volatility_score', 50) <= 70)
+                )
+                radar_df = radar_df[regime_filter]
+                st.info(f"📊 Auto-Detected: {detected_regime} → Applying Sideways filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
