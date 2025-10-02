@@ -13483,7 +13483,7 @@ def main():
                         st.session_state.filter_state['growth_90_180_custom_range'] = st.session_state.growth_90_180_custom_slider
                 
                 selected_90_180 = st.selectbox(
-                    "� 90-Day vs 180-Day Momentum",
+                    "📊 90-Day vs 180-Day Momentum",
                     options=list(ninety_180_options.keys()),
                     index=list(ninety_180_options.keys()).index(current_90_180_selection),
                     help="Filter by momentum: How much higher/lower is 90-day average vs 180-day average. Positive = Medium-term activity exceeds long-term (accelerating)",
