@@ -52,7 +52,8 @@ np.seterr(all='ignore')
 np.random.seed(42)
 
 # ============================================
-# SAFE DIVISION UTILITIES - CRITICAL BUG FIXES
+# SAFE DIVISION UTILITIES
+# Comprehensive zero-division protection with type handling
 # ============================================
 
 def safe_divide(numerator: Union[float, int, np.ndarray, pd.Series],
@@ -11897,7 +11898,7 @@ def main():
         st.session_state.user_preferences['display_mode'] = display_mode
         show_fundamentals = (display_mode == "Hybrid (Technical + Fundamentals)")
         
-        # DEBUG: Show available columns when in Hybrid mode
+        # Show available fundamental columns when in Hybrid mode for user transparency
         if show_fundamentals and 'ranked_df' in st.session_state:
             available_fund_cols = [col for col in ['pe', 'eps_current', 'eps_change_pct'] 
                                  if col in st.session_state.ranked_df.columns]
@@ -18532,9 +18533,11 @@ def main():
                                         
                                         # Momentum display (Recent vs Historical comparison)
                                         # Positive = Recent > Historical (GOOD)
+                                        growth_daily_30 = stock.get('growth_daily_to_30', 0)
                                         growth_info = f"""
-                                        - **30d vs 90d:** {growth_30_90:+.1f}% {'�' if growth_30_90 > 50 else '�📈' if growth_30_90 > 0 else '📉'}
-                                        - **90d vs 180d:** {growth_90_180:+.1f}% {'�' if growth_90_180 > 50 else '�📈' if growth_90_180 > 0 else '📉'}
+                                        - **Daily vs 30d:** {growth_daily_30:+.1f}% {'🚀' if growth_daily_30 > 50 else '📈' if growth_daily_30 > 0 else '📉'}
+                                        - **30d vs 90d:** {growth_30_90:+.1f}% {'🚀' if growth_30_90 > 50 else '📈' if growth_30_90 > 0 else '📉'}
+                                        - **90d vs 180d:** {growth_90_180:+.1f}% {'🚀' if growth_90_180 > 50 else '📈' if growth_90_180 > 0 else '📉'}
                                         - **Acceleration:** {momentum:+.1f}% {'⚡ Rapidly Accelerating' if momentum > 50 else '⚡ Accelerating' if momentum > 20 else '➡️ Stable' if momentum > 0 else '🔻 Decelerating'}
                                         - **Score:** {stock.get('growth_acceleration', 0):.0f}/100 {'🌊💎' if stock.get('growth_acceleration', 0) >= 90 else '🚀' if stock.get('growth_acceleration', 0) >= 75 else '✅' if stock.get('growth_acceleration', 0) >= 60 else '➡️' if stock.get('growth_acceleration', 0) >= 50 else '⚪'}
                                         """
