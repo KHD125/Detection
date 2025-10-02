@@ -1065,7 +1065,19 @@ class DataProcessor:
         # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
         # Calculate growth rates, momentum, consistency, acceleration, and alignment
         
-        # 1. Liquidity Growth Expansion (30d → 90d → 180d)
+        # 1. Liquidity Growth Expansion (Daily → 30d → 90d → 180d)
+        
+        # Growth from Daily to 30d
+        if all(col in df.columns for col in ['volume_1d', 'price', 'turnover_30d']):
+            df['daily_turnover'] = df['volume_1d'] * df['price']
+            df['growth_daily_to_30'] = df.apply(
+                lambda row: ((row['daily_turnover'] - row['turnover_30d']) / row['turnover_30d'] * 100) 
+                if pd.notna(row['daily_turnover']) and pd.notna(row['turnover_30d']) and row['turnover_30d'] > 0 
+                else 0.0,
+                axis=1
+            )
+            logger.info(f"Liquidity growth Daily→30d calculated. Range: [{df['growth_daily_to_30'].min():.1f}% to {df['growth_daily_to_30'].max():.1f}%]")
+        
         if all(col in df.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
             # Growth from 30d to 90d
             df['growth_30_to_90'] = df.apply(
@@ -9004,6 +9016,42 @@ class FilterEngine:
                 min_consistency, max_consistency = consistency_range
                 masks.append((df['growth_consistency'] >= min_consistency) & (df['growth_consistency'] <= max_consistency))
         
+        # 5.5.1. Daily vs 30-Day Turnover Growth Filter
+        if 'growth_daily_30_custom_range' in filters and 'growth_daily_to_30' in df.columns:
+            # Custom range selected for Daily vs 30-Day growth
+            custom_range = filters['growth_daily_30_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_daily_to_30'] >= min_growth) & (df['growth_daily_to_30'] <= max_growth))
+        elif 'growth_daily_30_range' in filters and 'growth_daily_to_30' in df.columns:
+            # Preset range selected for Daily vs 30-Day growth
+            growth_range = filters['growth_daily_30_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_daily_to_30'] >= min_growth) & (df['growth_daily_to_30'] <= max_growth))
+        
+        # 5.5.2. 30-Day vs 90-Day Turnover Growth Filter
+        if 'growth_30_90_custom_range' in filters and 'growth_30_to_90' in df.columns:
+            # Custom range selected for 30-Day vs 90-Day growth
+            custom_range = filters['growth_30_90_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_30_to_90'] >= min_growth) & (df['growth_30_to_90'] <= max_growth))
+        elif 'growth_30_90_range' in filters and 'growth_30_to_90' in df.columns:
+            # Preset range selected for 30-Day vs 90-Day growth
+            growth_range = filters['growth_30_90_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_30_to_90'] >= min_growth) & (df['growth_30_to_90'] <= max_growth))
+        
+        # 5.5.3. 90-Day vs 180-Day Turnover Growth Filter
+        if 'growth_90_180_custom_range' in filters and 'growth_90_to_180' in df.columns:
+            # Custom range selected for 90-Day vs 180-Day growth
+            custom_range = filters['growth_90_180_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_90_to_180'] >= min_growth) & (df['growth_90_to_180'] <= max_growth))
+        elif 'growth_90_180_range' in filters and 'growth_90_to_180' in df.columns:
+            # Preset range selected for 90-Day vs 180-Day growth
+            growth_range = filters['growth_90_180_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_90_to_180'] >= min_growth) & (df['growth_90_to_180'] <= max_growth))
+        
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
             selected_tiers = filters['performance_tiers']
@@ -10922,6 +10970,16 @@ class SessionStateManager:
                 'consistency_selection': "All Consistency",
                 'consistency_custom_range': (0.0, 100.0),
                 'consistency_range': (0.0, 100.0),
+                # Timeframe-Specific Growth Filters
+                'growth_daily_30_selection': "All Growth",
+                'growth_daily_30_range': None,
+                'growth_daily_30_custom_range': (-100.0, 200.0),
+                'growth_30_90_selection': "All Growth",
+                'growth_30_90_range': None,
+                'growth_30_90_custom_range': (-100.0, 200.0),
+                'growth_90_180_selection': "All Growth",
+                'growth_90_180_range': None,
+                'growth_90_180_custom_range': (-100.0, 200.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -13208,6 +13266,168 @@ def main():
                 elif selected_consistency != "All Consistency":
                     # Store the selected preset range
                     filters['consistency_range'] = consistency_options[selected_consistency]
+            
+            st.markdown("---")
+            st.markdown("**📊 Timeframe-Specific Growth Filters**")
+            
+            # Daily vs 30-Day Turnover Growth Filter
+            if 'growth_daily_to_30' in ranked_df_display.columns:
+                daily_30_options = {
+                    "All Growth": None,
+                    "🚀 Explosive (100+%)": (100.0, 1000.0),
+                    "📈 Very Strong (50-100%)": (50.0, 100.0),
+                    "✅ Strong (25-50%)": (25.0, 50.0),
+                    "⚡ Moderate (10-25%)": (10.0, 25.0),
+                    "➡️ Mild (0-10%)": (0.0, 10.0),
+                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_daily_30_selection = st.session_state.filter_state.get('growth_daily_30_selection', "All Growth")
+                if current_daily_30_selection not in daily_30_options:
+                    current_daily_30_selection = "All Growth"
+                
+                def sync_daily_30():
+                    if 'growth_daily_30_selectbox' in st.session_state:
+                        selected = st.session_state.growth_daily_30_selectbox
+                        st.session_state.filter_state['growth_daily_30_selection'] = selected
+                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_daily_30_range'] = daily_30_options[selected]
+                
+                def sync_daily_30_custom():
+                    if 'growth_daily_30_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_daily_30_custom_range'] = st.session_state.growth_daily_30_custom_slider
+                
+                selected_daily_30 = st.selectbox(
+                    "📊 Daily vs 30-Day Growth",
+                    options=list(daily_30_options.keys()),
+                    index=list(daily_30_options.keys()).index(current_daily_30_selection),
+                    help="Filter by turnover growth: Daily vs 30-Day average",
+                    key="growth_daily_30_selectbox",
+                    on_change=sync_daily_30
+                )
+                
+                if selected_daily_30 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_daily_30_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom Daily→30D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for Daily vs 30-Day turnover growth",
+                        key="growth_daily_30_custom_slider",
+                        on_change=sync_daily_30_custom
+                    )
+                    filters['growth_daily_30_custom_range'] = custom_range
+                elif selected_daily_30 != "All Growth":
+                    filters['growth_daily_30_range'] = daily_30_options[selected_daily_30]
+            
+            # 30-Day vs 90-Day Turnover Growth Filter
+            if 'growth_30_to_90' in ranked_df_display.columns:
+                thirty_90_options = {
+                    "All Growth": None,
+                    "🚀 Explosive (100+%)": (100.0, 1000.0),
+                    "📈 Very Strong (50-100%)": (50.0, 100.0),
+                    "✅ Strong (25-50%)": (25.0, 50.0),
+                    "⚡ Moderate (10-25%)": (10.0, 25.0),
+                    "➡️ Mild (0-10%)": (0.0, 10.0),
+                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_30_90_selection = st.session_state.filter_state.get('growth_30_90_selection', "All Growth")
+                if current_30_90_selection not in thirty_90_options:
+                    current_30_90_selection = "All Growth"
+                
+                def sync_30_90():
+                    if 'growth_30_90_selectbox' in st.session_state:
+                        selected = st.session_state.growth_30_90_selectbox
+                        st.session_state.filter_state['growth_30_90_selection'] = selected
+                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_30_90_range'] = thirty_90_options[selected]
+                
+                def sync_30_90_custom():
+                    if 'growth_30_90_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_30_90_custom_range'] = st.session_state.growth_30_90_custom_slider
+                
+                selected_30_90 = st.selectbox(
+                    "📈 30-Day vs 90-Day Growth",
+                    options=list(thirty_90_options.keys()),
+                    index=list(thirty_90_options.keys()).index(current_30_90_selection),
+                    help="Filter by turnover growth: 30-Day vs 90-Day average",
+                    key="growth_30_90_selectbox",
+                    on_change=sync_30_90
+                )
+                
+                if selected_30_90 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_30_90_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom 30D→90D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for 30-Day vs 90-Day turnover growth",
+                        key="growth_30_90_custom_slider",
+                        on_change=sync_30_90_custom
+                    )
+                    filters['growth_30_90_custom_range'] = custom_range
+                elif selected_30_90 != "All Growth":
+                    filters['growth_30_90_range'] = thirty_90_options[selected_30_90]
+            
+            # 90-Day vs 180-Day Turnover Growth Filter
+            if 'growth_90_to_180' in ranked_df_display.columns:
+                ninety_180_options = {
+                    "All Growth": None,
+                    "🚀 Explosive (100+%)": (100.0, 1000.0),
+                    "📈 Very Strong (50-100%)": (50.0, 100.0),
+                    "✅ Strong (25-50%)": (25.0, 50.0),
+                    "⚡ Moderate (10-25%)": (10.0, 25.0),
+                    "➡️ Mild (0-10%)": (0.0, 10.0),
+                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_90_180_selection = st.session_state.filter_state.get('growth_90_180_selection', "All Growth")
+                if current_90_180_selection not in ninety_180_options:
+                    current_90_180_selection = "All Growth"
+                
+                def sync_90_180():
+                    if 'growth_90_180_selectbox' in st.session_state:
+                        selected = st.session_state.growth_90_180_selectbox
+                        st.session_state.filter_state['growth_90_180_selection'] = selected
+                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_90_180_range'] = ninety_180_options[selected]
+                
+                def sync_90_180_custom():
+                    if 'growth_90_180_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_90_180_custom_range'] = st.session_state.growth_90_180_custom_slider
+                
+                selected_90_180 = st.selectbox(
+                    "📉 90-Day vs 180-Day Growth",
+                    options=list(ninety_180_options.keys()),
+                    index=list(ninety_180_options.keys()).index(current_90_180_selection),
+                    help="Filter by turnover growth: 90-Day vs 180-Day average",
+                    key="growth_90_180_selectbox",
+                    on_change=sync_90_180
+                )
+                
+                if selected_90_180 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_90_180_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom 90D→180D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for 90-Day vs 180-Day turnover growth",
+                        key="growth_90_180_custom_slider",
+                        on_change=sync_90_180_custom
+                    )
+                    filters['growth_90_180_custom_range'] = custom_range
+                elif selected_90_180 != "All Growth":
+                    filters['growth_90_180_range'] = ninety_180_options[selected_90_180]
 
         
         # Advanced filters with callbacks
