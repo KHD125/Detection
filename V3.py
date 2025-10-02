@@ -13110,12 +13110,16 @@ def main():
                 
                 growth_trend_options = {
                     "All Trends": None,
+                    "🌊💎 Elite Momentum": "🌊💎 Elite Momentum",
                     "🚀 Explosive Growth": "🚀 Explosive Growth",
                     "📈 Strong Growth": "📈 Strong Growth",
                     "✅ Steady Growth": "✅ Steady Growth",
+                    "⚡ Rapidly Accelerating": "⚡ Rapidly Accelerating",
                     "⚡ Accelerating": "⚡ Accelerating",
-                    "➡️ Stable": "➡️ Stable",
+                    "➡️ Stable Growth": "➡️ Stable Growth",
+                    "📉 Strong Decline": "📉 Strong Decline",
                     "📉 Declining": "📉 Declining",
+                    "⚠️ Weak": "⚠️ Weak",
                     "⚪ Mixed": "⚪ Mixed",
                     "🎯 Custom Range": None  # Special option for custom range
                 }
@@ -13187,11 +13191,13 @@ def main():
             # Smart Money Flow Filter
             if 'smart_money_flow' in ranked_df_display.columns:
                 smart_money_options = [
+                    "🌊💎 Elite Institutional Accumulation",
                     "🎯 Strong Accumulation",
                     "✅ Moderate Accumulation",
                     "📊 Mild Interest",
                     "⚪ Neutral",
-                    "❌ Distribution"
+                    "❌ Distribution",
+                    "⚠️ Weak Distribution"
                 ]
                 smart_money_flows = st.multiselect(
                     "💰 Smart Money Flow Detection",
