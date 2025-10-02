@@ -407,11 +407,11 @@ class Config:
             "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         },
         "daily_turnover_tiers": {
-            "🏜️ Very Low (<1L)": (0, 1_000_000),
-            "💧 Low (1L-10L)": (1_000_000, 10_000_000),
-            "💦 Moderate (10L-1Cr)": (10_000_000, 100_000_000),
-            "🌊 High (1Cr-10Cr)": (100_000_000, 1_000_000_000),
-            "🌊🌊 Very High (>10Cr)": (1_000_000_000, float('inf'))
+            "🏜️ Very Low (<1L)": (0, 100_000),                    # < ₹1 Lakh
+            "💧 Low (1L-10L)": (100_000, 1_000_000),               # ₹1 Lakh to ₹10 Lakh
+            "💦 Moderate (10L-1Cr)": (1_000_000, 10_000_000),      # ₹10 Lakh to ₹1 Crore
+            "🌊 High (1Cr-10Cr)": (10_000_000, 100_000_000),       # ₹1 Crore to ₹10 Crore
+            "🌊🌊 Very High (>10Cr)": (100_000_000, float('inf'))  # > ₹10 Crore
         }
     })
     
