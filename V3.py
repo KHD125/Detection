@@ -1064,10 +1064,11 @@ class DataProcessor:
         
         # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
         # Calculate growth rates, momentum, consistency, acceleration, and alignment
+        # CORRECTED LOGIC: Compares RECENT vs HISTORICAL (not historical vs ancient)
         
         # 1. Liquidity Growth Expansion (Daily → 30d → 90d → 180d)
         
-        # Growth from Daily to 30d
+        # Growth from Daily to 30d - How much higher/lower is daily vs 30d average
         if all(col in df.columns for col in ['volume_1d', 'price', 'turnover_30d']):
             df['daily_turnover'] = df['volume_1d'] * df['price']
             df['growth_daily_to_30'] = df.apply(
@@ -1079,119 +1080,155 @@ class DataProcessor:
             logger.info(f"Liquidity growth Daily→30d calculated. Range: [{df['growth_daily_to_30'].min():.1f}% to {df['growth_daily_to_30'].max():.1f}%]")
         
         if all(col in df.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
-            # Growth from 30d to 90d
+            # MOMENTUM METRICS: Recent vs Historical (CORRECT DIRECTION)
+            # Positive = Recent activity higher than historical (ACCELERATING)
+            # Negative = Recent activity lower than historical (DECELERATING)
+            
+            # Momentum: 30d vs 90d - How much is recent 30d higher/lower than 90d average
             df['growth_30_to_90'] = df.apply(
-                lambda row: ((row['turnover_90d'] - row['turnover_30d']) / row['turnover_30d'] * 100) 
-                if pd.notna(row['turnover_30d']) and pd.notna(row['turnover_90d']) and row['turnover_30d'] > 0 
+                lambda row: ((row['turnover_30d'] - row['turnover_90d']) / row['turnover_90d'] * 100) 
+                if pd.notna(row['turnover_30d']) and pd.notna(row['turnover_90d']) and row['turnover_90d'] > 0 
                 else 0.0,
                 axis=1
             )
             
-            # Growth from 90d to 180d
+            # Momentum: 90d vs 180d - How much is recent 90d higher/lower than 180d average
             df['growth_90_to_180'] = df.apply(
-                lambda row: ((row['turnover_180d'] - row['turnover_90d']) / row['turnover_90d'] * 100) 
-                if pd.notna(row['turnover_90d']) and pd.notna(row['turnover_180d']) and row['turnover_90d'] > 0 
+                lambda row: ((row['turnover_90d'] - row['turnover_180d']) / row['turnover_180d'] * 100) 
+                if pd.notna(row['turnover_90d']) and pd.notna(row['turnover_180d']) and row['turnover_180d'] > 0 
                 else 0.0,
                 axis=1
             )
             
-            logger.info(f"Liquidity growth expansion calculated. 30→90 range: [{df['growth_30_to_90'].min():.1f}% to {df['growth_30_to_90'].max():.1f}%], 90→180 range: [{df['growth_90_to_180'].min():.1f}% to {df['growth_90_to_180'].max():.1f}%]")
+            logger.info(f"Liquidity momentum calculated. 30d vs 90d range: [{df['growth_30_to_90'].min():.1f}% to {df['growth_30_to_90'].max():.1f}%], 90d vs 180d range: [{df['growth_90_to_180'].min():.1f}% to {df['growth_90_to_180'].max():.1f}%]")
         
         # 2. Growth Momentum (acceleration detection)
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
-            # Momentum = difference between recent and older growth rates
-            # Positive momentum = accelerating growth (recent > older)
-            df['growth_momentum'] = df['growth_90_to_180'] - df['growth_30_to_90']
+            # Momentum Acceleration = How much MORE is 30d accelerating vs 90d
+            # Positive = 30d momentum > 90d momentum (ACCELERATING FASTER)
+            # Example: 30d is +100% vs 90d, but 90d is only +50% vs 180d → momentum = +50% (accelerating!)
+            df['growth_momentum'] = df['growth_30_to_90'] - df['growth_90_to_180']
             
-            logger.info(f"Growth momentum calculated. Range: [{df['growth_momentum'].min():.1f}% to {df['growth_momentum'].max():.1f}%]")
+            logger.info(f"Growth momentum acceleration calculated. Range: [{df['growth_momentum'].min():.1f}% to {df['growth_momentum'].max():.1f}%]")
         
         # 3. Growth Consistency Score (0-100)
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
             def calculate_consistency(row):
-                g1 = row['growth_30_to_90']
-                g2 = row['growth_90_to_180']
+                g1 = row['growth_30_to_90']   # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']  # 90d vs 180d momentum
                 
-                # Both positive = consistent growth
+                # Both positive = consistent acceleration (GOOD)
                 if g1 > 0 and g2 > 0:
-                    # Score based on similarity (100 = identical growth rates)
-                    diff = abs(g1 - g2)
-                    avg = (g1 + g2) / 2
-                    if avg > 0:
-                        score = max(0, 100 - (diff / avg * 50))
-                        return min(100, score)
-                    return 50
-                # Both negative = consistent decline
+                    # Higher score for consistent strong momentum
+                    if g1 > 50 and g2 > 50:
+                        return 100  # Both accelerating strongly
+                    elif g1 > 25 and g2 > 25:
+                        return 85   # Both accelerating well
+                    elif g1 > 10 and g2 > 10:
+                        return 70   # Both accelerating moderately
+                    else:
+                        # Score based on similarity (100 = identical rates)
+                        diff = abs(g1 - g2)
+                        avg = (g1 + g2) / 2
+                        if avg > 0:
+                            score = max(0, 100 - (diff / avg * 50))
+                            return min(100, score)
+                        return 60
+                # Both negative = consistent deceleration (BAD but consistent)
                 elif g1 < 0 and g2 < 0:
-                    return 30  # Consistent but declining
-                # Mixed = inconsistent
+                    return 25  # Consistent but decelerating
+                # Mixed = inconsistent (needs investigation)
                 else:
-                    return 0
+                    return 40  # Divergent signals
             
             df['growth_consistency'] = df.apply(calculate_consistency, axis=1)
             
             logger.info(f"Growth consistency calculated. Range: [0 to {df['growth_consistency'].max():.0f}]")
         
-        # 4. Growth Acceleration (2nd derivative - rate of change of growth rate)
+        # 4. Growth Acceleration Score (0-100)
         if 'growth_momentum' in df.columns:
-            # Acceleration categories based on momentum strength
+            # Acceleration categories based on momentum acceleration
+            # Positive momentum = recent periods accelerating MORE than older periods
             def calculate_acceleration(momentum):
                 if pd.isna(momentum):
                     return 0.0
+                elif momentum > 100:
+                    return 100.0  # Explosive acceleration (30d growing much faster than 90d)
                 elif momentum > 50:
-                    return 100.0  # Explosive acceleration
-                elif momentum > 20:
+                    return 90.0   # Very strong acceleration
+                elif momentum > 25:
                     return 75.0   # Strong acceleration
+                elif momentum > 10:
+                    return 60.0   # Moderate acceleration
                 elif momentum > 0:
                     return 50.0   # Mild acceleration
-                elif momentum > -20:
+                elif momentum > -10:
+                    return 40.0   # Stable
+                elif momentum > -25:
                     return 25.0   # Mild deceleration
+                elif momentum > -50:
+                    return 10.0   # Strong deceleration
                 else:
-                    return 0.0    # Strong deceleration
+                    return 0.0    # Severe deceleration
             
             df['growth_acceleration'] = df['growth_momentum'].apply(calculate_acceleration)
             
             logger.info(f"Growth acceleration calculated. Distribution: {df['growth_acceleration'].value_counts().to_dict()}")
         
-        # 5. Growth Alignment Score (0-100) - All periods moving together
+        # 5. Growth Alignment Score (0-100) - All periods accelerating together
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
             def calculate_alignment(row):
-                g1 = row['growth_30_to_90']
-                g2 = row['growth_90_to_180']
+                g1 = row['growth_30_to_90']   # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']  # 90d vs 180d momentum
                 
-                # Perfect alignment = both strong positive or both strong negative
-                if g1 > 30 and g2 > 30:
-                    return 100  # Strong positive alignment
+                # Perfect alignment = both accelerating strongly (recent > historical)
+                if g1 > 100 and g2 > 100:
+                    return 100  # Explosive synchronized acceleration
+                elif g1 > 50 and g2 > 50:
+                    return 95   # Very strong synchronized acceleration
+                elif g1 > 30 and g2 > 30:
+                    return 85   # Strong positive alignment
                 elif g1 > 15 and g2 > 15:
-                    return 80   # Good positive alignment
+                    return 75   # Good positive alignment
                 elif g1 > 0 and g2 > 0:
-                    return 60   # Mild positive alignment
+                    return 60   # Mild positive alignment (both accelerating)
                 elif g1 < -30 and g2 < -30:
-                    return 20   # Strong negative alignment
+                    return 20   # Strong negative alignment (both decelerating)
                 elif g1 < 0 and g2 < 0:
-                    return 40   # Mild negative alignment
+                    return 35   # Mild negative alignment
                 else:
-                    return 30   # Divergent (mixed signals)
+                    return 45   # Divergent (mixed signals - needs investigation)
             
             df['growth_alignment'] = df.apply(calculate_alignment, axis=1)
             
             logger.info(f"Growth alignment calculated. Range: [{df['growth_alignment'].min():.0f} to {df['growth_alignment'].max():.0f}]")
         
-        # 6. Smart Money Flow Detection
+        # 6. Smart Money Flow Detection (Institutional Accumulation/Distribution)
         if all(col in df.columns for col in ['growth_momentum', 'growth_consistency', 'growth_alignment']):
             def detect_smart_money(row):
-                momentum = row['growth_momentum']
-                consistency = row['growth_consistency']
-                alignment = row['growth_alignment']
+                momentum = row['growth_momentum']        # Acceleration difference
+                consistency = row['growth_consistency']  # Pattern reliability
+                alignment = row['growth_alignment']      # Period synchronization
+                g1 = row.get('growth_30_to_90', 0)       # Recent momentum
                 
-                # Strong indicators of institutional/smart money accumulation
-                if momentum > 30 and consistency > 70 and alignment > 80:
+                # Elite accumulation - All signals strong + explosive recent activity
+                if g1 > 100 and momentum > 50 and consistency > 80 and alignment > 85:
+                    return "🌊💎 Elite Institutional Accumulation"
+                # Strong accumulation - Consistent strong acceleration
+                elif momentum > 30 and consistency > 70 and alignment > 75:
                     return "🎯 Strong Accumulation"
+                # Moderate accumulation - Good acceleration with consistency
                 elif momentum > 15 and consistency > 50 and alignment > 60:
                     return "✅ Moderate Accumulation"
-                elif momentum > 0 and consistency > 30:
+                # Early accumulation - Positive momentum starting
+                elif momentum > 0 and consistency > 40 and g1 > 0:
                     return "📊 Mild Interest"
-                elif momentum < -30:
+                # Distribution - Negative momentum with consistency
+                elif momentum < -30 and consistency > 40:
                     return "❌ Distribution"
+                # Weak distribution - Declining momentum
+                elif momentum < -10:
+                    return "⚠️ Weak Distribution"
                 else:
                     return "⚪ Neutral"
             
@@ -1229,25 +1266,37 @@ class DataProcessor:
             
             logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
         
-        # 9. Growth Trend Classification
+        # 9. Growth Trend Classification (Based on Momentum)
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
             def classify_growth_trend(row):
-                g1 = row['growth_30_to_90']
-                g2 = row['growth_90_to_180']
-                momentum = row['growth_momentum']
+                g1 = row['growth_30_to_90']       # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']      # 90d vs 180d momentum
+                momentum = row['growth_momentum']  # Acceleration difference
                 
-                if g1 > 50 and g2 > 50:
+                # Explosive momentum - Recent activity massively higher than historical
+                if g1 > 200 or (g1 > 100 and g2 > 100):
+                    return "🌊💎 Elite Momentum"
+                elif g1 > 100 or (g1 > 50 and g2 > 50):
                     return "🚀 Explosive Growth"
-                elif g1 > 25 and g2 > 25:
+                elif g1 > 50 or (g1 > 25 and g2 > 25):
                     return "📈 Strong Growth"
-                elif g1 > 10 and g2 > 10:
+                elif g1 > 25 or (g1 > 10 and g2 > 10):
                     return "✅ Steady Growth"
+                # Accelerating - Recent showing better momentum than older periods
+                elif momentum > 50:
+                    return "⚡ Rapidly Accelerating"
                 elif momentum > 20:
                     return "⚡ Accelerating"
+                # Stable - Both positive but similar momentum
                 elif g1 > 0 and g2 > 0:
-                    return "➡️ Stable"
+                    return "➡️ Stable Growth"
+                # Declining - Recent lower than historical (deceleration)
+                elif g1 < -50 or g2 < -50:
+                    return "📉 Strong Decline"
                 elif g1 < -25 or g2 < -25:
                     return "📉 Declining"
+                elif g1 < 0 or g2 < 0:
+                    return "⚠️ Weak"
                 else:
                     return "⚪ Mixed"
             
@@ -13268,30 +13317,32 @@ def main():
                     filters['consistency_range'] = consistency_options[selected_consistency]
             
             st.markdown("---")
-            st.markdown("**📊 Timeframe-Specific Growth Filters**")
+            st.markdown("**📊 Timeframe Momentum Filters**")
+            st.caption("⚡ Positive % = Recent activity HIGHER than historical (Accelerating) | 📉 Negative % = Recent LOWER than historical (Decelerating)")
             
             # Daily vs 30-Day Turnover Growth Filter
             if 'growth_daily_to_30' in ranked_df_display.columns:
                 daily_30_options = {
-                    "All Growth": None,
-                    "🚀 Explosive (100+%)": (100.0, 1000.0),
-                    "📈 Very Strong (50-100%)": (50.0, 100.0),
-                    "✅ Strong (25-50%)": (25.0, 50.0),
-                    "⚡ Moderate (10-25%)": (10.0, 25.0),
-                    "➡️ Mild (0-10%)": (0.0, 10.0),
-                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "All Momentum": None,
+                    "🌊💎 Elite (500+%)": (500.0, 10000.0),
+                    "🚀 Explosive (200-500%)": (200.0, 500.0),
+                    "📈 Very Strong (100-200%)": (100.0, 200.0),
+                    "✅ Strong (50-100%)": (50.0, 100.0),
+                    "⚡ Moderate (25-50%)": (25.0, 50.0),
+                    "➡️ Mild (0-25%)": (0.0, 25.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
                     "🎯 Custom Range": None
                 }
                 
-                current_daily_30_selection = st.session_state.filter_state.get('growth_daily_30_selection', "All Growth")
+                current_daily_30_selection = st.session_state.filter_state.get('growth_daily_30_selection', "All Momentum")
                 if current_daily_30_selection not in daily_30_options:
-                    current_daily_30_selection = "All Growth"
+                    current_daily_30_selection = "All Momentum"
                 
                 def sync_daily_30():
                     if 'growth_daily_30_selectbox' in st.session_state:
                         selected = st.session_state.growth_daily_30_selectbox
                         st.session_state.filter_state['growth_daily_30_selection'] = selected
-                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
                             st.session_state.filter_state['growth_daily_30_range'] = daily_30_options[selected]
                 
                 def sync_daily_30_custom():
@@ -13302,7 +13353,7 @@ def main():
                     "📊 Daily vs 30-Day Growth",
                     options=list(daily_30_options.keys()),
                     index=list(daily_30_options.keys()).index(current_daily_30_selection),
-                    help="Filter by turnover growth: Daily vs 30-Day average",
+                    help="Filter by momentum: How much higher/lower is daily turnover vs 30-day average. Positive = Current activity exceeds recent average (accelerating)",
                     key="growth_daily_30_selectbox",
                     on_change=sync_daily_30
                 )
@@ -13320,31 +13371,32 @@ def main():
                         on_change=sync_daily_30_custom
                     )
                     filters['growth_daily_30_custom_range'] = custom_range
-                elif selected_daily_30 != "All Growth":
+                elif selected_daily_30 != "All Momentum":
                     filters['growth_daily_30_range'] = daily_30_options[selected_daily_30]
             
             # 30-Day vs 90-Day Turnover Growth Filter
             if 'growth_30_to_90' in ranked_df_display.columns:
                 thirty_90_options = {
-                    "All Growth": None,
-                    "🚀 Explosive (100+%)": (100.0, 1000.0),
+                    "All Momentum": None,
+                    "🌊💎 Elite (200+%)": (200.0, 10000.0),
+                    "🚀 Explosive (100-200%)": (100.0, 200.0),
                     "📈 Very Strong (50-100%)": (50.0, 100.0),
                     "✅ Strong (25-50%)": (25.0, 50.0),
                     "⚡ Moderate (10-25%)": (10.0, 25.0),
                     "➡️ Mild (0-10%)": (0.0, 10.0),
-                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
                     "🎯 Custom Range": None
                 }
                 
-                current_30_90_selection = st.session_state.filter_state.get('growth_30_90_selection', "All Growth")
+                current_30_90_selection = st.session_state.filter_state.get('growth_30_90_selection', "All Momentum")
                 if current_30_90_selection not in thirty_90_options:
-                    current_30_90_selection = "All Growth"
+                    current_30_90_selection = "All Momentum"
                 
                 def sync_30_90():
                     if 'growth_30_90_selectbox' in st.session_state:
                         selected = st.session_state.growth_30_90_selectbox
                         st.session_state.filter_state['growth_30_90_selection'] = selected
-                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
                             st.session_state.filter_state['growth_30_90_range'] = thirty_90_options[selected]
                 
                 def sync_30_90_custom():
@@ -13352,10 +13404,10 @@ def main():
                         st.session_state.filter_state['growth_30_90_custom_range'] = st.session_state.growth_30_90_custom_slider
                 
                 selected_30_90 = st.selectbox(
-                    "📈 30-Day vs 90-Day Growth",
+                    "📈 30-Day vs 90-Day Momentum",
                     options=list(thirty_90_options.keys()),
                     index=list(thirty_90_options.keys()).index(current_30_90_selection),
-                    help="Filter by turnover growth: 30-Day vs 90-Day average",
+                    help="Filter by momentum: How much higher/lower is 30-day average vs 90-day average. Positive = Recent activity exceeds historical (accelerating)",
                     key="growth_30_90_selectbox",
                     on_change=sync_30_90
                 )
@@ -13373,31 +13425,32 @@ def main():
                         on_change=sync_30_90_custom
                     )
                     filters['growth_30_90_custom_range'] = custom_range
-                elif selected_30_90 != "All Growth":
+                elif selected_30_90 != "All Momentum":
                     filters['growth_30_90_range'] = thirty_90_options[selected_30_90]
             
             # 90-Day vs 180-Day Turnover Growth Filter
             if 'growth_90_to_180' in ranked_df_display.columns:
                 ninety_180_options = {
-                    "All Growth": None,
-                    "🚀 Explosive (100+%)": (100.0, 1000.0),
-                    "📈 Very Strong (50-100%)": (50.0, 100.0),
-                    "✅ Strong (25-50%)": (25.0, 50.0),
-                    "⚡ Moderate (10-25%)": (10.0, 25.0),
+                    "All Momentum": None,
+                    "🌊💎 Elite (150+%)": (150.0, 10000.0),
+                    "🚀 Explosive (75-150%)": (75.0, 150.0),
+                    "📈 Very Strong (40-75%)": (40.0, 75.0),
+                    "✅ Strong (20-40%)": (20.0, 40.0),
+                    "⚡ Moderate (10-20%)": (10.0, 20.0),
                     "➡️ Mild (0-10%)": (0.0, 10.0),
-                    "📉 Declining (< 0%)": (-1000.0, 0.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
                     "🎯 Custom Range": None
                 }
                 
-                current_90_180_selection = st.session_state.filter_state.get('growth_90_180_selection', "All Growth")
+                current_90_180_selection = st.session_state.filter_state.get('growth_90_180_selection', "All Momentum")
                 if current_90_180_selection not in ninety_180_options:
-                    current_90_180_selection = "All Growth"
+                    current_90_180_selection = "All Momentum"
                 
                 def sync_90_180():
                     if 'growth_90_180_selectbox' in st.session_state:
                         selected = st.session_state.growth_90_180_selectbox
                         st.session_state.filter_state['growth_90_180_selection'] = selected
-                        if selected != "All Growth" and selected != "🎯 Custom Range":
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
                             st.session_state.filter_state['growth_90_180_range'] = ninety_180_options[selected]
                 
                 def sync_90_180_custom():
@@ -13405,10 +13458,10 @@ def main():
                         st.session_state.filter_state['growth_90_180_custom_range'] = st.session_state.growth_90_180_custom_slider
                 
                 selected_90_180 = st.selectbox(
-                    "📉 90-Day vs 180-Day Growth",
+                    "� 90-Day vs 180-Day Momentum",
                     options=list(ninety_180_options.keys()),
                     index=list(ninety_180_options.keys()).index(current_90_180_selection),
-                    help="Filter by turnover growth: 90-Day vs 180-Day average",
+                    help="Filter by momentum: How much higher/lower is 90-day average vs 180-day average. Positive = Medium-term activity exceeds long-term (accelerating)",
                     key="growth_90_180_selectbox",
                     on_change=sync_90_180
                 )
@@ -13426,7 +13479,7 @@ def main():
                         on_change=sync_90_180_custom
                     )
                     filters['growth_90_180_custom_range'] = custom_range
-                elif selected_90_180 != "All Growth":
+                elif selected_90_180 != "All Momentum":
                     filters['growth_90_180_range'] = ninety_180_options[selected_90_180]
 
         
@@ -18427,45 +18480,67 @@ def main():
                                     period_col1, period_col2 = st.columns([1, 2])
                                     
                                     with period_col1:
-                                        st.markdown("**📈 Period Growth**")
+                                        st.markdown("**📈 Momentum Status**")
                                         growth_30_90 = stock.get('growth_30_to_90', 0)
                                         growth_90_180 = stock.get('growth_90_to_180', 0)
                                         
-                                        # Growth rate interpretation (V9.py pattern)
-                                        if growth_30_90 > 50 and growth_90_180 > 50:
-                                            st.success("🚀 **Explosive** - Both periods surging")
-                                        elif growth_30_90 > 25 and growth_90_180 > 25:
-                                            st.success("📈 **Strong** - Consistent high growth")
-                                        elif growth_30_90 > 10 and growth_90_180 > 10:
-                                            st.info("✅ **Steady** - Reliable expansion")
+                                        # Momentum interpretation (Recent vs Historical)
+                                        # Positive = Recent activity higher than historical (ACCELERATING)
+                                        if growth_30_90 > 200 or (growth_30_90 > 100 and growth_90_180 > 100):
+                                            st.success("🌊💎 **Elite Momentum** - Explosive acceleration")
+                                        elif growth_30_90 > 100 or (growth_30_90 > 50 and growth_90_180 > 50):
+                                            st.success("🚀 **Explosive** - Massive volume surge")
+                                        elif growth_30_90 > 50 or (growth_30_90 > 25 and growth_90_180 > 25):
+                                            st.success("📈 **Strong Momentum** - High acceleration")
+                                        elif growth_30_90 > 25 or (growth_30_90 > 10 and growth_90_180 > 10):
+                                            st.info("✅ **Steady Growth** - Consistent acceleration")
+                                        elif momentum > 50:
+                                            st.info("⚡ **Rapidly Accelerating** - Recent surge")
                                         elif momentum > 20:
                                             st.info("⚡ **Accelerating** - Building momentum")
                                         elif growth_30_90 > 0 and growth_90_180 > 0:
-                                            st.info("➡️ **Stable** - Mild growth")
+                                            st.info("➡️ **Stable Growth** - Mild acceleration")
+                                        elif growth_30_90 < -50 or growth_90_180 < -50:
+                                            st.warning("📉 **Strong Decline** - Severe deceleration")
                                         elif growth_30_90 < -25 or growth_90_180 < -25:
-                                            st.warning("📉 **Declining** - Liquidity contraction")
+                                            st.warning("📉 **Declining** - Activity slowing")
+                                        elif growth_30_90 < 0 or growth_90_180 < 0:
+                                            st.warning("⚠️ **Weak** - Below historical average")
                                         else:
                                             st.warning("⚪ **Mixed** - Divergent signals")
                                     
                                     with period_col2:
-                                        st.markdown("**📊 Growth Breakdown**")
+                                        st.markdown("**📊 Momentum Breakdown**")
                                         
-                                        # Compact growth display (V9.py pattern: formatted strings)
+                                        # Momentum display (Recent vs Historical comparison)
+                                        # Positive = Recent > Historical (GOOD)
                                         growth_info = f"""
-                                        - **30d → 90d:** {growth_30_90:+.1f}% {'📈' if growth_30_90 > 0 else '📉'}
-                                        - **90d → 180d:** {growth_90_180:+.1f}% {'📈' if growth_90_180 > 0 else '📉'}
-                                        - **Momentum:** {momentum:+.1f}% {'⚡ Accelerating' if momentum > 20 else '➡️ Neutral' if momentum > 0 else '🔻 Decelerating'}
-                                        - **Acceleration:** {stock.get('growth_acceleration', 0):.0f}/100 {'🚀' if stock.get('growth_acceleration', 0) >= 75 else '✅' if stock.get('growth_acceleration', 0) >= 50 else '⚪'}
+                                        - **30d vs 90d:** {growth_30_90:+.1f}% {'�' if growth_30_90 > 50 else '�📈' if growth_30_90 > 0 else '📉'}
+                                        - **90d vs 180d:** {growth_90_180:+.1f}% {'�' if growth_90_180 > 50 else '�📈' if growth_90_180 > 0 else '📉'}
+                                        - **Acceleration:** {momentum:+.1f}% {'⚡ Rapidly Accelerating' if momentum > 50 else '⚡ Accelerating' if momentum > 20 else '➡️ Stable' if momentum > 0 else '🔻 Decelerating'}
+                                        - **Score:** {stock.get('growth_acceleration', 0):.0f}/100 {'🌊💎' if stock.get('growth_acceleration', 0) >= 90 else '🚀' if stock.get('growth_acceleration', 0) >= 75 else '✅' if stock.get('growth_acceleration', 0) >= 60 else '➡️' if stock.get('growth_acceleration', 0) >= 50 else '⚪'}
                                         """
                                         st.markdown(growth_info)
+                                        
+                                        # Add interpretation helper
+                                        if growth_30_90 > 100:
+                                            st.info("💡 **30-day activity is 2x+ higher than 90-day average**")
+                                        elif growth_30_90 > 50:
+                                            st.info("💡 **Recent activity significantly exceeds historical levels**")
                                     
                                     # Smart Money Detection (V9.py pattern: prominent alerts)
-                                    if "Strong Accumulation" in smart_money:
+                                    if "Elite Institutional" in smart_money:
+                                        st.success("🌊💎 **ELITE INSTITUTIONAL ACCUMULATION** - Exceptional smart money flow with explosive momentum")
+                                    elif "Strong Accumulation" in smart_money:
                                         st.success("🎯 **Strong Institutional Accumulation Detected** - Clear signs of smart money buying pressure")
                                     elif "Moderate Accumulation" in smart_money:
                                         st.info("✅ **Moderate Institutional Interest** - Positive accumulation signals")
-                                    elif "Distribution" in smart_money:
+                                    elif "Mild Interest" in smart_money:
+                                        st.info("📊 **Early Accumulation Phase** - Initial institutional interest")
+                                    elif "Strong Distribution" in smart_money or "Distribution" in smart_money:
                                         st.error("❌ **Distribution Pattern Detected** - Institutional selling pressure")
+                                    elif "Weak Distribution" in smart_money:
+                                        st.warning("⚠️ **Weak Distribution** - Declining institutional interest")
                                     
                                     # Expandable Detailed Analytics (V9.py pattern: hide complexity)
                                     with st.expander("🔬 Advanced Analytics & Interpretation", expanded=False):
