@@ -1084,19 +1084,37 @@ class DataProcessor:
             # Positive = Recent activity higher than historical (ACCELERATING)
             # Negative = Recent activity lower than historical (DECELERATING)
             
+            # Helper function to calculate capped momentum percentage
+            def calculate_momentum_pct(recent, historical):
+                """Calculate momentum percentage with quality checks and capping"""
+                # Check for valid data
+                if pd.isna(recent) or pd.isna(historical) or historical <= 0:
+                    return 0.0
+                
+                # Check minimum data quality threshold (avg turnover > ₹1 lakh)
+                if historical < 100000:  # Less than ₹1 lakh average turnover
+                    return 0.0
+                
+                # Calculate raw momentum
+                momentum_pct = ((recent - historical) / historical * 100)
+                
+                # Cap extreme values at ±1000% to prevent display/calculation issues
+                if momentum_pct > 1000:
+                    return 1000.0
+                elif momentum_pct < -1000:
+                    return -1000.0
+                else:
+                    return round(momentum_pct, 2)
+            
             # Momentum: 30d vs 90d - How much is recent 30d higher/lower than 90d average
             df['growth_30_to_90'] = df.apply(
-                lambda row: ((row['turnover_30d'] - row['turnover_90d']) / row['turnover_90d'] * 100) 
-                if pd.notna(row['turnover_30d']) and pd.notna(row['turnover_90d']) and row['turnover_90d'] > 0 
-                else 0.0,
+                lambda row: calculate_momentum_pct(row['turnover_30d'], row['turnover_90d']),
                 axis=1
             )
             
             # Momentum: 90d vs 180d - How much is recent 90d higher/lower than 180d average
             df['growth_90_to_180'] = df.apply(
-                lambda row: ((row['turnover_90d'] - row['turnover_180d']) / row['turnover_180d'] * 100) 
-                if pd.notna(row['turnover_90d']) and pd.notna(row['turnover_180d']) and row['turnover_180d'] > 0 
-                else 0.0,
+                lambda row: calculate_momentum_pct(row['turnover_90d'], row['turnover_180d']),
                 axis=1
             )
             
@@ -1212,13 +1230,13 @@ class DataProcessor:
                 g1 = row.get('growth_30_to_90', 0)       # Recent momentum
                 
                 # Elite accumulation - All signals strong + explosive recent activity
-                if g1 > 100 and momentum > 50 and consistency > 80 and alignment > 85:
+                if g1 > 100 and momentum > 50 and consistency > 80 and alignment >= 85:
                     return "🌊💎 Elite Institutional Accumulation"
                 # Strong accumulation - Consistent strong acceleration
-                elif momentum > 30 and consistency > 70 and alignment > 75:
+                elif momentum > 30 and consistency > 70 and alignment >= 75:
                     return "🎯 Strong Accumulation"
                 # Moderate accumulation - Good acceleration with consistency
-                elif momentum > 15 and consistency > 50 and alignment > 60:
+                elif momentum > 15 and consistency > 50 and alignment >= 60:
                     return "✅ Moderate Accumulation"
                 # Early accumulation - Positive momentum starting
                 elif momentum > 0 and consistency > 40 and g1 > 0:
