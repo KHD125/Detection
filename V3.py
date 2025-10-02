@@ -6113,15 +6113,15 @@ class SimpleMarketUI:
                 view_cols = st.columns(5)
                 
                 with view_cols[0]:
-                    gainers_btn = st.button("📈 Gainers", key="gainers_btn", use_container_width=True)
+                    gainers_btn = st.button("📈 Gainers", key="gainers_btn", width="stretch")
                 with view_cols[1]:
-                    losers_btn = st.button("📉 Losers", key="losers_btn", use_container_width=True)
+                    losers_btn = st.button("📉 Losers", key="losers_btn", width="stretch")
                 with view_cols[2]:
-                    high_btn = st.button("⬆️ 52W High", key="52w_high_btn", use_container_width=True)
+                    high_btn = st.button("⬆️ 52W High", key="52w_high_btn", width="stretch")
                 with view_cols[3]:
-                    low_btn = st.button("⬇️ 52W Low", key="52w_low_btn", use_container_width=True)
+                    low_btn = st.button("⬇️ 52W Low", key="52w_low_btn", width="stretch")
                 with view_cols[4]:
-                    active_btn = st.button("🔥 Active", key="active_btn", use_container_width=True)
+                    active_btn = st.button("🔥 Active", key="active_btn", width="stretch")
                 
                 # Update session state based on button clicks (V9.py pattern)
                 if gainers_btn:
@@ -6250,7 +6250,7 @@ class SimpleMarketUI:
                         # Display the table with enhanced height for 100 stocks
                         st.dataframe(
                             display_df,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             height=600
                         )
@@ -6289,9 +6289,9 @@ class SimpleMarketUI:
                 perf_cols = st.columns(2)
                 
                 with perf_cols[0]:
-                    outperformers_btn = st.button("🚀 Outperformers", key="outperformers_btn", use_container_width=True)
+                    outperformers_btn = st.button("🚀 Outperformers", key="outperformers_btn", width="stretch")
                 with perf_cols[1]:
-                    underperformers_btn = st.button("📉 Underperformers", key="underperformers_btn", use_container_width=True)
+                    underperformers_btn = st.button("📉 Underperformers", key="underperformers_btn", width="stretch")
                 
                 # Update session state based on button clicks (V9.py pattern)
                 if outperformers_btn:
@@ -6400,7 +6400,7 @@ class SimpleMarketUI:
                         # Display the table with enhanced height for 50 industries/sectors
                         st.dataframe(
                             industry_display_clean,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True,
                             height=700,
                             column_config=column_config
@@ -10326,7 +10326,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
                 # Add context-aware insights
                 hot_items = top_12[top_12['flow_score'] > 75]
@@ -15442,7 +15442,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -15572,7 +15572,7 @@ def main():
                             fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                             fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
-                            st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                            st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                             
                             # Add zone-based insights
                             hot_categories = category_flow[category_flow['Flow Score'] > 75]
@@ -16698,7 +16698,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_dist, width="stretch", theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -16914,7 +16914,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, use_container_width=True)
+                            st.plotly_chart(fig_momentum, width="stretch")
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -16938,7 +16938,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, use_container_width=True)
+                            st.plotly_chart(fig_single, width="stretch")
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
@@ -18640,7 +18640,7 @@ def main():
                                             interpretation_data['Signal'].append('⚠️ Divergent - Mixed timeframes')
                                         
                                         interp_df = pd.DataFrame(interpretation_data)
-                                        st.dataframe(interp_df, hide_index=True, use_container_width=True)
+                                        st.dataframe(interp_df, hide_index=True, width="stretch")
                                         
                                         st.markdown("---")
                                         st.markdown("**🎓 Key Insights**")
