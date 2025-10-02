@@ -15055,28 +15055,37 @@ def main():
         pre_regime_count = len(radar_df)
         
         if market_regime == "🐂 Bull Market":
-            regime_filter = (
-                (radar_df.get('trend_score', 0) >= 60) &
-                (radar_df.get('momentum_score', 0) >= 50)
-            )
-            radar_df = radar_df[regime_filter]
-            st.info(f"🐂 Bull Market Filter: {len(radar_df)}/{pre_regime_count} stocks aligned with bull market")
+            if 'trend_score' in radar_df.columns and 'momentum_score' in radar_df.columns:
+                regime_filter = (
+                    (radar_df['trend_score'] >= 60) &
+                    (radar_df['momentum_score'] >= 50)
+                )
+                radar_df = radar_df[regime_filter]
+                st.info(f"🐂 Bull Market Filter: {len(radar_df)}/{pre_regime_count} stocks aligned with bull market")
+            else:
+                st.warning("⚠️ Bull Market filter requires trend_score and momentum_score columns")
             
         elif market_regime == "🐻 Bear Market":
-            regime_filter = (
-                (radar_df.get('from_high_pct', 0) < -20) &
-                (radar_df.get('value_score', 0) >= 60)
-            )
-            radar_df = radar_df[regime_filter]
-            st.info(f"🐻 Bear Market Filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+            if 'from_high_pct' in radar_df.columns and 'value_score' in radar_df.columns:
+                regime_filter = (
+                    (radar_df['from_high_pct'] < -20) &
+                    (radar_df['value_score'] >= 60)
+                )
+                radar_df = radar_df[regime_filter]
+                st.info(f"🐻 Bear Market Filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+            else:
+                st.warning("⚠️ Bear Market filter requires from_high_pct and value_score columns")
             
         elif market_regime == "🔄 Sideways/Choppy":
-            regime_filter = (
-                (radar_df.get('volatility_score', 50) >= 40) &
-                (radar_df.get('volatility_score', 50) <= 70)
-            )
-            radar_df = radar_df[regime_filter]
-            st.info(f"🔄 Sideways Market Filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
+            if 'volatility_score' in radar_df.columns:
+                regime_filter = (
+                    (radar_df['volatility_score'] >= 40) &
+                    (radar_df['volatility_score'] <= 70)
+                )
+                radar_df = radar_df[regime_filter]
+                st.info(f"🔄 Sideways Market Filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
+            else:
+                st.warning("⚠️ Sideways Market filter requires volatility_score column")
             
         # 📊 Auto-Detect: Detect market regime and apply appropriate filter
         elif market_regime == "📊 Auto-Detect":
@@ -15086,30 +15095,39 @@ def main():
             # Map detected regime to appropriate filter
             if detected_regime == "🔥 RISK-ON BULL":
                 # Apply Bull Market filter
-                regime_filter = (
-                    (radar_df.get('trend_score', 0) >= 60) &
-                    (radar_df.get('momentum_score', 0) >= 50)
-                )
-                radar_df = radar_df[regime_filter]
-                st.success(f"📊 Auto-Detected: {detected_regime} → Applying Bull Market filter: {len(radar_df)}/{pre_regime_count} momentum stocks")
+                if 'trend_score' in radar_df.columns and 'momentum_score' in radar_df.columns:
+                    regime_filter = (
+                        (radar_df['trend_score'] >= 60) &
+                        (radar_df['momentum_score'] >= 50)
+                    )
+                    radar_df = radar_df[regime_filter]
+                    st.success(f"📊 Auto-Detected: {detected_regime} → Applying Bull Market filter: {len(radar_df)}/{pre_regime_count} momentum stocks")
+                else:
+                    st.warning(f"📊 Auto-Detected: {detected_regime} → Bull Market filter requires trend_score and momentum_score columns")
                 
             elif detected_regime == "🛡️ RISK-OFF DEFENSIVE":
                 # Apply Bear Market filter
-                regime_filter = (
-                    (radar_df.get('from_high_pct', 0) < -20) &
-                    (radar_df.get('value_score', 0) >= 60)
-                )
-                radar_df = radar_df[regime_filter]
-                st.warning(f"📊 Auto-Detected: {detected_regime} → Applying Bear Market filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+                if 'from_high_pct' in radar_df.columns and 'value_score' in radar_df.columns:
+                    regime_filter = (
+                        (radar_df['from_high_pct'] < -20) &
+                        (radar_df['value_score'] >= 60)
+                    )
+                    radar_df = radar_df[regime_filter]
+                    st.warning(f"📊 Auto-Detected: {detected_regime} → Applying Bear Market filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+                else:
+                    st.warning(f"📊 Auto-Detected: {detected_regime} → Bear Market filter requires from_high_pct and value_score columns")
                 
             else:
                 # For ⚡ VOLATILE OPPORTUNITY, 😴 RANGE-BOUND, 🔄 MIXED SIGNALS → Apply Sideways filter
-                regime_filter = (
-                    (radar_df.get('volatility_score', 50) >= 40) &
-                    (radar_df.get('volatility_score', 50) <= 70)
-                )
-                radar_df = radar_df[regime_filter]
-                st.info(f"📊 Auto-Detected: {detected_regime} → Applying Sideways filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
+                if 'volatility_score' in radar_df.columns:
+                    regime_filter = (
+                        (radar_df['volatility_score'] >= 40) &
+                        (radar_df['volatility_score'] <= 70)
+                    )
+                    radar_df = radar_df[regime_filter]
+                    st.info(f"📊 Auto-Detected: {detected_regime} → Applying Sideways filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
+                else:
+                    st.warning(f"📊 Auto-Detected: {detected_regime} → Sideways filter requires volatility_score column")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
