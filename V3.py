@@ -2986,21 +2986,23 @@ class RankingEngine:
     def _calculate_volume_score(df: pd.DataFrame) -> pd.Series:
         """
         Calculate volume score focusing on what actually matters.
-        SIMPLIFIED: Volume confirms, doesn't predict. Focus on liquidity and relative volume.
+        ENHANCED: Volume confirms, doesn't predict. Focus on liquidity, relative volume, and consistency.
         
         Core Philosophy:
         - Volume is a CONFIRMING indicator, not predictive
         - Relative volume matters more than absolute
         - Liquidity (turnover) matters for tradability
+        - Consistency separates quality from manipulation
         - Extreme volume often signals problems
         
         Components:
-        - 50% Relative volume (vs historical average)
+        - 45% Relative volume (vs historical average)
         - 30% Liquidity (can you actually trade it?)
-        - 20% Price-volume harmony (does volume confirm price action?)
+        - 15% Price-volume harmony (does volume confirm price action?)
+        - 10% Volume consistency (stable vs erratic patterns)
         
         Score Range:
-        - 70-100: High relative volume with price confirmation
+        - 70-100: High relative volume with price confirmation and consistency
         - 50-70: Above average activity
         - 30-50: Normal activity
         - 10-30: Below average (concerning)
@@ -3018,7 +3020,7 @@ class RankingEngine:
             logger.warning("No volume data available")
             return volume_score
         
-        # COMPONENT 1: RELATIVE VOLUME (50% weight)
+        # COMPONENT 1: RELATIVE VOLUME (45% weight)
         # This is the most important - is volume unusual today?
         relative_component = pd.Series(np.nan, index=df.index, dtype=float)
         
@@ -3093,7 +3095,7 @@ class RankingEngine:
                     )
                 )
         
-        # COMPONENT 3: PRICE-VOLUME HARMONY (20% weight)
+        # COMPONENT 3: PRICE-VOLUME HARMONY (15% weight)
         # Does volume confirm price action?
         harmony_component = pd.Series(50, index=df.index, dtype=float)  # Default neutral
         
@@ -3122,11 +3124,66 @@ class RankingEngine:
                 
                 # Neutral: Everything else stays at 50
         
+        # COMPONENT 4: VOLUME CONSISTENCY (10% weight)
+        # Temporal stability - separates quality stocks from pump & dump schemes
+        consistency_component = pd.Series(np.nan, index=df.index, dtype=float)
+        
+        vol_columns = ['volume_1d', 'volume_7d', 'volume_30d', 'volume_90d']
+        available_vols = [col for col in vol_columns if col in df.columns]
+        
+        if len(available_vols) >= 2:
+            # Collect volume data (all are already average daily volumes)
+            vol_data = pd.DataFrame()
+            for col in available_vols:
+                vol_data[col] = pd.Series(df[col].values, index=df.index)
+            
+            # Calculate coefficient of variation for each stock
+            valid_rows = vol_data.notna().all(axis=1)
+            
+            if valid_rows.any():
+                # volume_7d, volume_30d, volume_90d are ALREADY average daily volumes
+                # No normalization needed - they're already in daily equivalent form
+                vol_mean = vol_data[valid_rows].mean(axis=1)
+                vol_std = vol_data[valid_rows].std(axis=1)
+                
+                # Calculate CV (coefficient of variation)
+                vol_cv = pd.Series(np.nan, index=df.index)
+                non_zero = valid_rows & (vol_mean > 0)
+                
+                if non_zero.any():
+                    vol_cv[non_zero] = vol_std[non_zero] / vol_mean[non_zero]
+                    
+                    # Score based on consistency (lower CV = higher score)
+                    # CV < 0.2 = 85-100 (excellent - institutional quality)
+                    # CV 0.2-0.4 = 70-85 (good - stable retail)
+                    # CV 0.4-0.7 = 50-70 (moderate - some volatility)
+                    # CV 0.7-1.2 = 30-50 (poor - erratic)
+                    # CV > 1.2 = 10-30 (terrible - pump/dump pattern)
+                    
+                    consistency_component[non_zero] = np.where(
+                        vol_cv[non_zero] < 0.2,
+                        85 + (0.2 - vol_cv[non_zero]) * 75,  # 85-100
+                        np.where(
+                            vol_cv[non_zero] < 0.4,
+                            70 + (0.4 - vol_cv[non_zero]) * 75,  # 70-85
+                            np.where(
+                                vol_cv[non_zero] < 0.7,
+                                50 + (0.7 - vol_cv[non_zero]) * 66.67,  # 50-70
+                                np.where(
+                                    vol_cv[non_zero] < 1.2,
+                                    30 + (1.2 - vol_cv[non_zero]) * 40,  # 30-50
+                                    np.maximum(10, 30 - (vol_cv[non_zero] - 1.2) * 20)  # 10-30
+                                )
+                            )
+                        )
+                    )
+        
         # COMBINE COMPONENTS
         components = [
-            (relative_component, 0.50),
-            (liquidity_component, 0.30),
-            (harmony_component, 0.20)
+            (relative_component, 0.45),  # Reduced from 0.50
+            (liquidity_component, 0.30),  # Unchanged
+            (harmony_component, 0.15),    # Reduced from 0.20
+            (consistency_component, 0.10) # NEW
         ]
         
         for idx in df.index:
@@ -3210,6 +3267,22 @@ class RankingEngine:
                 
                 logger.debug(f"Volume distribution: Dead={dead}, Normal={normal}, "
                             f"Elevated={elevated}, Extreme={extreme}")
+            
+            # Volume consistency statistics
+            if consistency_component.notna().any():
+                consistency_dist = consistency_component[consistency_component.notna()]
+                logger.info(f"Volume Consistency - Mean: {consistency_dist.mean():.1f}, "
+                           f"Median: {consistency_dist.median():.1f}")
+                
+                # Consistency quality distribution
+                excellent = (consistency_component >= 85).sum()
+                good = ((consistency_component >= 70) & (consistency_component < 85)).sum()
+                moderate = ((consistency_component >= 50) & (consistency_component < 70)).sum()
+                poor = ((consistency_component >= 30) & (consistency_component < 50)).sum()
+                terrible = (consistency_component < 30).sum()
+                
+                logger.debug(f"Consistency quality: Excellent={excellent}, Good={good}, "
+                            f"Moderate={moderate}, Poor={poor}, Terrible={terrible}")
         
         return volume_score
         
