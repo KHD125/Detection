@@ -13293,7 +13293,7 @@ def main():
                 
                 momentum_options = {
                     "All Momentum": None,
-                    "🚀 Explosive Acceleration (50+)": (50.0, 100.0),
+                    "🚀 Explosive Acceleration (50+)": (50.0, 10000.0),
                     "📈 Strong Acceleration (25-50)": (25.0, 50.0),
                     "✅ Moderate Acceleration (10-25)": (10.0, 25.0),
                     "⚡ Mild Acceleration (0-10)": (0.0, 10.0),
