@@ -52,7 +52,8 @@ np.seterr(all='ignore')
 np.random.seed(42)
 
 # ============================================
-# SAFE DIVISION UTILITIES - CRITICAL BUG FIXES
+# SAFE DIVISION UTILITIES
+# Comprehensive zero-division protection with type handling
 # ============================================
 
 def safe_divide(numerator: Union[float, int, np.ndarray, pd.Series],
@@ -213,7 +214,12 @@ class Config:
         'from_low_pct', 'from_high_pct',
         'vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d',
         'vol_ratio_1d_180d', 'vol_ratio_7d_180d', 'vol_ratio_30d_180d',
-        'vol_ratio_90d_180d'
+        'vol_ratio_90d_180d',
+        'volume_30d', 'volume_90d', 'volume_180d',
+        'daily_turnover', 'turnover_30d', 'turnover_90d', 'turnover_180d',
+        'growth_30_to_90', 'growth_90_to_180', 'growth_momentum', 'growth_consistency',
+        'growth_acceleration', 'growth_alignment', 'smart_money_flow', 'composite_growth_score',
+        'growth_quality_tier', 'growth_trend'
     ])
     
     # All percentage columns for consistent handling
@@ -401,11 +407,11 @@ class Config:
             "☀️ Perfect Harmony (Score 4)": ("momentum_harmony", 4, 4)
         },
         "daily_turnover_tiers": {
-            "🏜️ Very Low (<1L)": (0, 1_000_000),
-            "💧 Low (1L-10L)": (1_000_000, 10_000_000),
-            "💦 Moderate (10L-1Cr)": (10_000_000, 100_000_000),
-            "🌊 High (1Cr-10Cr)": (100_000_000, 1_000_000_000),
-            "🌊🌊 Very High (>10Cr)": (1_000_000_000, float('inf'))
+            "🏜️ Very Low (<1L)": (0, 100_000),                    # < ₹1 Lakh
+            "💧 Low (1L-10L)": (100_000, 1_000_000),               # ₹1 Lakh to ₹10 Lakh
+            "💦 Moderate (10L-1Cr)": (1_000_000, 10_000_000),      # ₹10 Lakh to ₹1 Crore
+            "🌊 High (1Cr-10Cr)": (10_000_000, 100_000_000),       # ₹1 Crore to ₹10 Crore
+            "🌊🌊 Very High (>10Cr)": (100_000_000, float('inf'))  # > ₹10 Crore
         }
     })
     
@@ -1031,6 +1037,291 @@ class DataProcessor:
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
             logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
+        
+        # Enhanced turnover calculations (30-day, 90-day, 180-day) with proper volume periods
+        # 30 Days Turnover = 30-day volume × SMA 20d
+        if all(col in df.columns for col in ['volume_30d', 'sma_20d']):
+            df['turnover_30d'] = df['volume_30d'] * df['sma_20d']
+            df['turnover_30d_tier'] = df['turnover_30d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"30-day turnover (volume_30d × SMA 20d) calculated. Sample values: {df['turnover_30d'].describe()}")
+        
+        # 90 Days Turnover = 90-day volume × SMA 50d  
+        if all(col in df.columns for col in ['volume_90d', 'sma_50d']):
+            df['turnover_90d'] = df['volume_90d'] * df['sma_50d']
+            df['turnover_90d_tier'] = df['turnover_90d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"90-day turnover (volume_90d × SMA 50d) calculated. Sample values: {df['turnover_90d'].describe()}")
+        
+        # 180 Days Turnover = 180-day volume × SMA 200d
+        if all(col in df.columns for col in ['volume_180d', 'sma_200d']):
+            df['turnover_180d'] = df['volume_180d'] * df['sma_200d']
+            df['turnover_180d_tier'] = df['turnover_180d'].apply(
+                lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
+            )
+            logger.info(f"180-day turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
+        
+        # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
+        # Calculate growth rates, momentum, consistency, acceleration, and alignment
+        # CORRECTED LOGIC: Compares RECENT vs HISTORICAL (not historical vs ancient)
+        
+        # 1. Liquidity Growth Expansion (Daily → 30d → 90d → 180d)
+        
+        # Growth from Daily to 30d - How much higher/lower is daily vs 30d average
+        if all(col in df.columns for col in ['volume_1d', 'price', 'turnover_30d']):
+            df['daily_turnover'] = df['volume_1d'] * df['price']
+            df['growth_daily_to_30'] = df.apply(
+                lambda row: ((row['daily_turnover'] - row['turnover_30d']) / row['turnover_30d'] * 100) 
+                if pd.notna(row['daily_turnover']) and pd.notna(row['turnover_30d']) and row['turnover_30d'] > 0 
+                else 0.0,
+                axis=1
+            )
+            logger.info(f"Liquidity growth Daily→30d calculated. Range: [{df['growth_daily_to_30'].min():.1f}% to {df['growth_daily_to_30'].max():.1f}%]")
+        
+        if all(col in df.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
+            # MOMENTUM METRICS: Recent vs Historical (CORRECT DIRECTION)
+            # Positive = Recent activity higher than historical (ACCELERATING)
+            # Negative = Recent activity lower than historical (DECELERATING)
+            
+            # Helper function to calculate capped momentum percentage
+            def calculate_momentum_pct(recent, historical):
+                """Calculate momentum percentage with quality checks and capping"""
+                # Check for valid data
+                if pd.isna(recent) or pd.isna(historical) or historical <= 0:
+                    return 0.0
+                
+                # Check minimum data quality threshold (avg turnover > ₹1 lakh)
+                if historical < 100000:  # Less than ₹1 lakh average turnover
+                    return 0.0
+                
+                # Calculate raw momentum
+                momentum_pct = ((recent - historical) / historical * 100)
+                
+                # Cap extreme values at ±1000% to prevent display/calculation issues
+                if momentum_pct > 1000:
+                    return 1000.0
+                elif momentum_pct < -1000:
+                    return -1000.0
+                else:
+                    return round(momentum_pct, 2)
+            
+            # Momentum: 30d vs 90d - How much is recent 30d higher/lower than 90d average
+            df['growth_30_to_90'] = df.apply(
+                lambda row: calculate_momentum_pct(row['turnover_30d'], row['turnover_90d']),
+                axis=1
+            )
+            
+            # Momentum: 90d vs 180d - How much is recent 90d higher/lower than 180d average
+            df['growth_90_to_180'] = df.apply(
+                lambda row: calculate_momentum_pct(row['turnover_90d'], row['turnover_180d']),
+                axis=1
+            )
+            
+            logger.info(f"Liquidity momentum calculated. 30d vs 90d range: [{df['growth_30_to_90'].min():.1f}% to {df['growth_30_to_90'].max():.1f}%], 90d vs 180d range: [{df['growth_90_to_180'].min():.1f}% to {df['growth_90_to_180'].max():.1f}%]")
+        
+        # 2. Growth Momentum (acceleration detection)
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            # Momentum Acceleration = How much MORE is 30d accelerating vs 90d
+            # Positive = 30d momentum > 90d momentum (ACCELERATING FASTER)
+            # Example: 30d is +100% vs 90d, but 90d is only +50% vs 180d → momentum = +50% (accelerating!)
+            df['growth_momentum'] = df['growth_30_to_90'] - df['growth_90_to_180']
+            
+            logger.info(f"Growth momentum acceleration calculated. Range: [{df['growth_momentum'].min():.1f}% to {df['growth_momentum'].max():.1f}%]")
+        
+        # 3. Growth Consistency Score (0-100)
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            def calculate_consistency(row):
+                g1 = row['growth_30_to_90']   # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']  # 90d vs 180d momentum
+                
+                # Both positive = consistent acceleration (GOOD)
+                if g1 > 0 and g2 > 0:
+                    # Higher score for consistent strong momentum
+                    if g1 > 50 and g2 > 50:
+                        return 100  # Both accelerating strongly
+                    elif g1 > 25 and g2 > 25:
+                        return 85   # Both accelerating well
+                    elif g1 > 10 and g2 > 10:
+                        return 70   # Both accelerating moderately
+                    else:
+                        # Score based on similarity (100 = identical rates)
+                        diff = abs(g1 - g2)
+                        avg = (g1 + g2) / 2
+                        if avg > 0:
+                            score = max(0, 100 - (diff / avg * 50))
+                            return min(100, score)
+                        return 60
+                # Both negative = consistent deceleration (BAD but consistent)
+                elif g1 < 0 and g2 < 0:
+                    return 25  # Consistent but decelerating
+                # Mixed = inconsistent (needs investigation)
+                else:
+                    return 40  # Divergent signals
+            
+            df['growth_consistency'] = df.apply(calculate_consistency, axis=1)
+            
+            logger.info(f"Growth consistency calculated. Range: [0 to {df['growth_consistency'].max():.0f}]")
+        
+        # 4. Growth Acceleration Score (0-100)
+        if 'growth_momentum' in df.columns:
+            # Acceleration categories based on momentum acceleration
+            # Positive momentum = recent periods accelerating MORE than older periods
+            def calculate_acceleration(momentum):
+                if pd.isna(momentum):
+                    return 0.0
+                elif momentum > 100:
+                    return 100.0  # Explosive acceleration (30d growing much faster than 90d)
+                elif momentum > 50:
+                    return 90.0   # Very strong acceleration
+                elif momentum > 25:
+                    return 75.0   # Strong acceleration
+                elif momentum > 10:
+                    return 60.0   # Moderate acceleration
+                elif momentum > 0:
+                    return 50.0   # Mild acceleration
+                elif momentum > -10:
+                    return 40.0   # Stable
+                elif momentum > -25:
+                    return 25.0   # Mild deceleration
+                elif momentum > -50:
+                    return 10.0   # Strong deceleration
+                else:
+                    return 0.0    # Severe deceleration
+            
+            df['growth_acceleration'] = df['growth_momentum'].apply(calculate_acceleration)
+            
+            logger.info(f"Growth acceleration calculated. Distribution: {df['growth_acceleration'].value_counts().to_dict()}")
+        
+        # 5. Growth Alignment Score (0-100) - All periods accelerating together
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180']):
+            def calculate_alignment(row):
+                g1 = row['growth_30_to_90']   # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']  # 90d vs 180d momentum
+                
+                # Perfect alignment = both accelerating strongly (recent > historical)
+                if g1 > 100 and g2 > 100:
+                    return 100  # Explosive synchronized acceleration
+                elif g1 > 50 and g2 > 50:
+                    return 95   # Very strong synchronized acceleration
+                elif g1 > 30 and g2 > 30:
+                    return 85   # Strong positive alignment
+                elif g1 > 15 and g2 > 15:
+                    return 75   # Good positive alignment
+                elif g1 > 0 and g2 > 0:
+                    return 60   # Mild positive alignment (both accelerating)
+                elif g1 < -30 and g2 < -30:
+                    return 20   # Strong negative alignment (both decelerating)
+                elif g1 < 0 and g2 < 0:
+                    return 35   # Mild negative alignment
+                else:
+                    return 45   # Divergent (mixed signals - needs investigation)
+            
+            df['growth_alignment'] = df.apply(calculate_alignment, axis=1)
+            
+            logger.info(f"Growth alignment calculated. Range: [{df['growth_alignment'].min():.0f} to {df['growth_alignment'].max():.0f}]")
+        
+        # 6. Smart Money Flow Detection (Institutional Accumulation/Distribution)
+        if all(col in df.columns for col in ['growth_momentum', 'growth_consistency', 'growth_alignment']):
+            def detect_smart_money(row):
+                momentum = row['growth_momentum']        # Acceleration difference
+                consistency = row['growth_consistency']  # Pattern reliability
+                alignment = row['growth_alignment']      # Period synchronization
+                g1 = row.get('growth_30_to_90', 0)       # Recent momentum
+                
+                # Elite accumulation - All signals strong + explosive recent activity
+                if g1 > 100 and momentum > 50 and consistency > 80 and alignment >= 85:
+                    return "🌊💎 Elite Institutional Accumulation"
+                # Strong accumulation - Consistent strong acceleration
+                elif momentum > 30 and consistency > 70 and alignment >= 75:
+                    return "🎯 Strong Accumulation"
+                # Moderate accumulation - Good acceleration with consistency
+                elif momentum > 15 and consistency > 50 and alignment >= 60:
+                    return "✅ Moderate Accumulation"
+                # Early accumulation - Positive momentum starting
+                elif momentum > 0 and consistency > 40 and g1 > 0:
+                    return "📊 Mild Interest"
+                # Distribution - Negative momentum with consistency
+                elif momentum < -30 and consistency > 40:
+                    return "❌ Distribution"
+                # Weak distribution - Declining momentum
+                elif momentum < -10:
+                    return "⚠️ Weak Distribution"
+                else:
+                    return "⚪ Neutral"
+            
+            df['smart_money_flow'] = df.apply(detect_smart_money, axis=1)
+            
+            logger.info(f"Smart money flow detected. Distribution: {df['smart_money_flow'].value_counts().to_dict()}")
+        
+        # 7. Composite Growth Score (0-100) - Overall liquidity health
+        if all(col in df.columns for col in ['growth_consistency', 'growth_acceleration', 'growth_alignment']):
+            df['composite_growth_score'] = (
+                df['growth_consistency'] * 0.4 +
+                df['growth_acceleration'] * 0.3 +
+                df['growth_alignment'] * 0.3
+            ).round(1)
+            
+            logger.info(f"Composite growth score calculated. Range: [{df['composite_growth_score'].min():.1f} to {df['composite_growth_score'].max():.1f}]")
+        
+        # 8. Growth Quality Tiers
+        if 'composite_growth_score' in df.columns:
+            def classify_growth_quality(score):
+                if pd.isna(score):
+                    return "Unknown"
+                elif score >= 80:
+                    return "💎 Elite"
+                elif score >= 65:
+                    return "🌟 Excellent"
+                elif score >= 50:
+                    return "✅ Good"
+                elif score >= 35:
+                    return "⚪ Average"
+                else:
+                    return "⚠️ Weak"
+            
+            df['growth_quality_tier'] = df['composite_growth_score'].apply(classify_growth_quality)
+            
+            logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
+        
+        # 9. Growth Trend Classification (Based on Momentum)
+        if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
+            def classify_growth_trend(row):
+                g1 = row['growth_30_to_90']       # 30d vs 90d momentum
+                g2 = row['growth_90_to_180']      # 90d vs 180d momentum
+                momentum = row['growth_momentum']  # Acceleration difference
+                
+                # Explosive momentum - Recent activity massively higher than historical
+                if g1 > 200 or (g1 > 100 and g2 > 100):
+                    return "🌊💎 Elite Momentum"
+                elif g1 > 100 or (g1 > 50 and g2 > 50):
+                    return "🚀 Explosive Growth"
+                elif g1 > 50 or (g1 > 25 and g2 > 25):
+                    return "📈 Strong Growth"
+                elif g1 > 25 or (g1 > 10 and g2 > 10):
+                    return "✅ Steady Growth"
+                # Accelerating - Recent showing better momentum than older periods
+                elif momentum > 50:
+                    return "⚡ Rapidly Accelerating"
+                elif momentum > 20:
+                    return "⚡ Accelerating"
+                # Stable - Both positive but similar momentum
+                elif g1 > 0 and g2 > 0:
+                    return "➡️ Stable Growth"
+                # Declining - Recent lower than historical (deceleration)
+                elif g1 < -50 or g2 < -50:
+                    return "📉 Strong Decline"
+                elif g1 < -25 or g2 < -25:
+                    return "📉 Declining"
+                elif g1 < 0 or g2 < 0:
+                    return "⚠️ Weak"
+                else:
+                    return "⚪ Mixed"
+            
+            df['growth_trend'] = df.apply(classify_growth_trend, axis=1)
+            
+            logger.info(f"Growth trends classified. Distribution: {df['growth_trend'].value_counts().to_dict()}")
         
         # Performance tier classifications - Unified approach
         # Enhanced performance tier classification with ALL return periods
@@ -5396,6 +5687,736 @@ class RankingEngine:
                 logger.info(f"Worst performing category: {worst_category}")
         
         return df
+
+# ============================================
+# MARKET OVERVIEW ANALYSIS - PROFESSIONAL MARKET INSIGHTS
+# ============================================
+
+class SimpleMarketAnalysis:
+    """Market analysis using actual V9.py columns
+    
+    This class provides market analysis functionality aligned with V9.py data structure.
+    It follows V9.py standards for error handling, data validation, and logging.
+    
+    Return columns mapping:
+    - 1 Day → ret_1d
+    - 7 Days → ret_7d  
+    - 30 Days → ret_30d
+    - 3 Months → ret_3m
+    - 6 Months → ret_6m
+    - 1 Year → ret_1y
+    
+    52-week metrics (existing in V9.py):
+    - from_low_pct: % distance FROM 52-week low
+    - from_high_pct: % distance FROM 52-week high
+    """
+    
+    @staticmethod
+    def calculate_52w_metrics(df: pd.DataFrame) -> pd.DataFrame:
+        """Use existing 52-week metrics from V9.py data
+        
+        V9.py already has:
+        - from_low_pct: percentage distance FROM 52-week low (how much above low)
+        - from_high_pct: percentage distance FROM 52-week high (how much below high)
+        
+        Args:
+            df: DataFrame with V9.py columns
+            
+        Returns:
+            DataFrame with calculated 52-week position metrics
+        """
+        if df is None or df.empty:
+            logger.warning("calculate_52w_metrics: Empty DataFrame received")
+            return df
+            
+        try:
+            df = df.copy()
+            
+            # Use existing columns directly with validation
+            if 'from_low_pct' in df.columns:
+                # Clean and validate numeric values
+                df['from_low_pct'] = pd.to_numeric(df['from_low_pct'], errors='coerce')
+                df['52w_low_distance'] = df['from_low_pct']
+            else:
+                logger.debug("calculate_52w_metrics: 'from_low_pct' column not found")
+            
+            if 'from_high_pct' in df.columns:
+                # Clean and validate numeric values
+                df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+                df['52w_high_distance'] = df['from_high_pct']
+                
+                # Calculate position: 0% from high = 100 position, 100% from high = 0 position
+                df['52w_position'] = np.maximum(0, 100 - df['from_high_pct'].fillna(100))
+            else:
+                logger.debug("calculate_52w_metrics: 'from_high_pct' column not found")
+            
+            logger.debug(f"calculate_52w_metrics: Processed {len(df)} rows")
+            return df
+            
+        except Exception as e:
+            logger.error(f"calculate_52w_metrics failed: {e}", exc_info=True)
+            return df  # Return original df on error
+    
+    @staticmethod
+    def get_return_column_for_period(period: str) -> str:
+        """Map time period to appropriate return column
+        
+        Args:
+            period: Time period string (e.g., "1 Day", "30 Days")
+            
+        Returns:
+            Column name for the return data (e.g., "ret_1d", "ret_30d")
+        """
+        period_map = {
+            "1 Day": "ret_1d",
+            "7 Days": "ret_7d", 
+            "30 Days": "ret_30d",
+            "3 Months": "ret_3m",
+            "6 Months": "ret_6m",
+            "1 Year": "ret_1y"
+        }
+        return period_map.get(period, "ret_30d")
+    
+    @staticmethod
+    def filter_stocks_by_universe(df: pd.DataFrame, universe: str) -> pd.DataFrame:
+        """Filter stocks based on selected universe
+        
+        Args:
+            df: DataFrame to filter
+            universe: Universe selection ("Top 500 Stocks" or "All Stocks")
+            
+        Returns:
+            Filtered DataFrame
+        """
+        if df is None or df.empty:
+            logger.warning("filter_stocks_by_universe: Empty DataFrame received")
+            return pd.DataFrame()
+            
+        try:
+            if universe == "Top 500 Stocks":
+                # Filter by rank or master_score to get top 500
+                if 'rank' in df.columns:
+                    result = df.nsmallest(500, 'rank')
+                    logger.info(f"filter_stocks_by_universe: Filtered to top 500 by rank")
+                elif 'master_score' in df.columns:
+                    result = df.nlargest(500, 'master_score')
+                    logger.info(f"filter_stocks_by_universe: Filtered to top 500 by master_score")
+                else:
+                    result = df.head(500)
+                    logger.warning(f"filter_stocks_by_universe: No rank/master_score, using first 500")
+            else:  # "All Stocks"
+                result = df
+                logger.info(f"filter_stocks_by_universe: Using all {len(df)} stocks")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"filter_stocks_by_universe failed: {e}", exc_info=True)
+            return df
+    
+    @staticmethod
+    def get_stock_views(df: pd.DataFrame, view_type: str, time_period: str, universe: str) -> pd.DataFrame:
+        """Get different stock views based on selection
+        
+        Args:
+            df: Source DataFrame with stock data
+            view_type: Type of view ("Gainers", "Losers", "52W High", "52W Low", "Active")
+            time_period: Time period for returns
+            universe: Stock universe filter
+            
+        Returns:
+            Filtered and sorted DataFrame for the requested view
+        """
+        # Critical validation - V9.py standard
+        if df is None or df.empty:
+            logger.warning("get_stock_views: Empty DataFrame received")
+            return pd.DataFrame()
+        
+        if 'ticker' not in df.columns:
+            logger.error("get_stock_views: Missing critical 'ticker' column")
+            return pd.DataFrame()
+        
+        try:
+            logger.info(f"get_stock_views: Processing {len(df)} stocks, view={view_type}, period={time_period}, universe={universe}")
+            
+            # First filter by universe
+            df = SimpleMarketAnalysis.filter_stocks_by_universe(df, universe)
+            
+            if df.empty:
+                logger.warning("get_stock_views: Empty DataFrame after universe filter")
+                return pd.DataFrame()
+            
+            # Calculate/map 52w metrics (uses existing from_low_pct and from_high_pct)
+            df = SimpleMarketAnalysis.calculate_52w_metrics(df)
+            
+            # Get the appropriate return column for the time period
+            return_col = SimpleMarketAnalysis.get_return_column_for_period(time_period)
+            
+            # Process based on view type
+            if view_type == "52W High":
+                if 'from_high_pct' in df.columns:
+                    # Clean numeric values
+                    df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+                    # Stocks close to 52W high have LOW from_high_pct
+                    result = df[df['from_high_pct'] < 15]  # Within 15% of high
+                    result = result.sort_values('from_high_pct', ascending=True)  # Closest to high first
+                    logger.info(f"get_stock_views: Found {len(result)} stocks near 52W high")
+                else:
+                    logger.warning("get_stock_views: 'from_high_pct' column not found for 52W High view")
+                    result = df
+                
+            elif view_type == "52W Low":
+                if 'from_low_pct' in df.columns:
+                    # Clean numeric values
+                    df['from_low_pct'] = pd.to_numeric(df['from_low_pct'], errors='coerce')
+                    # Stocks close to 52W low have LOW from_low_pct
+                    result = df[df['from_low_pct'] < 15]  # Within 15% of low
+                    result = result.sort_values('from_low_pct', ascending=True)  # Closest to low first
+                    logger.info(f"get_stock_views: Found {len(result)} stocks near 52W low")
+                else:
+                    logger.warning("get_stock_views: 'from_low_pct' column not found for 52W Low view")
+                    result = df
+                
+            elif view_type == "Gainers":
+                if return_col in df.columns:
+                    # Clean numeric values
+                    df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+                    result = df[df[return_col] > 0].sort_values(return_col, ascending=False)
+                    logger.info(f"get_stock_views: Found {len(result)} gainers for {time_period}")
+                else:
+                    logger.warning(f"get_stock_views: Column '{return_col}' not found for Gainers view")
+                    result = pd.DataFrame()
+                        
+            elif view_type == "Losers":
+                if return_col in df.columns:
+                    # Clean numeric values
+                    df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+                    result = df[df[return_col] < 0].sort_values(return_col, ascending=True)
+                    logger.info(f"get_stock_views: Found {len(result)} losers for {time_period}")
+                else:
+                    logger.warning(f"get_stock_views: Column '{return_col}' not found for Losers view")
+                    result = pd.DataFrame()
+                        
+            elif view_type == "Active":
+                if 'volume_30d' in df.columns:
+                    result = df.sort_values('volume_30d', ascending=False)
+                    logger.info(f"get_stock_views: Sorted by volume_30d")
+                elif 'rvol' in df.columns:
+                    result = df.sort_values('rvol', ascending=False)
+                    logger.info(f"get_stock_views: Sorted by rvol")
+                else:
+                    logger.warning("get_stock_views: No volume columns found for Active view")
+                    result = df
+            
+            else:  # Default view
+                if 'rank' in df.columns:
+                    result = df.sort_values('rank')
+                else:
+                    result = df
+                logger.info(f"get_stock_views: Using default view")
+            
+            # Return top 100 results for comprehensive market overview
+            final_result = result.head(100)
+            logger.info(f"get_stock_views: Returning {len(final_result)} stocks")
+            return final_result
+            
+        except Exception as e:
+            logger.error(f"get_stock_views failed: {e}", exc_info=True)
+            return pd.DataFrame()
+    
+    @staticmethod
+    def get_industry_analysis(df: pd.DataFrame, group_by: str, time_period: str) -> pd.DataFrame:
+        """Analyze performance by Industry or Sector for specific time period
+        
+        Args:
+            df: Source DataFrame
+            group_by: Grouping type ("Industry" or "Sector")
+            time_period: Time period for analysis
+            
+        Returns:
+            Aggregated DataFrame with industry/sector metrics
+        """
+        if df is None or df.empty:
+            logger.warning("get_industry_analysis: Empty DataFrame received")
+            return pd.DataFrame()
+        
+        try:
+            logger.info(f"get_industry_analysis: Processing {len(df)} stocks, group_by={group_by}, period={time_period}")
+            
+            # Determine grouping column
+            if group_by == "Sector" and 'sector' in df.columns:
+                group_col = 'sector'
+            elif 'industry' in df.columns:
+                group_col = 'industry'
+            elif 'sector' in df.columns:
+                group_col = 'sector'
+            else:
+                logger.warning("get_industry_analysis: No industry or sector column found")
+                return pd.DataFrame()
+            
+            # Get return column for the selected period
+            return_col = SimpleMarketAnalysis.get_return_column_for_period(time_period)
+            
+            # Clean numeric columns before aggregation
+            if return_col in df.columns:
+                df[return_col] = pd.to_numeric(df[return_col], errors='coerce')
+            
+            if 'from_high_pct' in df.columns:
+                df['from_high_pct'] = pd.to_numeric(df['from_high_pct'], errors='coerce')
+            
+            if 'rvol' in df.columns:
+                df['rvol'] = pd.to_numeric(df['rvol'], errors='coerce')
+            
+            if 'master_score' in df.columns:
+                df['master_score'] = pd.to_numeric(df['master_score'], errors='coerce')
+            
+            # Build aggregation dict based on available columns
+            agg_dict = {'ticker': 'count'}
+            
+            if return_col in df.columns:
+                agg_dict[return_col] = ['mean', 'median']
+            
+            if 'rvol' in df.columns:
+                agg_dict['rvol'] = 'mean'
+                
+            if 'master_score' in df.columns:
+                agg_dict['master_score'] = 'mean'
+                
+            # Use actual 52w columns from V9.py
+            if 'from_high_pct' in df.columns:
+                agg_dict['from_high_pct'] = 'mean'  # Average distance from 52W high
+            
+            # Calculate metrics by group
+            grouped = df.groupby(group_col).agg(agg_dict).round(2)
+            
+            # Flatten column names
+            grouped.columns = ['_'.join(col).strip() if col[1] else col[0] 
+                              for col in grouped.columns.values]
+            grouped = grouped.reset_index()
+            
+            # Rename columns for display
+            rename_map = {'ticker_count': 'Companies'}
+            
+            if return_col in df.columns:
+                if f'{return_col}_mean' in grouped.columns:
+                    rename_map[f'{return_col}_mean'] = 'Avg Return'
+                if f'{return_col}_median' in grouped.columns:
+                    rename_map[f'{return_col}_median'] = 'Median Return'
+            
+            if 'rvol_mean' in grouped.columns:
+                rename_map['rvol_mean'] = 'Avg Volume'
+                
+            if 'master_score_mean' in grouped.columns:
+                rename_map['master_score_mean'] = 'Avg Score'
+                
+            if 'from_high_pct_mean' in grouped.columns:
+                rename_map['from_high_pct_mean'] = '52WH Distance'  # Distance from 52W high
+            
+            grouped = grouped.rename(columns=rename_map)
+            
+            # Sort by performance if available
+            if 'Avg Return' in grouped.columns:
+                grouped = grouped.sort_values('Avg Return', ascending=False)
+            
+            # Calculate market outperformance
+            if 'Avg Return' in grouped.columns and return_col in df.columns:
+                market_return = df[return_col].mean()
+                grouped['Outperformance'] = (grouped['Avg Return'] - market_return).round(2)
+            
+            logger.info(f"get_industry_analysis: Returning {len(grouped)} groups")
+            return grouped
+            
+        except Exception as e:
+            logger.error(f"get_industry_analysis failed: {e}", exc_info=True)
+            return pd.DataFrame()
+
+
+class SimpleMarketUI:
+    """UI Components for Simple Market Analysis
+    
+    This class provides Streamlit UI components following V9.py patterns for
+    session state management, error handling, and user experience.
+    """
+    
+    @staticmethod
+    def render_market_analysis(df: pd.DataFrame):
+        """Render market analysis with Stocks and Industries sections
+        
+        Args:
+            df: Source DataFrame with stock data
+        """
+        if df is None or df.empty:
+            st.warning("⚠️ No data available for market analysis")
+            logger.warning("render_market_analysis: Empty DataFrame received")
+            return
+        
+        try:
+            logger.info(f"render_market_analysis: Rendering with {len(df)} stocks")
+            
+            # Initialize session states for button persistence (V9.py pattern)
+            if 'market_analysis_stock_view' not in st.session_state:
+                st.session_state.market_analysis_stock_view = "Gainers"
+            if 'market_analysis_industry_filter' not in st.session_state:
+                st.session_state.market_analysis_industry_filter = "All"
+            
+            # Custom CSS for better styling
+            st.markdown("""
+            <style>
+            .stock-header {
+                background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 10px;
+            }
+            .industry-header {
+                background: linear-gradient(90deg, #16a085 0%, #27ae60 100%);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Create two columns for the two sections
+            col1, col2 = st.columns([1, 1])
+            
+            # ====================================
+            # STOCKS SECTION
+            # ====================================
+            with col1:
+                st.markdown('<div class="stock-header">📊 <b>Stocks</b></div>', unsafe_allow_html=True)
+                
+                # Create sub-columns for controls
+                control_col1, control_col2 = st.columns(2)
+                
+                with control_col1:
+                    # Stock universe filter
+                    stock_universe = st.selectbox(
+                        "Select Universe",
+                        ["Top 500 Stocks", "All Stocks"],
+                        key="stock_universe_filter"
+                    )
+                
+                with control_col2:
+                    # Time period selector
+                    stock_time_period = st.selectbox(
+                        "Time Period",
+                        ["1 Day", "7 Days", "30 Days", "3 Months", "6 Months", "1 Year"],
+                        index=2,  # Default to 30 Days
+                        key="stock_time_period"
+                    )
+                
+                # View type buttons
+                st.markdown("##### Select View")
+                view_cols = st.columns(5)
+                
+                with view_cols[0]:
+                    gainers_btn = st.button("📈 Gainers", key="gainers_btn", width="stretch")
+                with view_cols[1]:
+                    losers_btn = st.button("📉 Losers", key="losers_btn", width="stretch")
+                with view_cols[2]:
+                    high_btn = st.button("⬆️ 52W High", key="52w_high_btn", width="stretch")
+                with view_cols[3]:
+                    low_btn = st.button("⬇️ 52W Low", key="52w_low_btn", width="stretch")
+                with view_cols[4]:
+                    active_btn = st.button("🔥 Active", key="active_btn", width="stretch")
+                
+                # Update session state based on button clicks (V9.py pattern)
+                if gainers_btn:
+                    st.session_state.market_analysis_stock_view = "Gainers"
+                elif losers_btn:
+                    st.session_state.market_analysis_stock_view = "Losers"
+                elif high_btn:
+                    st.session_state.market_analysis_stock_view = "52W High"
+                elif low_btn:
+                    st.session_state.market_analysis_stock_view = "52W Low"
+                elif active_btn:
+                    st.session_state.market_analysis_stock_view = "Active"
+                
+                # Use the stored session state value
+                stock_view = st.session_state.market_analysis_stock_view
+                
+                # Show current selection
+                st.info(f"📊 Current View: **{stock_view}**")
+                
+                # Get filtered data
+                stocks_df = SimpleMarketAnalysis.get_stock_views(df, stock_view, stock_time_period, stock_universe)
+                
+                if stocks_df.empty:
+                    st.info(f"No stocks found for {stock_view} in {stock_time_period}")
+                else:
+                    # Determine which columns to display based on view
+                    return_col = SimpleMarketAnalysis.get_return_column_for_period(stock_time_period)
+                    
+                    # Check if return column exists for gainers/losers view
+                    if stock_view in ["Gainers", "Losers"] and return_col not in stocks_df.columns:
+                        st.warning(f"⚠️ Data for {stock_time_period} not available")
+                    else:
+                        # Determine company column name (V9.py uses 'company_name')
+                        company_col = None
+                        if 'company_name' in stocks_df.columns:
+                            company_col = 'company_name'
+                        elif 'company' in stocks_df.columns:
+                            company_col = 'company'
+                        
+                        # Build display columns based on view type
+                        if stock_view == "52W Low":
+                            base_cols = ['ticker', 'from_low_pct', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'from_low_pct', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'from_low_pct'
+                            metric_label = f"From 52W Low"
+                            
+                        elif stock_view == "52W High":
+                            base_cols = ['ticker', 'from_high_pct', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'from_high_pct', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'from_high_pct'
+                            metric_label = f"From 52W High"
+                            
+                        elif stock_view in ["Gainers", "Losers"]:
+                            base_cols = ['ticker', return_col, 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, return_col, 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = return_col
+                            metric_label = f"{stock_time_period}"
+                            
+                        elif stock_view == "Active":
+                            vol_col = 'volume_30d' if 'volume_30d' in stocks_df.columns else 'rvol'
+                            base_cols = ['ticker', vol_col, 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, vol_col, 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = vol_col
+                            metric_label = "Volume" if vol_col == 'volume_30d' else "Rel Volume"
+                            
+                        else:
+                            base_cols = ['ticker', 'master_score', 'price']
+                            if company_col:
+                                display_cols = ['ticker', company_col, 'master_score', 'price']
+                            else:
+                                display_cols = base_cols
+                            metric_col = 'master_score'
+                            metric_label = "Score"
+                        
+                        # Filter available columns
+                        available_cols = [col for col in display_cols if col in stocks_df.columns]
+                        display_df = stocks_df[available_cols].head(100).copy()
+                        
+                        # Format the display (V9.py formatting pattern)
+                        if 'price' in display_df.columns:
+                            display_df['Price'] = display_df['price'].apply(lambda x: f"₹{x:,.0f}" if pd.notna(x) else '-')
+                            display_df = display_df.drop('price', axis=1)
+                        
+                        if metric_col in display_df.columns and metric_col != 'price':
+                            if 'ret' in metric_col or 'pct' in metric_col:
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:+.2f}%" if pd.notna(x) else '-'
+                                )
+                            elif metric_col == 'rvol':
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:.2f}x" if pd.notna(x) else '-'
+                                )
+                            elif metric_col == 'volume_30d':
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x/1000000:.1f}M" if pd.notna(x) and x > 1000000 
+                                    else f"{x/1000:.1f}K" if pd.notna(x) and x > 1000
+                                    else f"{x:.0f}" if pd.notna(x) else '-'
+                                )
+                            else:
+                                display_df[metric_label] = display_df[metric_col].apply(
+                                    lambda x: f"{x:.0f}" if pd.notna(x) else '-'
+                                )
+                            
+                            # Drop original column if we created a formatted version
+                            if metric_label != metric_col:
+                                display_df = display_df.drop(metric_col, axis=1)
+                        
+                        # Rename columns for display
+                        rename_map = {'ticker': 'Symbol'}
+                        if company_col:
+                            rename_map[company_col] = 'Company'
+                        display_df = display_df.rename(columns=rename_map)
+                        
+                        # Display the table with enhanced height for 100 stocks
+                        st.dataframe(
+                            display_df,
+                            width="stretch",
+                            hide_index=True,
+                            height=600
+                        )
+                        
+                        # Show summary with enhanced information
+                        st.caption(f"📊 {stock_view} • {stock_time_period} • {stock_universe} • Showing {len(display_df)} of {len(stocks_df)} stocks")
+            
+            # ====================================
+            # INDUSTRIES/SECTORS SECTION
+            # ====================================
+            with col2:
+                st.markdown('<div class="industry-header">🏭 <b>Industries</b></div>', unsafe_allow_html=True)
+                
+                # Create sub-columns for controls
+                ind_col1, ind_col2 = st.columns(2)
+                
+                with ind_col1:
+                    # Industry/Sector selector
+                    group_type = st.selectbox(
+                        "Group By",
+                        ["Industry", "Sector"],
+                        key="industry_sector_selector"
+                    )
+                
+                with ind_col2:
+                    # Time period selector
+                    industry_time_period = st.selectbox(
+                        "Time Period",
+                        ["1 Day", "7 Days", "30 Days", "3 Months", "6 Months", "1 Year"],
+                        index=2,  # Default to 30 Days
+                        key="industry_time_period"
+                    )
+                
+                # Performance filter buttons
+                st.markdown("##### Performance Filter")
+                perf_cols = st.columns(2)
+                
+                with perf_cols[0]:
+                    outperformers_btn = st.button("🚀 Outperformers", key="outperformers_btn", width="stretch")
+                with perf_cols[1]:
+                    underperformers_btn = st.button("📉 Underperformers", key="underperformers_btn", width="stretch")
+                
+                # Update session state based on button clicks (V9.py pattern)
+                if outperformers_btn:
+                    st.session_state.market_analysis_industry_filter = "Outperformers"
+                elif underperformers_btn:
+                    st.session_state.market_analysis_industry_filter = "Underperformers"
+                
+                # Show current filter
+                filter_status = st.session_state.market_analysis_industry_filter
+                if filter_status != "All":
+                    st.info(f"🏭 Showing: **{filter_status}**")
+                
+                # Get industry/sector analysis
+                industry_df = SimpleMarketAnalysis.get_industry_analysis(df, group_type, industry_time_period)
+                
+                if industry_df.empty:
+                    st.info(f"No {group_type.lower()} data available for {industry_time_period}")
+                else:
+                    # Filter based on session state
+                    if st.session_state.market_analysis_industry_filter == "Outperformers" and 'Avg Return' in industry_df.columns:
+                        industry_df = industry_df[industry_df['Avg Return'] > 0]
+                    elif st.session_state.market_analysis_industry_filter == "Underperformers" and 'Avg Return' in industry_df.columns:
+                        industry_df = industry_df[industry_df['Avg Return'] < 0]
+                    
+                    if not industry_df.empty:
+                        # Prepare display dataframe
+                        display_cols = []
+                        
+                        # Industry/Sector column
+                        group_col = group_type.lower() if group_type.lower() in industry_df.columns else industry_df.columns[0]
+                        display_cols.append(group_col)
+                        
+                        # Add available columns
+                        if 'Companies' in industry_df.columns:
+                            display_cols.append('Companies')
+                        if 'Avg Return' in industry_df.columns:
+                            display_cols.append('Avg Return')
+                        if '52WH Distance' in industry_df.columns:
+                            display_cols.append('52WH Distance')
+                        
+                        # Filter to available columns
+                        available_display = [col for col in display_cols if col in industry_df.columns]
+                        industry_display = industry_df[available_display].head(50).copy()
+                        
+                        # Format the display
+                        final_display = pd.DataFrame()
+                        
+                        # Industry/Sector column with company count
+                        if group_col in industry_display.columns:
+                            column_name = group_type  # "Industry" or "Sector"
+                            final_display[column_name] = industry_display[group_col]
+                            if 'Companies' in industry_display.columns:
+                                final_display[column_name] = final_display[column_name] + '\n' + industry_display['Companies'].apply(lambda x: f"{x} companies")
+                        
+                        # Returns column with indicator
+                        if 'Avg Return' in industry_display.columns:
+                            def get_arrow(val):
+                                if pd.isna(val):
+                                    return ""
+                                elif val > 0:
+                                    return "▲"
+                                else:
+                                    return "▼"
+                            
+                            arrows = industry_display['Avg Return'].apply(get_arrow)
+                            returns = industry_display['Avg Return'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else '-')
+                            
+                            return_col_name = f"{industry_time_period}"
+                            final_display[return_col_name] = arrows + " " + returns
+                            final_display['_return_value'] = industry_display['Avg Return']
+                        
+                        # 52WH Distance column
+                        if '52WH Distance' in industry_display.columns:
+                            final_display['52WH Distance'] = industry_display['52WH Distance'].apply(
+                                lambda x: f"{x:.1f}%" if pd.notna(x) else '-'
+                            )
+                        
+                        # Remove internal columns
+                        display_columns = [col for col in final_display.columns if not col.startswith('_')]
+                        industry_display_clean = final_display[display_columns]
+                        
+                        # Build column config
+                        column_config = {}
+                        
+                        if "52WH Distance" in industry_display_clean.columns:
+                            column_config["52WH Distance"] = st.column_config.TextColumn(
+                                "52WH Distance", 
+                                width="small",
+                                help="Average distance from 52-week high"
+                            )
+                        
+                        if group_type in industry_display_clean.columns:
+                            column_config[group_type] = st.column_config.TextColumn(
+                                group_type,
+                                width="large",
+                                help=f"{group_type} name and company count"
+                            )
+                        
+                        if industry_time_period in industry_display_clean.columns:
+                            column_config[industry_time_period] = st.column_config.TextColumn(
+                                industry_time_period,
+                                width="small",
+                                help=f"Average {industry_time_period.lower()} returns"
+                            )
+                        
+                        # Display the table with enhanced height for 50 industries/sectors
+                        st.dataframe(
+                            industry_display_clean,
+                            width="stretch",
+                            hide_index=True,
+                            height=700,
+                            column_config=column_config
+                        )
+                        
+                        # Show summary with enhanced information
+                        filter_text = "Outperformers" if st.session_state.market_analysis_industry_filter == "Outperformers" else "Underperformers" if st.session_state.market_analysis_industry_filter == "Underperformers" else "All"
+                        st.caption(f"🏭 {filter_text} {group_type}s • {industry_time_period} • Showing {len(industry_display_clean)} of {len(industry_df)} items")
+                    else:
+                        st.info(f"No {filter_status.lower()} found for {group_type.lower()}s in {industry_time_period}")
+        
+        except Exception as e:
+            logger.error(f"render_market_analysis failed: {e}", exc_info=True)
+            st.error(f"⚠️ An error occurred while rendering the market analysis")
+
+
 # ============================================
 # PATTERN DETECTION ENGINE - FULLY OPTIMIZED & FIXED
 # ============================================
@@ -7564,6 +8585,20 @@ class FilterEngine:
             'position_tiers': [],
             'position_range': (0, 100),
             'turnover_tiers': [],
+            'turnover_30d_tiers': [],
+            'turnover_90d_tiers': [],
+            'turnover_180d_tiers': [],
+            'growth_trend_selection': "All Trends",
+            'growth_trend_custom_range': (0.0, 100.0),
+            'growth_trends': [],
+            'growth_quality_tiers': [],
+            'smart_money_flows': [],
+            'momentum_selection': "All Momentum",
+            'momentum_custom_range': (-100.0, 100.0),
+            'momentum_range': (-100.0, 100.0),
+            'consistency_selection': "All Consistency",
+            'consistency_custom_range': (0.0, 100.0),
+            'consistency_range': (0.0, 100.0),
             'volume_tiers': [],
             'rvol_range': (0.1, 20.0),
             'vmi_tiers': [],
@@ -7607,7 +8642,8 @@ class FilterEngine:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_dedicated',
+            'turnover_30d_tier_multiselect_dedicated', 'turnover_90d_tier_multiselect_dedicated', 'turnover_180d_tier_multiselect_dedicated',
             # Two-Stage Pattern Filter Widgets
             'exclude_patterns_multiselect', 'include_patterns_multiselect',
             # Combination Pattern Filter Widget
@@ -7972,11 +9008,117 @@ class FilterEngine:
                 if 'position_pct' in df.columns:
                     masks.append(df['position_pct'].between(position_range[0], position_range[1], inclusive='both'))
         
-        # 5.55. Daily Turnover Intelligence filters
+        # 5.55. Enhanced Turnover Intelligence filters
         if 'turnover_tiers' in filters:
             selected_tiers = filters['turnover_tiers']
             if selected_tiers:
                 masks.append(create_mask_from_isin('daily_turnover_tier', selected_tiers))
+        
+        # 5.55.1. 30-Day Turnover filters (SMA 20d basis)
+        if 'turnover_30d_tiers' in filters:
+            selected_tiers = filters['turnover_30d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_30d_tier', selected_tiers))
+        
+        # 5.55.2. 90-Day Turnover filters (SMA 50d basis)
+        if 'turnover_90d_tiers' in filters:
+            selected_tiers = filters['turnover_90d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_90d_tier', selected_tiers))
+        
+        # 5.55.3. 180-Day Turnover filters (SMA 200d basis)
+        if 'turnover_180d_tiers' in filters:
+            selected_tiers = filters['turnover_180d_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('turnover_180d_tier', selected_tiers))
+        
+        # 5.56. 🌊 LIQUIDITY GROWTH ANALYTICS FILTERS - Advanced Multi-Period Analysis
+        
+        # 5.56.1. Growth Trend Classification Filter (with Custom Range support)
+        if 'growth_trend_custom_range' in filters and 'composite_growth_score' in df.columns:
+            # Custom Range selected - filter by growth score range
+            custom_range = filters['growth_trend_custom_range']
+            min_score, max_score = custom_range
+            masks.append((df['composite_growth_score'] >= min_score) & (df['composite_growth_score'] <= max_score))
+        elif 'growth_trends' in filters and 'growth_trend' in df.columns:
+            # Preset trend selected - filter by trend classification
+            selected_trends = filters['growth_trends']
+            if selected_trends:
+                masks.append(create_mask_from_isin('growth_trend', selected_trends))
+        
+        # 5.56.2. Growth Quality Tier Filter
+        if 'growth_quality_tiers' in filters and 'growth_quality_tier' in df.columns:
+            selected_tiers = filters['growth_quality_tiers']
+            if selected_tiers:
+                masks.append(create_mask_from_isin('growth_quality_tier', selected_tiers))
+        
+        # 5.56.3. Smart Money Flow Detection Filter
+        if 'smart_money_flows' in filters and 'smart_money_flow' in df.columns:
+            selected_flows = filters['smart_money_flows']
+            if selected_flows:
+                masks.append(create_mask_from_isin('smart_money_flow', selected_flows))
+        
+        # 5.56.4. Growth Momentum Range Filter (with Custom Range support)
+        if 'momentum_custom_range' in filters and 'growth_momentum' in df.columns:
+            # Custom Range selected - filter by custom momentum range
+            custom_range = filters['momentum_custom_range']
+            min_momentum, max_momentum = custom_range
+            masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
+        elif 'momentum_range' in filters and 'growth_momentum' in df.columns:
+            # Preset momentum selected - filter by preset range
+            momentum_range = filters['momentum_range']
+            if momentum_range != (-100.0, 100.0):  # Only apply if not default
+                min_momentum, max_momentum = momentum_range
+                masks.append((df['growth_momentum'] >= min_momentum) & (df['growth_momentum'] <= max_momentum))
+        
+        # 5.56.5. Growth Consistency Range Filter (with Custom Range support)
+        if 'consistency_custom_range' in filters and 'growth_consistency' in df.columns:
+            # Custom Range selected - filter by custom consistency range
+            custom_range = filters['consistency_custom_range']
+            min_consistency, max_consistency = custom_range
+            masks.append((df['growth_consistency'] >= min_consistency) & (df['growth_consistency'] <= max_consistency))
+        elif 'consistency_range' in filters and 'growth_consistency' in df.columns:
+            # Preset consistency selected - filter by preset range
+            consistency_range = filters['consistency_range']
+            if consistency_range != (0.0, 100.0):  # Only apply if not default
+                min_consistency, max_consistency = consistency_range
+                masks.append((df['growth_consistency'] >= min_consistency) & (df['growth_consistency'] <= max_consistency))
+        
+        # 5.5.1. Daily vs 30-Day Turnover Growth Filter
+        if 'growth_daily_30_custom_range' in filters and 'growth_daily_to_30' in df.columns:
+            # Custom range selected for Daily vs 30-Day growth
+            custom_range = filters['growth_daily_30_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_daily_to_30'] >= min_growth) & (df['growth_daily_to_30'] <= max_growth))
+        elif 'growth_daily_30_range' in filters and 'growth_daily_to_30' in df.columns:
+            # Preset range selected for Daily vs 30-Day growth
+            growth_range = filters['growth_daily_30_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_daily_to_30'] >= min_growth) & (df['growth_daily_to_30'] <= max_growth))
+        
+        # 5.5.2. 30-Day vs 90-Day Turnover Growth Filter
+        if 'growth_30_90_custom_range' in filters and 'growth_30_to_90' in df.columns:
+            # Custom range selected for 30-Day vs 90-Day growth
+            custom_range = filters['growth_30_90_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_30_to_90'] >= min_growth) & (df['growth_30_to_90'] <= max_growth))
+        elif 'growth_30_90_range' in filters and 'growth_30_to_90' in df.columns:
+            # Preset range selected for 30-Day vs 90-Day growth
+            growth_range = filters['growth_30_90_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_30_to_90'] >= min_growth) & (df['growth_30_to_90'] <= max_growth))
+        
+        # 5.5.3. 90-Day vs 180-Day Turnover Growth Filter
+        if 'growth_90_180_custom_range' in filters and 'growth_90_to_180' in df.columns:
+            # Custom range selected for 90-Day vs 180-Day growth
+            custom_range = filters['growth_90_180_custom_range']
+            min_growth, max_growth = custom_range
+            masks.append((df['growth_90_to_180'] >= min_growth) & (df['growth_90_to_180'] <= max_growth))
+        elif 'growth_90_180_range' in filters and 'growth_90_to_180' in df.columns:
+            # Preset range selected for 90-Day vs 180-Day growth
+            growth_range = filters['growth_90_180_range']
+            min_growth, max_growth = growth_range
+            masks.append((df['growth_90_to_180'] >= min_growth) & (df['growth_90_to_180'] <= max_growth))
         
         # 5.6. Performance Intelligence filters
         if 'performance_tiers' in filters:
@@ -8338,6 +9480,20 @@ class FilterEngine:
             'position_tiers': [],
             'position_range': (0, 100),
             'turnover_tiers': [],
+            'turnover_30d_tiers': [],
+            'turnover_90d_tiers': [],
+            'turnover_180d_tiers': [],
+            'growth_trend_selection': "All Trends",
+            'growth_trend_custom_range': (0.0, 100.0),
+            'growth_trends': [],
+            'growth_quality_tiers': [],
+            'smart_money_flows': [],
+            'momentum_selection': "All Momentum",
+            'momentum_custom_range': (-100.0, 100.0),
+            'momentum_range': (-100.0, 100.0),
+            'consistency_selection': "All Consistency",
+            'consistency_custom_range': (0.0, 100.0),
+            'consistency_range': (0.0, 100.0),
             'performance_tiers': [],
             'performance_custom_range': (-100, 500),
             'volume_tiers': [],
@@ -9170,7 +10326,7 @@ class UIComponents:
                 fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                 fig.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                 
-                st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig, width="stretch", theme="streamlit")
                 
                 # Add context-aware insights
                 hot_items = top_12[top_12['flow_score'] > 75]
@@ -9571,6 +10727,20 @@ class SessionStateManager:
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'turnover_tiers': [],
+                'turnover_30d_tiers': [],
+                'turnover_90d_tiers': [],
+                'turnover_180d_tiers': [],
+                'growth_trend_selection': "All Trends",
+                'growth_trend_custom_range': (0.0, 100.0),
+                'growth_trends': [],
+                'growth_quality_tiers': [],
+                'smart_money_flows': [],
+                'momentum_selection': "All Momentum",
+                'momentum_custom_range': (-100.0, 100.0),
+                'momentum_range': (-100.0, 100.0),
+                'consistency_selection': "All Consistency",
+                'consistency_custom_range': (0.0, 100.0),
+                'consistency_range': (0.0, 100.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9854,6 +11024,30 @@ class SessionStateManager:
                 'position_tiers': [],
                 'position_range': (0, 100),
                 'turnover_tiers': [],
+                'turnover_30d_tiers': [],
+                'turnover_90d_tiers': [],
+                'turnover_180d_tiers': [],
+                'growth_trend_selection': "All Trends",
+                'growth_trend_custom_range': (0.0, 100.0),
+                'growth_trends': [],
+                'growth_quality_tiers': [],
+                'smart_money_flows': [],
+                'momentum_selection': "All Momentum",
+                'momentum_custom_range': (-100.0, 100.0),
+                'momentum_range': (-100.0, 100.0),
+                'consistency_selection': "All Consistency",
+                'consistency_custom_range': (0.0, 100.0),
+                'consistency_range': (0.0, 100.0),
+                # Timeframe-Specific Growth Filters
+                'growth_daily_30_selection': "All Growth",
+                'growth_daily_30_range': None,
+                'growth_daily_30_custom_range': (-100.0, 200.0),
+                'growth_30_90_selection': "All Growth",
+                'growth_30_90_range': None,
+                'growth_30_90_custom_range': (-100.0, 200.0),
+                'growth_90_180_selection': "All Growth",
+                'growth_90_180_range': None,
+                'growth_90_180_custom_range': (-100.0, 200.0),
                 'performance_tiers': [],
                 'performance_custom_range': (-100, 500),
                 'volume_tiers': [],
@@ -9950,7 +11144,8 @@ class SessionStateManager:
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
             'volume_tier_multiselect',
             'performance_tier_multiselect_intelligence', 'volume_tier_multiselect_intelligence',
-            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_intelligence',
+            'position_tier_multiselect_intelligence', 'turnover_tier_multiselect_dedicated',
+            'turnover_30d_tier_multiselect_dedicated', 'turnover_90d_tier_multiselect_dedicated', 'turnover_180d_tier_multiselect_dedicated',
             
             # Slider widgets
             'min_score_slider', 'market_strength_slider', 'performance_custom_range_slider',
@@ -10703,7 +11898,7 @@ def main():
         st.session_state.user_preferences['display_mode'] = display_mode
         show_fundamentals = (display_mode == "Hybrid (Technical + Fundamentals)")
         
-        # DEBUG: Show available columns when in Hybrid mode
+        # Show available fundamental columns when in Hybrid mode for user transparency
         if show_fundamentals and 'ranked_df' in st.session_state:
             available_fund_cols = [col for col in ['pe', 'eps_current', 'eps_change_pct'] 
                                  if col in st.session_state.ranked_df.columns]
@@ -11841,21 +13036,477 @@ def main():
                     if position_range != (0, 100):
                         filters['position_range'] = position_range
             
-            # 💧 Daily Turnover Intelligence
+        
+        # 💧 Turnover Filter - Dedicated Section
+        with st.expander("💧 Turnover Filter", expanded=False):
+            
+            # Daily Turnover
             if 'daily_turnover_tier' in ranked_df_display.columns:
-                # Daily turnover tier multiselect (tier-only filtering)
                 turnover_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
                 turnover_tiers = st.multiselect(
-                    "Daily Turnover Tiers",
+                    "📊 Daily Turnover Tiers",
                     options=turnover_tier_options,
                     default=st.session_state.filter_state.get('turnover_tiers', []),
-                    key='turnover_tier_multiselect_intelligence',
-                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_intelligence}),
-                    help="Select daily turnover tiers for filtering"
+                    key='turnover_tier_multiselect_dedicated',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_tiers': st.session_state.turnover_tier_multiselect_dedicated}),
+                    help="📊 Filter by daily turnover tiers"
                 )
                 
                 if turnover_tiers:
                     filters['turnover_tiers'] = turnover_tiers
+            
+            # 30-Day Turnover
+            if 'turnover_30d_tier' in ranked_df_display.columns:
+                turnover_30d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                turnover_30d_tiers = st.multiselect(
+                    "📈 30-Day Turnover Tiers",
+                    options=turnover_30d_tier_options,
+                    default=st.session_state.filter_state.get('turnover_30d_tiers', []),
+                    key='turnover_30d_tier_multiselect_dedicated',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_30d_tiers': st.session_state.turnover_30d_tier_multiselect_dedicated}),
+                    help="📈 Filter by 30-day turnover tiers"
+                )
+                
+                if turnover_30d_tiers:
+                    filters['turnover_30d_tiers'] = turnover_30d_tiers
+            
+            # 90-Day Turnover
+            if 'turnover_90d_tier' in ranked_df_display.columns:
+                turnover_90d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                turnover_90d_tiers = st.multiselect(
+                    "📊 90-Day Turnover Tiers",
+                    options=turnover_90d_tier_options,
+                    default=st.session_state.filter_state.get('turnover_90d_tiers', []),
+                    key='turnover_90d_tier_multiselect_dedicated',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_90d_tiers': st.session_state.turnover_90d_tier_multiselect_dedicated}),
+                    help="📊 Filter by 90-day turnover tiers"
+                )
+                
+                if turnover_90d_tiers:
+                    filters['turnover_90d_tiers'] = turnover_90d_tiers
+            
+            # 180-Day Turnover
+            if 'turnover_180d_tier' in ranked_df_display.columns:
+                turnover_180d_tier_options = list(CONFIG.TIERS['daily_turnover_tiers'].keys())
+                turnover_180d_tiers = st.multiselect(
+                    "📉 180-Day Turnover Tiers",
+                    options=turnover_180d_tier_options,
+                    default=st.session_state.filter_state.get('turnover_180d_tiers', []),
+                    key='turnover_180d_tier_multiselect_dedicated',
+                    on_change=lambda: st.session_state.filter_state.update({'turnover_180d_tiers': st.session_state.turnover_180d_tier_multiselect_dedicated}),
+                    help="📉 Filter by 180-day turnover tiers"
+                )
+                
+                if turnover_180d_tiers:
+                    filters['turnover_180d_tiers'] = turnover_180d_tiers
+        
+        
+        # 🌊 LIQUIDITY GROWTH ANALYTICS FILTER - Advanced Multi-Period Analysis
+        with st.expander("🌊 Liquidity Growth Analytics", expanded=False):
+            
+            # Growth Trend Classification Filter with Custom Range
+            if 'growth_trend' in ranked_df_display.columns:
+                st.markdown("**📈 Growth Trend Classification**")
+                
+                growth_trend_options = {
+                    "All Trends": None,
+                    "🌊💎 Elite Momentum": "🌊💎 Elite Momentum",
+                    "🚀 Explosive Growth": "🚀 Explosive Growth",
+                    "📈 Strong Growth": "📈 Strong Growth",
+                    "✅ Steady Growth": "✅ Steady Growth",
+                    "⚡ Rapidly Accelerating": "⚡ Rapidly Accelerating",
+                    "⚡ Accelerating": "⚡ Accelerating",
+                    "➡️ Stable Growth": "➡️ Stable Growth",
+                    "📉 Strong Decline": "📉 Strong Decline",
+                    "📉 Declining": "📉 Declining",
+                    "⚠️ Weak": "⚠️ Weak",
+                    "⚪ Mixed": "⚪ Mixed",
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_trend_selection = st.session_state.filter_state.get('growth_trend_selection', "All Trends")
+                if current_trend_selection not in growth_trend_options:
+                    current_trend_selection = "All Trends"
+                
+                # Custom sync function for growth trend with custom range support
+                def sync_growth_trend_with_custom():
+                    if 'growth_trend_selectbox' in st.session_state:
+                        selected = st.session_state.growth_trend_selectbox
+                        st.session_state.filter_state['growth_trend_selection'] = selected
+                
+                def sync_growth_trend_custom_slider():
+                    if 'growth_trend_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['growth_trend_custom_range'] = st.session_state.growth_trend_custom_range_slider
+                
+                selected_growth_trend = st.selectbox(
+                    "📈 Growth Trend Quality",
+                    options=list(growth_trend_options.keys()),
+                    index=list(growth_trend_options.keys()).index(current_trend_selection),
+                    help="Filter stocks by liquidity growth trend patterns. Choose Custom Range for precise growth score control.",
+                    key="growth_trend_selectbox",
+                    on_change=sync_growth_trend_with_custom
+                )
+                
+                # Show custom range slider when Custom Range is selected
+                if selected_growth_trend == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (0, 100)
+                    current_custom_range = st.session_state.filter_state.get('growth_trend_custom_range', (0.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Growth Score Range",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="🚀 85+: Explosive | 📈 70-84: Strong | ✅ 55-69: Steady | ➡️ 40-54: Stable | 📉 25-39: Declining | ⚪ <25: Weak",
+                        key="growth_trend_custom_range_slider",
+                        on_change=sync_growth_trend_custom_slider
+                    )
+                    filters['growth_trend_custom_range'] = custom_range
+                elif selected_growth_trend != "All Trends":
+                    # Store the selected preset trend
+                    filters['growth_trends'] = [growth_trend_options[selected_growth_trend]]
+            
+            # Growth Quality Tier Filter
+            if 'growth_quality_tier' in ranked_df_display.columns:
+                growth_quality_options = [
+                    "💎 Elite",
+                    "🌟 Excellent", 
+                    "✅ Good",
+                    "⚪ Average",
+                    "⚠️ Weak"
+                ]
+                growth_quality_tiers = st.multiselect(
+                    "💎 Growth Quality Tiers",
+                    options=growth_quality_options,
+                    default=st.session_state.filter_state.get('growth_quality_tiers', []),
+                    key='growth_quality_tier_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'growth_quality_tiers': st.session_state.growth_quality_tier_multiselect}),
+                    help="⭐ Filter by composite growth quality rating"
+                )
+                
+                if growth_quality_tiers:
+                    filters['growth_quality_tiers'] = growth_quality_tiers
+            
+            # Smart Money Flow Filter
+            if 'smart_money_flow' in ranked_df_display.columns:
+                smart_money_options = [
+                    "🌊💎 Elite Institutional Accumulation",
+                    "🎯 Strong Accumulation",
+                    "✅ Moderate Accumulation",
+                    "📊 Mild Interest",
+                    "⚪ Neutral",
+                    "❌ Distribution",
+                    "⚠️ Weak Distribution"
+                ]
+                smart_money_flows = st.multiselect(
+                    "💰 Smart Money Flow Detection",
+                    options=smart_money_options,
+                    default=st.session_state.filter_state.get('smart_money_flows', []),
+                    key='smart_money_flow_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'smart_money_flows': st.session_state.smart_money_flow_multiselect}),
+                    help="🎯 Filter by institutional/smart money accumulation signals"
+                )
+                
+                if smart_money_flows:
+                    filters['smart_money_flows'] = smart_money_flows
+            
+            # Growth Momentum Filter with Custom Range
+            if 'growth_momentum' in ranked_df_display.columns:
+                st.markdown("**⚡ Growth Momentum**")
+                
+                momentum_options = {
+                    "All Momentum": None,
+                    "🚀 Explosive Acceleration (50+)": (50.0, 100.0),
+                    "📈 Strong Acceleration (25-50)": (25.0, 50.0),
+                    "✅ Moderate Acceleration (10-25)": (10.0, 25.0),
+                    "⚡ Mild Acceleration (0-10)": (0.0, 10.0),
+                    "➡️ Stable (-10 to 0)": (-10.0, 0.0),
+                    "📉 Mild Deceleration (-25 to -10)": (-25.0, -10.0),
+                    "⚠️ Strong Deceleration (-50 to -25)": (-50.0, -25.0),
+                    "❌ Sharp Deceleration (<-50)": (-100.0, -50.0),
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_momentum_selection = st.session_state.filter_state.get('momentum_selection', "All Momentum")
+                if current_momentum_selection not in momentum_options:
+                    current_momentum_selection = "All Momentum"
+                
+                # Custom sync function for momentum with custom range support
+                def sync_momentum_with_custom():
+                    if 'momentum_selectbox' in st.session_state:
+                        selected = st.session_state.momentum_selectbox
+                        st.session_state.filter_state['momentum_selection'] = selected
+                        
+                        if selected == "🎯 Custom Range":
+                            # Don't set range here, will be set by slider
+                            pass
+                        elif selected != "All Momentum":
+                            st.session_state.filter_state['momentum_range'] = momentum_options[selected]
+                
+                def sync_momentum_custom_slider():
+                    if 'momentum_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['momentum_custom_range'] = st.session_state.momentum_custom_range_slider
+                
+                selected_momentum = st.selectbox(
+                    "Momentum Quality",
+                    options=list(momentum_options.keys()),
+                    index=list(momentum_options.keys()).index(current_momentum_selection),
+                    help="Filter stocks by growth momentum (acceleration/deceleration). Choose Custom Range for precise control.",
+                    key="momentum_selectbox",
+                    on_change=sync_momentum_with_custom
+                )
+                
+                # Show custom range slider when Custom Range is selected
+                if selected_momentum == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (-100, 100)
+                    current_custom_range = st.session_state.filter_state.get('momentum_custom_range', (-100.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Momentum Range (%)",
+                        min_value=-100.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="🚀 50+: Explosive | 📈 25-50: Strong | ✅ 10-25: Moderate | ⚡ 0-10: Mild | ➡️ -10-0: Stable | 📉 -25--10: Mild Decel | ⚠️ -50--25: Strong Decel | ❌ <-50: Sharp Decel",
+                        key="momentum_custom_range_slider",
+                        on_change=sync_momentum_custom_slider
+                    )
+                    filters['momentum_custom_range'] = custom_range
+                elif selected_momentum != "All Momentum":
+                    # Store the selected preset range
+                    filters['momentum_range'] = momentum_options[selected_momentum]
+            
+            # Growth Consistency Filter with Custom Range
+            if 'growth_consistency' in ranked_df_display.columns:
+                st.markdown("**🎯 Growth Consistency**")
+                
+                consistency_options = {
+                    "All Consistency": None,
+                    "💎 Exceptional (85+)": (85.0, 100.0),
+                    "🌟 Excellent (70-84)": (70.0, 84.0),
+                    "✅ Good (55-69)": (55.0, 69.0),
+                    "⚪ Average (40-54)": (40.0, 54.0),
+                    "⚠️ Below Average (25-39)": (25.0, 39.0),
+                    "❌ Poor (<25)": (0.0, 24.0),
+                    "🎯 Custom Range": None  # Special option for custom range
+                }
+                
+                current_consistency_selection = st.session_state.filter_state.get('consistency_selection', "All Consistency")
+                if current_consistency_selection not in consistency_options:
+                    current_consistency_selection = "All Consistency"
+                
+                # Custom sync function for consistency with custom range support
+                def sync_consistency_with_custom():
+                    if 'consistency_selectbox' in st.session_state:
+                        selected = st.session_state.consistency_selectbox
+                        st.session_state.filter_state['consistency_selection'] = selected
+                        
+                        if selected == "🎯 Custom Range":
+                            # Don't set range here, will be set by slider
+                            pass
+                        elif selected != "All Consistency":
+                            st.session_state.filter_state['consistency_range'] = consistency_options[selected]
+                
+                def sync_consistency_custom_slider():
+                    if 'consistency_custom_range_slider' in st.session_state:
+                        st.session_state.filter_state['consistency_custom_range'] = st.session_state.consistency_custom_range_slider
+                
+                selected_consistency = st.selectbox(
+                    "Consistency Quality",
+                    options=list(consistency_options.keys()),
+                    index=list(consistency_options.keys()).index(current_consistency_selection),
+                    help="Filter stocks by growth pattern consistency across time periods. Choose Custom Range for precise control.",
+                    key="consistency_selectbox",
+                    on_change=sync_consistency_with_custom
+                )
+                
+                # Show custom range slider when Custom Range is selected
+                if selected_consistency == "🎯 Custom Range":
+                    # Get current custom range from session state, default to (0, 100)
+                    current_custom_range = st.session_state.filter_state.get('consistency_custom_range', (0.0, 100.0))
+                    
+                    custom_range = st.slider(
+                        "Custom Consistency Range (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="💎 85+: Exceptional | 🌟 70-84: Excellent | ✅ 55-69: Good | ⚪ 40-54: Average | ⚠️ 25-39: Below Average | ❌ <25: Poor",
+                        key="consistency_custom_range_slider",
+                        on_change=sync_consistency_custom_slider
+                    )
+                    filters['consistency_custom_range'] = custom_range
+                elif selected_consistency != "All Consistency":
+                    # Store the selected preset range
+                    filters['consistency_range'] = consistency_options[selected_consistency]
+            
+            st.markdown("---")
+            st.markdown("**📊 Timeframe Momentum Filters**")
+            st.caption("⚡ Positive % = Recent activity HIGHER than historical (Accelerating) | 📉 Negative % = Recent LOWER than historical (Decelerating)")
+            
+            # Daily vs 30-Day Turnover Growth Filter
+            if 'growth_daily_to_30' in ranked_df_display.columns:
+                daily_30_options = {
+                    "All Momentum": None,
+                    "🌊💎 Elite (500+%)": (500.0, 10000.0),
+                    "🚀 Explosive (200-500%)": (200.0, 500.0),
+                    "📈 Very Strong (100-200%)": (100.0, 200.0),
+                    "✅ Strong (50-100%)": (50.0, 100.0),
+                    "⚡ Moderate (25-50%)": (25.0, 50.0),
+                    "➡️ Mild (0-25%)": (0.0, 25.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_daily_30_selection = st.session_state.filter_state.get('growth_daily_30_selection', "All Momentum")
+                if current_daily_30_selection not in daily_30_options:
+                    current_daily_30_selection = "All Momentum"
+                
+                def sync_daily_30():
+                    if 'growth_daily_30_selectbox' in st.session_state:
+                        selected = st.session_state.growth_daily_30_selectbox
+                        st.session_state.filter_state['growth_daily_30_selection'] = selected
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_daily_30_range'] = daily_30_options[selected]
+                
+                def sync_daily_30_custom():
+                    if 'growth_daily_30_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_daily_30_custom_range'] = st.session_state.growth_daily_30_custom_slider
+                
+                selected_daily_30 = st.selectbox(
+                    "📊 Daily vs 30-Day Growth",
+                    options=list(daily_30_options.keys()),
+                    index=list(daily_30_options.keys()).index(current_daily_30_selection),
+                    help="Filter by momentum: How much higher/lower is daily turnover vs 30-day average. Positive = Current activity exceeds recent average (accelerating)",
+                    key="growth_daily_30_selectbox",
+                    on_change=sync_daily_30
+                )
+                
+                if selected_daily_30 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_daily_30_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom Daily→30D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for Daily vs 30-Day turnover growth",
+                        key="growth_daily_30_custom_slider",
+                        on_change=sync_daily_30_custom
+                    )
+                    filters['growth_daily_30_custom_range'] = custom_range
+                elif selected_daily_30 != "All Momentum":
+                    filters['growth_daily_30_range'] = daily_30_options[selected_daily_30]
+            
+            # 30-Day vs 90-Day Turnover Growth Filter
+            if 'growth_30_to_90' in ranked_df_display.columns:
+                thirty_90_options = {
+                    "All Momentum": None,
+                    "🌊💎 Elite (200+%)": (200.0, 10000.0),
+                    "🚀 Explosive (100-200%)": (100.0, 200.0),
+                    "📈 Very Strong (50-100%)": (50.0, 100.0),
+                    "✅ Strong (25-50%)": (25.0, 50.0),
+                    "⚡ Moderate (10-25%)": (10.0, 25.0),
+                    "➡️ Mild (0-10%)": (0.0, 10.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_30_90_selection = st.session_state.filter_state.get('growth_30_90_selection', "All Momentum")
+                if current_30_90_selection not in thirty_90_options:
+                    current_30_90_selection = "All Momentum"
+                
+                def sync_30_90():
+                    if 'growth_30_90_selectbox' in st.session_state:
+                        selected = st.session_state.growth_30_90_selectbox
+                        st.session_state.filter_state['growth_30_90_selection'] = selected
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_30_90_range'] = thirty_90_options[selected]
+                
+                def sync_30_90_custom():
+                    if 'growth_30_90_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_30_90_custom_range'] = st.session_state.growth_30_90_custom_slider
+                
+                selected_30_90 = st.selectbox(
+                    "📈 30-Day vs 90-Day Momentum",
+                    options=list(thirty_90_options.keys()),
+                    index=list(thirty_90_options.keys()).index(current_30_90_selection),
+                    help="Filter by momentum: How much higher/lower is 30-day average vs 90-day average. Positive = Recent activity exceeds historical (accelerating)",
+                    key="growth_30_90_selectbox",
+                    on_change=sync_30_90
+                )
+                
+                if selected_30_90 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_30_90_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom 30D→90D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for 30-Day vs 90-Day turnover growth",
+                        key="growth_30_90_custom_slider",
+                        on_change=sync_30_90_custom
+                    )
+                    filters['growth_30_90_custom_range'] = custom_range
+                elif selected_30_90 != "All Momentum":
+                    filters['growth_30_90_range'] = thirty_90_options[selected_30_90]
+            
+            # 90-Day vs 180-Day Turnover Growth Filter
+            if 'growth_90_to_180' in ranked_df_display.columns:
+                ninety_180_options = {
+                    "All Momentum": None,
+                    "🌊💎 Elite (150+%)": (150.0, 10000.0),
+                    "🚀 Explosive (75-150%)": (75.0, 150.0),
+                    "📈 Very Strong (40-75%)": (40.0, 75.0),
+                    "✅ Strong (20-40%)": (20.0, 40.0),
+                    "⚡ Moderate (10-20%)": (10.0, 20.0),
+                    "➡️ Mild (0-10%)": (0.0, 10.0),
+                    "📉 Decelerating (< 0%)": (-1000.0, 0.0),
+                    "🎯 Custom Range": None
+                }
+                
+                current_90_180_selection = st.session_state.filter_state.get('growth_90_180_selection', "All Momentum")
+                if current_90_180_selection not in ninety_180_options:
+                    current_90_180_selection = "All Momentum"
+                
+                def sync_90_180():
+                    if 'growth_90_180_selectbox' in st.session_state:
+                        selected = st.session_state.growth_90_180_selectbox
+                        st.session_state.filter_state['growth_90_180_selection'] = selected
+                        if selected != "All Momentum" and selected != "🎯 Custom Range":
+                            st.session_state.filter_state['growth_90_180_range'] = ninety_180_options[selected]
+                
+                def sync_90_180_custom():
+                    if 'growth_90_180_custom_slider' in st.session_state:
+                        st.session_state.filter_state['growth_90_180_custom_range'] = st.session_state.growth_90_180_custom_slider
+                
+                selected_90_180 = st.selectbox(
+                    "📊 90-Day vs 180-Day Momentum",
+                    options=list(ninety_180_options.keys()),
+                    index=list(ninety_180_options.keys()).index(current_90_180_selection),
+                    help="Filter by momentum: How much higher/lower is 90-day average vs 180-day average. Positive = Medium-term activity exceeds long-term (accelerating)",
+                    key="growth_90_180_selectbox",
+                    on_change=sync_90_180
+                )
+                
+                if selected_90_180 == "🎯 Custom Range":
+                    current_custom_range = st.session_state.filter_state.get('growth_90_180_custom_range', (-100.0, 200.0))
+                    custom_range = st.slider(
+                        "Custom 90D→180D Range (%)",
+                        min_value=-100.0,
+                        max_value=500.0,
+                        value=current_custom_range,
+                        step=5.0,
+                        help="Custom range for 90-Day vs 180-Day turnover growth",
+                        key="growth_90_180_custom_slider",
+                        on_change=sync_90_180_custom
+                    )
+                    filters['growth_90_180_custom_range'] = custom_range
+                elif selected_90_180 != "All Momentum":
+                    filters['growth_90_180_range'] = ninety_180_options[selected_90_180]
+
         
         # Advanced filters with callbacks
         with st.expander("🔧 Advanced Filters"):
@@ -13405,8 +15056,8 @@ def main():
         
         if market_regime == "🐂 Bull Market":
             regime_filter = (
-                (radar_df.get('trend_score', 0) >= 60) &
-                (radar_df.get('momentum_score', 0) >= 50)
+                (radar_df.get('momentum_score', 0) >= 60) &
+                (radar_df.get('master_score', 0) >= 50)
             )
             radar_df = radar_df[regime_filter]
             st.info(f"🐂 Bull Market Filter: {len(radar_df)}/{pre_regime_count} stocks aligned with bull market")
@@ -13414,22 +15065,53 @@ def main():
         elif market_regime == "🐻 Bear Market":
             regime_filter = (
                 (radar_df.get('from_high_pct', 0) < -20) &
-                (radar_df.get('value_score', 0) >= 60)
+                (radar_df.get('master_score', 0) >= 50)
             )
             radar_df = radar_df[regime_filter]
             st.info(f"🐻 Bear Market Filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
             
         elif market_regime == "🔄 Sideways/Choppy":
             regime_filter = (
-                (radar_df.get('volatility_score', 50) >= 40) &
-                (radar_df.get('volatility_score', 50) <= 70)
+                (radar_df.get('from_high_pct', 0) > -20) &
+                (radar_df.get('from_high_pct', 0) < 5) &
+                (radar_df.get('master_score', 0) >= 45)
             )
             radar_df = radar_df[regime_filter]
             st.info(f"🔄 Sideways Market Filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
             
-        # 📊 Auto-Detect uses current data
+        # 📊 Auto-Detect: Detect market regime and apply appropriate filter
         elif market_regime == "📊 Auto-Detect":
-            pass  # No filtering applied
+            # Detect the current market regime using the full filtered dataset
+            detected_regime, regime_metrics = MarketIntelligence.detect_market_regime(filtered_df)
+            
+            # Map detected regime to appropriate filter
+            if detected_regime == "🔥 RISK-ON BULL":
+                # Apply Bull Market filter
+                regime_filter = (
+                    (radar_df.get('momentum_score', 0) >= 60) &
+                    (radar_df.get('master_score', 0) >= 50)
+                )
+                radar_df = radar_df[regime_filter]
+                st.success(f"📊 Auto-Detected: {detected_regime} → Applying Bull Market filter: {len(radar_df)}/{pre_regime_count} momentum stocks")
+                
+            elif detected_regime == "🛡️ RISK-OFF DEFENSIVE":
+                # Apply Bear Market filter
+                regime_filter = (
+                    (radar_df.get('from_high_pct', 0) < -20) &
+                    (radar_df.get('master_score', 0) >= 50)
+                )
+                radar_df = radar_df[regime_filter]
+                st.warning(f"📊 Auto-Detected: {detected_regime} → Applying Bear Market filter: {len(radar_df)}/{pre_regime_count} defensive/value stocks")
+                
+            else:
+                # For ⚡ VOLATILE OPPORTUNITY, 😴 RANGE-BOUND, 🔄 MIXED SIGNALS → Apply Sideways filter
+                regime_filter = (
+                    (radar_df.get('from_high_pct', 0) > -20) &
+                    (radar_df.get('from_high_pct', 0) < 5) &
+                    (radar_df.get('master_score', 0) >= 45)
+                )
+                radar_df = radar_df[regime_filter]
+                st.info(f"📊 Auto-Detected: {detected_regime} → Applying Sideways filter: {len(radar_df)}/{pre_regime_count} range-bound opportunities")
         
         # ================================================================================================
         # 🚨 CRITICAL FIX: CREATE SENSITIVITY THRESHOLD FUNCTION (PREVIOUSLY MISSING!)
@@ -13797,7 +15479,7 @@ def main():
             
             if len(accelerating_stocks) > 0:
                 fig_accel = Visualizer.create_acceleration_profiles(accelerating_stocks, n=10)
-                st.plotly_chart(fig_accel, use_container_width=True, theme="streamlit")
+                st.plotly_chart(fig_accel, width="stretch", theme="streamlit")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -13927,7 +15609,7 @@ def main():
                             fig_flow.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Neutral Zone")
                             fig_flow.add_hline(y=25, line_dash="dash", line_color="red", annotation_text="Cold Zone")
                             
-                            st.plotly_chart(fig_flow, use_container_width=True, theme="streamlit")
+                            st.plotly_chart(fig_flow, width="stretch", theme="streamlit")
                             
                             # Add zone-based insights
                             hot_categories = category_flow[category_flow['Flow Score'] > 75]
@@ -14881,6 +16563,22 @@ def main():
         
         if not filtered_df.empty:
             # ================================================================================================
+            # 📊 MARKET OVERVIEW - BROAD MARKET INSIGHTS
+            # ================================================================================================
+            
+            st.markdown("### 🌍 **MARKET OVERVIEW**")
+            st.markdown("*Get broad market insights with gainers, losers, and sector performance*")
+            
+            # Render Market Overview using SimpleMarketUI
+            try:
+                SimpleMarketUI.render_market_analysis(filtered_df)
+            except Exception as e:
+                logger.error(f"Market Overview rendering failed: {e}", exc_info=True)
+                st.error("⚠️ Unable to render Market Overview. Please try again.")
+            
+            st.markdown("---")
+            
+            # ================================================================================================
             # 🎯 EXECUTIVE DASHBOARD - TOP-LEVEL MARKET INTELLIGENCE
             # ================================================================================================
             
@@ -15037,7 +16735,7 @@ def main():
                 with score_cols[0]:
                     st.markdown("#### 📊 **Master Score Distribution**")
                     fig_dist = Visualizer.create_score_distribution(filtered_df)
-                    st.plotly_chart(fig_dist, use_container_width=True, theme="streamlit")
+                    st.plotly_chart(fig_dist, width="stretch", theme="streamlit")
                     
                     # Score quality analysis
                     if 'master_score' in filtered_df.columns:
@@ -15253,7 +16951,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_momentum, use_container_width=True)
+                            st.plotly_chart(fig_momentum, width="stretch")
                         else:
                             # Show single momentum metric
                             available_col = momentum_cols[0]
@@ -15277,7 +16975,7 @@ def main():
                                 height=400
                             )
                             
-                            st.plotly_chart(fig_single, use_container_width=True)
+                            st.plotly_chart(fig_single, width="stretch")
                     
                     with momentum_viz_cols[1]:
                         if len(momentum_cols) == 2:  # Both momentum and acceleration available
@@ -16652,36 +18350,344 @@ def main():
                                         
                                         st.info(f"📊 {activity}")
                             
-                            # Liquidity Analysis
+                            # Enhanced Liquidity Analysis
                             if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
                                 st.markdown("---")
                                 st.markdown("**💧 Liquidity Analysis**")
                                 
                                 volume = stock['volume_1d']
                                 price = stock['price']
-                                turnover = volume * price
+                                daily_turnover = volume * price
                                 
-                                liq_col1, liq_col2 = st.columns(2)
+                                # Enhanced turnover calculations
+                                turnover_metrics = []
+                                
+                                # Daily Turnover
+                                turnover_metrics.append({
+                                    'label': 'Daily Turnover',
+                                    'value': daily_turnover,
+                                    'basis': 'Current Price'
+                                })
+                                
+                                # 30-Day Turnover (30-day volume × SMA 20d)
+                                if all(col in stock.index for col in ['volume_30d', 'sma_20d']) and all(pd.notna(stock[col]) for col in ['volume_30d', 'sma_20d']):
+                                    turnover_30d = stock['volume_30d'] * stock['sma_20d']
+                                    turnover_metrics.append({
+                                        'label': '30-Day Turnover',
+                                        'value': turnover_30d,
+                                        'basis': '30d Volume × SMA 20d'
+                                    })
+                                
+                                # 90-Day Turnover (90-day volume × SMA 50d)
+                                if all(col in stock.index for col in ['volume_90d', 'sma_50d']) and all(pd.notna(stock[col]) for col in ['volume_90d', 'sma_50d']):
+                                    turnover_90d = stock['volume_90d'] * stock['sma_50d']
+                                    turnover_metrics.append({
+                                        'label': '90-Day Turnover', 
+                                        'value': turnover_90d,
+                                        'basis': '90d Volume × SMA 50d'
+                                    })
+                                
+                                # 180-Day Turnover (180-day volume × SMA 200d)
+                                if all(col in stock.index for col in ['volume_180d', 'sma_200d']) and all(pd.notna(stock[col]) for col in ['volume_180d', 'sma_200d']):
+                                    turnover_180d = stock['volume_180d'] * stock['sma_200d']
+                                    turnover_metrics.append({
+                                        'label': '180-Day Turnover',
+                                        'value': turnover_180d,
+                                        'basis': '180d Volume × SMA 200d'
+                                    })
+                                
+                                # Display turnover metrics in a structured layout
+                                if len(turnover_metrics) >= 2:
+                                    # Create columns based on number of metrics
+                                    num_cols = min(len(turnover_metrics), 4)
+                                    cols = st.columns(num_cols)
+                                    
+                                    for i, metric in enumerate(turnover_metrics):
+                                        with cols[i % num_cols]:
+                                            value = metric['value']
+                                            formatted_value = f"₹{value/10_000_000:.1f}Cr" if value >= 10_000_000 else f"₹{value/100_000:.1f}L"
+                                            st.metric(
+                                                label=metric['label'],
+                                                value=formatted_value,
+                                                help=f"Based on {metric['basis']}"
+                                            )
+                                else:
+                                    # Fallback to original single column display
+                                    st.metric("Daily Turnover", f"₹{daily_turnover/10_000_000:.1f}Cr" if daily_turnover >= 10_000_000 else f"₹{daily_turnover/100_000:.1f}L")
+                                
+                                # Overall liquidity classification based on daily turnover
+                                st.markdown("---")
+                                liq_col1, liq_col2 = st.columns([1, 2])
                                 
                                 with liq_col1:
-                                    st.metric("Daily Turnover", f"₹{turnover/10_000_000:.1f}Cr" if turnover >= 10_000_000 else f"₹{turnover/100_000:.1f}L")
-                                
-                                with liq_col2:
-                                    # Liquidity classification
-                                    if turnover >= 100_000_000:  # 10Cr+
+                                    # Liquidity status
+                                    if daily_turnover >= 100_000_000:  # 10Cr+
                                         liq_status = "🌊 Highly Liquid"
                                         liq_color = "success"
-                                    elif turnover >= 10_000_000:  # 1Cr+
+                                    elif daily_turnover >= 10_000_000:  # 1Cr+
                                         liq_status = "💧 Good Liquidity"
                                         liq_color = "success"
-                                    elif turnover >= 1_000_000:  # 10L+
+                                    elif daily_turnover >= 1_000_000:  # 10L+
                                         liq_status = "💦 Moderate Liquidity"
                                         liq_color = "warning"
                                     else:
                                         liq_status = "🏜️ Low Liquidity"
                                         liq_color = "error"
                                     
-                                    getattr(st, liq_color)(f"**Liquidity:** {liq_status}")
+                                    getattr(st, liq_color)(f"**Status:** {liq_status}")
+                                
+                                with liq_col2:
+                                    # Growth analysis (if multiple periods available)
+                                    if len(turnover_metrics) >= 3:
+                                        growth_info = "📈 **Growth Analysis**\n"
+                                        daily_val = turnover_metrics[0]['value']
+                                        
+                                        for metric in turnover_metrics[1:]:
+                                            period_val = metric['value']
+                                            growth_pct = ((daily_val - period_val) / period_val * 100) if period_val > 0 else 0
+                                            
+                                            if growth_pct > 10:
+                                                growth_status = f"🚀 +{growth_pct:.0f}% growth"
+                                            elif growth_pct > 0:
+                                                growth_status = f"📈 +{growth_pct:.1f}% growth"
+                                            elif growth_pct > -10:
+                                                growth_status = f"📉 {growth_pct:.1f}% decline"
+                                            else:
+                                                growth_status = f"🔻 {growth_pct:.0f}% decline"
+                                            
+                                            growth_info += f"vs {metric['label']}: {growth_status}\n"
+                                        
+                                        st.info(growth_info)
+                                
+                                # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Analysis
+                                if all(col in stock.index for col in ['composite_growth_score', 'growth_quality_tier', 'smart_money_flow']):
+                                    st.markdown("---")
+                                    st.markdown("**🌊 Liquidity Growth Analytics**")
+                                    
+                                    # Status Banner - Overall Growth Health (V9.py pattern: color-coded status)
+                                    composite_score = stock.get('composite_growth_score', 0)
+                                    growth_trend = stock.get('growth_trend', 'Unknown')
+                                    smart_money = stock.get('smart_money_flow', 'Unknown')
+                                    
+                                    # Determine overall growth health status (V9.py pattern)
+                                    if composite_score >= 80:
+                                        growth_status = "💎 Elite Growth Quality"
+                                        status_color = "success"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 65:
+                                        growth_status = "🌟 Excellent Growth"
+                                        status_color = "success"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 50:
+                                        growth_status = "✅ Good Growth"
+                                        status_color = "info"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    elif composite_score >= 35:
+                                        growth_status = "⚪ Average Growth"
+                                        status_color = "warning"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    else:
+                                        growth_status = "⚠️ Weak Growth"
+                                        status_color = "error"
+                                        status_msg = f"**{growth_status}** - {growth_trend} | {smart_money}"
+                                    
+                                    # Display status banner (V9.py pattern: getattr for dynamic color)
+                                    getattr(st, status_color)(status_msg)
+                                    
+                                    # Key Metrics Grid (V9.py pattern: 4-column compact layout)
+                                    st.markdown("---")
+                                    metric_cols = st.columns(4)
+                                    
+                                    with metric_cols[0]:
+                                        st.metric(
+                                            label="Composite Score",
+                                            value=f"{composite_score:.1f}/100",
+                                            help="Overall liquidity growth health"
+                                        )
+                                    
+                                    with metric_cols[1]:
+                                        momentum = stock.get('growth_momentum', 0)
+                                        momentum_delta = "↗️" if momentum > 20 else "→" if momentum > 0 else "↘️"
+                                        st.metric(
+                                            label="Momentum",
+                                            value=f"{momentum:+.1f}%",
+                                            delta=f"{momentum_delta}",
+                                            help="Growth acceleration rate"
+                                        )
+                                    
+                                    with metric_cols[2]:
+                                        consistency = stock.get('growth_consistency', 0)
+                                        st.metric(
+                                            label="Consistency",
+                                            value=f"{consistency:.0f}/100",
+                                            help="Pattern reliability"
+                                        )
+                                    
+                                    with metric_cols[3]:
+                                        alignment = stock.get('growth_alignment', 0)
+                                        st.metric(
+                                            label="Alignment",
+                                            value=f"{alignment:.0f}/100",
+                                            help="Period synchronization"
+                                        )
+                                    
+                                    # Growth Period Analysis (V9.py pattern: 2-column status + analysis)
+                                    st.markdown("---")
+                                    period_col1, period_col2 = st.columns([1, 2])
+                                    
+                                    with period_col1:
+                                        st.markdown("**📈 Momentum Status**")
+                                        growth_30_90 = stock.get('growth_30_to_90', 0)
+                                        growth_90_180 = stock.get('growth_90_to_180', 0)
+                                        
+                                        # Momentum interpretation (Recent vs Historical)
+                                        # Positive = Recent activity higher than historical (ACCELERATING)
+                                        if growth_30_90 > 200 or (growth_30_90 > 100 and growth_90_180 > 100):
+                                            st.success("🌊💎 **Elite Momentum** - Explosive acceleration")
+                                        elif growth_30_90 > 100 or (growth_30_90 > 50 and growth_90_180 > 50):
+                                            st.success("🚀 **Explosive** - Massive volume surge")
+                                        elif growth_30_90 > 50 or (growth_30_90 > 25 and growth_90_180 > 25):
+                                            st.success("📈 **Strong Momentum** - High acceleration")
+                                        elif growth_30_90 > 25 or (growth_30_90 > 10 and growth_90_180 > 10):
+                                            st.info("✅ **Steady Growth** - Consistent acceleration")
+                                        elif momentum > 50:
+                                            st.info("⚡ **Rapidly Accelerating** - Recent surge")
+                                        elif momentum > 20:
+                                            st.info("⚡ **Accelerating** - Building momentum")
+                                        elif growth_30_90 > 0 and growth_90_180 > 0:
+                                            st.info("➡️ **Stable Growth** - Mild acceleration")
+                                        elif growth_30_90 < -50 or growth_90_180 < -50:
+                                            st.warning("📉 **Strong Decline** - Severe deceleration")
+                                        elif growth_30_90 < -25 or growth_90_180 < -25:
+                                            st.warning("📉 **Declining** - Activity slowing")
+                                        elif growth_30_90 < 0 or growth_90_180 < 0:
+                                            st.warning("⚠️ **Weak** - Below historical average")
+                                        else:
+                                            st.warning("⚪ **Mixed** - Divergent signals")
+                                    
+                                    with period_col2:
+                                        st.markdown("**📊 Momentum Breakdown**")
+                                        
+                                        # Momentum display (Recent vs Historical comparison)
+                                        # Positive = Recent > Historical (GOOD)
+                                        growth_daily_30 = stock.get('growth_daily_to_30', 0)
+                                        growth_info = f"""
+                                        - **Daily vs 30d:** {growth_daily_30:+.1f}% {'🚀' if growth_daily_30 > 50 else '📈' if growth_daily_30 > 0 else '📉'}
+                                        - **30d vs 90d:** {growth_30_90:+.1f}% {'🚀' if growth_30_90 > 50 else '📈' if growth_30_90 > 0 else '📉'}
+                                        - **90d vs 180d:** {growth_90_180:+.1f}% {'🚀' if growth_90_180 > 50 else '📈' if growth_90_180 > 0 else '📉'}
+                                        - **Acceleration:** {momentum:+.1f}% {'⚡ Rapidly Accelerating' if momentum > 50 else '⚡ Accelerating' if momentum > 20 else '➡️ Stable' if momentum > 0 else '🔻 Decelerating'}
+                                        - **Score:** {stock.get('growth_acceleration', 0):.0f}/100 {'🌊💎' if stock.get('growth_acceleration', 0) >= 90 else '🚀' if stock.get('growth_acceleration', 0) >= 75 else '✅' if stock.get('growth_acceleration', 0) >= 60 else '➡️' if stock.get('growth_acceleration', 0) >= 50 else '⚪'}
+                                        """
+                                        st.markdown(growth_info)
+                                        
+                                        # Add interpretation helper
+                                        if growth_30_90 > 100:
+                                            st.info("💡 **30-day activity is 2x+ higher than 90-day average**")
+                                        elif growth_30_90 > 50:
+                                            st.info("💡 **Recent activity significantly exceeds historical levels**")
+                                    
+                                    # Smart Money Detection (V9.py pattern: prominent alerts)
+                                    if "Elite Institutional" in smart_money:
+                                        st.success("🌊💎 **ELITE INSTITUTIONAL ACCUMULATION** - Exceptional smart money flow with explosive momentum")
+                                    elif "Strong Accumulation" in smart_money:
+                                        st.success("🎯 **Strong Institutional Accumulation Detected** - Clear signs of smart money buying pressure")
+                                    elif "Moderate Accumulation" in smart_money:
+                                        st.info("✅ **Moderate Institutional Interest** - Positive accumulation signals")
+                                    elif "Mild Interest" in smart_money:
+                                        st.info("📊 **Early Accumulation Phase** - Initial institutional interest")
+                                    elif "Strong Distribution" in smart_money or "Distribution" in smart_money:
+                                        st.error("❌ **Distribution Pattern Detected** - Institutional selling pressure")
+                                    elif "Weak Distribution" in smart_money:
+                                        st.warning("⚠️ **Weak Distribution** - Declining institutional interest")
+                                    
+                                    # Expandable Detailed Analytics (V9.py pattern: hide complexity)
+                                    with st.expander("🔬 Advanced Analytics & Interpretation", expanded=False):
+                                        # Quality & Consistency Matrix
+                                        st.markdown("**📊 Quality Metrics**")
+                                        quality_cols = st.columns(3)
+                                        
+                                        with quality_cols[0]:
+                                            st.metric("Quality Tier", stock.get('growth_quality_tier', 'Unknown'))
+                                        
+                                        with quality_cols[1]:
+                                            st.metric("Consistency", f"{consistency:.0f}/100")
+                                        
+                                        with quality_cols[2]:
+                                            st.metric("Alignment", f"{alignment:.0f}/100")
+                                        
+                                        st.markdown("---")
+                                        
+                                        # Professional Interpretation (V9.py pattern: educational content)
+                                        st.markdown("**💡 Professional Interpretation**")
+                                        
+                                        interpretation_data = {
+                                            'Indicator': [],
+                                            'Value': [],
+                                            'Signal': []
+                                        }
+                                        
+                                        # Composite Score
+                                        interpretation_data['Indicator'].append('Composite Score')
+                                        interpretation_data['Value'].append(f"{composite_score:.1f}/100")
+                                        if composite_score >= 80:
+                                            interpretation_data['Signal'].append('💎 Elite - Exceptional liquidity growth')
+                                        elif composite_score >= 65:
+                                            interpretation_data['Signal'].append('🌟 Excellent - Strong institutional interest')
+                                        elif composite_score >= 50:
+                                            interpretation_data['Signal'].append('✅ Good - Healthy growth pattern')
+                                        elif composite_score >= 35:
+                                            interpretation_data['Signal'].append('⚪ Average - Mixed signals')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Weak - Caution advised')
+                                        
+                                        # Momentum
+                                        interpretation_data['Indicator'].append('Growth Momentum')
+                                        interpretation_data['Value'].append(f"{momentum:+.1f}%")
+                                        if momentum > 50:
+                                            interpretation_data['Signal'].append('🚀 Explosive - Rapid acceleration')
+                                        elif momentum > 20:
+                                            interpretation_data['Signal'].append('⚡ Strong - Clear acceleration')
+                                        elif momentum > 0:
+                                            interpretation_data['Signal'].append('➡️ Positive - Mild acceleration')
+                                        elif momentum > -20:
+                                            interpretation_data['Signal'].append('📉 Mild - Slight deceleration')
+                                        else:
+                                            interpretation_data['Signal'].append('🔻 Negative - Strong deceleration')
+                                        
+                                        # Consistency
+                                        interpretation_data['Indicator'].append('Consistency')
+                                        interpretation_data['Value'].append(f"{consistency:.0f}/100")
+                                        if consistency >= 70:
+                                            interpretation_data['Signal'].append('🎯 High - Very reliable pattern')
+                                        elif consistency >= 50:
+                                            interpretation_data['Signal'].append('✅ Good - Dependable growth')
+                                        elif consistency >= 30:
+                                            interpretation_data['Signal'].append('⚪ Fair - Some variance')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Low - Erratic pattern')
+                                        
+                                        # Alignment
+                                        interpretation_data['Indicator'].append('Alignment')
+                                        interpretation_data['Value'].append(f"{alignment:.0f}/100")
+                                        if alignment >= 80:
+                                            interpretation_data['Signal'].append('🎪 Perfect - All periods synchronized')
+                                        elif alignment >= 60:
+                                            interpretation_data['Signal'].append('✅ Good - Aligned growth')
+                                        else:
+                                            interpretation_data['Signal'].append('⚠️ Divergent - Mixed timeframes')
+                                        
+                                        interp_df = pd.DataFrame(interpretation_data)
+                                        st.dataframe(interp_df, hide_index=True, width="stretch")
+                                        
+                                        st.markdown("---")
+                                        st.markdown("**🎓 Key Insights**")
+                                        st.markdown("""
+                                        - **High Composite + Strong Accumulation** = Institutional confidence, potential breakout
+                                        - **Positive Momentum + High Consistency** = Sustainable growth trend
+                                        - **High Alignment** = All timeframes confirm trend strength
+                                        - **Accelerating (momentum > 20%)** = Growth rate increasing, early institutional phase
+                                        - **Elite Quality (80+)** = Top-tier liquidity expansion, liquid bluechip behavior
+                                        """)
                         
                         with detail_tabs[5]:  # Advanced Metrics
                             st.markdown("**🎯 Advanced Metrics**")
