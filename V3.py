@@ -1039,37 +1039,43 @@ class DataProcessor:
             logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
         
         # Enhanced turnover calculations (30-day, 90-day, 180-day) with proper volume periods
-        # 30 Days Turnover = 30-day volume × SMA 20d
+        # NOTE: volume_30d, volume_90d, volume_180d are AVERAGE DAILY volumes over their respective periods
+        # turnover_30d = Average Daily Turnover (calculated using 30-day avg volume × 20-day avg price)
+        # This represents the typical daily turnover over the 30-day period
         if all(col in df.columns for col in ['volume_30d', 'sma_20d']):
             df['turnover_30d'] = df['volume_30d'] * df['sma_20d']
             df['turnover_30d_tier'] = df['turnover_30d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"30-day turnover (volume_30d × SMA 20d) calculated. Sample values: {df['turnover_30d'].describe()}")
+            logger.info(f"30-day avg daily turnover (volume_30d × SMA 20d) calculated. Sample values: {df['turnover_30d'].describe()}")
         
-        # 90 Days Turnover = 90-day volume × SMA 50d  
+        # turnover_90d = Average Daily Turnover (calculated using 90-day avg volume × 50-day avg price)
         if all(col in df.columns for col in ['volume_90d', 'sma_50d']):
             df['turnover_90d'] = df['volume_90d'] * df['sma_50d']
             df['turnover_90d_tier'] = df['turnover_90d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"90-day turnover (volume_90d × SMA 50d) calculated. Sample values: {df['turnover_90d'].describe()}")
+            logger.info(f"90-day avg daily turnover (volume_90d × SMA 50d) calculated. Sample values: {df['turnover_90d'].describe()}")
         
-        # 180 Days Turnover = 180-day volume × SMA 200d
+        # turnover_180d = Average Daily Turnover (calculated using 180-day avg volume × 200-day avg price)
         if all(col in df.columns for col in ['volume_180d', 'sma_200d']):
             df['turnover_180d'] = df['volume_180d'] * df['sma_200d']
             df['turnover_180d_tier'] = df['turnover_180d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"180-day turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
+            logger.info(f"180-day avg daily turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
         
         # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
         # Calculate growth rates, momentum, consistency, acceleration, and alignment
-        # CORRECTED LOGIC: Compares RECENT vs HISTORICAL (not historical vs ancient)
+        # NOTE: All turnover values represent AVERAGE DAILY turnover for their periods
+        # - turnover_30d = avg daily turnover over 30 days
+        # - turnover_90d = avg daily turnover over 90 days
+        # - turnover_180d = avg daily turnover over 180 days
+        # Comparing these shows whether recent avg daily activity is higher/lower than historical
         
         # 1. Liquidity Growth Expansion (Daily → 30d → 90d → 180d)
         
-        # Growth from Daily to 30d - How much higher/lower is daily vs 30d average
+        # Growth from Daily to 30d - How much higher/lower is today's turnover vs 30d avg daily
         if all(col in df.columns for col in ['volume_1d', 'price', 'turnover_30d']):
             df['daily_turnover'] = df['volume_1d'] * df['price']
             df['growth_daily_to_30'] = df.apply(
@@ -1081,9 +1087,10 @@ class DataProcessor:
             logger.info(f"Liquidity growth Daily→30d calculated. Range: [{df['growth_daily_to_30'].min():.1f}% to {df['growth_daily_to_30'].max():.1f}%]")
         
         if all(col in df.columns for col in ['turnover_30d', 'turnover_90d', 'turnover_180d']):
-            # MOMENTUM METRICS: Recent vs Historical (CORRECT DIRECTION)
-            # Positive = Recent activity higher than historical (ACCELERATING)
-            # Negative = Recent activity lower than historical (DECELERATING)
+            # MOMENTUM METRICS: Recent Average vs Historical Average
+            # Comparing average daily turnovers across periods
+            # Positive = Recent 30d avg daily > Historical 90d avg daily (ACCELERATING)
+            # Negative = Recent 30d avg daily < Historical 90d avg daily (DECELERATING)
             
             # Helper function to calculate capped momentum percentage
             def calculate_momentum_pct(recent, historical):
@@ -4962,14 +4969,9 @@ class RankingEngine:
             valid_rows = vol_data.notna().all(axis=1)
             
             if valid_rows.any():
-                # Normalize by average to get daily equivalents
+                # volume_7d, volume_30d, volume_90d are ALREADY average daily volumes
+                # No normalization needed - they're already in daily equivalent form
                 vol_normalized = vol_data.copy()
-                if 'volume_7d' in vol_normalized.columns:
-                    vol_normalized['volume_7d'] = vol_normalized['volume_7d'] / 7
-                if 'volume_30d' in vol_normalized.columns:
-                    vol_normalized['volume_30d'] = vol_normalized['volume_30d'] / 30
-                if 'volume_90d' in vol_normalized.columns:
-                    vol_normalized['volume_90d'] = vol_normalized['volume_90d'] / 90
                 
                 # Calculate consistency
                 vol_mean = vol_normalized[valid_rows].mean(axis=1)
@@ -5004,16 +5006,17 @@ class RankingEngine:
             valid_freq = volume_30d.notna() & volume_1d.notna() & (volume_30d >= 0)
             
             if valid_freq.any():
-                # Estimate active trading days
-                # If daily average equals total/30, then trades every day
-                # If daily volume >> average, then sporadic trading
-                avg_daily = volume_30d[valid_freq] / 30
+                # volume_30d is ALREADY average daily volume over 30 days
+                # Compare today's volume against the 30-day average
+                avg_daily = volume_30d[valid_freq]
                 
                 # Avoid division by zero
                 safe_avg = avg_daily.copy()
                 safe_avg[safe_avg == 0] = 1
                 
                 # Ratio indicates consistency
+                # ratio = today's volume / 30-day average daily volume
+                # ratio > 1 = above average, ratio < 1 = below average
                 ratio = volume_1d[valid_freq] / safe_avg
                 
                 # Score based on trading regularity
@@ -18369,31 +18372,31 @@ def main():
                                     'basis': 'Current Price'
                                 })
                                 
-                                # 30-Day Turnover (30-day volume × SMA 20d)
+                                # 30-Day Avg Daily Turnover (30-day avg volume × SMA 20d)
                                 if all(col in stock.index for col in ['volume_30d', 'sma_20d']) and all(pd.notna(stock[col]) for col in ['volume_30d', 'sma_20d']):
                                     turnover_30d = stock['volume_30d'] * stock['sma_20d']
                                     turnover_metrics.append({
-                                        'label': '30-Day Turnover',
+                                        'label': 'Avg Daily (30d)',
                                         'value': turnover_30d,
-                                        'basis': '30d Volume × SMA 20d'
+                                        'basis': 'Avg Daily Vol (30d) × SMA 20d'
                                     })
                                 
-                                # 90-Day Turnover (90-day volume × SMA 50d)
+                                # 90-Day Avg Daily Turnover (90-day avg volume × SMA 50d)
                                 if all(col in stock.index for col in ['volume_90d', 'sma_50d']) and all(pd.notna(stock[col]) for col in ['volume_90d', 'sma_50d']):
                                     turnover_90d = stock['volume_90d'] * stock['sma_50d']
                                     turnover_metrics.append({
-                                        'label': '90-Day Turnover', 
+                                        'label': 'Avg Daily (90d)', 
                                         'value': turnover_90d,
-                                        'basis': '90d Volume × SMA 50d'
+                                        'basis': 'Avg Daily Vol (90d) × SMA 50d'
                                     })
                                 
-                                # 180-Day Turnover (180-day volume × SMA 200d)
+                                # 180-Day Avg Daily Turnover (180-day avg volume × SMA 200d)
                                 if all(col in stock.index for col in ['volume_180d', 'sma_200d']) and all(pd.notna(stock[col]) for col in ['volume_180d', 'sma_200d']):
                                     turnover_180d = stock['volume_180d'] * stock['sma_200d']
                                     turnover_metrics.append({
-                                        'label': '180-Day Turnover',
+                                        'label': 'Avg Daily (180d)',
                                         'value': turnover_180d,
-                                        'basis': '180d Volume × SMA 200d'
+                                        'basis': 'Avg Daily Vol (180d) × SMA 200d'
                                     })
                                 
                                 # Display turnover metrics in a structured layout
