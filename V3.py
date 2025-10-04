@@ -19014,9 +19014,6 @@ def main():
     
     with tabs[6]:
         st.markdown("### ℹ️ About Wave Detection 3.0")
-        st.caption("Version 3.0 • Build 2025.10.04 • 🟢 Production")
-        
-        st.markdown("---")
         
         # Main content in clean two-column layout
         col1, col2 = st.columns([2, 1])
@@ -19027,39 +19024,20 @@ def main():
             Wave Detection 3.0 is a professional-grade stock ranking system designed for institutional-quality market analysis. 
             The system combines advanced technical analysis, volume dynamics, and pattern recognition to identify high-potential 
             investment opportunities.
-            """)
             
-            st.markdown("#### 📊 Master Score Algorithm")
-            st.markdown("Our proprietary ranking algorithm evaluates stocks across six key dimensions:")
-            st.markdown(f"""
-            - **Position Analysis ({int(CONFIG.POSITION_WEIGHT * 100)}%)** - 52-week range positioning and momentum
-            - **Volume Dynamics ({int(CONFIG.VOLUME_WEIGHT * 100)}%)** - Multi-timeframe volume pattern analysis  
-            - **Momentum Tracking ({int(CONFIG.MOMENTUM_WEIGHT * 100)}%)** - 30-day price momentum measurement
-            - ~~**Acceleration Detection (0% - Neutralized)**~~ - *Removed Oct 2025: Too noisy, weight redistributed to Momentum*
-            - **Breakout Probability ({int(CONFIG.BREAKOUT_WEIGHT * 100)}%)** - Technical breakout readiness assessment
-            - **RVOL Integration ({int(CONFIG.RVOL_WEIGHT * 100)}%)** - Real-time relative volume analysis
-            """)
+            #### 📊 Master Score 3.0 Algorithm
+            Our proprietary ranking algorithm evaluates stocks across six key dimensions:
             
-            st.markdown("#### 🌊 Advanced Liquidity Intelligence")
-            st.markdown("""
-            **Liquidity Growth Analytics**
-            - 8 advanced liquidity metrics: Volume Growth (7d/30d/90d), Turnover Growth (7d/30d/90d), Growth Momentum, Growth Consistency
-            - Smart Money Detection: Identifies institutional accumulation through sustained volume/turnover growth patterns
-            - Multi-timeframe validation: 7-day sprint, 30-day trend, 90-day macro confirmation
+            - **Position Analysis (27%)** - 52-week range positioning and momentum
+            - **Volume Dynamics (20%)** - Multi-timeframe volume pattern analysis  
+            - **Momentum Tracking (22%)** - 30-day price momentum measurement
+            - **Acceleration Detection (2%)** - Momentum acceleration signals
+            - **Breakout Probability (21%)** - Technical breakout readiness assessment
+            - **RVOL Integration (8%)** - Real-time relative volume analysis
             
-            **💧 Turnover Filter System**
-            - 4-timeframe turnover analysis (1d, 7d, 30d, 90d) with 6-tier classification
-            - Tiers: 🔴 Dead (<0.1%), 🟠 Sleepy (0.1-0.5%), 🟡 Low (0.5-1%), 🟢 Normal (1-5%), 🔵 Active (5-10%), ⚡ Hyper (>10%)
-            - Filters illiquid stocks that lack institutional participation
+            #### 🔍 Pattern Detection System
+            The system employs 41 sophisticated pattern detection algorithms organized into seven categories:
             
-            **Volume Consistency Enhancement**
-            - Refined volume scoring to reward steady institutional accumulation
-            - Penalizes erratic volume spikes (potential manipulation/retail noise)
-            """)
-            
-            st.markdown("#### 🔍 Pattern Detection System")
-            st.markdown("The system employs 41 sophisticated pattern detection algorithms organized into seven categories:")
-            st.markdown("""
             **Technical Patterns (13)**
             - Core momentum and volume patterns
             - Mathematical indicators (Premium Momentum, Entropy, Velocity)
@@ -19074,11 +19052,9 @@ def main():
             - Range analysis patterns
             - Reversal and rotation detection
             - Market psychology indicators
-            """)
             
-            st.markdown("#### 🧠 Market State Intelligence")
-            st.markdown("Advanced 8-regime market detection system that adapts scoring based on current market conditions:")
-            st.markdown("""
+            #### 🧠 Market State Intelligence
+            Advanced 8-regime market detection system that adapts scoring based on current market conditions:
             - **Bull Markets:** STRONG_UPTREND, UPTREND, PULLBACK
             - **Neutral:** NEUTRAL, UNCLEAR  
             - **Bear Markets:** DISTRIBUTION, DOWNTREND, STRONG_DOWNTREND
@@ -19086,6 +19062,8 @@ def main():
         
         with col2:
             st.markdown("#### ⚡ Performance Specifications")
+            
+            # Clean performance metrics
             UIComponents.render_metric_card("Initial Load Time", "< 2 seconds")
             UIComponents.render_metric_card("Filter Response", "< 200ms") 
             UIComponents.render_metric_card("Search Speed", "< 50ms")
@@ -19201,7 +19179,14 @@ def main():
         # Footer
         st.markdown("---")
         st.markdown("""
-        <div style="text-align: center; color: #666; padding: 1rem;">
+        <div style="
+            text-align: center; 
+            color: #666; 
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-top: 2rem;
+        ">
             <strong>🌊 Wave Detection 3.0</strong><br>
             <small>Professional Stock Ranking System for Institutional-Grade Market Analysis</small>
         </div>
