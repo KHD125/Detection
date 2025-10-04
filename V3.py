@@ -19013,7 +19013,18 @@ def main():
                 UIComponents.render_metric_card(label, value)
     
     with tabs[6]:
-        st.markdown("### ℹ️ About Wave Detection 3.0")
+        # Header with version info
+        header_col1, header_col2 = st.columns([3, 1])
+        with header_col1:
+            st.markdown("### ℹ️ About Wave Detection 3.0")
+        with header_col2:
+            st.markdown("""
+                <div style='text-align: right; padding-top: 10px;'>
+                    <span style='color: #666; font-size: 0.85em;'>Version 3.0</span><br>
+                    <span style='color: #888; font-size: 0.75em;'>Build 2025.10.04</span><br>
+                    <span style='font-size: 0.9em;'>🟢 Production</span>
+                </div>
+            """, unsafe_allow_html=True)
         
         # Main content in clean two-column layout
         col1, col2 = st.columns([2, 1])
@@ -19028,12 +19039,28 @@ def main():
             #### 📊 Master Score 3.0 Algorithm
             Our proprietary ranking algorithm evaluates stocks across six key dimensions:
             
-            - **Position Analysis (27%)** - 52-week range positioning and momentum
-            - **Volume Dynamics (20%)** - Multi-timeframe volume pattern analysis  
-            - **Momentum Tracking (22%)** - 30-day price momentum measurement
-            - **Acceleration Detection (2%)** - Momentum acceleration signals
-            - **Breakout Probability (21%)** - Technical breakout readiness assessment
-            - **RVOL Integration (8%)** - Real-time relative volume analysis
+            - **Position Analysis ({int(CONFIG.POSITION_WEIGHT * 100)}%)** - 52-week range positioning and momentum
+            - **Volume Dynamics ({int(CONFIG.VOLUME_WEIGHT * 100)}%)** - Multi-timeframe volume pattern analysis  
+            - **Momentum Tracking ({int(CONFIG.MOMENTUM_WEIGHT * 100)}%)** - 30-day price momentum measurement
+            - ~~**Acceleration Detection (0% - Neutralized)**~~ - *Removed Oct 2025: Too noisy, weight redistributed to Momentum*
+            - **Breakout Probability ({int(CONFIG.BREAKOUT_WEIGHT * 100)}%)** - Technical breakout readiness assessment
+            - **RVOL Integration ({int(CONFIG.RVOL_WEIGHT * 100)}%)** - Real-time relative volume analysis
+            
+            #### 🌊 V9 Enhanced Features *(October 2025)*
+            
+            **Liquidity Growth Analytics**
+            - 8 advanced liquidity metrics: Volume Growth (7d/30d/90d), Turnover Growth (7d/30d/90d), Growth Momentum, Growth Consistency
+            - Smart Money Detection: Identifies institutional accumulation through sustained volume/turnover growth patterns
+            - Multi-timeframe validation: 7-day sprint, 30-day trend, 90-day macro confirmation
+            
+            **💧 Turnover Filter System**
+            - 4-timeframe turnover analysis (1d, 7d, 30d, 90d) with 6-tier classification
+            - Tiers: 🔴 Dead (<0.1%), 🟠 Sleepy (0.1-0.5%), 🟡 Low (0.5-1%), 🟢 Normal (1-5%), 🔵 Active (5-10%), ⚡ Hyper (>10%)
+            - Filters illiquid stocks that lack institutional participation
+            
+            **Volume Consistency Enhancement**
+            - Refined volume scoring to reward steady institutional accumulation
+            - Penalizes erratic volume spikes (potential manipulation/retail noise)
             
             #### 🔍 Pattern Detection System
             The system employs 41 sophisticated pattern detection algorithms organized into seven categories:
