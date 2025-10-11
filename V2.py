@@ -19029,11 +19029,10 @@ def main():
             Our proprietary ranking algorithm evaluates stocks across six key dimensions:
             
             - **Position Analysis (27%)** - 52-week range positioning and momentum
-            - **Volume Dynamics (20%)** - Multi-timeframe volume pattern analysis  
+            - **Volume Dynamics (23%)** - Multi-timeframe volume pattern analysis  
             - **Momentum Tracking (22%)** - 30-day price momentum measurement
-            - **Acceleration Detection (2%)** - Momentum acceleration signals
-            - **Breakout Probability (21%)** - Technical breakout readiness assessment
-            - **RVOL Integration (8%)** - Real-time relative volume analysis
+            - **Breakout Probability (18%)** - Technical breakout readiness assessment
+            - **RVOL Integration (10%)** - Real-time relative volume analysis
             
             #### 🔍 Pattern Detection System
             The system employs 41 sophisticated pattern detection algorithms organized into seven categories:
