@@ -1933,35 +1933,70 @@ class DataProcessor:
                 return np.clip(confidence, 0.5, 1.0)
             
             def calculate_advanced_vqs(row):
-                """Calculate Advanced VQS with all components"""
-                # Calculate all components
-                base_score = calculate_base_score(row)
+                """
+                Calculate Advanced VQS - SMART WEIGHTED APPROACH (Professional Quant Design)
+                
+                Formula: Weighted composite of 4 core components (each 0-100) × Confidence
+                This ensures intuitive scoring where good components = good score
+                """
+                # ===== COMPONENT 1: BASE VOLUME QUALITY (0-100) =====
+                # Core volume characteristics: liquidity, activity, trend
+                base_score = calculate_base_score(row)  # Already 0-100
+                
+                # ===== COMPONENT 2: SMART MONEY QUALITY (0-100) =====
+                # Convert quality multiplier (0.5-1.5x) to 0-100 score
                 quality_mult = calculate_quality_multiplier(row)
+                # Mapping: 0.5x→0, 1.0x→50, 1.5x→100 (linear transformation)
+                smart_money_score = (quality_mult - 0.5) * 100.0
+                smart_money_score = np.clip(smart_money_score, 0, 100)
+                
+                # ===== COMPONENT 3: MARKET ENVIRONMENT (0-100) =====
+                # Convert market adjustment (0.7-1.3x) to 0-100 score
                 market_adj = calculate_market_adjustment(row)
+                # Mapping: 0.7x→0, 1.0x→50, 1.3x→100 (linear transformation)
+                market_score = ((market_adj - 0.7) / 0.6) * 100.0
+                market_score = np.clip(market_score, 0, 100)
+                
+                # ===== COMPONENT 4: RISK QUALITY (0-100) =====
+                # Convert risk factor (0.6-1.4x) to 0-100 score
+                # Higher risk factor = lower risk = higher score
                 risk_factor = calculate_risk_factor(row)
+                # Mapping: 0.6x→0, 1.0x→50, 1.4x→100 (linear transformation)
+                risk_score = ((risk_factor - 0.6) / 0.8) * 100.0
+                risk_score = np.clip(risk_score, 0, 100)
+                
+                # ===== WEIGHTED COMPOSITE (PROFESSIONAL QUANT APPROACH) =====
+                # Weights based on importance: Base (most critical), Smart Money, Market, Risk
+                raw_vqs_score = (
+                    base_score * 0.50 +         # 50% - Core volume quality (most important)
+                    smart_money_score * 0.25 +  # 25% - Institutional activity
+                    market_score * 0.15 +       # 15% - Market environment
+                    risk_score * 0.10           # 10% - Risk assessment
+                )
+                
+                # ===== CONFIDENCE ADJUSTMENT =====
+                # Apply data completeness penalty (0.5-1.0)
                 confidence = calculate_confidence_score(row)
+                vqs_score = raw_vqs_score * confidence
                 
-                # Calculate raw score
-                raw_score = base_score * quality_mult * market_adj * risk_factor * confidence
-                
-                # Normalize to 0-100 (max realistic: ~195)
-                vqs_score = (raw_score / 195.0) * 100.0
+                # Final clipping to 0-100
                 vqs_score = np.clip(vqs_score, 0, 100)
                 
-                # Assign grade
-                if vqs_score >= 90:
+                # ===== REALISTIC GRADING (ALIGNED WITH INDIAN MARKETS) =====
+                # Grades reflect true quality distribution in NSE/BSE
+                if vqs_score >= 85:
                     grade = "A+"
                     status = "👑 Elite Quality"
-                elif vqs_score >= 80:
+                elif vqs_score >= 75:
                     grade = "A"
                     status = "🌟 Excellent Quality"
-                elif vqs_score >= 70:
+                elif vqs_score >= 65:
                     grade = "B"
                     status = "✅ Strong Quality"
-                elif vqs_score >= 60:
+                elif vqs_score >= 50:
                     grade = "C"
                     status = "⚪ Average Quality"
-                elif vqs_score >= 50:
+                elif vqs_score >= 35:
                     grade = "D"
                     status = "⚠️ Below Average"
                 else:
@@ -1976,11 +2011,15 @@ class DataProcessor:
                     'vqs_quality_mult': round(quality_mult, 3),
                     'vqs_market_adj': round(market_adj, 3),
                     'vqs_risk_factor': round(risk_factor, 3),
-                    'vqs_confidence': round(confidence, 3)
+                    'vqs_confidence': round(confidence, 3),
+                    # Add component scores for transparency
+                    'vqs_smart_money_score': round(smart_money_score, 2),
+                    'vqs_market_score': round(market_score, 2),
+                    'vqs_risk_score': round(risk_score, 2)
                 })
             
             # ===== CALCULATE ADVANCED VQS FOR ALL STOCKS =====
-            logger.info("Calculating Advanced VQS (Multi-Dimensional Volume Quality)...")
+            logger.info("Calculating Advanced VQS (Professional Weighted Composite)...")
             
             vqs_results = df.apply(calculate_advanced_vqs, axis=1)
             df['vqs_score'] = vqs_results['vqs_score']
@@ -1991,10 +2030,15 @@ class DataProcessor:
             df['vqs_market_adj'] = vqs_results['vqs_market_adj']
             df['vqs_risk_factor'] = vqs_results['vqs_risk_factor']
             df['vqs_confidence'] = vqs_results['vqs_confidence']
+            # Transparency columns for professional analysis
+            df['vqs_smart_money_score'] = vqs_results['vqs_smart_money_score']
+            df['vqs_market_score'] = vqs_results['vqs_market_score']
+            df['vqs_risk_score'] = vqs_results['vqs_risk_score']
             
             logger.info(f"Advanced VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
             logger.info(f"Advanced VQS score range: [{df['vqs_score'].min():.2f} to {df['vqs_score'].max():.2f}]")
-            logger.info(f"Advanced VQS confidence range: [{df['vqs_confidence'].min():.3f} to {df['vqs_confidence'].max():.3f}]")
+            logger.info(f"Advanced VQS average: {df['vqs_score'].mean():.2f}, median: {df['vqs_score'].median():.2f}")
+            logger.info(f"Component averages - Base: {df['vqs_base'].mean():.1f}, SmartMoney: {df['vqs_smart_money_score'].mean():.1f}, Market: {df['vqs_market_score'].mean():.1f}, Risk: {df['vqs_risk_score'].mean():.1f}")
         
         # 8.2. ⚡ ADVANCED VOLUME EFFICIENCY RATIO (Advanced VER) - Multi-Dimensional Intelligence
         # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
@@ -19448,10 +19492,10 @@ def main():
                         with detail_tabs[4]:  # Volume Analysis
                             st.markdown("**📊 Volume Analysis**")
                             
-                            # 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Multi-Dimensional Intelligence
+                            # 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Professional Weighted Composite
                             st.markdown("---")
                             st.markdown("**🏆 Advanced Volume Quality Score (VQS)**")
-                            st.caption("Multi-dimensional algorithm: Base Score × Quality × Market × Risk × Confidence (uses 30+ data columns)")
+                            st.caption("Professional weighted composite: (Base×50% + SmartMoney×25% + Market×15% + Risk×10%) × Confidence")
                             
                             # Extract Advanced VQS components
                             if 'vqs_score' in stock.index and pd.notna(stock['vqs_score']):
@@ -19463,6 +19507,10 @@ def main():
                                 vqs_market_adj = stock.get('vqs_market_adj', 1.0)
                                 vqs_risk_factor = stock.get('vqs_risk_factor', 1.0)
                                 vqs_confidence = stock.get('vqs_confidence', 0)
+                                # New transparency scores
+                                vqs_smart_money = stock.get('vqs_smart_money_score', 50)
+                                vqs_market = stock.get('vqs_market_score', 50)
+                                vqs_risk = stock.get('vqs_risk_score', 50)
                                 
                                 # Determine color based on grade
                                 grade_colors = {
@@ -19485,49 +19533,55 @@ def main():
                                     st.caption(f"Confidence: {vqs_confidence*100:.0f}%")
                                 
                                 with vqs_col2:
-                                    st.markdown("**🔧 Component Breakdown:**")
-                                    st.caption(f"• Base Score: {vqs_base:.2f}")
+                                    st.markdown("**🔧 Component Scores (0-100):**")
+                                    st.caption(f"• Base Volume Quality: **{vqs_base:.1f}/100** (Weight: 50%)")
                                     st.caption(f"  └─ Short-term (40%): Liquidity + Activity + Consistency")
                                     st.caption(f"  └─ Medium-term (35%): Trend + MTF Consistency + Harmony")
                                     st.caption(f"  └─ Efficiency (25%): Current + Consistency + VMI align")
-                                    st.caption(f"• Quality Multiplier: {vqs_quality_mult:.3f}x")
+                                    st.caption(f"• Smart Money Quality: **{vqs_smart_money:.1f}/100** (Weight: 25%)")
                                     st.caption(f"  └─ Smart Money (40%) + Sustainability (35%) + Trading (25%)")
-                                    st.caption(f"• Market Adjustment: {vqs_market_adj:.3f}x")
+                                    st.caption(f"• Market Environment: **{vqs_market:.1f}/100** (Weight: 15%)")
                                     st.caption(f"  └─ Market State (60%) + Volatility (40%)")
-                                    st.caption(f"• Risk Factor: {vqs_risk_factor:.3f}x")
+                                    st.caption(f"• Risk Assessment: **{vqs_risk:.1f}/100** (Weight: 10%)")
                                     st.caption(f"  └─ Liquidity (40%) + Money Flow (35%) + Execution (25%)")
                                     st.caption("")
-                                    st.caption("💡 **Formula:** Base × Quality × Market × Risk × Confidence")
+                                    st.caption("💡 **Formula:** Weighted Sum × Confidence ({:.0%})".format(vqs_confidence))
                                 
                                 with vqs_col3:
-                                    st.markdown("**📖 Grade Scale:**")
-                                    st.caption("👑 A+ (90+): Elite institutional-grade")
-                                    st.caption("🌟 A (80-89): Excellent quality")
-                                    st.caption("✅ B (70-79): Strong quality")
-                                    st.caption("⚪ C (60-69): Average quality")
-                                    st.caption("⚠️ D (50-59): Below average")
-                                    st.caption("❌ F (<50): Poor quality")
+                                    st.markdown("**📖 Grade Scale (Realistic):**")
+                                    st.caption("👑 A+ (85+): Elite institutional-grade")
+                                    st.caption("🌟 A (75-84): Excellent quality")
+                                    st.caption("✅ B (65-74): Strong quality")
+                                    st.caption("⚪ C (50-64): Average quality")
+                                    st.caption("⚠️ D (35-49): Below average")
+                                    st.caption("❌ F (<35): Poor quality")
                                     st.caption("")
+                                    
+                                    # Mathematical verification
+                                    raw_calc = vqs_base*0.5 + vqs_smart_money*0.25 + vqs_market*0.15 + vqs_risk*0.1
+                                    final_calc = raw_calc * vqs_confidence
+                                    st.caption(f"📊 **Verification:**")
+                                    st.caption(f"Raw: {raw_calc:.1f} × Conf: {final_calc:.1f}")
                                     
                                     # Interpretation based on grade
                                     if vqs_grade == 'A+':
-                                        st.success("🎯 **Institutional-grade volume quality**")
-                                        st.caption("All favorable indicators across dimensions")
+                                        st.success("🎯 **Elite institutional quality**")
+                                        st.caption("Outstanding across all components")
                                     elif vqs_grade == 'A':
-                                        st.success("🎯 **Excellent volume quality**")
-                                        st.caption("Strong quality across all dimensions")
+                                        st.success("🎯 **Excellent quality**")
+                                        st.caption("Strong performance across metrics")
                                     elif vqs_grade == 'B':
-                                        st.info("✅ **Good volume quality**")
-                                        st.caption("Strong quality with minor weaknesses")
+                                        st.info("✅ **Good quality**")
+                                        st.caption("Above-average with good fundamentals")
                                     elif vqs_grade == 'C':
-                                        st.info("⚪ **Acceptable quality**")
-                                        st.caption("Average quality, some concerns")
+                                        st.info("⚪ **Average quality**")
+                                        st.caption("Meets baseline standards")
                                     elif vqs_grade == 'D':
-                                        st.warning("⚠️ **Weak quality**")
-                                        st.caption("Significant concerns in multiple areas")
+                                        st.warning("⚠️ **Below average**")
+                                        st.caption("Some quality concerns present")
                                     else:  # F
                                         st.error("❌ **Poor quality**")
-                                        st.caption("High risk, unfavorable indicators")
+                                        st.caption("Multiple red flags detected")
                             else:
                                 st.info("🏆 Advanced VQS data not available for this stock")
                             
