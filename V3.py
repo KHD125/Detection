@@ -1934,13 +1934,16 @@ class DataProcessor:
             
             def calculate_advanced_vqs(row):
                 """
-                Calculate Advanced VQS - ULTRA-SIMPLE DIRECT SCORING
+                Calculate Advanced VQS - ULTRA-SIMPLE 4-COMPONENT SCORING
                 
-                NO multipliers, NO conversions, NO nested functions!
-                Just 3 direct scores from raw data → weighted average → done!
+                Formula: VolumeStrength (50%) + SmartMoney (20%) + Consistency (20%) + Efficiency (10%)
+                - Volume Strength: Liquidity + Activity (size + surge)
+                - Smart Money: WHO is buying (institutions = leading indicator)
+                - Consistency: HOW reliable (pattern stability over time)
+                - Efficiency: Price movement per volume unit
                 """
                 
-                # ===== SCORE 1: VOLUME STRENGTH (0-100) - 60% weight =====
+                # ===== SCORE 1: VOLUME STRENGTH (0-100) - 50% weight =====
                 vol_1d = row.get('volume_1d', 0)
                 rvol = row.get('rvol', 1.0)
                 
@@ -1966,7 +1969,7 @@ class DataProcessor:
                 
                 volume_strength = liquidity + activity  # Max 100
                 
-                # ===== SCORE 2: SMART MONEY (0-100) - 25% weight =====
+                # ===== SCORE 2: SMART MONEY (0-100) - 20% weight =====
                 smart_money_flow = row.get('smart_money_flow', 'NONE')
                 money_flow_mm = row.get('money_flow_mm', 0)
                 
@@ -1992,7 +1995,37 @@ class DataProcessor:
                 
                 smart_money = sm_signal + mf_magnitude  # Max 100
                 
-                # ===== SCORE 3: EFFICIENCY (0-100) - 15% weight =====
+                # ===== SCORE 3: CONSISTENCY (0-100) - 20% weight =====
+                # Measures volume pattern reliability across timeframes
+                vol_7d = row.get('volume_7d', 0)
+                vol_30d = row.get('volume_30d', 0)
+                vol_90d = row.get('volume_90d', 0)
+                
+                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                    # Calculate coefficient of variation (lower = more consistent)
+                    volumes = np.array([vol_1d, vol_7d, vol_30d])
+                    mean_vol = np.mean(volumes)
+                    std_vol = np.std(volumes)
+                    cv = std_vol / mean_vol if mean_vol > 0 else 999
+                    
+                    # Score based on consistency (lower CV = higher score)
+                    if cv < 0.2: consistency = 100      # Highly consistent
+                    elif cv < 0.4: consistency = 85     # Very consistent
+                    elif cv < 0.6: consistency = 70     # Good consistency
+                    elif cv < 0.8: consistency = 55     # Moderate consistency
+                    elif cv < 1.2: consistency = 40     # Low consistency
+                    else: consistency = 25              # Poor consistency
+                    
+                    # Bonus: Upward trend in volume (1d > 7d > 30d)
+                    if vol_1d > vol_7d > vol_30d:
+                        consistency = min(100, consistency + 15)  # Building momentum!
+                    # Penalty: Downward trend (1d < 7d < 30d)
+                    elif vol_1d < vol_7d < vol_30d:
+                        consistency = max(0, consistency - 15)    # Fading momentum
+                else:
+                    consistency = 50  # Default if data missing
+                
+                # ===== SCORE 4: EFFICIENCY (0-100) - 10% weight =====
                 ret_1d = row.get('ret_1d', 0)
                 
                 if pd.notna(ret_1d) and pd.notna(rvol) and rvol > 0:
@@ -2008,9 +2041,10 @@ class DataProcessor:
                 
                 # ===== WEIGHTED COMPOSITE =====
                 raw_vqs = (
-                    volume_strength * 0.60 +  # 60% - Volume is king
-                    smart_money * 0.25 +      # 25% - Follow the big players
-                    efficiency * 0.15         # 15% - Price efficiency matters
+                    volume_strength * 0.50 +  # 50% - Volume is king
+                    smart_money * 0.20 +      # 20% - Follow the big players
+                    consistency * 0.20 +      # 20% - Pattern reliability matters
+                    efficiency * 0.10         # 10% - Price efficiency
                 )
                 
                 # ===== DATA QUALITY PENALTY =====
@@ -2046,12 +2080,13 @@ class DataProcessor:
                     'vqs_status': status,
                     'vqs_volume_strength': round(volume_strength, 2),
                     'vqs_smart_money': round(smart_money, 2),
+                    'vqs_consistency': round(consistency, 2),
                     'vqs_efficiency': round(efficiency, 2),
                     'vqs_data_quality': round(data_quality, 3)
                 })
             
             # ===== CALCULATE ADVANCED VQS FOR ALL STOCKS =====
-            logger.info("Calculating Advanced VQS (Ultra-Simple Direct Scoring)...")
+            logger.info("Calculating Advanced VQS (4-Component: Volume + SmartMoney + Consistency + Efficiency)...")
             
             vqs_results = df.apply(calculate_advanced_vqs, axis=1)
             df['vqs_score'] = vqs_results['vqs_score']
@@ -2059,13 +2094,14 @@ class DataProcessor:
             df['vqs_status'] = vqs_results['vqs_status']
             df['vqs_volume_strength'] = vqs_results['vqs_volume_strength']
             df['vqs_smart_money'] = vqs_results['vqs_smart_money']
+            df['vqs_consistency'] = vqs_results['vqs_consistency']
             df['vqs_efficiency'] = vqs_results['vqs_efficiency']
             df['vqs_data_quality'] = vqs_results['vqs_data_quality']
             
             logger.info(f"Advanced VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
             logger.info(f"Advanced VQS score range: [{df['vqs_score'].min():.2f} to {df['vqs_score'].max():.2f}]")
             logger.info(f"Advanced VQS average: {df['vqs_score'].mean():.2f}, median: {df['vqs_score'].median():.2f}")
-            logger.info(f"Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
+            logger.info(f"Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Consistency: {df['vqs_consistency'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
         
         # 8.2. ⚡ ADVANCED VOLUME EFFICIENCY RATIO (Advanced VER) - Multi-Dimensional Intelligence
         # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
@@ -19522,7 +19558,7 @@ def main():
                             # 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - ULTRA-SIMPLE SCORING
                             st.markdown("---")
                             st.markdown("**🏆 Advanced Volume Quality Score (VQS)**")
-                            st.caption("Ultra-simple: VolumeStrength (60%) + SmartMoney (25%) + Efficiency (15%)")
+                            st.caption("4 Components: VolumeStrength (50%) + SmartMoney (20%) + Consistency (20%) + Efficiency (10%)")
                             
                             # Extract Advanced VQS components
                             if 'vqs_score' in stock.index and pd.notna(stock['vqs_score']):
@@ -19531,6 +19567,7 @@ def main():
                                 vqs_status = stock.get('vqs_status', 'N/A')
                                 vqs_volume = stock.get('vqs_volume_strength', 50)
                                 vqs_smart = stock.get('vqs_smart_money', 50)
+                                vqs_consistency = stock.get('vqs_consistency', 50)
                                 vqs_eff = stock.get('vqs_efficiency', 50)
                                 vqs_quality = stock.get('vqs_data_quality', 1.0)
                                 
@@ -19563,7 +19600,9 @@ def main():
                                     st.caption(f"🟡 Efficiency: **{vqs_eff:.0f}/100** (15%)")
                                     st.caption(f"   Price movement per volume unit")
                                     st.caption("")
-                                    raw_calc = vqs_volume*0.6 + vqs_smart*0.25 + vqs_eff*0.15
+                                    st.caption(f"🟣 Consistency: **{vqs_consistency:.0f}/100** (20%)")
+                                    st.caption(f"   Pattern reliability over time")
+                                    raw_calc = vqs_volume*0.5 + vqs_smart*0.2 + vqs_consistency*0.2 + vqs_eff*0.1
                                     st.caption(f"💡 Calculation: {raw_calc:.1f} × {vqs_quality:.2f} = {vqs_score:.1f}")
                                 
                                 with vqs_col3:
@@ -19576,15 +19615,25 @@ def main():
                                     st.caption("❌ F (<30): Poor")
                                     st.caption("")
                                     
-                                    # Simple interpretation
+                                    # Component-based interpretation
                                     if vqs_grade in ['A+', 'A']:
                                         st.success("🎯 **Top quality volume!**")
+                                        if vqs_smart >= 70:
+                                            st.caption("💰 Strong institutional backing")
+                                        if vqs_consistency >= 80:
+                                            st.caption("📈 Highly reliable pattern")
                                     elif vqs_grade == 'B':
                                         st.info("✅ **Good volume quality**")
+                                        if vqs_consistency < 50:
+                                            st.caption("⚠️ Watch consistency")
                                     elif vqs_grade == 'C':
                                         st.info("⚪ **Average - be selective**")
+                                        if vqs_smart < 40:
+                                            st.caption("⚠️ Weak institutional interest")
                                     else:
                                         st.warning("⚠️ **Low quality - caution!**")
+                                        if vqs_consistency < 40:
+                                            st.caption("❌ Unreliable pattern")
                             else:
                                 st.info("🏆 VQS data not available")
                             
