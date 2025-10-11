@@ -18379,12 +18379,12 @@ def main():
                             # 🏆 VOLUME QUALITY SCORE (VQS) - Composite A-F Grade
                             st.markdown("---")
                             st.markdown("**🏆 Volume Quality Score (VQS)**")
-                            st.caption("Composite grade assessing overall volume quality across 4 dimensions")
+                            st.caption("Composite grade assessing volume quality across 3 core dimensions: Liquidity, Consistency, and Efficiency")
                             
                             # Initialize VQS components
                             vqs_components = {}
                             vqs_total = 0
-                            vqs_weights = {'liquidity': 0.30, 'consistency': 0.25, 'smart_money': 0.25, 'efficiency': 0.20}
+                            vqs_weights = {'liquidity': 0.40, 'consistency': 0.30, 'efficiency': 0.30}
                             
                             # COMPONENT 1: Liquidity Grade (30%)
                             liquidity_score = 0
@@ -18423,25 +18423,7 @@ def main():
                                         consistency_score = 40
                             vqs_components['Consistency'] = consistency_score
                             
-                            # COMPONENT 3: Smart Money Grade (25%)
-                            # Use simplified institutional detection for VQS
-                            smart_money_score = 0
-                            if all(col in stock.index for col in ['rvol', 'from_low_pct']):
-                                rvol_val = stock['rvol']
-                                from_low_val = stock['from_low_pct']
-                                if pd.notna(rvol_val) and pd.notna(from_low_val):
-                                    # Accumulation pattern scoring
-                                    if rvol_val > 1.5 and from_low_val < 25:
-                                        smart_money_score = 90  # Strong accumulation
-                                    elif rvol_val > 1.5 and from_low_val < 50:
-                                        smart_money_score = 70  # Moderate accumulation
-                                    elif rvol_val > 1.0:
-                                        smart_money_score = 50  # Average activity
-                                    else:
-                                        smart_money_score = 30  # Low activity
-                            vqs_components['Smart Money'] = smart_money_score
-                            
-                            # COMPONENT 4: Efficiency Grade (20%)
+                            # COMPONENT 3: Efficiency Grade (30%)
                             # FIXED: Use same formula as VER Enhancement for consistency
                             efficiency_score = 0
                             if all(col in stock.index for col in ['ret_1d', 'rvol']):
@@ -18509,6 +18491,10 @@ def main():
                                     weight_key = component.lower().replace(' ', '_')
                                     weight = vqs_weights.get(weight_key, 0)
                                     st.caption(f"• {component}: {score:.0f}/100 ({weight*100:.0f}% weight)")
+                                st.caption("")
+                                st.caption("💡 **Note:** VQS measures volume *quality*")
+                                st.caption("For institutional activity analysis,")
+                                st.caption("see 🎯 Smart Money section below")
                             
                             with vqs_col3:
                                 # Grade interpretation
