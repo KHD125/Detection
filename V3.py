@@ -1038,32 +1038,33 @@ class DataProcessor:
             )
             logger.info(f"Daily turnover tiers created. Sample tiers: {df['daily_turnover_tier'].value_counts().head()}")
         
-        # Enhanced turnover calculations (30-day, 90-day, 180-day) with proper volume periods
+        # Enhanced turnover calculations (30-day, 90-day, 180-day) with consistent pricing methodology
         # NOTE: volume_30d, volume_90d, volume_180d are AVERAGE DAILY volumes over their respective periods
-        # turnover_30d = Average Daily Turnover (calculated using 30-day avg volume × 20-day avg price)
-        # This represents the typical daily turnover over the 30-day period
-        if all(col in df.columns for col in ['volume_30d', 'sma_20d']):
-            df['turnover_30d'] = df['volume_30d'] * df['sma_20d']
+        # PROFESSIONAL METHODOLOGY: Use current price for all periods to ensure consistency and accuracy
+        # turnover_30d = Average Daily Turnover (calculated using 30-day avg volume × current price)
+        # This represents the typical daily turnover over the 30-day period using current market valuation
+        if all(col in df.columns for col in ['volume_30d', 'price']):
+            df['turnover_30d'] = df['volume_30d'] * df['price']
             df['turnover_30d_tier'] = df['turnover_30d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"30-day avg daily turnover (volume_30d × SMA 20d) calculated. Sample values: {df['turnover_30d'].describe()}")
+            logger.info(f"30-day avg daily turnover (volume_30d × current price) calculated. Sample values: {df['turnover_30d'].describe()}")
         
-        # turnover_90d = Average Daily Turnover (calculated using 90-day avg volume × 50-day avg price)
-        if all(col in df.columns for col in ['volume_90d', 'sma_50d']):
-            df['turnover_90d'] = df['volume_90d'] * df['sma_50d']
+        # turnover_90d = Average Daily Turnover (calculated using 90-day avg volume × current price)
+        if all(col in df.columns for col in ['volume_90d', 'price']):
+            df['turnover_90d'] = df['volume_90d'] * df['price']
             df['turnover_90d_tier'] = df['turnover_90d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"90-day avg daily turnover (volume_90d × SMA 50d) calculated. Sample values: {df['turnover_90d'].describe()}")
+            logger.info(f"90-day avg daily turnover (volume_90d × current price) calculated. Sample values: {df['turnover_90d'].describe()}")
         
-        # turnover_180d = Average Daily Turnover (calculated using 180-day avg volume × 200-day avg price)
-        if all(col in df.columns for col in ['volume_180d', 'sma_200d']):
-            df['turnover_180d'] = df['volume_180d'] * df['sma_200d']
+        # turnover_180d = Average Daily Turnover (calculated using 180-day avg volume × current price)
+        if all(col in df.columns for col in ['volume_180d', 'price']):
+            df['turnover_180d'] = df['volume_180d'] * df['price']
             df['turnover_180d_tier'] = df['turnover_180d'].apply(
                 lambda x: "Unknown" if pd.isna(x) else classify_tier(x, CONFIG.TIERS['daily_turnover_tiers'])
             )
-            logger.info(f"180-day avg daily turnover (volume_180d × SMA 200d) calculated. Sample values: {df['turnover_180d'].describe()}")
+            logger.info(f"180-day avg daily turnover (volume_180d × current price) calculated. Sample values: {df['turnover_180d'].describe()}")
         
         # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Multi-Period Analysis
         # Calculate growth rates, momentum, consistency, acceleration, and alignment
