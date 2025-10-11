@@ -18386,7 +18386,7 @@ def main():
                             vqs_total = 0
                             vqs_weights = {'liquidity': 0.40, 'consistency': 0.30, 'efficiency': 0.30}
                             
-                            # COMPONENT 1: Liquidity Grade (40%)
+                            # COMPONENT 1: Liquidity Grade (30%)
                             liquidity_score = 0
                             if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
                                 vol_1d = stock['volume_1d']
@@ -18404,7 +18404,7 @@ def main():
                                     liquidity_score = 40
                             vqs_components['Liquidity'] = liquidity_score
                             
-                            # COMPONENT 2: Consistency Grade (30%)
+                            # COMPONENT 2: Consistency Grade (25%)
                             consistency_score = 0
                             if all(col in stock.index for col in ['volume_1d', 'volume_7d', 'volume_30d']):
                                 v1 = stock['volume_1d']
@@ -18577,6 +18577,58 @@ def main():
                                 else:
                                     st.info("No volume data available")
                             
+                            with vol_col2:
+                                st.markdown("**📊 Volume Ratios & Trends**")
+                                
+                                ratio_data = {
+                                    'Period': [],
+                                    'Ratio': [],
+                                    'Status': []
+                                }
+                                
+                                # Volume ratios
+                                volume_ratios = [
+                                    ('vol_ratio_1d_90d', '1D vs 90D'),
+                                    ('vol_ratio_7d_90d', '7D vs 90D'),
+                                    ('vol_ratio_30d_90d', '30D vs 90D'),
+                                    ('vol_ratio_1d_180d', '1D vs 180D'),
+                                    ('vol_ratio_7d_180d', '7D vs 180D'),
+                                    ('vol_ratio_30d_180d', '30D vs 180D'),
+                                    ('vol_ratio_90d_180d', '90D vs 180D')
+                                ]
+                                
+                                for col_name, display_name in volume_ratios:
+                                    if col_name in stock.index and pd.notna(stock[col_name]):
+                                        ratio_val = stock[col_name]
+                                        ratio_data['Period'].append(display_name)
+                                        ratio_data['Ratio'].append(f"{ratio_val:.2f}")
+                                        
+                                        # Status interpretation
+                                        if ratio_val >= 2.0:
+                                            status = "🔥 Very High"
+                                        elif ratio_val >= 1.5:
+                                            status = "📈 High"
+                                        elif ratio_val >= 1.2:
+                                            status = "➕ Above Normal"
+                                        elif ratio_val >= 0.8:
+                                            status = "➡️ Normal"
+                                        elif ratio_val >= 0.5:
+                                            status = "➖ Below Normal"
+                                        else:
+                                            status = "📉 Low"
+                                        
+                                        ratio_data['Status'].append(status)
+                                
+                                if ratio_data['Period']:
+                                    ratio_df = pd.DataFrame(ratio_data)
+                                    st.dataframe(
+                                        ratio_df,
+                                        width='stretch',
+                                        hide_index=True
+                                    )
+                                else:
+                                    st.info("No volume ratio data available")
+                            
                             # 🌡️ VOLUME DIVERGENCE HEAT MAP - Visual Pattern Recognition
                             st.markdown("---")
                             st.markdown("**🌡️ Volume Divergence Heat Map**")
@@ -18667,37 +18719,27 @@ def main():
                                 r30d_90d = stock.get('vol_ratio_30d_90d', np.nan)
                                 
                                 if all(pd.notna(r) for r in [r1d_90d, r7d_90d, r30d_90d]):
-                                    # FIXED: Mutually exclusive pattern detection with proper priority
-                                    
-                                    # Pattern 1: Explosive (all timeframes very high)
+                                    # Pattern 1: Explosive (all timeframes high)
                                     if all(r >= 1.5 for r in [r1d_90d, r7d_90d, r30d_90d]):
                                         patterns_detected.append("🔥 **Explosive Pattern**: All timeframes showing elevated volume (strong institutional accumulation)")
                                     
-                                    # Pattern 2: Acceleration (1D spike, 30D weak)
-                                    elif r1d_90d > 2.0 and r30d_90d < 1.2:
+                                    # Pattern 2: Acceleration (recent >> historical)
+                                    elif r1d_90d > 2.0 and r7d_90d > 1.5 and r30d_90d < 1.2:
                                         patterns_detected.append("⚡ **Acceleration Pattern**: Recent surge in volume (potential breakout initiation)")
                                     
-                                    # Pattern 3: Divergence (1D very high, 30D low - DISTRIBUTION RISK!)
-                                    elif r1d_90d > 1.8 and r30d_90d < 0.9:
-                                        patterns_detected.append("⚠️ **Divergence Pattern**: Recent spike on weak baseline (potential distribution - use caution)")
-                                    
-                                    # Pattern 4: Deceleration (recent weak, historical strong)
-                                    elif r1d_90d < 0.8 and r30d_90d > 1.2:
+                                    # Pattern 3: Deceleration (recent << historical)
+                                    elif r1d_90d < 0.8 and r7d_90d < 0.8 and r30d_90d > 1.2:
                                         patterns_detected.append("📉 **Deceleration Pattern**: Volume fading after strength (distribution warning)")
                                     
-                                    # Pattern 5: Sustained (both 1D and 30D elevated but not explosive)
-                                    elif r1d_90d > 1.3 and r30d_90d > 1.3:
+                                    # Pattern 4: Sustained accumulation
+                                    elif r1d_90d > 1.5 and r30d_90d > 1.5:
                                         patterns_detected.append("🌊 **Sustained Pattern**: Multi-period volume strength (quality institutional accumulation)")
                                     
-                                    # Pattern 6: Normal/Balanced
+                                    # Pattern 5: Normal/Neutral
                                     elif all(0.8 <= r <= 1.2 for r in [r1d_90d, r7d_90d, r30d_90d]):
                                         patterns_detected.append("⚪ **Normal Pattern**: Balanced volume across timeframes (no unusual activity)")
                                     
-                                    # Pattern 7: Weak (all low)
-                                    elif all(r < 0.8 for r in [r1d_90d, r7d_90d, r30d_90d]):
-                                        patterns_detected.append("🔵 **Weak Pattern**: Low volume across all timeframes (lack of interest)")
-                                    
-                                    # Pattern 8: Mixed signals (everything else)
+                                    # Pattern 6: Mixed signals
                                     else:
                                         patterns_detected.append("🔀 **Mixed Pattern**: Divergent volume signals across timeframes (monitor for clarification)")
                                 
@@ -18715,23 +18757,48 @@ def main():
                                 st.markdown("**🎯 Volume Score Analysis**")
                                 
                                 vol_score = stock['volume_score']
+                                score_col1, score_col2, score_col3 = st.columns(3)
                                 
-                                # Display volume score with status
-                                if vol_score >= 80:
-                                    score_status = "🔥 Excellent"
-                                    score_color = "success"
-                                elif vol_score >= 60:
-                                    score_status = "✅ Good"
-                                    score_color = "success"
-                                elif vol_score >= 40:
-                                    score_status = "⚠️ Average"
-                                    score_color = "warning"
-                                else:
-                                    score_status = "❌ Poor"
-                                    score_color = "error"
+                                with score_col1:
+                                    if vol_score >= 80:
+                                        score_status = "🔥 Excellent"
+                                        score_color = "success"
+                                    elif vol_score >= 60:
+                                        score_status = "✅ Good"
+                                        score_color = "success"
+                                    elif vol_score >= 40:
+                                        score_status = "⚠️ Average"
+                                        score_color = "warning"
+                                    else:
+                                        score_status = "❌ Poor"
+                                        score_color = "error"
+                                    
+                                    st.metric("Volume Score", f"{vol_score:.0f}/100")
+                                    getattr(st, score_color)(f"**Status:** {score_status}")
                                 
-                                st.metric("Volume Score", f"{vol_score:.0f}/100")
-                                getattr(st, score_color)(f"**Status:** {score_status}")
+                                with score_col2:
+                                    # VMI Tier Classification
+                                    if 'vmi_tier' in stock.index and pd.notna(stock['vmi_tier']):
+                                        st.markdown("**VMI Classification**")
+                                        st.info(f"📊 {stock['vmi_tier']}")
+                                
+                                with score_col3:
+                                    # Volume Activity Level
+                                    if 'rvol' in stock.index and pd.notna(stock['rvol']):
+                                        rvol_val = stock['rvol']
+                                        st.markdown("**Activity Level**")
+                                        
+                                        # Determine activity level based on RVOL
+                                        if rvol_val >= 2.0:
+                                            activity = "🔥 High Activity"
+                                        elif rvol_val >= 1.0:
+                                            activity = "📈 Normal+"
+                                        elif rvol_val >= 0.5:
+                                            activity = "➡️ Normal"
+                                        else:
+                                            activity = "😴 Low"
+                                        
+                                        st.info(f"📊 {activity}")
                             
                             # ⚡ VOLUME EFFICIENCY RATIO (VER) - Performance Measurement
                             st.markdown("---")
@@ -18819,43 +18886,77 @@ def main():
                             else:
                                 st.info("Insufficient data to calculate Volume Efficiency Ratio")
                             
-                            # Enhanced Liquidity Analysis - SIMPLIFIED
+                            # Enhanced Liquidity Analysis
                             if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
                                 st.markdown("---")
                                 st.markdown("**💧 Liquidity Analysis**")
-                                st.caption("Daily turnover analysis with consistent calculation methodology")
                                 
                                 volume = stock['volume_1d']
                                 price = stock['price']
                                 daily_turnover = volume * price
                                 
-                                # SIMPLIFIED: Use consistent formula for all periods
-                                # Calculate 30-day average turnover (using same price-based method)
-                                turnover_30d_avg = None
-                                if 'volume_30d' in stock.index and pd.notna(stock['volume_30d']):
-                                    # Use current price for consistency
-                                    turnover_30d_avg = stock['volume_30d'] * price
+                                # Enhanced turnover calculations
+                                turnover_metrics = []
                                 
-                                # Display turnover metrics
-                                liq_col1, liq_col2 = st.columns(2)
+                                # Daily Turnover
+                                turnover_metrics.append({
+                                    'label': 'Daily Turnover',
+                                    'value': daily_turnover,
+                                    'basis': 'Current Price'
+                                })
+                                
+                                # 30-Day Avg Daily Turnover (30-day avg volume × SMA 20d)
+                                if all(col in stock.index for col in ['volume_30d', 'sma_20d']) and all(pd.notna(stock[col]) for col in ['volume_30d', 'sma_20d']):
+                                    turnover_30d = stock['volume_30d'] * stock['sma_20d']
+                                    turnover_metrics.append({
+                                        'label': 'Avg Daily (30d)',
+                                        'value': turnover_30d,
+                                        'basis': 'Avg Daily Vol (30d) × SMA 20d'
+                                    })
+                                
+                                # 90-Day Avg Daily Turnover (90-day avg volume × SMA 50d)
+                                if all(col in stock.index for col in ['volume_90d', 'sma_50d']) and all(pd.notna(stock[col]) for col in ['volume_90d', 'sma_50d']):
+                                    turnover_90d = stock['volume_90d'] * stock['sma_50d']
+                                    turnover_metrics.append({
+                                        'label': 'Avg Daily (90d)', 
+                                        'value': turnover_90d,
+                                        'basis': 'Avg Daily Vol (90d) × SMA 50d'
+                                    })
+                                
+                                # 180-Day Avg Daily Turnover (180-day avg volume × SMA 200d)
+                                if all(col in stock.index for col in ['volume_180d', 'sma_200d']) and all(pd.notna(stock[col]) for col in ['volume_180d', 'sma_200d']):
+                                    turnover_180d = stock['volume_180d'] * stock['sma_200d']
+                                    turnover_metrics.append({
+                                        'label': 'Avg Daily (180d)',
+                                        'value': turnover_180d,
+                                        'basis': 'Avg Daily Vol (180d) × SMA 200d'
+                                    })
+                                
+                                # Display turnover metrics in a structured layout
+                                if len(turnover_metrics) >= 2:
+                                    # Create columns based on number of metrics
+                                    num_cols = min(len(turnover_metrics), 4)
+                                    cols = st.columns(num_cols)
+                                    
+                                    for i, metric in enumerate(turnover_metrics):
+                                        with cols[i % num_cols]:
+                                            value = metric['value']
+                                            formatted_value = f"₹{value/10_000_000:.1f}Cr" if value >= 10_000_000 else f"₹{value/100_000:.1f}L"
+                                            st.metric(
+                                                label=metric['label'],
+                                                value=formatted_value,
+                                                help=f"Based on {metric['basis']}"
+                                            )
+                                else:
+                                    # Fallback to original single column display
+                                    st.metric("Daily Turnover", f"₹{daily_turnover/10_000_000:.1f}Cr" if daily_turnover >= 10_000_000 else f"₹{daily_turnover/100_000:.1f}L")
+                                
+                                # Overall liquidity classification based on daily turnover
+                                st.markdown("---")
+                                liq_col1, liq_col2 = st.columns([1, 2])
                                 
                                 with liq_col1:
-                                    # Daily turnover
-                                    formatted_daily = f"₹{daily_turnover/10_000_000:.1f}Cr" if daily_turnover >= 10_000_000 else f"₹{daily_turnover/100_000:.1f}L"
-                                    st.metric("Daily Turnover", formatted_daily)
-                                
-                                with liq_col2:
-                                    # 30-day average (if available)
-                                    if turnover_30d_avg is not None:
-                                        formatted_30d = f"₹{turnover_30d_avg/10_000_000:.1f}Cr" if turnover_30d_avg >= 10_000_000 else f"₹{turnover_30d_avg/100_000:.1f}L"
-                                        st.metric("30d Avg Turnover", formatted_30d)
-                                
-                                # Liquidity status and growth
-                                st.markdown("---")
-                                status_col, growth_col = st.columns([1, 2])
-                                
-                                with status_col:
-                                    # Liquidity classification
+                                    # Liquidity status
                                     if daily_turnover >= 100_000_000:  # 10Cr+
                                         liq_status = "🌊 Highly Liquid"
                                         liq_color = "success"
@@ -18871,27 +18972,28 @@ def main():
                                     
                                     getattr(st, liq_color)(f"**Status:** {liq_status}")
                                 
-                                with growth_col:
-                                    # Growth analysis (if 30d avg available)
-                                    if turnover_30d_avg is not None and turnover_30d_avg > 0:
-                                        growth_pct = ((daily_turnover - turnover_30d_avg) / turnover_30d_avg * 100)
+                                with liq_col2:
+                                    # Growth analysis (if multiple periods available)
+                                    if len(turnover_metrics) >= 3:
+                                        growth_info = "📈 **Growth Analysis**\n"
+                                        daily_val = turnover_metrics[0]['value']
                                         
-                                        # Format growth display
-                                        if growth_pct > 20:
-                                            growth_display = f"🚀 **Strong Growth**: +{growth_pct:.0f}% vs 30d avg"
-                                            st.success(growth_display)
-                                        elif growth_pct > 5:
-                                            growth_display = f"� **Growing**: +{growth_pct:.1f}% vs 30d avg"
-                                            st.info(growth_display)
-                                        elif growth_pct > -5:
-                                            growth_display = f"➡️ **Stable**: {growth_pct:+.1f}% vs 30d avg"
-                                            st.info(growth_display)
-                                        elif growth_pct > -20:
-                                            growth_display = f"� **Declining**: {growth_pct:.1f}% vs 30d avg"
-                                            st.warning(growth_display)
-                                        else:
-                                            growth_display = f"🔻 **Sharp Decline**: {growth_pct:.0f}% vs 30d avg"
-                                            st.error(growth_display)
+                                        for metric in turnover_metrics[1:]:
+                                            period_val = metric['value']
+                                            growth_pct = ((daily_val - period_val) / period_val * 100) if period_val > 0 else 0
+                                            
+                                            if growth_pct > 10:
+                                                growth_status = f"🚀 +{growth_pct:.0f}% growth"
+                                            elif growth_pct > 0:
+                                                growth_status = f"📈 +{growth_pct:.1f}% growth"
+                                            elif growth_pct > -10:
+                                                growth_status = f"📉 {growth_pct:.1f}% decline"
+                                            else:
+                                                growth_status = f"🔻 {growth_pct:.0f}% decline"
+                                            
+                                            growth_info += f"vs {metric['label']}: {growth_status}\n"
+                                        
+                                        st.info(growth_info)
                                 
                                 # � SMART MONEY VOLUME SIGNATURE - Institutional Footprint Detection
                                 st.markdown("---")
