@@ -18513,11 +18513,11 @@ def main():
                             with vqs_col3:
                                 # Grade interpretation
                                 st.markdown("**📖 Grade Scale:**")
-                                st.caption("🌟 A (90+): Elite volume quality")
-                                st.caption("✅ B (80-89): Strong quality")
-                                st.caption("⚪ C (70-79): Average quality")
-                                st.caption("⚠️ D (60-69): Below average")
-                                st.caption("❌ F (<60): Poor quality")
+                                st.caption("🌟 A (85+): Elite volume quality")
+                                st.caption("✅ B (75-84): Strong quality")
+                                st.caption("⚪ C (65-74): Average quality")
+                                st.caption("⚠️ D (55-64): Below average")
+                                st.caption("❌ F (<55): Poor quality")
                             
                             st.markdown("---")
                             
