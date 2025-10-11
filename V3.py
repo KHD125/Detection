@@ -18984,7 +18984,7 @@ def main():
                             vqs_total = 0
                             vqs_weights = {'liquidity': 0.40, 'consistency': 0.30, 'efficiency': 0.30}
                             
-                            # COMPONENT 1: Liquidity Grade (30%)
+                            # COMPONENT 1: Liquidity Grade (40%)
                             liquidity_score = 0
                             if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
                                 vol_1d = stock['volume_1d']
@@ -19002,7 +19002,7 @@ def main():
                                     liquidity_score = 40
                             vqs_components['Liquidity'] = liquidity_score
                             
-                            # COMPONENT 2: Consistency Grade (25%)
+                            # COMPONENT 2: Consistency Grade (30%)
                             consistency_score = 0
                             if all(col in stock.index for col in ['volume_1d', 'volume_7d', 'volume_30d']):
                                 v1 = stock['volume_1d']
