@@ -18423,40 +18423,48 @@ def main():
                                         consistency_score = 40
                             vqs_components['Consistency'] = consistency_score
                             
-                            # COMPONENT 3: Smart Money Grade (25%) - Placeholder for now
-                            # Will be calculated from Smart Money Signature section below
+                            # COMPONENT 3: Smart Money Grade (25%)
+                            # Use simplified institutional detection for VQS
                             smart_money_score = 0
                             if all(col in stock.index for col in ['rvol', 'from_low_pct']):
                                 rvol_val = stock['rvol']
                                 from_low_val = stock['from_low_pct']
                                 if pd.notna(rvol_val) and pd.notna(from_low_val):
+                                    # Accumulation pattern scoring
                                     if rvol_val > 1.5 and from_low_val < 25:
-                                        smart_money_score = 90
+                                        smart_money_score = 90  # Strong accumulation
                                     elif rvol_val > 1.5 and from_low_val < 50:
-                                        smart_money_score = 70
+                                        smart_money_score = 70  # Moderate accumulation
+                                    elif rvol_val > 1.0:
+                                        smart_money_score = 50  # Average activity
                                     else:
-                                        smart_money_score = 50
+                                        smart_money_score = 30  # Low activity
                             vqs_components['Smart Money'] = smart_money_score
                             
                             # COMPONENT 4: Efficiency Grade (20%)
+                            # FIXED: Use same formula as VER Enhancement for consistency
                             efficiency_score = 0
-                            if all(col in stock.index for col in ['ret_1d', 'volume_1d', 'volume_7d']):
+                            if all(col in stock.index for col in ['ret_1d', 'rvol']):
                                 ret = stock['ret_1d']
-                                vol_1d = stock['volume_1d']
-                                vol_7d = stock['volume_7d']
-                                if all(pd.notna(v) for v in [ret, vol_1d, vol_7d]):
-                                    vol_change = vol_1d / vol_7d if vol_7d > 0 else 1.0
-                                    ver = abs(ret) / vol_change if vol_change > 0 else 0
+                                rvol_val = stock['rvol']
+                                if pd.notna(ret) and pd.notna(rvol_val) and rvol_val > 0:
+                                    # VER = |price_change| / relative_volume
+                                    # Higher RVOL = more volume needed = LOWER efficiency
+                                    ver = abs(ret) / rvol_val
+                                    
+                                    # Professional quant thresholds
                                     if ver > 5.0:
-                                        efficiency_score = 100
+                                        efficiency_score = 100  # Extreme efficiency
                                     elif ver > 2.0:
-                                        efficiency_score = 90
+                                        efficiency_score = 90   # High efficiency
                                     elif ver >= 1.0:
-                                        efficiency_score = 80
+                                        efficiency_score = 80   # Good efficiency
                                     elif ver >= 0.5:
-                                        efficiency_score = 70
+                                        efficiency_score = 65   # Normal efficiency
+                                    elif ver >= 0.2:
+                                        efficiency_score = 45   # Low efficiency
                                     else:
-                                        efficiency_score = 50
+                                        efficiency_score = 25   # Very low efficiency
                             vqs_components['Efficiency'] = efficiency_score
                             
                             # Calculate weighted VQS
@@ -18465,20 +18473,20 @@ def main():
                                 weight = vqs_weights.get(weight_key, 0)
                                 vqs_total += score * weight
                             
-                            # Convert to letter grade
-                            if vqs_total >= 90:
+                            # Convert to letter grade (realistic professional thresholds)
+                            if vqs_total >= 85:
                                 vqs_grade = "A"
                                 vqs_status = "🌟 Elite"
                                 vqs_color = "success"
-                            elif vqs_total >= 80:
+                            elif vqs_total >= 75:
                                 vqs_grade = "B"
                                 vqs_status = "✅ Strong"
                                 vqs_color = "success"
-                            elif vqs_total >= 70:
+                            elif vqs_total >= 65:
                                 vqs_grade = "C"
                                 vqs_status = "⚪ Average"
                                 vqs_color = "info"
-                            elif vqs_total >= 60:
+                            elif vqs_total >= 55:
                                 vqs_grade = "D"
                                 vqs_status = "⚠️ Below Average"
                                 vqs_color = "warning"
