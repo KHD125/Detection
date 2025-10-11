@@ -18376,6 +18376,143 @@ def main():
                         with detail_tabs[4]:  # Volume Analysis
                             st.markdown("**📊 Volume Analysis**")
                             
+                            # 🏆 VOLUME QUALITY SCORE (VQS) - Composite A-F Grade
+                            st.markdown("---")
+                            st.markdown("**🏆 Volume Quality Score (VQS)**")
+                            st.caption("Composite grade assessing overall volume quality across 4 dimensions")
+                            
+                            # Initialize VQS components
+                            vqs_components = {}
+                            vqs_total = 0
+                            vqs_weights = {'liquidity': 0.30, 'consistency': 0.25, 'smart_money': 0.25, 'efficiency': 0.20}
+                            
+                            # COMPONENT 1: Liquidity Grade (30%)
+                            liquidity_score = 0
+                            if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
+                                vol_1d = stock['volume_1d']
+                                if vol_1d >= 10_000_000:
+                                    liquidity_score = 100
+                                elif vol_1d >= 5_000_000:
+                                    liquidity_score = 90
+                                elif vol_1d >= 1_000_000:
+                                    liquidity_score = 80
+                                elif vol_1d >= 500_000:
+                                    liquidity_score = 70
+                                elif vol_1d >= 100_000:
+                                    liquidity_score = 60
+                                else:
+                                    liquidity_score = 40
+                            vqs_components['Liquidity'] = liquidity_score
+                            
+                            # COMPONENT 2: Consistency Grade (25%)
+                            consistency_score = 0
+                            if all(col in stock.index for col in ['volume_1d', 'volume_7d', 'volume_30d']):
+                                v1 = stock['volume_1d']
+                                v7 = stock['volume_7d']
+                                v30 = stock['volume_30d']
+                                if all(pd.notna(v) and v > 0 for v in [v1, v7, v30]):
+                                    volumes = np.array([v1, v7, v30])
+                                    cv = np.std(volumes) / np.mean(volumes)
+                                    if cv < 0.3:
+                                        consistency_score = 100
+                                    elif cv < 0.6:
+                                        consistency_score = 80
+                                    elif cv < 1.0:
+                                        consistency_score = 60
+                                    else:
+                                        consistency_score = 40
+                            vqs_components['Consistency'] = consistency_score
+                            
+                            # COMPONENT 3: Smart Money Grade (25%) - Placeholder for now
+                            # Will be calculated from Smart Money Signature section below
+                            smart_money_score = 0
+                            if all(col in stock.index for col in ['rvol', 'from_low_pct']):
+                                rvol_val = stock['rvol']
+                                from_low_val = stock['from_low_pct']
+                                if pd.notna(rvol_val) and pd.notna(from_low_val):
+                                    if rvol_val > 1.5 and from_low_val < 25:
+                                        smart_money_score = 90
+                                    elif rvol_val > 1.5 and from_low_val < 50:
+                                        smart_money_score = 70
+                                    else:
+                                        smart_money_score = 50
+                            vqs_components['Smart Money'] = smart_money_score
+                            
+                            # COMPONENT 4: Efficiency Grade (20%)
+                            efficiency_score = 0
+                            if all(col in stock.index for col in ['ret_1d', 'volume_1d', 'volume_7d']):
+                                ret = stock['ret_1d']
+                                vol_1d = stock['volume_1d']
+                                vol_7d = stock['volume_7d']
+                                if all(pd.notna(v) for v in [ret, vol_1d, vol_7d]):
+                                    vol_change = vol_1d / vol_7d if vol_7d > 0 else 1.0
+                                    ver = abs(ret) / vol_change if vol_change > 0 else 0
+                                    if ver > 5.0:
+                                        efficiency_score = 100
+                                    elif ver > 2.0:
+                                        efficiency_score = 90
+                                    elif ver >= 1.0:
+                                        efficiency_score = 80
+                                    elif ver >= 0.5:
+                                        efficiency_score = 70
+                                    else:
+                                        efficiency_score = 50
+                            vqs_components['Efficiency'] = efficiency_score
+                            
+                            # Calculate weighted VQS
+                            for component, score in vqs_components.items():
+                                weight_key = component.lower().replace(' ', '_')
+                                weight = vqs_weights.get(weight_key, 0)
+                                vqs_total += score * weight
+                            
+                            # Convert to letter grade
+                            if vqs_total >= 90:
+                                vqs_grade = "A"
+                                vqs_status = "🌟 Elite"
+                                vqs_color = "success"
+                            elif vqs_total >= 80:
+                                vqs_grade = "B"
+                                vqs_status = "✅ Strong"
+                                vqs_color = "success"
+                            elif vqs_total >= 70:
+                                vqs_grade = "C"
+                                vqs_status = "⚪ Average"
+                                vqs_color = "info"
+                            elif vqs_total >= 60:
+                                vqs_grade = "D"
+                                vqs_status = "⚠️ Below Average"
+                                vqs_color = "warning"
+                            else:
+                                vqs_grade = "F"
+                                vqs_status = "❌ Poor"
+                                vqs_color = "error"
+                            
+                            # Display VQS
+                            vqs_col1, vqs_col2, vqs_col3 = st.columns([1, 2, 2])
+                            
+                            with vqs_col1:
+                                st.metric("VQS Grade", vqs_grade)
+                                getattr(st, vqs_color)(f"**{vqs_status}**")
+                                st.caption(f"Score: {vqs_total:.1f}/100")
+                            
+                            with vqs_col2:
+                                st.markdown("**📊 Component Breakdown:**")
+                                for component, score in vqs_components.items():
+                                    weight_key = component.lower().replace(' ', '_')
+                                    weight = vqs_weights.get(weight_key, 0)
+                                    st.caption(f"• {component}: {score:.0f}/100 ({weight*100:.0f}% weight)")
+                            
+                            with vqs_col3:
+                                # Grade interpretation
+                                st.markdown("**📖 Grade Scale:**")
+                                st.caption("🌟 A (90+): Elite volume quality")
+                                st.caption("✅ B (80-89): Strong quality")
+                                st.caption("⚪ C (70-79): Average quality")
+                                st.caption("⚠️ D (60-69): Below average")
+                                st.caption("❌ F (<60): Poor quality")
+                            
+                            st.markdown("---")
+                            
                             vol_col1, vol_col2 = st.columns(2)
                             
                             with vol_col1:
@@ -18498,6 +18635,128 @@ def main():
                                 else:
                                     st.info("No volume ratio data available")
                             
+                            # 🌡️ VOLUME DIVERGENCE HEAT MAP - Visual Pattern Recognition
+                            st.markdown("---")
+                            st.markdown("**🌡️ Volume Divergence Heat Map**")
+                            st.caption("Instant visual detection of accumulation/distribution patterns")
+                            
+                            # Build heat map data
+                            heat_map_data = []
+                            periods = ['1D', '7D', '30D']
+                            period_to_col_map = {
+                                '1D': ['vol_ratio_1d_90d', 'vol_ratio_1d_180d'],
+                                '7D': ['vol_ratio_7d_90d', 'vol_ratio_7d_180d'],
+                                '30D': ['vol_ratio_30d_90d', 'vol_ratio_30d_180d']
+                            }
+                            
+                            for period_label in periods:
+                                row_data = {'Period': period_label}
+                                vol_cols = period_to_col_map[period_label]
+                                
+                                # vs 90d column
+                                if vol_cols[0] in stock.index and pd.notna(stock[vol_cols[0]]):
+                                    ratio = stock[vol_cols[0]]
+                                    
+                                    # Color coding with emojis
+                                    if ratio >= 2.0:
+                                        cell_display = f"🔴 {ratio:.2f}x"
+                                        cell_status = "Extreme ↑"
+                                    elif ratio >= 1.5:
+                                        cell_display = f"🟠 {ratio:.2f}x"
+                                        cell_status = "High ↑"
+                                    elif ratio >= 1.2:
+                                        cell_display = f"🟡 {ratio:.2f}x"
+                                        cell_status = "Elevated"
+                                    elif ratio >= 0.8:
+                                        cell_display = f"🟢 {ratio:.2f}x"
+                                        cell_status = "Normal"
+                                    elif ratio >= 0.5:
+                                        cell_display = f"🔵 {ratio:.2f}x"
+                                        cell_status = "Low ↓"
+                                    else:
+                                        cell_display = f"⚫ {ratio:.2f}x"
+                                        cell_status = "Extreme ↓"
+                                    
+                                    row_data['vs 90d'] = f"{cell_display} ({cell_status})"
+                                else:
+                                    row_data['vs 90d'] = 'N/A'
+                                
+                                # vs 180d column
+                                if vol_cols[1] in stock.index and pd.notna(stock[vol_cols[1]]):
+                                    ratio = stock[vol_cols[1]]
+                                    
+                                    # Color coding with emojis
+                                    if ratio >= 2.0:
+                                        cell_display = f"🔴 {ratio:.2f}x"
+                                        cell_status = "Extreme ↑"
+                                    elif ratio >= 1.5:
+                                        cell_display = f"🟠 {ratio:.2f}x"
+                                        cell_status = "High ↑"
+                                    elif ratio >= 1.2:
+                                        cell_display = f"🟡 {ratio:.2f}x"
+                                        cell_status = "Elevated"
+                                    elif ratio >= 0.8:
+                                        cell_display = f"🟢 {ratio:.2f}x"
+                                        cell_status = "Normal"
+                                    elif ratio >= 0.5:
+                                        cell_display = f"🔵 {ratio:.2f}x"
+                                        cell_status = "Low ↓"
+                                    else:
+                                        cell_display = f"⚫ {ratio:.2f}x"
+                                        cell_status = "Extreme ↓"
+                                    
+                                    row_data['vs 180d'] = f"{cell_display} ({cell_status})"
+                                else:
+                                    row_data['vs 180d'] = 'N/A'
+                                
+                                heat_map_data.append(row_data)
+                            
+                            # Display heat map
+                            if heat_map_data:
+                                heat_df = pd.DataFrame(heat_map_data)
+                                st.dataframe(heat_df, hide_index=True, use_container_width=True)
+                                
+                                # 🎯 Pattern Detection & Interpretation
+                                patterns_detected = []
+                                
+                                # Get key ratios for pattern detection
+                                r1d_90d = stock.get('vol_ratio_1d_90d', np.nan)
+                                r7d_90d = stock.get('vol_ratio_7d_90d', np.nan)
+                                r30d_90d = stock.get('vol_ratio_30d_90d', np.nan)
+                                
+                                if all(pd.notna(r) for r in [r1d_90d, r7d_90d, r30d_90d]):
+                                    # Pattern 1: Explosive (all timeframes high)
+                                    if all(r >= 1.5 for r in [r1d_90d, r7d_90d, r30d_90d]):
+                                        patterns_detected.append("🔥 **Explosive Pattern**: All timeframes showing elevated volume (strong institutional accumulation)")
+                                    
+                                    # Pattern 2: Acceleration (recent >> historical)
+                                    elif r1d_90d > 2.0 and r7d_90d > 1.5 and r30d_90d < 1.2:
+                                        patterns_detected.append("⚡ **Acceleration Pattern**: Recent surge in volume (potential breakout initiation)")
+                                    
+                                    # Pattern 3: Deceleration (recent << historical)
+                                    elif r1d_90d < 0.8 and r7d_90d < 0.8 and r30d_90d > 1.2:
+                                        patterns_detected.append("📉 **Deceleration Pattern**: Volume fading after strength (distribution warning)")
+                                    
+                                    # Pattern 4: Sustained accumulation
+                                    elif r1d_90d > 1.5 and r30d_90d > 1.5:
+                                        patterns_detected.append("🌊 **Sustained Pattern**: Multi-period volume strength (quality institutional accumulation)")
+                                    
+                                    # Pattern 5: Normal/Neutral
+                                    elif all(0.8 <= r <= 1.2 for r in [r1d_90d, r7d_90d, r30d_90d]):
+                                        patterns_detected.append("⚪ **Normal Pattern**: Balanced volume across timeframes (no unusual activity)")
+                                    
+                                    # Pattern 6: Mixed signals
+                                    else:
+                                        patterns_detected.append("🔀 **Mixed Pattern**: Divergent volume signals across timeframes (monitor for clarification)")
+                                
+                                # Display detected patterns
+                                if patterns_detected:
+                                    st.markdown("**📊 Pattern Analysis:**")
+                                    for pattern in patterns_detected:
+                                        st.info(pattern)
+                            else:
+                                st.info("Insufficient data for heat map visualization")
+                            
                             # Volume Score Section
                             if 'volume_score' in stock.index and pd.notna(stock['volume_score']):
                                 st.markdown("---")
@@ -18546,6 +18805,92 @@ def main():
                                             activity = "😴 Low"
                                         
                                         st.info(f"📊 {activity}")
+                            
+                            # ⚡ VOLUME EFFICIENCY RATIO (VER) - Performance Measurement
+                            st.markdown("---")
+                            st.markdown("**⚡ Volume Efficiency Ratio (VER)**")
+                            st.caption("How effectively is volume moving price? Higher = More Efficient")
+                            
+                            # Calculate VER for multiple timeframes
+                            ver_data = []
+                            ver_scores = []
+                            
+                            timeframes = [
+                                ('Daily', 'ret_1d', 'rvol', 1),
+                                ('Weekly', 'ret_7d', 'vol_ratio_7d_90d', 7),
+                                ('Monthly', 'ret_30d', 'vol_ratio_30d_90d', 30)
+                            ]
+                            
+                            for label, ret_col, vol_col, days in timeframes:
+                                if all(col in stock.index for col in [ret_col, vol_col]):
+                                    ret_val = stock[ret_col]
+                                    vol_val = stock[vol_col]
+                                    
+                                    if pd.notna(ret_val) and pd.notna(vol_val) and vol_val > 0:
+                                        # Calculate VER
+                                        ver = abs(ret_val) / vol_val
+                                        
+                                        # Interpretation
+                                        if ver > 5.0:
+                                            efficiency = "🚀 Extreme"
+                                            interpretation = "Supply shock - potential parabolic move"
+                                            ver_score = 100
+                                        elif ver > 2.0:
+                                            efficiency = "🔥 High"
+                                            interpretation = "Strong demand, tight supply"
+                                            ver_score = 85
+                                        elif ver >= 1.0:
+                                            efficiency = "✅ Good"
+                                            interpretation = "Healthy price-volume balance"
+                                            ver_score = 70
+                                        elif ver >= 0.5:
+                                            efficiency = "⚪ Normal"
+                                            interpretation = "Balanced efficiency"
+                                            ver_score = 50
+                                        elif ver >= 0.2:
+                                            efficiency = "⚠️ Low"
+                                            interpretation = "Volume not translating to price"
+                                            ver_score = 30
+                                        else:
+                                            efficiency = "🚨 Very Low"
+                                            interpretation = "Manipulation risk or distribution"
+                                            ver_score = 10
+                                        
+                                        # Special case: Distribution pattern
+                                        if ret_val < 0 and vol_val > 1.5:
+                                            interpretation = "📉 Distribution signal (price down + volume up)"
+                                            efficiency = "⚠️ Bearish"
+                                        
+                                        ver_data.append({
+                                            'Timeframe': label,
+                                            'VER': f"{ver:.2f}",
+                                            'Efficiency': efficiency,
+                                            'Signal': interpretation
+                                        })
+                                        
+                                        ver_scores.append(ver)
+                            
+                            # Display VER table
+                            if ver_data:
+                                ver_df = pd.DataFrame(ver_data)
+                                st.dataframe(ver_df, hide_index=True, use_container_width=True)
+                                
+                                # Overall VER assessment
+                                if ver_scores:
+                                    avg_ver = np.mean(ver_scores)
+                                    
+                                    if avg_ver > 2.0:
+                                        st.success("💎 **Overall**: High volume efficiency - institutional quality demand driving price")
+                                    elif avg_ver > 1.0:
+                                        st.info("✅ **Overall**: Good efficiency - healthy price-volume dynamics")
+                                    elif avg_ver > 0.5:
+                                        st.info("⚪ **Overall**: Moderate efficiency - balanced volume-price relationship")
+                                    elif avg_ver > 0.2:
+                                        st.warning("⚠️ **Overall**: Below average efficiency - monitor for volume effectiveness")
+                                    else:
+                                        st.error("🚨 **Overall**: Low efficiency - volume not moving price effectively (potential manipulation/distribution)")
+                            else:
+                                st.info("Insufficient data to calculate Volume Efficiency Ratio")
                             
                             # Enhanced Liquidity Analysis
                             if all(col in stock.index for col in ['volume_1d', 'price']) and all(pd.notna(stock[col]) for col in ['volume_1d', 'price']):
@@ -18656,7 +19001,128 @@ def main():
                                         
                                         st.info(growth_info)
                                 
-                                # 🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Analysis
+                                # � SMART MONEY VOLUME SIGNATURE - Institutional Footprint Detection
+                                st.markdown("---")
+                                st.markdown("**🎯 Smart Money Volume Signature**")
+                                st.caption("Detecting institutional accumulation patterns and smart money activity")
+                                
+                                # Initialize signature score and components
+                                signature_score = 0
+                                signature_components = []
+                                signature_details = []
+                                
+                                # COMPONENT 1: Accumulation Pattern Detection (40 points max)
+                                # Detect "volume at lows" pattern
+                                if all(col in stock.index for col in ['rvol', 'from_low_pct']):
+                                    rvol_val = stock['rvol']
+                                    from_low_val = stock['from_low_pct']
+                                    
+                                    if pd.notna(rvol_val) and pd.notna(from_low_val):
+                                        if rvol_val > 1.5 and from_low_val < 25:
+                                            signature_score += 40
+                                            signature_components.append("✅ Volume at lows (strong accumulation)")
+                                            signature_details.append(f"High volume ({rvol_val:.1f}x) near 52w low ({from_low_val:.0f}%)")
+                                        elif rvol_val > 1.5 and from_low_val < 50:
+                                            signature_score += 20
+                                            signature_components.append("✅ Elevated volume in lower range")
+                                            signature_details.append(f"Elevated volume in lower half of range")
+                                        elif rvol_val > 2.0 and 'from_high_pct' in stock.index and pd.notna(stock['from_high_pct']):
+                                            from_high_val = stock['from_high_pct']
+                                            if from_high_val < 10:
+                                                signature_score -= 20  # Penalty for volume at highs
+                                                signature_components.append("⚠️ High volume near 52w high (distribution risk)")
+                                                signature_details.append(f"Volume spike ({rvol_val:.1f}x) near highs (risk)")
+                                
+                                # COMPONENT 2: Volume Steadiness (30 points max)
+                                # Detect steady vs spiky patterns (institutional vs retail)
+                                if all(col in stock.index for col in ['volume_1d', 'volume_7d', 'volume_30d']):
+                                    vol_1d = stock['volume_1d']
+                                    vol_7d = stock['volume_7d']
+                                    vol_30d = stock['volume_30d']
+                                    
+                                    if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                                        volumes = np.array([vol_1d, vol_7d, vol_30d])
+                                        mean_vol = np.mean(volumes)
+                                        std_vol = np.std(volumes)
+                                        cv = std_vol / mean_vol if mean_vol > 0 else 1.0  # Coefficient of Variation
+                                        
+                                        if cv < 0.3:
+                                            signature_score += 30
+                                            signature_components.append("✅ Steady volume pattern (institutional)")
+                                            signature_details.append(f"Low volatility (CV: {cv:.2f}) - steady accumulation")
+                                        elif cv < 0.6:
+                                            signature_score += 15
+                                            signature_components.append("⚪ Moderate volume stability")
+                                            signature_details.append(f"Moderate volatility (CV: {cv:.2f})")
+                                        else:
+                                            signature_score += 5
+                                            signature_components.append("⚠️ Volatile volume pattern (retail/speculation)")
+                                            signature_details.append(f"High volatility (CV: {cv:.2f}) - spiky pattern")
+                                
+                                # COMPONENT 3: Volume-Price Absorption (30 points max)
+                                # High volume with narrow price range = absorption
+                                if all(col in stock.index for col in ['rvol', 'ret_1d']):
+                                    rvol_val = stock['rvol']
+                                    ret_1d_val = stock['ret_1d']
+                                    
+                                    if pd.notna(rvol_val) and pd.notna(ret_1d_val):
+                                        if rvol_val > 2.0 and abs(ret_1d_val) < 2.0:
+                                            signature_score += 30
+                                            signature_components.append("✅ High volume + narrow range (absorption)")
+                                            signature_details.append(f"Absorption: {rvol_val:.1f}x volume, {abs(ret_1d_val):.1f}% price move")
+                                        elif rvol_val > 1.5 and abs(ret_1d_val) < 5.0:
+                                            signature_score += 15
+                                            signature_components.append("⚪ Elevated volume with moderate range")
+                                            signature_details.append(f"Moderate absorption pattern")
+                                        elif rvol_val > 2.0 and abs(ret_1d_val) > 10.0:
+                                            signature_score += 5
+                                            signature_components.append("⚠️ High volume + extreme range (volatile)")
+                                            signature_details.append(f"Volatile: {rvol_val:.1f}x volume, {abs(ret_1d_val):.1f}% move")
+                                
+                                # Cap score at 0-100 range
+                                signature_score = max(0, min(100, signature_score))
+                                
+                                # Display signature score and interpretation
+                                sig_col1, sig_col2 = st.columns([1, 2])
+                                
+                                with sig_col1:
+                                    # Score classification
+                                    if signature_score >= 70:
+                                        signature_status = "🎯 Strong Institutional"
+                                        signature_color = "success"
+                                        signature_desc = "High probability of institutional accumulation"
+                                    elif signature_score >= 50:
+                                        signature_status = "✅ Likely Smart Money"
+                                        signature_color = "success"
+                                        signature_desc = "Signs of professional buying activity"
+                                    elif signature_score >= 30:
+                                        signature_status = "⚪ Mixed Activity"
+                                        signature_color = "warning"
+                                        signature_desc = "Both retail and institutional participation"
+                                    else:
+                                        signature_status = "⚠️ Retail Dominated"
+                                        signature_color = "warning"
+                                        signature_desc = "Predominantly retail activity or manipulation risk"
+                                    
+                                    st.metric("Signature Score", f"{signature_score}/100")
+                                    getattr(st, signature_color)(f"**{signature_status}**")
+                                    st.caption(signature_desc)
+                                
+                                with sig_col2:
+                                    if signature_components:
+                                        st.markdown("**📋 Detected Patterns:**")
+                                        for component in signature_components:
+                                            st.markdown(f"- {component}")
+                                        
+                                        # Show detailed breakdown in expander
+                                        if signature_details:
+                                            with st.expander("🔍 Detailed Analysis"):
+                                                for detail in signature_details:
+                                                    st.caption(f"• {detail}")
+                                    else:
+                                        st.info("Insufficient data to detect smart money patterns")
+                                
+                                # �🌊 LIQUIDITY GROWTH ANALYTICS - Advanced Analysis
                                 if all(col in stock.index for col in ['composite_growth_score', 'growth_quality_tier', 'smart_money_flow']):
                                     st.markdown("---")
                                     st.markdown("**🌊 Liquidity Growth Analytics**")
