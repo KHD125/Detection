@@ -18809,8 +18809,11 @@ def main():
                             ver_data = []
                             ver_scores = []
                             
+                            # FIXED: Use vol_ratio_1d_90d instead of rvol for consistency
+                            # All timeframes now use vol_ratio columns (percentage → ratio conversion)
+                            # Ensures consistent data processing pipeline across all periods
                             timeframes = [
-                                ('Daily', 'ret_1d', 'rvol', 1),
+                                ('Daily', 'ret_1d', 'vol_ratio_1d_90d', 1),
                                 ('Weekly', 'ret_7d', 'vol_ratio_7d_90d', 7),
                                 ('Monthly', 'ret_30d', 'vol_ratio_30d_90d', 30)
                             ]
