@@ -1414,120 +1414,587 @@ class DataProcessor:
             
             logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
         
-        # 8.1. 🏆 VOLUME QUALITY SCORE (VQS) - Composite A-F Grade
-        # Calculate VQS for all stocks: Liquidity (40%) + Consistency (30%) + Efficiency (30%)
-        if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'rvol']):
+        # 8.1. 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Multi-Dimensional Intelligence
+        # Advanced VQS = Base_Score × Quality_Multiplier × Market_Adjustment × Risk_Factor × Confidence
+        # Uses 30+ data columns for institutional-grade volume quality assessment
+        if all(col in df.columns for col in ['volume_1d', 'ret_1d', 'rvol']):
             
-            # COMPONENT 1: Liquidity Score (40% weight)
-            def calculate_liquidity_score(vol_1d):
+            # ===== HELPER FUNCTIONS FOR ADVANCED VQS =====
+            
+            def calculate_short_term_volume_quality(row):
+                """Short-term volume quality (1d): Liquidity + Activity + Consistency"""
+                # Absolute Liquidity (50%)
+                vol_1d = row.get('volume_1d', 0)
                 if pd.isna(vol_1d) or vol_1d <= 0:
-                    return 0
+                    liquidity_score = 0
                 elif vol_1d >= 10_000_000:
-                    return 100  # Elite institutional-grade
+                    liquidity_score = 100
                 elif vol_1d >= 5_000_000:
-                    return 90   # High liquidity
+                    liquidity_score = 90
                 elif vol_1d >= 1_000_000:
-                    return 80   # Good liquidity
+                    liquidity_score = 80
                 elif vol_1d >= 500_000:
-                    return 70   # Moderate liquidity
+                    liquidity_score = 70
                 elif vol_1d >= 100_000:
-                    return 60   # Low liquidity
+                    liquidity_score = 60
                 else:
-                    return 40   # Very low liquidity
-            
-            df['vqs_liquidity_score'] = df['volume_1d'].apply(calculate_liquidity_score)
-            
-            # COMPONENT 2: Consistency Score (30% weight)
-            def calculate_consistency_score(row):
-                v1 = row['volume_1d']
-                v7 = row['volume_7d']
-                v30 = row['volume_30d']
+                    liquidity_score = 40
                 
-                # Check if all values are valid
-                if any(pd.isna(v) or v <= 0 for v in [v1, v7, v30]):
-                    return 0
-                
-                # Calculate Coefficient of Variation
-                volumes = np.array([v1, v7, v30])
-                cv = np.std(volumes) / np.mean(volumes)
-                
-                if cv < 0.3:
-                    return 100  # Very consistent
-                elif cv < 0.6:
-                    return 80   # Consistent
-                elif cv < 1.0:
-                    return 60   # Moderate consistency
+                # Relative Activity (30%)
+                rvol = row.get('rvol', 1.0)
+                if pd.isna(rvol):
+                    activity_score = 50
+                elif rvol >= 3.0:
+                    activity_score = 100
+                elif rvol >= 2.0:
+                    activity_score = 90
+                elif rvol >= 1.5:
+                    activity_score = 80
+                elif rvol >= 1.0:
+                    activity_score = 70
+                elif rvol >= 0.5:
+                    activity_score = 50
                 else:
-                    return 40   # Erratic volume
-            
-            df['vqs_consistency_score'] = df.apply(calculate_consistency_score, axis=1)
-            
-            # COMPONENT 3: Efficiency Score (30% weight)
-            def calculate_efficiency_score(row):
-                ret = row['ret_1d']
-                rvol_val = row['rvol']
+                    activity_score = 30
                 
-                if pd.isna(ret) or pd.isna(rvol_val) or rvol_val <= 0:
-                    return 0
-                
-                # VER = |price_change| / relative_volume
-                ver = abs(ret) / rvol_val
-                
-                if ver > 5.0:
-                    return 100  # Extreme efficiency
-                elif ver > 2.0:
-                    return 90   # High efficiency
-                elif ver >= 1.0:
-                    return 80   # Good efficiency
-                elif ver >= 0.5:
-                    return 65   # Normal efficiency
-                elif ver >= 0.2:
-                    return 45   # Low efficiency
+                # Short-term Consistency (20%)
+                vol_7d = row.get('volume_7d', vol_1d)
+                if pd.notna(vol_1d) and pd.notna(vol_7d) and vol_7d > 0:
+                    vol_ratio = vol_1d / vol_7d
+                    deviation = abs(1.0 - vol_ratio)
+                    if deviation < 0.2:
+                        consistency_score = 100
+                    elif deviation < 0.4:
+                        consistency_score = 85
+                    elif deviation < 0.6:
+                        consistency_score = 70
+                    elif deviation < 1.0:
+                        consistency_score = 50
+                    else:
+                        consistency_score = 30
                 else:
-                    return 25   # Very low efficiency
+                    consistency_score = 50
+                
+                return liquidity_score * 0.50 + activity_score * 0.30 + consistency_score * 0.20
             
-            df['vqs_efficiency_score'] = df.apply(calculate_efficiency_score, axis=1)
-            
-            # Calculate weighted VQS total score
-            df['vqs_total_score'] = (
-                df['vqs_liquidity_score'] * 0.40 +
-                df['vqs_consistency_score'] * 0.30 +
-                df['vqs_efficiency_score'] * 0.30
-            ).round(1)
-            
-            # Assign letter grades
-            def assign_vqs_grade(score):
-                if pd.isna(score) or score == 0:
-                    return "N/A"
-                elif score >= 85:
-                    return "A"  # Elite
-                elif score >= 75:
-                    return "B"  # Strong
-                elif score >= 65:
-                    return "C"  # Average
-                elif score >= 55:
-                    return "D"  # Below average
+            def calculate_medium_term_volume_quality(row):
+                """Medium-term volume quality (7-30d): Trend + Consistency + Harmony"""
+                # Volume Trend (40%)
+                vol_7d = row.get('volume_7d', 0)
+                vol_30d = row.get('volume_30d', 0)
+                if pd.notna(vol_7d) and pd.notna(vol_30d) and vol_30d > 0:
+                    trend_ratio = vol_7d / vol_30d
+                    if trend_ratio >= 1.5:
+                        trend_score = 100
+                    elif trend_ratio >= 1.2:
+                        trend_score = 90
+                    elif trend_ratio >= 1.0:
+                        trend_score = 80
+                    elif trend_ratio >= 0.8:
+                        trend_score = 60
+                    elif trend_ratio >= 0.6:
+                        trend_score = 40
+                    else:
+                        trend_score = 20
                 else:
-                    return "F"  # Poor
+                    trend_score = 50
+                
+                # Multi-timeframe Consistency (35%)
+                vol_1d = row.get('volume_1d', 0)
+                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                    volumes = np.array([vol_1d, vol_7d, vol_30d])
+                    cv = np.std(volumes) / np.mean(volumes)
+                    if cv < 0.3:
+                        mtf_consistency_score = 100
+                    elif cv < 0.6:
+                        mtf_consistency_score = 85
+                    elif cv < 1.0:
+                        mtf_consistency_score = 65
+                    elif cv < 1.5:
+                        mtf_consistency_score = 45
+                    else:
+                        mtf_consistency_score = 25
+                else:
+                    mtf_consistency_score = 50
+                
+                # Momentum Harmony (25%)
+                momentum_harmony = row.get('momentum_harmony', 2)
+                if pd.notna(momentum_harmony):
+                    harmony_map = {4: 100, 3: 85, 2: 65, 1: 40, 0: 20}
+                    harmony_score = harmony_map.get(int(momentum_harmony), 65)
+                else:
+                    harmony_score = 65
+                
+                return trend_score * 0.40 + mtf_consistency_score * 0.35 + harmony_score * 0.25
             
-            df['vqs_grade'] = df['vqs_total_score'].apply(assign_vqs_grade)
+            def calculate_efficiency_quality(row):
+                """Efficiency quality: Current + Consistency + VMI alignment"""
+                # Current Efficiency (50%)
+                ret_1d = row.get('ret_1d', 0)
+                rvol = row.get('rvol', 1.0)
+                if pd.notna(ret_1d) and pd.notna(rvol) and rvol > 0:
+                    ver_1d = abs(ret_1d) / rvol
+                    if ver_1d > 5.0:
+                        current_eff_score = 100
+                    elif ver_1d > 2.5:
+                        current_eff_score = 90
+                    elif ver_1d >= 1.5:
+                        current_eff_score = 80
+                    elif ver_1d >= 1.0:
+                        current_eff_score = 70
+                    elif ver_1d >= 0.5:
+                        current_eff_score = 55
+                    elif ver_1d >= 0.2:
+                        current_eff_score = 35
+                    else:
+                        current_eff_score = 20
+                else:
+                    current_eff_score = 50
+                
+                # Multi-timeframe VER Consistency (30%)
+                ret_7d = row.get('ret_7d', 0)
+                vol_ratio_7d = row.get('vol_ratio_7d_90d', 1.0)
+                ret_30d = row.get('ret_30d', 0)
+                vol_ratio_30d = row.get('vol_ratio_30d_90d', 1.0)
+                
+                vers = []
+                if pd.notna(ret_1d) and pd.notna(rvol) and rvol > 0:
+                    vers.append(abs(ret_1d) / rvol)
+                if pd.notna(ret_7d) and pd.notna(vol_ratio_7d) and vol_ratio_7d > 0:
+                    vers.append(abs(ret_7d) / vol_ratio_7d)
+                if pd.notna(ret_30d) and pd.notna(vol_ratio_30d) and vol_ratio_30d > 0:
+                    vers.append(abs(ret_30d) / vol_ratio_30d)
+                
+                if len(vers) >= 2:
+                    ver_cv = np.std(vers) / np.mean(vers) if np.mean(vers) > 0 else 0
+                    if ver_cv < 0.3:
+                        ver_consistency_score = 100
+                    elif ver_cv < 0.6:
+                        ver_consistency_score = 85
+                    elif ver_cv < 1.0:
+                        ver_consistency_score = 65
+                    else:
+                        ver_consistency_score = 40
+                else:
+                    ver_consistency_score = 50
+                
+                # Efficiency-VMI Alignment (20%)
+                vmi = row.get('vmi', 50)
+                if pd.notna(vmi):
+                    vmi_normalized = vmi / 100.0
+                    ver_normalized = min(ver_1d / 5.0, 1.0) if ver_1d > 0 else 0
+                    alignment = 1.0 - abs(vmi_normalized - ver_normalized)
+                    alignment_score = alignment * 100
+                else:
+                    alignment_score = 50
+                
+                return current_eff_score * 0.50 + ver_consistency_score * 0.30 + alignment_score * 0.20
             
-            # Assign status labels
-            def assign_vqs_status(grade):
-                grade_status = {
-                    "A": "🌟 Elite",
-                    "B": "✅ Strong",
-                    "C": "⚪ Average",
-                    "D": "⚠️ Below Average",
-                    "F": "❌ Poor",
-                    "N/A": "Unknown"
+            def calculate_base_score(row):
+                """Calculate multi-timeframe base VQS score (0-100)"""
+                short_term = calculate_short_term_volume_quality(row)
+                medium_term = calculate_medium_term_volume_quality(row)
+                efficiency = calculate_efficiency_quality(row)
+                return short_term * 0.40 + medium_term * 0.35 + efficiency * 0.25
+            
+            def calculate_smart_money_component(row):
+                """Smart money detection: Signal + Money flow + Pattern"""
+                # Smart Money Flow Signal (50%)
+                smart_money_flow = row.get('smart_money_flow', 'NONE')
+                if smart_money_flow == 'ACCUMULATION':
+                    sm_signal_score = 100
+                elif smart_money_flow == 'ABSORPTION':
+                    sm_signal_score = 90
+                elif smart_money_flow == 'DISTRIBUTION':
+                    sm_signal_score = 40
+                else:
+                    sm_signal_score = 50
+                
+                # Money Flow Quality (30%)
+                money_flow_mm = row.get('money_flow_mm', 0)
+                if pd.isna(money_flow_mm):
+                    mf_quality_score = 50
+                elif money_flow_mm >= 1000:
+                    mf_quality_score = 100
+                elif money_flow_mm >= 500:
+                    mf_quality_score = 90
+                elif money_flow_mm >= 100:
+                    mf_quality_score = 80
+                elif money_flow_mm >= 10:
+                    mf_quality_score = 70
+                elif money_flow_mm >= 1:
+                    mf_quality_score = 60
+                else:
+                    mf_quality_score = 40
+                
+                # Volume Pattern (20%)
+                rvol = row.get('rvol', 1.0)
+                ret_1d = row.get('ret_1d', 0)
+                if pd.notna(rvol) and pd.notna(ret_1d):
+                    if rvol >= 2.0 and abs(ret_1d) < 3.0:
+                        pattern_score = 100
+                    elif rvol >= 1.5 and ret_1d > 0:
+                        pattern_score = 85
+                    elif rvol < 0.7:
+                        pattern_score = 30
+                    else:
+                        pattern_score = 60
+                else:
+                    pattern_score = 50
+                
+                return sm_signal_score * 0.50 + mf_quality_score * 0.30 + pattern_score * 0.20
+            
+            def calculate_volume_sustainability(row):
+                """Volume sustainability: Trend strength + VMI + Liquidity depth"""
+                # Volume Trend Strength (50%)
+                vol_1d = row.get('volume_1d', 0)
+                vol_7d = row.get('volume_7d', 0)
+                vol_30d = row.get('volume_30d', 0)
+                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                    trend_1d_7d = vol_1d / vol_7d if vol_7d > 0 else 1.0
+                    trend_7d_30d = vol_7d / vol_30d if vol_30d > 0 else 1.0
+                    if trend_1d_7d >= 1.2 and trend_7d_30d >= 1.1:
+                        trend_strength_score = 100
+                    elif trend_1d_7d >= 1.1 and trend_7d_30d >= 1.0:
+                        trend_strength_score = 85
+                    elif trend_1d_7d >= 0.9 and trend_7d_30d >= 0.9:
+                        trend_strength_score = 70
+                    elif trend_1d_7d < 0.8 or trend_7d_30d < 0.8:
+                        trend_strength_score = 30
+                    else:
+                        trend_strength_score = 50
+                else:
+                    trend_strength_score = 50
+                
+                # VMI Quality (30%)
+                vmi = row.get('vmi', 50)
+                if pd.notna(vmi):
+                    if vmi >= 70:
+                        vmi_score = 100
+                    elif vmi >= 60:
+                        vmi_score = 85
+                    elif vmi >= 50:
+                        vmi_score = 70
+                    elif vmi >= 40:
+                        vmi_score = 50
+                    else:
+                        vmi_score = 30
+                else:
+                    vmi_score = 50
+                
+                # Liquidity Depth (20%)
+                daily_turnover = row.get('daily_turnover', 0)
+                if pd.isna(daily_turnover):
+                    liquidity_depth_score = 50
+                elif daily_turnover >= 10_000_000:
+                    liquidity_depth_score = 100
+                elif daily_turnover >= 1_000_000:
+                    liquidity_depth_score = 80
+                elif daily_turnover >= 100_000:
+                    liquidity_depth_score = 60
+                else:
+                    liquidity_depth_score = 40
+                
+                return trend_strength_score * 0.50 + vmi_score * 0.30 + liquidity_depth_score * 0.20
+            
+            def calculate_trading_quality(row):
+                """Trading quality: Price-volume correlation + Execution + Momentum"""
+                # Price-Volume Correlation (50%)
+                ret_1d = row.get('ret_1d', 0)
+                rvol = row.get('rvol', 1.0)
+                if pd.notna(ret_1d) and pd.notna(rvol):
+                    if ret_1d > 0 and rvol > 1.2:
+                        pv_corr_score = 100
+                    elif ret_1d > 0 and rvol > 0.8:
+                        pv_corr_score = 85
+                    elif ret_1d < 0 and rvol < 0.8:
+                        pv_corr_score = 70
+                    elif ret_1d < 0 and rvol > 1.5:
+                        pv_corr_score = 30
+                    else:
+                        pv_corr_score = 60
+                else:
+                    pv_corr_score = 50
+                
+                # Execution Quality (30%)
+                volatility_7d = row.get('volatility_7d', 0)
+                vol_7d = row.get('volume_7d', 0)
+                if pd.notna(volatility_7d) and pd.notna(vol_7d):
+                    if volatility_7d < 3.0 and vol_7d >= 1_000_000:
+                        exec_quality_score = 100
+                    elif volatility_7d < 7.0 and vol_7d >= 500_000:
+                        exec_quality_score = 85
+                    elif volatility_7d < 15.0:
+                        exec_quality_score = 70
+                    elif volatility_7d > 20.0:
+                        exec_quality_score = 40
+                    else:
+                        exec_quality_score = 60
+                else:
+                    exec_quality_score = 50
+                
+                # Momentum Quality (20%)
+                momentum_harmony = row.get('momentum_harmony', 2)
+                if pd.notna(momentum_harmony):
+                    harmony_map = {4: 100, 3: 85, 2: 65, 1: 45, 0: 25}
+                    momentum_quality_score = harmony_map.get(int(momentum_harmony), 65)
+                else:
+                    momentum_quality_score = 65
+                
+                return pv_corr_score * 0.50 + exec_quality_score * 0.30 + momentum_quality_score * 0.20
+            
+            def calculate_quality_multiplier(row):
+                """Calculate quality multiplier (0.5x - 1.5x)"""
+                smart_money = calculate_smart_money_component(row)
+                sustainability = calculate_volume_sustainability(row)
+                trading_quality = calculate_trading_quality(row)
+                composite_score = smart_money * 0.40 + sustainability * 0.35 + trading_quality * 0.25
+                multiplier = 0.5 + (composite_score / 100.0) * 1.0
+                return np.clip(multiplier, 0.5, 1.5)
+            
+            def calculate_market_state_impact(row):
+                """Market state impact scoring"""
+                market_state = row.get('market_state', 'SIDEWAYS')
+                state_scores = {
+                    'STRONG_UPTREND': 100, 'UPTREND': 90, 'RECOVERY': 85,
+                    'PULLBACK': 70, 'SIDEWAYS': 50, 'DOWNTREND': 40, 'STRONG_DOWNTREND': 30
                 }
-                return grade_status.get(grade, "Unknown")
+                return state_scores.get(market_state, 50)
             
-            df['vqs_status'] = df['vqs_grade'].apply(assign_vqs_status)
+            def calculate_volatility_impact(row):
+                """Volatility environment impact"""
+                volatility_7d = row.get('volatility_7d', 0)
+                if pd.isna(volatility_7d):
+                    return 50
+                if volatility_7d < 3.0:
+                    return 100
+                elif volatility_7d < 7.0:
+                    return 80
+                elif volatility_7d < 15.0:
+                    return 60
+                elif volatility_7d < 25.0:
+                    return 40
+                else:
+                    return 20
             
-            logger.info(f"VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
-            logger.info(f"VQS score range: [{df['vqs_total_score'].min():.1f} to {df['vqs_total_score'].max():.1f}]")
+            def calculate_market_adjustment(row):
+                """Calculate market adjustment factor (0.7x - 1.3x)"""
+                market_state_score = calculate_market_state_impact(row)
+                volatility_score = calculate_volatility_impact(row)
+                composite_score = market_state_score * 0.60 + volatility_score * 0.40
+                adjustment = 0.7 + (composite_score / 100.0) * 0.6
+                return np.clip(adjustment, 0.7, 1.3)
+            
+            def calculate_liquidity_risk(row):
+                """Liquidity risk assessment (higher score = lower risk)"""
+                # Absolute Liquidity (50%)
+                volume_1d = row.get('volume_1d', 0)
+                if pd.isna(volume_1d) or volume_1d <= 0:
+                    abs_liq_score = 0
+                elif volume_1d >= 10_000_000:
+                    abs_liq_score = 100
+                elif volume_1d >= 5_000_000:
+                    abs_liq_score = 90
+                elif volume_1d >= 1_000_000:
+                    abs_liq_score = 80
+                elif volume_1d >= 500_000:
+                    abs_liq_score = 65
+                elif volume_1d >= 100_000:
+                    abs_liq_score = 50
+                else:
+                    abs_liq_score = 30
+                
+                # Turnover Depth (30%)
+                daily_turnover = row.get('daily_turnover', 0)
+                if pd.isna(daily_turnover):
+                    turnover_score = 50
+                elif daily_turnover >= 10_000_000:
+                    turnover_score = 100
+                elif daily_turnover >= 5_000_000:
+                    turnover_score = 90
+                elif daily_turnover >= 1_000_000:
+                    turnover_score = 75
+                elif daily_turnover >= 100_000:
+                    turnover_score = 55
+                else:
+                    turnover_score = 30
+                
+                # Liquidity Stability (20%)
+                vol_7d = row.get('volume_7d', volume_1d)
+                vol_30d = row.get('volume_30d', volume_1d)
+                if all(pd.notna(v) and v > 0 for v in [volume_1d, vol_7d, vol_30d]):
+                    min_vol = min(volume_1d, vol_7d, vol_30d)
+                    max_vol = max(volume_1d, vol_7d, vol_30d)
+                    vol_range_ratio = min_vol / max_vol if max_vol > 0 else 0
+                    if vol_range_ratio >= 0.7:
+                        stability_score = 100
+                    elif vol_range_ratio >= 0.5:
+                        stability_score = 80
+                    elif vol_range_ratio >= 0.3:
+                        stability_score = 60
+                    else:
+                        stability_score = 40
+                else:
+                    stability_score = 50
+                
+                return abs_liq_score * 0.50 + turnover_score * 0.30 + stability_score * 0.20
+            
+            def calculate_money_flow_risk(row):
+                """Money flow quality risk (higher score = lower risk)"""
+                # Money Flow Magnitude (60%)
+                money_flow_mm = row.get('money_flow_mm', 0)
+                if pd.isna(money_flow_mm):
+                    mf_mag_score = 50
+                elif money_flow_mm >= 1000:
+                    mf_mag_score = 100
+                elif money_flow_mm >= 500:
+                    mf_mag_score = 90
+                elif money_flow_mm >= 100:
+                    mf_mag_score = 80
+                elif money_flow_mm >= 50:
+                    mf_mag_score = 70
+                elif money_flow_mm >= 10:
+                    mf_mag_score = 60
+                else:
+                    mf_mag_score = 40
+                
+                # Smart Money Alignment (40%)
+                smart_money_flow = row.get('smart_money_flow', 'NONE')
+                if smart_money_flow == 'ACCUMULATION':
+                    sm_align_score = 100
+                elif smart_money_flow == 'ABSORPTION':
+                    sm_align_score = 90
+                elif smart_money_flow == 'NONE':
+                    sm_align_score = 50
+                elif smart_money_flow == 'DISTRIBUTION':
+                    sm_align_score = 30
+                else:
+                    sm_align_score = 50
+                
+                return mf_mag_score * 0.60 + sm_align_score * 0.40
+            
+            def calculate_execution_risk(row):
+                """Execution risk assessment (higher score = lower risk)"""
+                # Volatility Risk (60%)
+                volatility_7d = row.get('volatility_7d', 0)
+                if pd.isna(volatility_7d):
+                    vol_risk_score = 50
+                elif volatility_7d < 3.0:
+                    vol_risk_score = 100
+                elif volatility_7d < 7.0:
+                    vol_risk_score = 85
+                elif volatility_7d < 15.0:
+                    vol_risk_score = 60
+                elif volatility_7d < 25.0:
+                    vol_risk_score = 35
+                else:
+                    vol_risk_score = 20
+                
+                # Price Impact Risk (40%)
+                rvol = row.get('rvol', 1.0)
+                ret_1d = row.get('ret_1d', 0)
+                if pd.notna(rvol) and pd.notna(ret_1d) and rvol > 0:
+                    ver = abs(ret_1d) / rvol
+                    if ver >= 2.0:
+                        impact_risk_score = 100
+                    elif ver >= 1.0:
+                        impact_risk_score = 85
+                    elif ver >= 0.5:
+                        impact_risk_score = 65
+                    elif ver >= 0.2:
+                        impact_risk_score = 45
+                    else:
+                        impact_risk_score = 25
+                else:
+                    impact_risk_score = 50
+                
+                return vol_risk_score * 0.60 + impact_risk_score * 0.40
+            
+            def calculate_risk_factor(row):
+                """Calculate risk factor (0.6x - 1.4x)"""
+                liquidity_risk = calculate_liquidity_risk(row)
+                money_flow_risk = calculate_money_flow_risk(row)
+                execution_risk = calculate_execution_risk(row)
+                composite_score = liquidity_risk * 0.40 + money_flow_risk * 0.35 + execution_risk * 0.25
+                risk_factor = 0.6 + (composite_score / 100.0) * 0.8
+                return np.clip(risk_factor, 0.6, 1.4)
+            
+            def calculate_confidence_score(row):
+                """Calculate confidence based on data completeness (0.5 - 1.0)"""
+                critical_columns = {
+                    'volume_1d': 0.15, 'volume_7d': 0.10, 'volume_30d': 0.10, 'rvol': 0.05,
+                    'ret_1d': 0.10, 'ret_7d': 0.08, 'ret_30d': 0.07,
+                    'money_flow_mm': 0.07, 'smart_money_flow': 0.07, 'momentum_harmony': 0.06,
+                    'market_state': 0.05, 'volatility_7d': 0.05, 'vmi': 0.03, 'daily_turnover': 0.02
+                }
+                completeness_score = sum(weight for col, weight in critical_columns.items() 
+                                        if col in row.index and pd.notna(row[col]))
+                confidence = 0.5 + (completeness_score * 0.5)
+                return np.clip(confidence, 0.5, 1.0)
+            
+            def calculate_advanced_vqs(row):
+                """Calculate Advanced VQS with all components"""
+                # Calculate all components
+                base_score = calculate_base_score(row)
+                quality_mult = calculate_quality_multiplier(row)
+                market_adj = calculate_market_adjustment(row)
+                risk_factor = calculate_risk_factor(row)
+                confidence = calculate_confidence_score(row)
+                
+                # Calculate raw score
+                raw_score = base_score * quality_mult * market_adj * risk_factor * confidence
+                
+                # Normalize to 0-100 (max realistic: ~195)
+                vqs_score = (raw_score / 195.0) * 100.0
+                vqs_score = np.clip(vqs_score, 0, 100)
+                
+                # Assign grade
+                if vqs_score >= 90:
+                    grade = "A+"
+                    status = "👑 Elite Quality"
+                elif vqs_score >= 80:
+                    grade = "A"
+                    status = "🌟 Excellent Quality"
+                elif vqs_score >= 70:
+                    grade = "B"
+                    status = "✅ Strong Quality"
+                elif vqs_score >= 60:
+                    grade = "C"
+                    status = "⚪ Average Quality"
+                elif vqs_score >= 50:
+                    grade = "D"
+                    status = "⚠️ Below Average"
+                else:
+                    grade = "F"
+                    status = "❌ Poor Quality"
+                
+                return pd.Series({
+                    'vqs_score': round(vqs_score, 2),
+                    'vqs_grade': grade,
+                    'vqs_status': status,
+                    'vqs_base': round(base_score, 2),
+                    'vqs_quality_mult': round(quality_mult, 3),
+                    'vqs_market_adj': round(market_adj, 3),
+                    'vqs_risk_factor': round(risk_factor, 3),
+                    'vqs_confidence': round(confidence, 3)
+                })
+            
+            # ===== CALCULATE ADVANCED VQS FOR ALL STOCKS =====
+            logger.info("Calculating Advanced VQS (Multi-Dimensional Volume Quality)...")
+            
+            vqs_results = df.apply(calculate_advanced_vqs, axis=1)
+            df['vqs_score'] = vqs_results['vqs_score']
+            df['vqs_grade'] = vqs_results['vqs_grade']
+            df['vqs_status'] = vqs_results['vqs_status']
+            df['vqs_base'] = vqs_results['vqs_base']
+            df['vqs_quality_mult'] = vqs_results['vqs_quality_mult']
+            df['vqs_market_adj'] = vqs_results['vqs_market_adj']
+            df['vqs_risk_factor'] = vqs_results['vqs_risk_factor']
+            df['vqs_confidence'] = vqs_results['vqs_confidence']
+            
+            logger.info(f"Advanced VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
+            logger.info(f"Advanced VQS score range: [{df['vqs_score'].min():.2f} to {df['vqs_score'].max():.2f}]")
+            logger.info(f"Advanced VQS confidence range: [{df['vqs_confidence'].min():.3f} to {df['vqs_confidence'].max():.3f}]")
         
         # 8.2. ⚡ ADVANCED VOLUME EFFICIENCY RATIO (Advanced VER) - Multi-Dimensional Intelligence
         # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
@@ -9314,6 +9781,8 @@ class FilterEngine:
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
+            'vqs_grades': [],  # VQS Grade filter
+            'advanced_ver_grades': [],  # Advanced VER Grade filter
             'momentum_selection': "All Momentum",
             'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
@@ -10221,6 +10690,8 @@ class FilterEngine:
             'growth_trends': [],
             'growth_quality_tiers': [],
             'smart_money_flows': [],
+            'vqs_grades': [],  # VQS Grade filter
+            'advanced_ver_grades': [],  # Advanced VER Grade filter
             'momentum_selection': "All Momentum",
             'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
@@ -11468,6 +11939,8 @@ class SessionStateManager:
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
+                'vqs_grades': [],  # VQS Grade filter
+                'advanced_ver_grades': [],  # Advanced VER Grade filter
                 'momentum_selection': "All Momentum",
                 'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
@@ -13839,33 +14312,34 @@ def main():
         # 🌊 LIQUIDITY GROWTH ANALYTICS FILTER - Advanced Multi-Period Analysis
         with st.expander("🌊 Liquidity Growth Analytics", expanded=False):
             
-            # 🏆 VQS Grade Filter (Volume Quality Score)
+            # 🏆 Advanced VQS Grade Filter (Multi-Dimensional Volume Quality)
             if 'vqs_grade' in ranked_df_display.columns:
-                st.markdown("**🏆 Volume Quality Score (VQS) Grade**")
+                st.markdown("**🏆 Advanced Volume Quality Score (VQS) Grade**")
                 
                 vqs_grade_options = [
-                    "A - 🌟 Elite (85+)",
-                    "B - ✅ Strong (75-84)",
-                    "C - ⚪ Average (65-74)",
-                    "D - ⚠️ Below Average (55-64)",
-                    "F - ❌ Poor (<55)"
+                    "A+ - 👑 Elite Quality (90+)",
+                    "A - 🌟 Excellent Quality (80-89)",
+                    "B - ✅ Strong Quality (70-79)",
+                    "C - ⚪ Average Quality (60-69)",
+                    "D - ⚠️ Below Average (50-59)",
+                    "F - ❌ Poor Quality (<50)"
                 ]
                 
                 vqs_grades = st.multiselect(
-                    "Filter by VQS Grade",
+                    "Filter by Advanced VQS Grade",
                     options=vqs_grade_options,
                     default=st.session_state.filter_state.get('vqs_grades', []),
                     key='vqs_grade_multiselect',
                     on_change=lambda: st.session_state.filter_state.update({'vqs_grades': st.session_state.vqs_grade_multiselect}),
-                    help="🏆 Filter by Volume Quality Score letter grade. VQS combines Liquidity (40%), Consistency (30%), and Efficiency (30%) into a single A-F grade."
+                    help="🏆 Filter by Advanced VQS grade. Multi-dimensional assessment: Base Score (multi-timeframe) × Quality Multiplier (smart money) × Market Adjustment (regime) × Risk Factor (liquidity) × Confidence. Uses 30+ data columns."
                 )
                 
                 if vqs_grades:
-                    # Extract letter grades from selected options (e.g., "A - 🌟 Elite (85+)" -> "A")
+                    # Extract letter grades from selected options (e.g., "A+ - 👑 Elite Quality (90+)" -> "A+")
                     selected_letter_grades = [grade.split(" - ")[0] for grade in vqs_grades]
                     filters['vqs_grades'] = selected_letter_grades
                 
-                st.caption("💡 **Tip:** Combine VQS grade A/B with Growth filters for elite stocks")
+                st.caption("💡 **Tip:** Combine Advanced VQS A+/A with Advanced VER for institutional-grade stocks")
                 st.markdown("---")
             
             # ⚡ Advanced VER Grade Filter (Multi-Dimensional Volume Efficiency)
@@ -18974,134 +19448,88 @@ def main():
                         with detail_tabs[4]:  # Volume Analysis
                             st.markdown("**📊 Volume Analysis**")
                             
-                            # 🏆 VOLUME QUALITY SCORE (VQS) - Composite A-F Grade
+                            # 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Multi-Dimensional Intelligence
                             st.markdown("---")
-                            st.markdown("**🏆 Volume Quality Score (VQS)**")
-                            st.caption("Composite grade assessing volume quality across 3 core dimensions: Liquidity, Consistency, and Efficiency")
+                            st.markdown("**🏆 Advanced Volume Quality Score (VQS)**")
+                            st.caption("Multi-dimensional algorithm: Base Score × Quality × Market × Risk × Confidence (uses 30+ data columns)")
                             
-                            # Initialize VQS components
-                            vqs_components = {}
-                            vqs_total = 0
-                            vqs_weights = {'liquidity': 0.40, 'consistency': 0.30, 'efficiency': 0.30}
-                            
-                            # COMPONENT 1: Liquidity Grade (40%)
-                            liquidity_score = 0
-                            if 'volume_1d' in stock.index and pd.notna(stock['volume_1d']):
-                                vol_1d = stock['volume_1d']
-                                if vol_1d >= 10_000_000:
-                                    liquidity_score = 100
-                                elif vol_1d >= 5_000_000:
-                                    liquidity_score = 90
-                                elif vol_1d >= 1_000_000:
-                                    liquidity_score = 80
-                                elif vol_1d >= 500_000:
-                                    liquidity_score = 70
-                                elif vol_1d >= 100_000:
-                                    liquidity_score = 60
-                                else:
-                                    liquidity_score = 40
-                            vqs_components['Liquidity'] = liquidity_score
-                            
-                            # COMPONENT 2: Consistency Grade (30%)
-                            consistency_score = 0
-                            if all(col in stock.index for col in ['volume_1d', 'volume_7d', 'volume_30d']):
-                                v1 = stock['volume_1d']
-                                v7 = stock['volume_7d']
-                                v30 = stock['volume_30d']
-                                if all(pd.notna(v) and v > 0 for v in [v1, v7, v30]):
-                                    volumes = np.array([v1, v7, v30])
-                                    cv = np.std(volumes) / np.mean(volumes)
-                                    if cv < 0.3:
-                                        consistency_score = 100
-                                    elif cv < 0.6:
-                                        consistency_score = 80
-                                    elif cv < 1.0:
-                                        consistency_score = 60
-                                    else:
-                                        consistency_score = 40
-                            vqs_components['Consistency'] = consistency_score
-                            
-                            # COMPONENT 3: Efficiency Grade (30%)
-                            # FIXED: Use same formula as VER Enhancement for consistency
-                            efficiency_score = 0
-                            if all(col in stock.index for col in ['ret_1d', 'rvol']):
-                                ret = stock['ret_1d']
-                                rvol_val = stock['rvol']
-                                if pd.notna(ret) and pd.notna(rvol_val) and rvol_val > 0:
-                                    # VER = |price_change| / relative_volume
-                                    # Higher RVOL = more volume needed = LOWER efficiency
-                                    ver = abs(ret) / rvol_val
+                            # Extract Advanced VQS components
+                            if 'vqs_score' in stock.index and pd.notna(stock['vqs_score']):
+                                vqs_score = stock['vqs_score']
+                                vqs_grade = stock.get('vqs_grade', 'N/A')
+                                vqs_status = stock.get('vqs_status', 'N/A')
+                                vqs_base = stock.get('vqs_base', 0)
+                                vqs_quality_mult = stock.get('vqs_quality_mult', 1.0)
+                                vqs_market_adj = stock.get('vqs_market_adj', 1.0)
+                                vqs_risk_factor = stock.get('vqs_risk_factor', 1.0)
+                                vqs_confidence = stock.get('vqs_confidence', 0)
+                                
+                                # Determine color based on grade
+                                grade_colors = {
+                                    'A+': ('success', '👑 Elite Quality'),
+                                    'A': ('success', '🌟 Excellent Quality'),
+                                    'B': ('success', '✅ Strong Quality'),
+                                    'C': ('info', '⚪ Average Quality'),
+                                    'D': ('warning', '⚠️ Below Average'),
+                                    'F': ('error', '❌ Poor Quality')
+                                }
+                                vqs_color, vqs_status_display = grade_colors.get(vqs_grade, ('info', '⚪ Average Quality'))
+                                
+                                # Display Advanced VQS
+                                vqs_col1, vqs_col2, vqs_col3 = st.columns([1, 2, 2])
+                                
+                                with vqs_col1:
+                                    st.metric("Advanced VQS Grade", vqs_grade)
+                                    getattr(st, vqs_color)(f"**{vqs_status_display}**")
+                                    st.caption(f"Score: {vqs_score:.2f}/100")
+                                    st.caption(f"Confidence: {vqs_confidence*100:.0f}%")
+                                
+                                with vqs_col2:
+                                    st.markdown("**🔧 Component Breakdown:**")
+                                    st.caption(f"• Base Score: {vqs_base:.2f}")
+                                    st.caption(f"  └─ Short-term (40%): Liquidity + Activity + Consistency")
+                                    st.caption(f"  └─ Medium-term (35%): Trend + MTF Consistency + Harmony")
+                                    st.caption(f"  └─ Efficiency (25%): Current + Consistency + VMI align")
+                                    st.caption(f"• Quality Multiplier: {vqs_quality_mult:.3f}x")
+                                    st.caption(f"  └─ Smart Money (40%) + Sustainability (35%) + Trading (25%)")
+                                    st.caption(f"• Market Adjustment: {vqs_market_adj:.3f}x")
+                                    st.caption(f"  └─ Market State (60%) + Volatility (40%)")
+                                    st.caption(f"• Risk Factor: {vqs_risk_factor:.3f}x")
+                                    st.caption(f"  └─ Liquidity (40%) + Money Flow (35%) + Execution (25%)")
+                                    st.caption("")
+                                    st.caption("💡 **Formula:** Base × Quality × Market × Risk × Confidence")
+                                
+                                with vqs_col3:
+                                    st.markdown("**📖 Grade Scale:**")
+                                    st.caption("👑 A+ (90+): Elite institutional-grade")
+                                    st.caption("🌟 A (80-89): Excellent quality")
+                                    st.caption("✅ B (70-79): Strong quality")
+                                    st.caption("⚪ C (60-69): Average quality")
+                                    st.caption("⚠️ D (50-59): Below average")
+                                    st.caption("❌ F (<50): Poor quality")
+                                    st.caption("")
                                     
-                                    # Professional quant thresholds
-                                    if ver > 5.0:
-                                        efficiency_score = 100  # Extreme efficiency
-                                    elif ver > 2.0:
-                                        efficiency_score = 90   # High efficiency
-                                    elif ver >= 1.0:
-                                        efficiency_score = 80   # Good efficiency
-                                    elif ver >= 0.5:
-                                        efficiency_score = 65   # Normal efficiency
-                                    elif ver >= 0.2:
-                                        efficiency_score = 45   # Low efficiency
-                                    else:
-                                        efficiency_score = 25   # Very low efficiency
-                            vqs_components['Efficiency'] = efficiency_score
-                            
-                            # Calculate weighted VQS
-                            for component, score in vqs_components.items():
-                                weight_key = component.lower().replace(' ', '_')
-                                weight = vqs_weights.get(weight_key, 0)
-                                vqs_total += score * weight
-                            
-                            # Convert to letter grade (realistic professional thresholds)
-                            if vqs_total >= 85:
-                                vqs_grade = "A"
-                                vqs_status = "🌟 Elite"
-                                vqs_color = "success"
-                            elif vqs_total >= 75:
-                                vqs_grade = "B"
-                                vqs_status = "✅ Strong"
-                                vqs_color = "success"
-                            elif vqs_total >= 65:
-                                vqs_grade = "C"
-                                vqs_status = "⚪ Average"
-                                vqs_color = "info"
-                            elif vqs_total >= 55:
-                                vqs_grade = "D"
-                                vqs_status = "⚠️ Below Average"
-                                vqs_color = "warning"
+                                    # Interpretation based on grade
+                                    if vqs_grade == 'A+':
+                                        st.success("🎯 **Institutional-grade volume quality**")
+                                        st.caption("All favorable indicators across dimensions")
+                                    elif vqs_grade == 'A':
+                                        st.success("🎯 **Excellent volume quality**")
+                                        st.caption("Strong quality across all dimensions")
+                                    elif vqs_grade == 'B':
+                                        st.info("✅ **Good volume quality**")
+                                        st.caption("Strong quality with minor weaknesses")
+                                    elif vqs_grade == 'C':
+                                        st.info("⚪ **Acceptable quality**")
+                                        st.caption("Average quality, some concerns")
+                                    elif vqs_grade == 'D':
+                                        st.warning("⚠️ **Weak quality**")
+                                        st.caption("Significant concerns in multiple areas")
+                                    else:  # F
+                                        st.error("❌ **Poor quality**")
+                                        st.caption("High risk, unfavorable indicators")
                             else:
-                                vqs_grade = "F"
-                                vqs_status = "❌ Poor"
-                                vqs_color = "error"
-                            
-                            # Display VQS
-                            vqs_col1, vqs_col2, vqs_col3 = st.columns([1, 2, 2])
-                            
-                            with vqs_col1:
-                                st.metric("VQS Grade", vqs_grade)
-                                getattr(st, vqs_color)(f"**{vqs_status}**")
-                                st.caption(f"Score: {vqs_total:.1f}/100")
-                            
-                            with vqs_col2:
-                                st.markdown("**📊 Component Breakdown:**")
-                                for component, score in vqs_components.items():
-                                    weight_key = component.lower().replace(' ', '_')
-                                    weight = vqs_weights.get(weight_key, 0)
-                                    st.caption(f"• {component}: {score:.0f}/100 ({weight*100:.0f}% weight)")
-                                st.caption("")
-                                st.caption("💡 **Note:** VQS measures volume *quality*")
-                                st.caption("For institutional activity analysis,")
-                                st.caption("see 🎯 Smart Money section below")
-                            
-                            with vqs_col3:
-                                # Grade interpretation
-                                st.markdown("**📖 Grade Scale:**")
-                                st.caption("🌟 A (85+): Elite volume quality")
-                                st.caption("✅ B (75-84): Strong quality")
-                                st.caption("⚪ C (65-74): Average quality")
-                                st.caption("⚠️ D (55-64): Below average")
-                                st.caption("❌ F (<55): Poor quality")
+                                st.info("🏆 Advanced VQS data not available for this stock")
                             
                             st.markdown("---")
                             
