@@ -18898,38 +18898,39 @@ def main():
                                 # Enhanced turnover calculations
                                 turnover_metrics = []
                                 
-                                # Daily Turnover
+                                # Daily Turnover (current volume × current price)
                                 turnover_metrics.append({
                                     'label': 'Daily Turnover',
                                     'value': daily_turnover,
-                                    'basis': 'Current Price'
+                                    'basis': 'Current Volume × Current Price'
                                 })
                                 
-                                # 30-Day Avg Daily Turnover (30-day avg volume × SMA 20d)
-                                if all(col in stock.index for col in ['volume_30d', 'sma_20d']) and all(pd.notna(stock[col]) for col in ['volume_30d', 'sma_20d']):
-                                    turnover_30d = stock['volume_30d'] * stock['sma_20d']
+                                # 30-Day Avg Daily Turnover (30-day avg volume × current price)
+                                # Using current price for all periods ensures consistency and accuracy
+                                if 'volume_30d' in stock.index and pd.notna(stock['volume_30d']):
+                                    turnover_30d = stock['volume_30d'] * price
                                     turnover_metrics.append({
                                         'label': 'Avg Daily (30d)',
                                         'value': turnover_30d,
-                                        'basis': 'Avg Daily Vol (30d) × SMA 20d'
+                                        'basis': 'Avg Daily Vol (30d) × Current Price'
                                     })
                                 
-                                # 90-Day Avg Daily Turnover (90-day avg volume × SMA 50d)
-                                if all(col in stock.index for col in ['volume_90d', 'sma_50d']) and all(pd.notna(stock[col]) for col in ['volume_90d', 'sma_50d']):
-                                    turnover_90d = stock['volume_90d'] * stock['sma_50d']
+                                # 90-Day Avg Daily Turnover (90-day avg volume × current price)
+                                if 'volume_90d' in stock.index and pd.notna(stock['volume_90d']):
+                                    turnover_90d = stock['volume_90d'] * price
                                     turnover_metrics.append({
                                         'label': 'Avg Daily (90d)', 
                                         'value': turnover_90d,
-                                        'basis': 'Avg Daily Vol (90d) × SMA 50d'
+                                        'basis': 'Avg Daily Vol (90d) × Current Price'
                                     })
                                 
-                                # 180-Day Avg Daily Turnover (180-day avg volume × SMA 200d)
-                                if all(col in stock.index for col in ['volume_180d', 'sma_200d']) and all(pd.notna(stock[col]) for col in ['volume_180d', 'sma_200d']):
-                                    turnover_180d = stock['volume_180d'] * stock['sma_200d']
+                                # 180-Day Avg Daily Turnover (180-day avg volume × current price)
+                                if 'volume_180d' in stock.index and pd.notna(stock['volume_180d']):
+                                    turnover_180d = stock['volume_180d'] * price
                                     turnover_metrics.append({
                                         'label': 'Avg Daily (180d)',
                                         'value': turnover_180d,
-                                        'basis': 'Avg Daily Vol (180d) × SMA 200d'
+                                        'basis': 'Avg Daily Vol (180d) × Current Price'
                                     })
                                 
                                 # Display turnover metrics in a structured layout
@@ -18950,6 +18951,10 @@ def main():
                                 else:
                                     # Fallback to original single column display
                                     st.metric("Daily Turnover", f"₹{daily_turnover/10_000_000:.1f}Cr" if daily_turnover >= 10_000_000 else f"₹{daily_turnover/100_000:.1f}L")
+                                
+                                # Professional note about calculation methodology
+                                if len(turnover_metrics) > 1:
+                                    st.caption("💡 **Methodology:** Historical turnover calculated as avg daily volume × current price (consistent, transparent)")
                                 
                                 # Overall liquidity classification based on daily turnover
                                 st.markdown("---")
