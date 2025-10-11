@@ -1414,6 +1414,121 @@ class DataProcessor:
             
             logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
         
+        # 8.1. 🏆 VOLUME QUALITY SCORE (VQS) - Composite A-F Grade
+        # Calculate VQS for all stocks: Liquidity (40%) + Consistency (30%) + Efficiency (30%)
+        if all(col in df.columns for col in ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'rvol']):
+            
+            # COMPONENT 1: Liquidity Score (40% weight)
+            def calculate_liquidity_score(vol_1d):
+                if pd.isna(vol_1d) or vol_1d <= 0:
+                    return 0
+                elif vol_1d >= 10_000_000:
+                    return 100  # Elite institutional-grade
+                elif vol_1d >= 5_000_000:
+                    return 90   # High liquidity
+                elif vol_1d >= 1_000_000:
+                    return 80   # Good liquidity
+                elif vol_1d >= 500_000:
+                    return 70   # Moderate liquidity
+                elif vol_1d >= 100_000:
+                    return 60   # Low liquidity
+                else:
+                    return 40   # Very low liquidity
+            
+            df['vqs_liquidity_score'] = df['volume_1d'].apply(calculate_liquidity_score)
+            
+            # COMPONENT 2: Consistency Score (30% weight)
+            def calculate_consistency_score(row):
+                v1 = row['volume_1d']
+                v7 = row['volume_7d']
+                v30 = row['volume_30d']
+                
+                # Check if all values are valid
+                if any(pd.isna(v) or v <= 0 for v in [v1, v7, v30]):
+                    return 0
+                
+                # Calculate Coefficient of Variation
+                volumes = np.array([v1, v7, v30])
+                cv = np.std(volumes) / np.mean(volumes)
+                
+                if cv < 0.3:
+                    return 100  # Very consistent
+                elif cv < 0.6:
+                    return 80   # Consistent
+                elif cv < 1.0:
+                    return 60   # Moderate consistency
+                else:
+                    return 40   # Erratic volume
+            
+            df['vqs_consistency_score'] = df.apply(calculate_consistency_score, axis=1)
+            
+            # COMPONENT 3: Efficiency Score (30% weight)
+            def calculate_efficiency_score(row):
+                ret = row['ret_1d']
+                rvol_val = row['rvol']
+                
+                if pd.isna(ret) or pd.isna(rvol_val) or rvol_val <= 0:
+                    return 0
+                
+                # VER = |price_change| / relative_volume
+                ver = abs(ret) / rvol_val
+                
+                if ver > 5.0:
+                    return 100  # Extreme efficiency
+                elif ver > 2.0:
+                    return 90   # High efficiency
+                elif ver >= 1.0:
+                    return 80   # Good efficiency
+                elif ver >= 0.5:
+                    return 65   # Normal efficiency
+                elif ver >= 0.2:
+                    return 45   # Low efficiency
+                else:
+                    return 25   # Very low efficiency
+            
+            df['vqs_efficiency_score'] = df.apply(calculate_efficiency_score, axis=1)
+            
+            # Calculate weighted VQS total score
+            df['vqs_total_score'] = (
+                df['vqs_liquidity_score'] * 0.40 +
+                df['vqs_consistency_score'] * 0.30 +
+                df['vqs_efficiency_score'] * 0.30
+            ).round(1)
+            
+            # Assign letter grades
+            def assign_vqs_grade(score):
+                if pd.isna(score) or score == 0:
+                    return "N/A"
+                elif score >= 85:
+                    return "A"  # Elite
+                elif score >= 75:
+                    return "B"  # Strong
+                elif score >= 65:
+                    return "C"  # Average
+                elif score >= 55:
+                    return "D"  # Below average
+                else:
+                    return "F"  # Poor
+            
+            df['vqs_grade'] = df['vqs_total_score'].apply(assign_vqs_grade)
+            
+            # Assign status labels
+            def assign_vqs_status(grade):
+                grade_status = {
+                    "A": "🌟 Elite",
+                    "B": "✅ Strong",
+                    "C": "⚪ Average",
+                    "D": "⚠️ Below Average",
+                    "F": "❌ Poor",
+                    "N/A": "Unknown"
+                }
+                return grade_status.get(grade, "Unknown")
+            
+            df['vqs_status'] = df['vqs_grade'].apply(assign_vqs_status)
+            
+            logger.info(f"VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
+            logger.info(f"VQS score range: [{df['vqs_total_score'].min():.1f} to {df['vqs_total_score'].max():.1f}]")
+        
         # 9. Growth Trend Classification (Based on Momentum)
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
             def classify_growth_trend(row):
@@ -9232,6 +9347,12 @@ class FilterEngine:
         
         # 5.56. 🌊 LIQUIDITY GROWTH ANALYTICS FILTERS - Advanced Multi-Period Analysis
         
+        # 5.56.0. 🏆 VQS Grade Filter
+        if 'vqs_grades' in filters and 'vqs_grade' in df.columns:
+            selected_grades = filters['vqs_grades']
+            if selected_grades:
+                masks.append(df['vqs_grade'].isin(selected_grades))
+        
         # 5.56.1. Growth Trend Classification Filter (with Custom Range support)
         if 'growth_trend_custom_range' in filters and 'composite_growth_score' in df.columns:
             # Custom Range selected - filter by growth score range
@@ -11230,6 +11351,7 @@ class SessionStateManager:
                 'growth_trends': [],
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
+                'vqs_grades': [],  # VQS Grade filter
                 'momentum_selection': "All Momentum",
                 'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
@@ -13301,6 +13423,35 @@ def main():
         
         # 🌊 LIQUIDITY GROWTH ANALYTICS FILTER - Advanced Multi-Period Analysis
         with st.expander("🌊 Liquidity Growth Analytics", expanded=False):
+            
+            # 🏆 VQS Grade Filter (Volume Quality Score)
+            if 'vqs_grade' in ranked_df_display.columns:
+                st.markdown("**🏆 Volume Quality Score (VQS) Grade**")
+                
+                vqs_grade_options = [
+                    "A - 🌟 Elite (85+)",
+                    "B - ✅ Strong (75-84)",
+                    "C - ⚪ Average (65-74)",
+                    "D - ⚠️ Below Average (55-64)",
+                    "F - ❌ Poor (<55)"
+                ]
+                
+                vqs_grades = st.multiselect(
+                    "Filter by VQS Grade",
+                    options=vqs_grade_options,
+                    default=st.session_state.filter_state.get('vqs_grades', []),
+                    key='vqs_grade_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'vqs_grades': st.session_state.vqs_grade_multiselect}),
+                    help="🏆 Filter by Volume Quality Score letter grade. VQS combines Liquidity (40%), Consistency (30%), and Efficiency (30%) into a single A-F grade."
+                )
+                
+                if vqs_grades:
+                    # Extract letter grades from selected options (e.g., "A - 🌟 Elite (85+)" -> "A")
+                    selected_letter_grades = [grade.split(" - ")[0] for grade in vqs_grades]
+                    filters['vqs_grades'] = selected_letter_grades
+                
+                st.caption("💡 **Tip:** Combine VQS grade A/B with Growth filters for elite stocks")
+                st.markdown("---")
             
             # Growth Trend Classification Filter with Custom Range
             if 'growth_trend' in ranked_df_display.columns:
