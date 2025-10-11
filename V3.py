@@ -19592,22 +19592,22 @@ def main():
                                     st.caption(f"Data Quality: {vqs_quality*100:.0f}%")
                                 
                                 with vqs_col2:
-                                    st.markdown("**� 3 Simple Components:**")
-                                    st.caption(f"🔵 Volume Strength: **{vqs_volume:.0f}/100** (60%)")
-                                    st.caption(f"   Liquidity (50pts) + Activity (50pts)")
-                                    st.caption(f"🟢 Smart Money: **{vqs_smart:.0f}/100** (25%)")
-                                    st.caption(f"   Signal (60pts) + Magnitude (40pts)")
-                                    st.caption(f"🟡 Efficiency: **{vqs_eff:.0f}/100** (15%)")
-                                    st.caption(f"   Price movement per volume unit")
-                                    st.caption("")
+                                    st.markdown("**🔧 4 Key Components:**")
+                                    st.caption(f"🔵 Volume Strength: **{vqs_volume:.0f}/100** (50%)")
+                                    st.caption(f"   Liquidity + Activity (size + surge)")
+                                    st.caption(f"🟢 Smart Money: **{vqs_smart:.0f}/100** (20%)")
+                                    st.caption(f"   WHO is buying (institutions)")
                                     st.caption(f"🟣 Consistency: **{vqs_consistency:.0f}/100** (20%)")
                                     st.caption(f"   Pattern reliability over time")
+                                    st.caption(f"🟡 Efficiency: **{vqs_eff:.0f}/100** (10%)")
+                                    st.caption(f"   Price movement per volume")
+                                    st.caption("")
                                     raw_calc = vqs_volume*0.5 + vqs_smart*0.2 + vqs_consistency*0.2 + vqs_eff*0.1
                                     st.caption(f"💡 Calculation: {raw_calc:.1f} × {vqs_quality:.2f} = {vqs_score:.1f}")
                                 
                                 with vqs_col3:
-                                    st.markdown("**📖 Simple Grading:**")
-                                    st.caption("👑 A+ (80+): Elite stocks")
+                                    st.markdown("**📖 Grading Scale:**")
+                                    st.caption("👑 A+ (80+): Elite quality")
                                     st.caption("🌟 A (70-79): Excellent")
                                     st.caption("✅ B (60-69): Strong")
                                     st.caption("⚪ C (45-59): Average")
