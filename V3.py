@@ -1590,143 +1590,7 @@ class DataProcessor:
             logger.info(f"Advanced VQS average: {df['vqs_score'].mean():.2f}, median: {df['vqs_score'].median():.2f}")
             logger.info(f"Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Consistency: {df['vqs_consistency'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
         
-        # 8.2. ⚡ VOLUME MOMENTUM INDICATOR PLUS (VMI+) - Simple, Powerful, No Overengineering
-        # VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
-        # Replaces overengineered Advanced VER with cleaner design
-        
-        # Check required columns for VMI+ calculation
-        required_cols_vmi_plus = ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'money_flow_mm']
-        missing_cols = [col for col in required_cols_vmi_plus if col not in df.columns]
-        
-        logger.info(f"🔍 VMI+ Column Check - Missing: {missing_cols}, Required: {required_cols_vmi_plus}")
-        
-        if len(missing_cols) == 0:
-            
-            def calculate_vmi_plus(row):
-                """
-                Calculate VMI+ (Volume Momentum Indicator Plus) - Simple & Powerful
-                
-                Formula: VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
-                
-                Components:
-                - Acceleration: Is volume building or fading? (vol 1d vs 7d vs 30d)
-                - Correlation: Do price and volume move together? (healthy alignment)
-                - Footprint: Are trades large (institutional) or small (retail)?
-                
-                Returns: pd.Series with 6 values
-                """
-                # ===== COMPONENT 1: VOLUME ACCELERATION (40%) =====
-                vol_1d = row.get('volume_1d', 0)
-                vol_7d = row.get('volume_7d', 0)
-                vol_30d = row.get('volume_30d', 0)
-                
-                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
-                    # Calculate volume ratios
-                    vol_ratio_1d_7d = vol_1d / vol_7d
-                    vol_ratio_7d_30d = vol_7d / vol_30d
-                    
-                    # Score acceleration
-                    if vol_ratio_1d_7d > 1.5 and vol_ratio_7d_30d > 1.2:
-                        acceleration = 100  # Strong building
-                    elif vol_ratio_1d_7d > 1.2:
-                        acceleration = 80   # Building
-                    elif vol_ratio_1d_7d > 0.8:
-                        acceleration = 50   # Stable
-                    else:
-                        acceleration = 20   # Fading
-                else:
-                    acceleration = 50  # Neutral if data missing
-                
-                # ===== COMPONENT 2: PRICE-VOLUME CORRELATION (35%) =====
-                ret_1d = row.get('ret_1d', 0)
-                
-                if pd.notna(ret_1d) and pd.notna(vol_1d) and pd.notna(vol_7d) and vol_7d > 0:
-                    # Check if price and volume move together
-                    price_direction = 1 if ret_1d > 0 else -1
-                    volume_direction = 1 if vol_1d > vol_7d else -1
-                    
-                    if price_direction == volume_direction:
-                        correlation = 100  # Aligned (healthy)
-                    else:
-                        correlation = 30   # Divergence (warning)
-                else:
-                    correlation = 50  # Neutral if data missing
-                
-                # ===== COMPONENT 3: INSTITUTIONAL FOOTPRINT (25%) =====
-                money_flow_mm = row.get('money_flow_mm', 0)
-                
-                if pd.notna(money_flow_mm) and pd.notna(vol_1d) and vol_1d > 0:
-                    # Average trade size (Cr per million shares)
-                    avg_trade_size = money_flow_mm / (vol_1d / 1_000_000) if vol_1d > 0 else 0
-                    
-                    if avg_trade_size > 1.0:
-                        footprint = 100  # Large institutional trades
-                    elif avg_trade_size > 0.5:
-                        footprint = 80   # Good institutional presence
-                    elif avg_trade_size > 0.2:
-                        footprint = 60   # Mixed
-                    else:
-                        footprint = 30   # Retail dominated
-                else:
-                    footprint = 50  # Neutral if data missing
-                
-                # ===== WEIGHTED COMPOSITE =====
-                vmi_plus_score = (
-                    acceleration * 0.40 +
-                    correlation * 0.35 +
-                    footprint * 0.25
-                )
-                
-                # ===== GRADING =====
-                if vmi_plus_score >= 85:
-                    grade, status = "A+", "🚀 Explosive"
-                elif vmi_plus_score >= 70:
-                    grade, status = "A", "🔥 Strong"
-                elif vmi_plus_score >= 55:
-                    grade, status = "B", "✅ Good"
-                elif vmi_plus_score >= 40:
-                    grade, status = "C", "⚪ Average"
-                elif vmi_plus_score >= 25:
-                    grade, status = "D", "⚠️ Weak"
-                else:
-                    grade, status = "F", "❌ Poor"
-                
-                return pd.Series({
-                    'vmi_plus_score': round(vmi_plus_score, 2),
-                    'vmi_plus_acceleration': round(acceleration, 2),
-                    'vmi_plus_correlation': round(correlation, 2),
-                    'vmi_plus_footprint': round(footprint, 2),
-                    'vmi_plus_grade': grade,
-                    'vmi_plus_status': status
-                })
-            
-            # Calculate VMI+ for all stocks
-            logger.info("Calculating VMI+ (Volume Momentum Indicator Plus)...")
-            vmi_plus_results = df.apply(calculate_vmi_plus, axis=1)
-            df['vmi_plus_score'] = vmi_plus_results['vmi_plus_score']
-            df['vmi_plus_acceleration'] = vmi_plus_results['vmi_plus_acceleration']
-            df['vmi_plus_correlation'] = vmi_plus_results['vmi_plus_correlation']
-            df['vmi_plus_footprint'] = vmi_plus_results['vmi_plus_footprint']
-            df['vmi_plus_grade'] = vmi_plus_results['vmi_plus_grade']
-            df['vmi_plus_status'] = vmi_plus_results['vmi_plus_status']
-            
-            # Logging
-            logger.info(f"VMI+ calculated. Grade distribution: {df['vmi_plus_grade'].value_counts().to_dict()}")
-            logger.info(f"VMI+ score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
-            logger.info(f"VMI+ average: {df['vmi_plus_score'].mean():.2f}, median: {df['vmi_plus_score'].median():.2f}")
-            logger.info(f"Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
-        else:
-            # Create empty VMI+ columns if required data is missing
-            logger.warning(f"⚠️ VMI+ calculation skipped - Missing columns: {missing_cols}")
-            logger.warning(f"Required columns: {required_cols_vmi_plus}")
-            logger.warning(f"Available columns: {list(df.columns)[:20]}... (showing first 20)")
-            df['vmi_plus_score'] = np.nan
-            df['vmi_plus_acceleration'] = np.nan
-            df['vmi_plus_correlation'] = np.nan
-            df['vmi_plus_footprint'] = np.nan
-            df['vmi_plus_grade'] = 'N/A'
-            df['vmi_plus_status'] = 'N/A'
-        
+
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
             def classify_growth_trend(row):
                 g1 = row['growth_30_to_90']       # 30d vs 90d momentum
@@ -1919,6 +1783,145 @@ class AdvancedMetrics:
             df['money_flow_mm'] = df['money_flow_mm'].clip(0, 1e6)  # Max 1 million millions
         else:
             df['money_flow_mm'] = pd.Series(np.nan, index=df.index)
+        
+        # 8.2. ⚡ VOLUME MOMENTUM INDICATOR PLUS (VMI+) - Simple, Powerful, No Overengineering
+        # VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
+        # Replaces overengineered Advanced VER with cleaner design
+        # PLACED AFTER money_flow_mm creation to ensure all required columns exist
+        
+        # Check required columns for VMI+ calculation
+        required_cols_vmi_plus = ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'money_flow_mm']
+        missing_cols = [col for col in required_cols_vmi_plus if col not in df.columns]
+        
+        logger.info(f"🔍 VMI+ Column Check - Missing: {missing_cols}, Required: {required_cols_vmi_plus}")
+        
+        if len(missing_cols) == 0:
+            
+            def calculate_vmi_plus(row):
+                """
+                Calculate VMI+ (Volume Momentum Indicator Plus) - Simple & Powerful
+                
+                Formula: VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
+                
+                Components:
+                - Acceleration: Is volume building or fading? (vol 1d vs 7d vs 30d)
+                - Correlation: Do price and volume move together? (healthy alignment)
+                - Footprint: Are trades large (institutional) or small (retail)?
+                
+                Returns: pd.Series with 6 values
+                """
+                # ===== COMPONENT 1: VOLUME ACCELERATION (40%) =====
+                vol_1d = row.get('volume_1d', 0)
+                vol_7d = row.get('volume_7d', 0)
+                vol_30d = row.get('volume_30d', 0)
+                
+                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                    # Calculate volume ratios
+                    vol_ratio_1d_7d = vol_1d / vol_7d
+                    vol_ratio_7d_30d = vol_7d / vol_30d
+                    
+                    # Score acceleration
+                    if vol_ratio_1d_7d > 1.5 and vol_ratio_7d_30d > 1.2:
+                        acceleration = 100  # Strong building
+                    elif vol_ratio_1d_7d > 1.2:
+                        acceleration = 80   # Building
+                    elif vol_ratio_1d_7d > 0.8:
+                        acceleration = 50   # Stable
+                    else:
+                        acceleration = 20   # Fading
+                else:
+                    acceleration = 50  # Neutral if data missing
+                
+                # ===== COMPONENT 2: PRICE-VOLUME CORRELATION (35%) =====
+                ret_1d = row.get('ret_1d', 0)
+                
+                if pd.notna(ret_1d) and pd.notna(vol_1d) and pd.notna(vol_7d) and vol_7d > 0:
+                    # Check if price and volume move together
+                    price_direction = 1 if ret_1d > 0 else -1
+                    volume_direction = 1 if vol_1d > vol_7d else -1
+                    
+                    if price_direction == volume_direction:
+                        correlation = 100  # Aligned (healthy)
+                    else:
+                        correlation = 30   # Divergence (warning)
+                else:
+                    correlation = 50  # Neutral if data missing
+                
+                # ===== COMPONENT 3: INSTITUTIONAL FOOTPRINT (25%) =====
+                money_flow_mm = row.get('money_flow_mm', 0)
+                
+                if pd.notna(money_flow_mm) and pd.notna(vol_1d) and vol_1d > 0:
+                    # Average trade size (Cr per million shares)
+                    avg_trade_size = money_flow_mm / (vol_1d / 1_000_000) if vol_1d > 0 else 0
+                    
+                    if avg_trade_size > 1.0:
+                        footprint = 100  # Large institutional trades
+                    elif avg_trade_size > 0.5:
+                        footprint = 80   # Good institutional presence
+                    elif avg_trade_size > 0.2:
+                        footprint = 60   # Mixed
+                    else:
+                        footprint = 30   # Retail dominated
+                else:
+                    footprint = 50  # Neutral if data missing
+                
+                # ===== WEIGHTED COMPOSITE =====
+                vmi_plus_score = (
+                    acceleration * 0.40 +
+                    correlation * 0.35 +
+                    footprint * 0.25
+                )
+                
+                # ===== GRADING =====
+                if vmi_plus_score >= 85:
+                    grade, status = "A+", "🚀 Explosive"
+                elif vmi_plus_score >= 70:
+                    grade, status = "A", "🔥 Strong"
+                elif vmi_plus_score >= 55:
+                    grade, status = "B", "✅ Good"
+                elif vmi_plus_score >= 40:
+                    grade, status = "C", "⚪ Average"
+                elif vmi_plus_score >= 25:
+                    grade, status = "D", "⚠️ Weak"
+                else:
+                    grade, status = "F", "❌ Poor"
+                
+                return pd.Series({
+                    'vmi_plus_score': round(vmi_plus_score, 2),
+                    'vmi_plus_acceleration': round(acceleration, 2),
+                    'vmi_plus_correlation': round(correlation, 2),
+                    'vmi_plus_footprint': round(footprint, 2),
+                    'vmi_plus_grade': grade,
+                    'vmi_plus_status': status
+                })
+            
+            # Calculate VMI+ for all stocks
+            logger.info("✅ All VMI+ required columns present. Calculating VMI+...")
+            vmi_plus_results = df.apply(calculate_vmi_plus, axis=1)
+            df['vmi_plus_score'] = vmi_plus_results['vmi_plus_score']
+            df['vmi_plus_acceleration'] = vmi_plus_results['vmi_plus_acceleration']
+            df['vmi_plus_correlation'] = vmi_plus_results['vmi_plus_correlation']
+            df['vmi_plus_footprint'] = vmi_plus_results['vmi_plus_footprint']
+            df['vmi_plus_grade'] = vmi_plus_results['vmi_plus_grade']
+            df['vmi_plus_status'] = vmi_plus_results['vmi_plus_status']
+            
+            # Logging
+            logger.info(f"✅ VMI+ calculated successfully!")
+            logger.info(f"   Grade distribution: {df['vmi_plus_grade'].value_counts().to_dict()}")
+            logger.info(f"   Score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
+            logger.info(f"   Average: {df['vmi_plus_score'].mean():.2f}, Median: {df['vmi_plus_score'].median():.2f}")
+            logger.info(f"   Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
+        else:
+            # Create empty VMI+ columns if required data is missing
+            logger.warning(f"⚠️ VMI+ calculation skipped - Missing columns: {missing_cols}")
+            logger.warning(f"   Required: {required_cols_vmi_plus}")
+            logger.warning(f"   Available: {list(df.columns)[:20]}... (showing first 20)")
+            df['vmi_plus_score'] = np.nan
+            df['vmi_plus_acceleration'] = np.nan
+            df['vmi_plus_correlation'] = np.nan
+            df['vmi_plus_footprint'] = np.nan
+            df['vmi_plus_grade'] = 'N/A'
+            df['vmi_plus_status'] = 'N/A'
         
         # Volume Momentum Index (VMI) - Already safe (dividing by constant 10)
         if all(col in df.columns for col in ['vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d', 'vol_ratio_90d_180d']):
