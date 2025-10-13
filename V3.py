@@ -1596,7 +1596,9 @@ class DataProcessor:
         
         # Check required columns for VMI+ calculation
         required_cols_vmi_plus = ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'money_flow_mm']
-        if all(col in df.columns for col in required_cols_vmi_plus):
+        missing_cols = [col for col in required_cols_vmi_plus if col not in df.columns]
+        
+        if len(missing_cols) == 0:
             
             def calculate_vmi_plus(row):
                 """
@@ -1711,6 +1713,18 @@ class DataProcessor:
             logger.info(f"VMI+ score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
             logger.info(f"VMI+ average: {df['vmi_plus_score'].mean():.2f}, median: {df['vmi_plus_score'].median():.2f}")
             logger.info(f"Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
+        else:
+            # Create empty VMI+ columns if required data is missing
+            logger.warning(f"⚠️ VMI+ calculation skipped - Missing columns: {missing_cols}")
+            logger.warning(f"Required columns: {required_cols_vmi_plus}")
+            logger.warning(f"Available columns: {list(df.columns)[:20]}... (showing first 20)")
+            df['vmi_plus_score'] = np.nan
+            df['vmi_plus_acceleration'] = np.nan
+            df['vmi_plus_correlation'] = np.nan
+            df['vmi_plus_footprint'] = np.nan
+            df['vmi_plus_grade'] = 'N/A'
+            df['vmi_plus_status'] = 'N/A'
+        
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
             def classify_growth_trend(row):
                 g1 = row['growth_30_to_90']       # 30d vs 90d momentum
