@@ -1417,7 +1417,12 @@ class DataProcessor:
         # 8.1. 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Simple 4-Component Scoring
         # VQS = (Volume Strength × 50%) + (Smart Money × 20%) + (Consistency × 20%) + (Efficiency × 10%)
         # Simple additive formula - no multipliers, no overengineering
-        if all(col in df.columns for col in ['volume_1d', 'ret_1d', 'rvol']):
+        
+        # Input validation - ensure required columns exist
+        required_cols_vqs = ['volume_1d', 'ret_1d', 'rvol']
+        missing_cols_vqs = [col for col in required_cols_vqs if col not in df.columns]
+        
+        if len(missing_cols_vqs) == 0:
             
             def calculate_advanced_vqs(row):
                 """
@@ -1575,7 +1580,13 @@ class DataProcessor:
             # ===== CALCULATE ADVANCED VQS FOR ALL STOCKS =====
             logger.info("Calculating Advanced VQS (4-Component: Volume + SmartMoney + Consistency + Efficiency)...")
             
+            # Performance monitoring - track calculation time
+            import time
+            vqs_start_time = time.time()
+            
             vqs_results = df.apply(calculate_advanced_vqs, axis=1)
+            
+            vqs_calc_time = time.time() - vqs_start_time
             df['vqs_score'] = vqs_results['vqs_score']
             df['vqs_grade'] = vqs_results['vqs_grade']
             df['vqs_status'] = vqs_results['vqs_status']
@@ -1585,10 +1596,39 @@ class DataProcessor:
             df['vqs_efficiency'] = vqs_results['vqs_efficiency']
             df['vqs_data_quality'] = vqs_results['vqs_data_quality']
             
-            logger.info(f"Advanced VQS calculated. Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
-            logger.info(f"Advanced VQS score range: [{df['vqs_score'].min():.2f} to {df['vqs_score'].max():.2f}]")
-            logger.info(f"Advanced VQS average: {df['vqs_score'].mean():.2f}, median: {df['vqs_score'].median():.2f}")
-            logger.info(f"Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Consistency: {df['vqs_consistency'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
+            # Enhanced logging with performance metrics
+            num_stocks = len(df)
+            stocks_per_sec = num_stocks / vqs_calc_time if vqs_calc_time > 0 else 0
+            
+            logger.info(f"✅ Advanced VQS calculated successfully!")
+            logger.info(f"   ⏱️  Performance: {vqs_calc_time:.2f}s for {num_stocks} stocks ({stocks_per_sec:.0f} stocks/sec)")
+            logger.info(f"   📊 Grade distribution: {df['vqs_grade'].value_counts().to_dict()}")
+            logger.info(f"   📈 Score range: [{df['vqs_score'].min():.2f} to {df['vqs_score'].max():.2f}]")
+            logger.info(f"   📊 Statistics: Average {df['vqs_score'].mean():.2f}, Median {df['vqs_score'].median():.2f}")
+            logger.info(f"   🔧 Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Consistency: {df['vqs_consistency'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
+            
+            # Quality warnings
+            low_quality_count = len(df[df['vqs_grade'].isin(['D', 'F'])])
+            if low_quality_count > 0:
+                low_quality_pct = (low_quality_count / num_stocks) * 100
+                logger.warning(f"   ⚠️  {low_quality_count} stocks ({low_quality_pct:.1f}%) have low VQS quality (D/F grades)")
+            
+            high_quality_count = len(df[df['vqs_grade'].isin(['A+', 'A'])])
+            if high_quality_count > 0:
+                high_quality_pct = (high_quality_count / num_stocks) * 100
+                logger.info(f"   💎 {high_quality_count} stocks ({high_quality_pct:.1f}%) have elite VQS quality (A+/A grades)")
+        else:
+            # Create empty VQS columns if required data is missing
+            logger.error(f"❌ VQS calculation skipped - Missing required columns: {missing_cols_vqs}")
+            logger.error(f"   Required: {required_cols_vqs}")
+            df['vqs_score'] = np.nan
+            df['vqs_grade'] = 'N/A'
+            df['vqs_status'] = 'N/A'
+            df['vqs_volume_strength'] = np.nan
+            df['vqs_smart_money'] = np.nan
+            df['vqs_consistency'] = np.nan
+            df['vqs_efficiency'] = np.nan
+            df['vqs_data_quality'] = np.nan
         
 
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
@@ -1897,7 +1937,14 @@ class AdvancedMetrics:
             
             # Calculate VMI+ for all stocks
             logger.info("✅ All VMI+ required columns present. Calculating VMI+...")
+            
+            # Performance monitoring - track calculation time
+            vmi_start_time = time.time()
+            
             vmi_plus_results = df.apply(calculate_vmi_plus, axis=1)
+            
+            vmi_calc_time = time.time() - vmi_start_time
+            
             df['vmi_plus_score'] = vmi_plus_results['vmi_plus_score']
             df['vmi_plus_acceleration'] = vmi_plus_results['vmi_plus_acceleration']
             df['vmi_plus_correlation'] = vmi_plus_results['vmi_plus_correlation']
@@ -1905,12 +1952,41 @@ class AdvancedMetrics:
             df['vmi_plus_grade'] = vmi_plus_results['vmi_plus_grade']
             df['vmi_plus_status'] = vmi_plus_results['vmi_plus_status']
             
-            # Logging
+            # Enhanced logging with performance metrics and insights
+            num_stocks = len(df)
+            stocks_per_sec = num_stocks / vmi_calc_time if vmi_calc_time > 0 else 0
+            
             logger.info(f"✅ VMI+ calculated successfully!")
-            logger.info(f"   Grade distribution: {df['vmi_plus_grade'].value_counts().to_dict()}")
-            logger.info(f"   Score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
-            logger.info(f"   Average: {df['vmi_plus_score'].mean():.2f}, Median: {df['vmi_plus_score'].median():.2f}")
-            logger.info(f"   Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
+            logger.info(f"   ⏱️  Performance: {vmi_calc_time:.2f}s for {num_stocks} stocks ({stocks_per_sec:.0f} stocks/sec)")
+            logger.info(f"   📊 Grade distribution: {df['vmi_plus_grade'].value_counts().to_dict()}")
+            logger.info(f"   📈 Score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
+            logger.info(f"   📊 Statistics: Average {df['vmi_plus_score'].mean():.2f}, Median {df['vmi_plus_score'].median():.2f}")
+            logger.info(f"   🔧 Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
+            
+            # Momentum insights
+            explosive_count = len(df[df['vmi_plus_grade'].isin(['A+', 'A'])])
+            if explosive_count > 0:
+                explosive_pct = (explosive_count / num_stocks) * 100
+                logger.info(f"   🚀 {explosive_count} stocks ({explosive_pct:.1f}%) show explosive momentum (A+/A grades)")
+            
+            # Divergence warnings (low correlation)
+            low_correlation = df[df['vmi_plus_correlation'] < 50]
+            if len(low_correlation) > 0:
+                divergence_pct = (len(low_correlation) / num_stocks) * 100
+                logger.warning(f"   ⚠️  {len(low_correlation)} stocks ({divergence_pct:.1f}%) show price-volume divergence (correlation <50)")
+            
+            # Cross-validation insights (VMI+ vs VQS)
+            if 'vqs_grade' in df.columns:
+                # High VMI+ with low VQS = potential traps
+                trap_candidates = df[(df['vmi_plus_grade'].isin(['A+', 'A'])) & (df['vqs_grade'].isin(['C', 'D', 'F']))]
+                if len(trap_candidates) > 0:
+                    logger.warning(f"   🚨 {len(trap_candidates)} stocks have high VMI+ but low VQS - possible illiquid traps")
+                
+                # Both metrics high = elite opportunities
+                elite_opportunities = df[(df['vmi_plus_grade'].isin(['A+', 'A', 'B'])) & (df['vqs_grade'].isin(['A+', 'A', 'B']))]
+                if len(elite_opportunities) > 0:
+                    elite_pct = (len(elite_opportunities) / num_stocks) * 100
+                    logger.info(f"   💎 {len(elite_opportunities)} stocks ({elite_pct:.1f}%) are elite opportunities (both VMI+ and VQS strong)")
         else:
             # Create empty VMI+ columns if required data is missing
             logger.warning(f"⚠️ VMI+ calculation skipped - Missing columns: {missing_cols}")
@@ -18933,6 +19009,35 @@ def main():
                                     else:  # F
                                         st.error("🚨 **Poor Momentum**")
                                         st.caption("Volume divergence or retail-dominated")
+                                
+                                # 🛡️ CROSS-VALIDATION WARNING - Prevent illiquid stock traps
+                                # Check if high VMI+ grade conflicts with low VQS grade
+                                if 'vqs_grade' in stock.index:
+                                    vqs_grade = stock.get('vqs_grade', 'N/A')
+                                    vqs_vol_strength = stock.get('vqs_volume_strength', 50)
+                                    
+                                    # High VMI+ with low VQS = potential illiquid stock manipulation
+                                    if vmi_grade in ['A+', 'A'] and vqs_grade in ['C', 'D', 'F']:
+                                        st.markdown("---")
+                                        st.warning("⚠️ **Cross-Validation Alert**")
+                                        st.caption(f"🔍 High VMI+ ({vmi_grade}) with low VQS ({vqs_grade}) detected")
+                                        
+                                        # Specific warnings based on VQS components
+                                        if vqs_vol_strength < 40:
+                                            st.caption("⚠️ **Low liquidity risk** - Volume Strength only {:.0f}/100".format(vqs_vol_strength))
+                                            st.caption("💡 This stock may be too illiquid for VMI+ signal reliability")
+                                        else:
+                                            st.caption("⚠️ **Quality concern** - Verify VQS components before trading")
+                                        
+                                        st.caption("🎯 **Recommendation:** Only trade if VQS is Grade B or higher")
+                                        st.caption("📖 **Why?** VMI+ can give false positives in illiquid stocks due to mathematical artifacts")
+                                    
+                                    # Excellent confirmation when both metrics agree
+                                    elif vmi_grade in ['A+', 'A', 'B'] and vqs_grade in ['A+', 'A', 'B']:
+                                        st.markdown("---")
+                                        st.success("✅ **Cross-Validation Confirmed**")
+                                        st.caption(f"🎯 Both VMI+ ({vmi_grade}) and VQS ({vqs_grade}) show quality")
+                                        st.caption("💎 High confidence signal - both momentum and quality metrics aligned")
                             else:
                                 st.info("🚀 VMI+ data not available for this stock")
                             
