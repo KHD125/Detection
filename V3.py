@@ -13740,7 +13740,6 @@ def main():
                     selected_letter_grades = [grade.split(" - ")[0] for grade in vqs_grades]
                     filters['vqs_grades'] = selected_letter_grades
                 
-                st.caption("💡 **Tip:** Combine Advanced VQS A+/A with VMI+ for institutional-grade stocks")
                 st.markdown("---")
             
             # 🚀 VMI+ Grade Filter (Volume Momentum Indicator Plus)
@@ -13770,8 +13769,6 @@ def main():
                     selected_letter_grades = [grade.split(" - ")[0] for grade in vmi_plus_grades]
                     filters['vmi_plus_grades'] = selected_letter_grades
                 
-                st.caption("💡 **Tip:** A+ and A grades indicate explosive volume momentum with strong institutional participation")
-                st.caption("🎯 **Pro Tip:** Combine VMI+ A+/A with VQS A/B and STRONG_UPTREND for elite momentum opportunities")
                 st.markdown("---")
             
             # Growth Trend Classification Filter with Custom Range
@@ -18850,7 +18847,6 @@ def main():
                             st.markdown("**📊 Volume Analysis**")
                             
                             # 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - ULTRA-SIMPLE SCORING
-                            st.markdown("---")
                             st.markdown("**🏆 Advanced Volume Quality Score (VQS)**")
                             st.caption("4 Components: VolumeStrength (50%) + SmartMoney (20%) + Consistency (20%) + Efficiency (10%)")
                             
