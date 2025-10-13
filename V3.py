@@ -2019,9 +2019,8 @@ class DataProcessor:
                     # Bonus: Upward trend in volume (1d > 7d > 30d)
                     if vol_1d > vol_7d > vol_30d:
                         consistency = min(100, consistency + 15)  # Building momentum!
-                    # Penalty: Downward trend (1d < 7d < 30d)
-                    elif vol_1d < vol_7d < vol_30d:
-                        consistency = max(0, consistency - 15)    # Fading momentum
+                    # Note: Removed penalty for fading volume - consistent declining volume
+                    # is still consistency. Only reward building momentum.
                 else:
                     consistency = 50  # Default if data missing
                 
@@ -2047,15 +2046,16 @@ class DataProcessor:
                     efficiency * 0.10         # 10% - Price efficiency
                 )
                 
-                # ===== DATA QUALITY PENALTY =====
-                # Penalize if critical data is missing
+                # ===== DATA QUALITY ADJUSTMENT =====
+                # Reduce confidence when critical data is missing (not a penalty on score,
+                # but a reflection of data reliability)
                 data_quality = 1.0
                 if pd.isna(vol_1d) or vol_1d <= 0:
-                    data_quality *= 0.7
+                    data_quality *= 0.85  # Reduced from 0.7 - less harsh
                 if pd.isna(rvol):
-                    data_quality *= 0.9
+                    data_quality *= 0.95  # Reduced from 0.9 - less harsh
                 if pd.isna(ret_1d):
-                    data_quality *= 0.95
+                    data_quality *= 0.98  # Reduced from 0.95 - less harsh
                 
                 vqs_score = raw_vqs * data_quality
                 vqs_score = np.clip(vqs_score, 0, 100)
@@ -2206,6 +2206,8 @@ class DataProcessor:
                 momentum_harmony = row.get('momentum_harmony', 2)  # Default 2 (mixed)
                 
                 if pd.notna(momentum_harmony):
+                    # Ensure harmony is in expected 0-4 range (clip to prevent unexpected values)
+                    momentum_harmony = np.clip(momentum_harmony, 0, 4)
                     # Perfect harmony (4) = 1.15x boost, Broken (0) = 0.85x penalty
                     harmony_factor = 0.85 + (momentum_harmony / 4) * 0.30
                 else:
@@ -2396,11 +2398,17 @@ class DataProcessor:
             
             # ===== FINAL ADVANCED VER CALCULATION =====
             # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
-            df['advanced_ver'] = (
-                df['advanced_ver_base'] *
-                df['advanced_ver_quality_mult'] *
-                df['advanced_ver_regime_adj'] *
-                df['advanced_ver_risk_factor']
+            # Apply safety clipping to prevent extreme compounding effects
+            df['advanced_ver'] = df.apply(
+                lambda row: np.clip(
+                    row['advanced_ver_base'] *
+                    row['advanced_ver_quality_mult'] *
+                    row['advanced_ver_regime_adj'] *
+                    row['advanced_ver_risk_factor'],
+                    row['advanced_ver_base'] * 0.4,  # Min: 40% of base (prevent over-penalization)
+                    row['advanced_ver_base'] * 2.0   # Max: 200% of base (prevent over-amplification)
+                ) if row['advanced_ver_base'] > 0 else 0,
+                axis=1
             ).round(3)
             
             # Calculate confidence score based on data availability
@@ -2408,18 +2416,21 @@ class DataProcessor:
                 """
                 Calculate confidence score (0-100) based on data availability.
                 More data available = higher confidence in Advanced VER calculation.
+                Checks 10 critical data points across all VER components.
                 """
                 available_data = sum([
                     1 if pd.notna(row.get('ret_1d')) and row.get('ret_1d', 0) != 0 else 0,
                     1 if pd.notna(row.get('ret_7d')) and row.get('ret_7d', 0) != 0 else 0,
                     1 if pd.notna(row.get('ret_30d')) and row.get('ret_30d', 0) != 0 else 0,
-                    1 if pd.notna(row.get('vol_ratio_1d_90d')) else 0,
+                    1 if pd.notna(row.get('vol_ratio_1d_90d')) and row.get('vol_ratio_1d_90d', 0) > 0 else 0,
+                    1 if pd.notna(row.get('vol_ratio_7d_90d')) and row.get('vol_ratio_7d_90d', 0) > 0 else 0,
+                    1 if pd.notna(row.get('vol_ratio_30d_90d')) and row.get('vol_ratio_30d_90d', 0) > 0 else 0,
                     1 if pd.notna(row.get('vmi')) else 0,
                     1 if pd.notna(row.get('momentum_harmony')) else 0,
                     1 if pd.notna(row.get('money_flow_mm')) else 0,
                     1 if pd.notna(row.get('smart_money_flow')) and row.get('smart_money_flow') != 'Unknown' else 0,
                 ])
-                confidence = (available_data / 8) * 100
+                confidence = (available_data / 10) * 100
                 return confidence
             
             df['advanced_ver_confidence'] = df.apply(calculate_ver_confidence, axis=1).round(1)
