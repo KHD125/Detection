@@ -1414,523 +1414,10 @@ class DataProcessor:
             
             logger.info(f"Growth quality tiers assigned. Distribution: {df['growth_quality_tier'].value_counts().to_dict()}")
         
-        # 8.1. 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Multi-Dimensional Intelligence
-        # Advanced VQS = Base_Score × Quality_Multiplier × Market_Adjustment × Risk_Factor × Confidence
-        # Uses 30+ data columns for institutional-grade volume quality assessment
+        # 8.1. 🏆 ADVANCED VOLUME QUALITY SCORE (VQS) - Simple 4-Component Scoring
+        # VQS = (Volume Strength × 50%) + (Smart Money × 20%) + (Consistency × 20%) + (Efficiency × 10%)
+        # Simple additive formula - no multipliers, no overengineering
         if all(col in df.columns for col in ['volume_1d', 'ret_1d', 'rvol']):
-            
-            # ===== HELPER FUNCTIONS FOR ADVANCED VQS =====
-            
-            def calculate_short_term_volume_quality(row):
-                """Short-term volume quality (1d): Liquidity + Activity + Consistency"""
-                # Absolute Liquidity (50%)
-                vol_1d = row.get('volume_1d', 0)
-                if pd.isna(vol_1d) or vol_1d <= 0:
-                    liquidity_score = 0
-                elif vol_1d >= 10_000_000:
-                    liquidity_score = 100
-                elif vol_1d >= 5_000_000:
-                    liquidity_score = 90
-                elif vol_1d >= 1_000_000:
-                    liquidity_score = 80
-                elif vol_1d >= 500_000:
-                    liquidity_score = 70
-                elif vol_1d >= 100_000:
-                    liquidity_score = 60
-                else:
-                    liquidity_score = 40
-                
-                # Relative Activity (30%)
-                rvol = row.get('rvol', 1.0)
-                if pd.isna(rvol):
-                    activity_score = 50
-                elif rvol >= 3.0:
-                    activity_score = 100
-                elif rvol >= 2.0:
-                    activity_score = 90
-                elif rvol >= 1.5:
-                    activity_score = 80
-                elif rvol >= 1.0:
-                    activity_score = 70
-                elif rvol >= 0.5:
-                    activity_score = 50
-                else:
-                    activity_score = 30
-                
-                # Short-term Consistency (20%)
-                vol_7d = row.get('volume_7d', vol_1d)
-                if pd.notna(vol_1d) and pd.notna(vol_7d) and vol_7d > 0:
-                    vol_ratio = vol_1d / vol_7d
-                    deviation = abs(1.0 - vol_ratio)
-                    if deviation < 0.2:
-                        consistency_score = 100
-                    elif deviation < 0.4:
-                        consistency_score = 85
-                    elif deviation < 0.6:
-                        consistency_score = 70
-                    elif deviation < 1.0:
-                        consistency_score = 50
-                    else:
-                        consistency_score = 30
-                else:
-                    consistency_score = 50
-                
-                return liquidity_score * 0.50 + activity_score * 0.30 + consistency_score * 0.20
-            
-            def calculate_medium_term_volume_quality(row):
-                """Medium-term volume quality (7-30d): Trend + Consistency + Harmony"""
-                # Volume Trend (40%)
-                vol_7d = row.get('volume_7d', 0)
-                vol_30d = row.get('volume_30d', 0)
-                if pd.notna(vol_7d) and pd.notna(vol_30d) and vol_30d > 0:
-                    trend_ratio = vol_7d / vol_30d
-                    if trend_ratio >= 1.5:
-                        trend_score = 100
-                    elif trend_ratio >= 1.2:
-                        trend_score = 90
-                    elif trend_ratio >= 1.0:
-                        trend_score = 80
-                    elif trend_ratio >= 0.8:
-                        trend_score = 60
-                    elif trend_ratio >= 0.6:
-                        trend_score = 40
-                    else:
-                        trend_score = 20
-                else:
-                    trend_score = 50
-                
-                # Multi-timeframe Consistency (35%)
-                vol_1d = row.get('volume_1d', 0)
-                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
-                    volumes = np.array([vol_1d, vol_7d, vol_30d])
-                    cv = np.std(volumes) / np.mean(volumes)
-                    if cv < 0.3:
-                        mtf_consistency_score = 100
-                    elif cv < 0.6:
-                        mtf_consistency_score = 85
-                    elif cv < 1.0:
-                        mtf_consistency_score = 65
-                    elif cv < 1.5:
-                        mtf_consistency_score = 45
-                    else:
-                        mtf_consistency_score = 25
-                else:
-                    mtf_consistency_score = 50
-                
-                # Momentum Harmony (25%)
-                momentum_harmony = row.get('momentum_harmony', 2)
-                if pd.notna(momentum_harmony):
-                    harmony_map = {4: 100, 3: 85, 2: 65, 1: 40, 0: 20}
-                    harmony_score = harmony_map.get(int(momentum_harmony), 65)
-                else:
-                    harmony_score = 65
-                
-                return trend_score * 0.40 + mtf_consistency_score * 0.35 + harmony_score * 0.25
-            
-            def calculate_efficiency_quality(row):
-                """Efficiency quality: Current + Consistency + VMI alignment"""
-                # Current Efficiency (50%)
-                ret_1d = row.get('ret_1d', 0)
-                rvol = row.get('rvol', 1.0)
-                if pd.notna(ret_1d) and pd.notna(rvol) and rvol > 0:
-                    ver_1d = abs(ret_1d) / rvol
-                    if ver_1d > 5.0:
-                        current_eff_score = 100
-                    elif ver_1d > 2.5:
-                        current_eff_score = 90
-                    elif ver_1d >= 1.5:
-                        current_eff_score = 80
-                    elif ver_1d >= 1.0:
-                        current_eff_score = 70
-                    elif ver_1d >= 0.5:
-                        current_eff_score = 55
-                    elif ver_1d >= 0.2:
-                        current_eff_score = 35
-                    else:
-                        current_eff_score = 20
-                else:
-                    current_eff_score = 50
-                
-                # Multi-timeframe VER Consistency (30%)
-                ret_7d = row.get('ret_7d', 0)
-                vol_ratio_7d = row.get('vol_ratio_7d_90d', 1.0)
-                ret_30d = row.get('ret_30d', 0)
-                vol_ratio_30d = row.get('vol_ratio_30d_90d', 1.0)
-                
-                vers = []
-                if pd.notna(ret_1d) and pd.notna(rvol) and rvol > 0:
-                    vers.append(abs(ret_1d) / rvol)
-                if pd.notna(ret_7d) and pd.notna(vol_ratio_7d) and vol_ratio_7d > 0:
-                    vers.append(abs(ret_7d) / vol_ratio_7d)
-                if pd.notna(ret_30d) and pd.notna(vol_ratio_30d) and vol_ratio_30d > 0:
-                    vers.append(abs(ret_30d) / vol_ratio_30d)
-                
-                if len(vers) >= 2:
-                    ver_cv = np.std(vers) / np.mean(vers) if np.mean(vers) > 0 else 0
-                    if ver_cv < 0.3:
-                        ver_consistency_score = 100
-                    elif ver_cv < 0.6:
-                        ver_consistency_score = 85
-                    elif ver_cv < 1.0:
-                        ver_consistency_score = 65
-                    else:
-                        ver_consistency_score = 40
-                else:
-                    ver_consistency_score = 50
-                
-                # Efficiency-VMI Alignment (20%)
-                vmi = row.get('vmi', 50)
-                if pd.notna(vmi):
-                    vmi_normalized = vmi / 100.0
-                    ver_normalized = min(ver_1d / 5.0, 1.0) if ver_1d > 0 else 0
-                    alignment = 1.0 - abs(vmi_normalized - ver_normalized)
-                    alignment_score = alignment * 100
-                else:
-                    alignment_score = 50
-                
-                return current_eff_score * 0.50 + ver_consistency_score * 0.30 + alignment_score * 0.20
-            
-            def calculate_base_score(row):
-                """Calculate multi-timeframe base VQS score (0-100)"""
-                short_term = calculate_short_term_volume_quality(row)
-                medium_term = calculate_medium_term_volume_quality(row)
-                efficiency = calculate_efficiency_quality(row)
-                return short_term * 0.40 + medium_term * 0.35 + efficiency * 0.25
-            
-            def calculate_smart_money_component(row):
-                """Smart money detection: Signal + Money flow + Pattern"""
-                # Smart Money Flow Signal (50%)
-                smart_money_flow = row.get('smart_money_flow', 'NONE')
-                if smart_money_flow == 'ACCUMULATION':
-                    sm_signal_score = 100
-                elif smart_money_flow == 'ABSORPTION':
-                    sm_signal_score = 90
-                elif smart_money_flow == 'DISTRIBUTION':
-                    sm_signal_score = 40
-                else:
-                    sm_signal_score = 50
-                
-                # Money Flow Quality (30%)
-                money_flow_mm = row.get('money_flow_mm', 0)
-                if pd.isna(money_flow_mm):
-                    mf_quality_score = 50
-                elif money_flow_mm >= 1000:
-                    mf_quality_score = 100
-                elif money_flow_mm >= 500:
-                    mf_quality_score = 90
-                elif money_flow_mm >= 100:
-                    mf_quality_score = 80
-                elif money_flow_mm >= 10:
-                    mf_quality_score = 70
-                elif money_flow_mm >= 1:
-                    mf_quality_score = 60
-                else:
-                    mf_quality_score = 40
-                
-                # Volume Pattern (20%)
-                rvol = row.get('rvol', 1.0)
-                ret_1d = row.get('ret_1d', 0)
-                if pd.notna(rvol) and pd.notna(ret_1d):
-                    if rvol >= 2.0 and abs(ret_1d) < 3.0:
-                        pattern_score = 100
-                    elif rvol >= 1.5 and ret_1d > 0:
-                        pattern_score = 85
-                    elif rvol < 0.7:
-                        pattern_score = 30
-                    else:
-                        pattern_score = 60
-                else:
-                    pattern_score = 50
-                
-                return sm_signal_score * 0.50 + mf_quality_score * 0.30 + pattern_score * 0.20
-            
-            def calculate_volume_sustainability(row):
-                """Volume sustainability: Trend strength + VMI + Liquidity depth"""
-                # Volume Trend Strength (50%)
-                vol_1d = row.get('volume_1d', 0)
-                vol_7d = row.get('volume_7d', 0)
-                vol_30d = row.get('volume_30d', 0)
-                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
-                    trend_1d_7d = vol_1d / vol_7d if vol_7d > 0 else 1.0
-                    trend_7d_30d = vol_7d / vol_30d if vol_30d > 0 else 1.0
-                    if trend_1d_7d >= 1.2 and trend_7d_30d >= 1.1:
-                        trend_strength_score = 100
-                    elif trend_1d_7d >= 1.1 and trend_7d_30d >= 1.0:
-                        trend_strength_score = 85
-                    elif trend_1d_7d >= 0.9 and trend_7d_30d >= 0.9:
-                        trend_strength_score = 70
-                    elif trend_1d_7d < 0.8 or trend_7d_30d < 0.8:
-                        trend_strength_score = 30
-                    else:
-                        trend_strength_score = 50
-                else:
-                    trend_strength_score = 50
-                
-                # VMI Quality (30%)
-                vmi = row.get('vmi', 50)
-                if pd.notna(vmi):
-                    if vmi >= 70:
-                        vmi_score = 100
-                    elif vmi >= 60:
-                        vmi_score = 85
-                    elif vmi >= 50:
-                        vmi_score = 70
-                    elif vmi >= 40:
-                        vmi_score = 50
-                    else:
-                        vmi_score = 30
-                else:
-                    vmi_score = 50
-                
-                # Liquidity Depth (20%)
-                daily_turnover = row.get('daily_turnover', 0)
-                if pd.isna(daily_turnover):
-                    liquidity_depth_score = 50
-                elif daily_turnover >= 10_000_000:
-                    liquidity_depth_score = 100
-                elif daily_turnover >= 1_000_000:
-                    liquidity_depth_score = 80
-                elif daily_turnover >= 100_000:
-                    liquidity_depth_score = 60
-                else:
-                    liquidity_depth_score = 40
-                
-                return trend_strength_score * 0.50 + vmi_score * 0.30 + liquidity_depth_score * 0.20
-            
-            def calculate_trading_quality(row):
-                """Trading quality: Price-volume correlation + Execution + Momentum"""
-                # Price-Volume Correlation (50%)
-                ret_1d = row.get('ret_1d', 0)
-                rvol = row.get('rvol', 1.0)
-                if pd.notna(ret_1d) and pd.notna(rvol):
-                    if ret_1d > 0 and rvol > 1.2:
-                        pv_corr_score = 100
-                    elif ret_1d > 0 and rvol > 0.8:
-                        pv_corr_score = 85
-                    elif ret_1d < 0 and rvol < 0.8:
-                        pv_corr_score = 70
-                    elif ret_1d < 0 and rvol > 1.5:
-                        pv_corr_score = 30
-                    else:
-                        pv_corr_score = 60
-                else:
-                    pv_corr_score = 50
-                
-                # Execution Quality (30%)
-                volatility_7d = row.get('volatility_7d', 0)
-                vol_7d = row.get('volume_7d', 0)
-                if pd.notna(volatility_7d) and pd.notna(vol_7d):
-                    if volatility_7d < 3.0 and vol_7d >= 1_000_000:
-                        exec_quality_score = 100
-                    elif volatility_7d < 7.0 and vol_7d >= 500_000:
-                        exec_quality_score = 85
-                    elif volatility_7d < 15.0:
-                        exec_quality_score = 70
-                    elif volatility_7d > 20.0:
-                        exec_quality_score = 40
-                    else:
-                        exec_quality_score = 60
-                else:
-                    exec_quality_score = 50
-                
-                # Momentum Quality (20%)
-                momentum_harmony = row.get('momentum_harmony', 2)
-                if pd.notna(momentum_harmony):
-                    harmony_map = {4: 100, 3: 85, 2: 65, 1: 45, 0: 25}
-                    momentum_quality_score = harmony_map.get(int(momentum_harmony), 65)
-                else:
-                    momentum_quality_score = 65
-                
-                return pv_corr_score * 0.50 + exec_quality_score * 0.30 + momentum_quality_score * 0.20
-            
-            def calculate_quality_multiplier(row):
-                """Calculate quality multiplier (0.5x - 1.5x)"""
-                smart_money = calculate_smart_money_component(row)
-                sustainability = calculate_volume_sustainability(row)
-                trading_quality = calculate_trading_quality(row)
-                composite_score = smart_money * 0.40 + sustainability * 0.35 + trading_quality * 0.25
-                multiplier = 0.5 + (composite_score / 100.0) * 1.0
-                return np.clip(multiplier, 0.5, 1.5)
-            
-            def calculate_market_state_impact(row):
-                """Market state impact scoring"""
-                market_state = row.get('market_state', 'SIDEWAYS')
-                state_scores = {
-                    'STRONG_UPTREND': 100, 'UPTREND': 90, 'RECOVERY': 85,
-                    'PULLBACK': 70, 'SIDEWAYS': 50, 'DOWNTREND': 40, 'STRONG_DOWNTREND': 30
-                }
-                return state_scores.get(market_state, 50)
-            
-            def calculate_volatility_impact(row):
-                """Volatility environment impact"""
-                volatility_7d = row.get('volatility_7d', 0)
-                if pd.isna(volatility_7d):
-                    return 50
-                if volatility_7d < 3.0:
-                    return 100
-                elif volatility_7d < 7.0:
-                    return 80
-                elif volatility_7d < 15.0:
-                    return 60
-                elif volatility_7d < 25.0:
-                    return 40
-                else:
-                    return 20
-            
-            def calculate_market_adjustment(row):
-                """Calculate market adjustment factor (0.7x - 1.3x)"""
-                market_state_score = calculate_market_state_impact(row)
-                volatility_score = calculate_volatility_impact(row)
-                composite_score = market_state_score * 0.60 + volatility_score * 0.40
-                adjustment = 0.7 + (composite_score / 100.0) * 0.6
-                return np.clip(adjustment, 0.7, 1.3)
-            
-            def calculate_liquidity_risk(row):
-                """Liquidity risk assessment (higher score = lower risk)"""
-                # Absolute Liquidity (50%)
-                volume_1d = row.get('volume_1d', 0)
-                if pd.isna(volume_1d) or volume_1d <= 0:
-                    abs_liq_score = 0
-                elif volume_1d >= 10_000_000:
-                    abs_liq_score = 100
-                elif volume_1d >= 5_000_000:
-                    abs_liq_score = 90
-                elif volume_1d >= 1_000_000:
-                    abs_liq_score = 80
-                elif volume_1d >= 500_000:
-                    abs_liq_score = 65
-                elif volume_1d >= 100_000:
-                    abs_liq_score = 50
-                else:
-                    abs_liq_score = 30
-                
-                # Turnover Depth (30%)
-                daily_turnover = row.get('daily_turnover', 0)
-                if pd.isna(daily_turnover):
-                    turnover_score = 50
-                elif daily_turnover >= 10_000_000:
-                    turnover_score = 100
-                elif daily_turnover >= 5_000_000:
-                    turnover_score = 90
-                elif daily_turnover >= 1_000_000:
-                    turnover_score = 75
-                elif daily_turnover >= 100_000:
-                    turnover_score = 55
-                else:
-                    turnover_score = 30
-                
-                # Liquidity Stability (20%)
-                vol_7d = row.get('volume_7d', volume_1d)
-                vol_30d = row.get('volume_30d', volume_1d)
-                if all(pd.notna(v) and v > 0 for v in [volume_1d, vol_7d, vol_30d]):
-                    min_vol = min(volume_1d, vol_7d, vol_30d)
-                    max_vol = max(volume_1d, vol_7d, vol_30d)
-                    vol_range_ratio = min_vol / max_vol if max_vol > 0 else 0
-                    if vol_range_ratio >= 0.7:
-                        stability_score = 100
-                    elif vol_range_ratio >= 0.5:
-                        stability_score = 80
-                    elif vol_range_ratio >= 0.3:
-                        stability_score = 60
-                    else:
-                        stability_score = 40
-                else:
-                    stability_score = 50
-                
-                return abs_liq_score * 0.50 + turnover_score * 0.30 + stability_score * 0.20
-            
-            def calculate_money_flow_risk(row):
-                """Money flow quality risk (higher score = lower risk)"""
-                # Money Flow Magnitude (60%)
-                money_flow_mm = row.get('money_flow_mm', 0)
-                if pd.isna(money_flow_mm):
-                    mf_mag_score = 50
-                elif money_flow_mm >= 1000:
-                    mf_mag_score = 100
-                elif money_flow_mm >= 500:
-                    mf_mag_score = 90
-                elif money_flow_mm >= 100:
-                    mf_mag_score = 80
-                elif money_flow_mm >= 50:
-                    mf_mag_score = 70
-                elif money_flow_mm >= 10:
-                    mf_mag_score = 60
-                else:
-                    mf_mag_score = 40
-                
-                # Smart Money Alignment (40%)
-                smart_money_flow = row.get('smart_money_flow', 'NONE')
-                if smart_money_flow == 'ACCUMULATION':
-                    sm_align_score = 100
-                elif smart_money_flow == 'ABSORPTION':
-                    sm_align_score = 90
-                elif smart_money_flow == 'NONE':
-                    sm_align_score = 50
-                elif smart_money_flow == 'DISTRIBUTION':
-                    sm_align_score = 30
-                else:
-                    sm_align_score = 50
-                
-                return mf_mag_score * 0.60 + sm_align_score * 0.40
-            
-            def calculate_execution_risk(row):
-                """Execution risk assessment (higher score = lower risk)"""
-                # Volatility Risk (60%)
-                volatility_7d = row.get('volatility_7d', 0)
-                if pd.isna(volatility_7d):
-                    vol_risk_score = 50
-                elif volatility_7d < 3.0:
-                    vol_risk_score = 100
-                elif volatility_7d < 7.0:
-                    vol_risk_score = 85
-                elif volatility_7d < 15.0:
-                    vol_risk_score = 60
-                elif volatility_7d < 25.0:
-                    vol_risk_score = 35
-                else:
-                    vol_risk_score = 20
-                
-                # Price Impact Risk (40%)
-                rvol = row.get('rvol', 1.0)
-                ret_1d = row.get('ret_1d', 0)
-                if pd.notna(rvol) and pd.notna(ret_1d) and rvol > 0:
-                    ver = abs(ret_1d) / rvol
-                    if ver >= 2.0:
-                        impact_risk_score = 100
-                    elif ver >= 1.0:
-                        impact_risk_score = 85
-                    elif ver >= 0.5:
-                        impact_risk_score = 65
-                    elif ver >= 0.2:
-                        impact_risk_score = 45
-                    else:
-                        impact_risk_score = 25
-                else:
-                    impact_risk_score = 50
-                
-                return vol_risk_score * 0.60 + impact_risk_score * 0.40
-            
-            def calculate_risk_factor(row):
-                """Calculate risk factor (0.6x - 1.4x)"""
-                liquidity_risk = calculate_liquidity_risk(row)
-                money_flow_risk = calculate_money_flow_risk(row)
-                execution_risk = calculate_execution_risk(row)
-                composite_score = liquidity_risk * 0.40 + money_flow_risk * 0.35 + execution_risk * 0.25
-                risk_factor = 0.6 + (composite_score / 100.0) * 0.8
-                return np.clip(risk_factor, 0.6, 1.4)
-            
-            def calculate_confidence_score(row):
-                """Calculate confidence based on data completeness (0.5 - 1.0)"""
-                critical_columns = {
-                    'volume_1d': 0.15, 'volume_7d': 0.10, 'volume_30d': 0.10, 'rvol': 0.05,
-                    'ret_1d': 0.10, 'ret_7d': 0.08, 'ret_30d': 0.07,
-                    'money_flow_mm': 0.07, 'smart_money_flow': 0.07, 'momentum_harmony': 0.06,
-                    'market_state': 0.05, 'volatility_7d': 0.05, 'vmi': 0.03, 'daily_turnover': 0.02
-                }
-                completeness_score = sum(weight for col, weight in critical_columns.items() 
-                                        if col in row.index and pd.notna(row[col]))
-                confidence = 0.5 + (completeness_score * 0.5)
-                return np.clip(confidence, 0.5, 1.0)
             
             def calculate_advanced_vqs(row):
                 """
@@ -2103,426 +1590,127 @@ class DataProcessor:
             logger.info(f"Advanced VQS average: {df['vqs_score'].mean():.2f}, median: {df['vqs_score'].median():.2f}")
             logger.info(f"Component averages - Volume: {df['vqs_volume_strength'].mean():.1f}, SmartMoney: {df['vqs_smart_money'].mean():.1f}, Consistency: {df['vqs_consistency'].mean():.1f}, Efficiency: {df['vqs_efficiency'].mean():.1f}")
         
-        # 8.2. ⚡ ADVANCED VOLUME EFFICIENCY RATIO (Advanced VER) - Multi-Dimensional Intelligence
-        # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
-        # Uses 30+ data columns for comprehensive volume efficiency assessment
+        # 8.2. ⚡ VOLUME MOMENTUM INDICATOR PLUS (VMI+) - Simple, Powerful, No Overengineering
+        # VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
+        # Replaces overengineered Advanced VER with cleaner design
         
-        # Check required columns for Advanced VER calculation
-        required_cols_advanced_ver = ['ret_1d', 'ret_7d', 'ret_30d', 'vol_ratio_1d_90d', 'vol_ratio_7d_90d', 'vol_ratio_30d_90d']
-        if all(col in df.columns for col in required_cols_advanced_ver):
+        # Check required columns for VMI+ calculation
+        required_cols_vmi_plus = ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'money_flow_mm']
+        if all(col in df.columns for col in required_cols_vmi_plus):
             
-            # ===== COMPONENT 1: MULTI-TIMEFRAME BASE VER =====
-            def calculate_multi_timeframe_ver(row):
+            def calculate_vmi_plus(row):
                 """
-                Calculate VER across 3 timeframes with time-decay weighting.
+                Calculate VMI+ (Volume Momentum Indicator Plus) - Simple & Powerful
                 
-                Formula: Base_VER = (ver_1d × 50%) + (ver_7d × 30%) + (ver_30d × 20%)
+                Formula: VMI+ = (Acceleration × 40%) + (Correlation × 35%) + (Footprint × 25%)
                 
-                Why multi-timeframe?
-                - Single-day VER is noisy (gap ups, news events)
-                - Weekly VER shows sustained efficiency
-                - Monthly VER reveals structural quality
+                Components:
+                - Acceleration: Is volume building or fading? (vol 1d vs 7d vs 30d)
+                - Correlation: Do price and volume move together? (healthy alignment)
+                - Footprint: Are trades large (institutional) or small (retail)?
                 
-                Returns: float (0 to ~20+, typically 0-5)
+                Returns: pd.Series with 6 values
                 """
-                # TIMEFRAME 1: Daily VER (50% weight - most recent)
-                ret_1d = row.get('ret_1d', 0)
-                vol_ratio_1d = row.get('vol_ratio_1d_90d', 1.0)
+                # ===== COMPONENT 1: VOLUME ACCELERATION (40%) =====
+                vol_1d = row.get('volume_1d', 0)
+                vol_7d = row.get('volume_7d', 0)
+                vol_30d = row.get('volume_30d', 0)
                 
-                if pd.notna(ret_1d) and pd.notna(vol_ratio_1d) and vol_ratio_1d > 0:
-                    ver_1d = abs(ret_1d) / vol_ratio_1d
-                else:
-                    ver_1d = 0
-                
-                # TIMEFRAME 2: Weekly VER (30% weight - short-term trend)
-                ret_7d = row.get('ret_7d', 0)
-                vol_ratio_7d = row.get('vol_ratio_7d_90d', 1.0)
-                
-                if pd.notna(ret_7d) and pd.notna(vol_ratio_7d) and vol_ratio_7d > 0:
-                    ver_7d = abs(ret_7d) / vol_ratio_7d
-                else:
-                    ver_7d = 0
-                
-                # TIMEFRAME 3: Monthly VER (20% weight - structural quality)
-                ret_30d = row.get('ret_30d', 0)
-                vol_ratio_30d = row.get('vol_ratio_30d_90d', 1.0)
-                
-                if pd.notna(ret_30d) and pd.notna(vol_ratio_30d) and vol_ratio_30d > 0:
-                    ver_30d = abs(ret_30d) / vol_ratio_30d
-                else:
-                    ver_30d = 0
-                
-                # TIME-WEIGHTED AGGREGATION (Recent periods matter more)
-                base_ver = (
-                    ver_1d * 0.50 +   # Daily: 50%
-                    ver_7d * 0.30 +   # Weekly: 30%
-                    ver_30d * 0.20    # Monthly: 20%
-                )
-                
-                return base_ver
-            
-            df['advanced_ver_base'] = df.apply(calculate_multi_timeframe_ver, axis=1)
-            
-            # ===== COMPONENT 2: QUALITY MULTIPLIER =====
-            def calculate_quality_multiplier(row):
-                """
-                Adjust VER based on volume quality indicators.
-                
-                Formula: Quality = (Consistency × 40%) + (VMI × 30%) + (Momentum Harmony × 30%)
-                Range: 0.5x to 1.5x
-                
-                Why quality multiplier?
-                - Raw VER doesn't account for volume reliability
-                - Consistent volume = more trustworthy efficiency
-                - Volume momentum shows acceleration/deceleration
-                - Momentum harmony confirms multi-timeframe alignment
-                
-                Returns: float (0.5 to 1.5)
-                """
-                # SUB-COMPONENT 1: Volume Consistency (40% of multiplier)
-                vqs_consistency = row.get('vqs_consistency_score', 50)  # Default 50 (neutral)
-                
-                # Normalize to 0.8-1.2 range
-                consistency_factor = 0.8 + (vqs_consistency / 100) * 0.4
-                
-                # SUB-COMPONENT 2: Volume Momentum Index (30% of multiplier)
-                vmi = row.get('vmi', 1.0)  # Default 1.0 (neutral)
-                
-                if pd.notna(vmi):
-                    if vmi > 2.0:
-                        vmi_factor = 1.2  # Strong volume momentum (boost)
-                    elif vmi > 1.5:
-                        vmi_factor = 1.1
-                    elif vmi > 0.7:
-                        vmi_factor = 1.0  # Neutral
-                    elif vmi > 0.5:
-                        vmi_factor = 0.9
+                if all(pd.notna(v) and v > 0 for v in [vol_1d, vol_7d, vol_30d]):
+                    # Calculate volume ratios
+                    vol_ratio_1d_7d = vol_1d / vol_7d
+                    vol_ratio_7d_30d = vol_7d / vol_30d
+                    
+                    # Score acceleration
+                    if vol_ratio_1d_7d > 1.5 and vol_ratio_7d_30d > 1.2:
+                        acceleration = 100  # Strong building
+                    elif vol_ratio_1d_7d > 1.2:
+                        acceleration = 80   # Building
+                    elif vol_ratio_1d_7d > 0.8:
+                        acceleration = 50   # Stable
                     else:
-                        vmi_factor = 0.8  # Weak volume momentum (penalty)
+                        acceleration = 20   # Fading
                 else:
-                    vmi_factor = 1.0
+                    acceleration = 50  # Neutral if data missing
                 
-                # SUB-COMPONENT 3: Momentum Harmony (30% of multiplier)
-                momentum_harmony = row.get('momentum_harmony', 2)  # Default 2 (mixed)
-                
-                if pd.notna(momentum_harmony):
-                    # Ensure harmony is in expected 0-4 range (clip to prevent unexpected values)
-                    momentum_harmony = np.clip(momentum_harmony, 0, 4)
-                    # Perfect harmony (4) = 1.15x boost, Broken (0) = 0.85x penalty
-                    harmony_factor = 0.85 + (momentum_harmony / 4) * 0.30
-                else:
-                    harmony_factor = 1.0
-                
-                # AGGREGATE QUALITY MULTIPLIER
-                quality_multiplier = (
-                    consistency_factor * 0.40 +
-                    vmi_factor * 0.30 +
-                    harmony_factor * 0.30
-                )
-                
-                # Clip to reasonable range [0.5, 1.5]
-                quality_multiplier = np.clip(quality_multiplier, 0.5, 1.5)
-                
-                return quality_multiplier
-            
-            df['advanced_ver_quality_mult'] = df.apply(calculate_quality_multiplier, axis=1)
-            
-            # ===== COMPONENT 3: REGIME ADJUSTMENT =====
-            def calculate_regime_adjustment(row):
-                """
-                Adjust VER based on market regime context.
-                
-                Formula: Regime = (Market State × 60%) + (Volatility × 40%)
-                Range: 0.7x to 1.3x
-                
-                Why regime adjustment?
-                - Same VER means different things in different market states
-                - VER=2.0 in STRONG_UPTREND is normal (expected)
-                - VER=2.0 in SIDEWAYS is exceptional (rare quality)
-                - High volatility increases risk → discount VER
-                
-                Returns: float (0.7 to 1.3)
-                """
-                # SUB-COMPONENT 1: Market State (60% of adjustment)
-                market_state = row.get('market_state', 'SIDEWAYS')
-                
-                state_factors = {
-                    'STRONG_UPTREND': 1.25,  # Strong trends = expect high efficiency
-                    'UPTREND': 1.15,
-                    'PULLBACK': 1.05,  # Pullbacks still in uptrend context
-                    'SIDEWAYS': 1.00,  # Neutral
-                    'ROTATION': 0.90,  # Uncertainty discount
-                    'DOWNTREND': 0.85,  # Downtrends = lower efficiency acceptable
-                    'STRONG_DOWNTREND': 0.80,
-                    'BOUNCE': 0.95,  # Bounces are temporary
-                    'UNKNOWN': 1.00
-                }
-                state_factor = state_factors.get(market_state, 1.00)
-                
-                # SUB-COMPONENT 2: Volatility Regime (40% of adjustment)
-                # Calculate volatility from returns
+                # ===== COMPONENT 2: PRICE-VOLUME CORRELATION (35%) =====
                 ret_1d = row.get('ret_1d', 0)
-                ret_7d = row.get('ret_7d', 0)
-                ret_30d = row.get('ret_30d', 0)
                 
-                # Estimate volatility as std of daily-equivalent returns
-                daily_equivalent = []
-                if pd.notna(ret_1d):
-                    daily_equivalent.append(ret_1d)
-                if pd.notna(ret_7d) and ret_7d != 0:
-                    daily_equivalent.append(ret_7d / 7)
-                if pd.notna(ret_30d) and ret_30d != 0:
-                    daily_equivalent.append(ret_30d / 30)
-                
-                if len(daily_equivalent) >= 2:
-                    volatility = np.std(daily_equivalent)
+                if pd.notna(ret_1d) and pd.notna(vol_1d) and pd.notna(vol_7d) and vol_7d > 0:
+                    # Check if price and volume move together
+                    price_direction = 1 if ret_1d > 0 else -1
+                    volume_direction = 1 if vol_1d > vol_7d else -1
+                    
+                    if price_direction == volume_direction:
+                        correlation = 100  # Aligned (healthy)
+                    else:
+                        correlation = 30   # Divergence (warning)
                 else:
-                    volatility = 5  # Default NORMAL volatility
+                    correlation = 50  # Neutral if data missing
                 
-                # Map volatility to factor
-                if volatility > 15:  # HIGH
-                    vol_factor = 0.85
-                elif volatility > 7:  # ELEVATED
-                    vol_factor = 0.92
-                elif volatility < 3:  # LOW
-                    vol_factor = 1.10
-                else:  # NORMAL
-                    vol_factor = 1.00
-                
-                # AGGREGATE REGIME ADJUSTMENT
-                regime_adjustment = (
-                    state_factor * 0.60 +
-                    vol_factor * 0.40
-                )
-                
-                # Clip to reasonable range [0.7, 1.3]
-                regime_adjustment = np.clip(regime_adjustment, 0.7, 1.3)
-                
-                return regime_adjustment
-            
-            df['advanced_ver_regime_adj'] = df.apply(calculate_regime_adjustment, axis=1)
-            
-            # ===== COMPONENT 4: RISK FACTOR =====
-            def calculate_risk_factor(row):
-                """
-                Adjust VER based on risk indicators.
-                
-                Formula: Risk = (Money Flow × 35%) + (Smart Money × 30%) + (Liquidity × 20%) + (Size × 15%)
-                Range: 0.6x to 1.4x
-                
-                Why risk factor?
-                - VER alone doesn't show institutional confidence
-                - High money flow = institutional validation = lower risk
-                - Smart money accumulation = bullish signal
-                - Deep liquidity = lower execution risk
-                
-                Returns: float (0.6 to 1.4)
-                """
-                # SUB-COMPONENT 1: Money Flow Magnitude (35% of risk factor)
+                # ===== COMPONENT 3: INSTITUTIONAL FOOTPRINT (25%) =====
                 money_flow_mm = row.get('money_flow_mm', 0)
                 
-                if pd.notna(money_flow_mm):
-                    if money_flow_mm > 1000:  # > ₹1000Cr
-                        mf_factor = 1.25  # Large institutional interest
-                    elif money_flow_mm > 500:  # > ₹500Cr
-                        mf_factor = 1.15
-                    elif money_flow_mm > 100:  # > ₹100Cr
-                        mf_factor = 1.05
-                    elif money_flow_mm > 10:  # > ₹10Cr
-                        mf_factor = 1.00
+                if pd.notna(money_flow_mm) and pd.notna(vol_1d) and vol_1d > 0:
+                    # Average trade size (Cr per million shares)
+                    avg_trade_size = money_flow_mm / (vol_1d / 1_000_000) if vol_1d > 0 else 0
+                    
+                    if avg_trade_size > 1.0:
+                        footprint = 100  # Large institutional trades
+                    elif avg_trade_size > 0.5:
+                        footprint = 80   # Good institutional presence
+                    elif avg_trade_size > 0.2:
+                        footprint = 60   # Mixed
                     else:
-                        mf_factor = 0.85  # Low money flow = higher risk
+                        footprint = 30   # Retail dominated
                 else:
-                    mf_factor = 1.00
+                    footprint = 50  # Neutral if data missing
                 
-                # SUB-COMPONENT 2: Smart Money Signal (30% of risk factor)
-                smart_money = row.get('smart_money_flow', 'Unknown')
-                
-                smart_money_factors = {
-                    'Strong Accumulation': 1.30,  # Institutions buying aggressively
-                    'Accumulation': 1.15,
-                    'Neutral': 1.00,
-                    'Distribution': 0.85,
-                    'Strong Distribution': 0.70,  # Institutions selling - high risk
-                    'Unknown': 1.00
-                }
-                sm_factor = smart_money_factors.get(smart_money, 1.00)
-                
-                # SUB-COMPONENT 3: Liquidity Depth (20% of risk factor)
-                daily_turnover = row.get('daily_turnover', 0)
-                
-                if pd.notna(daily_turnover):
-                    if daily_turnover > 100_000_000:  # > ₹10Cr
-                        liq_factor = 1.20
-                    elif daily_turnover > 50_000_000:  # > ₹5Cr
-                        liq_factor = 1.10
-                    elif daily_turnover > 10_000_000:  # > ₹1Cr
-                        liq_factor = 1.00
-                    elif daily_turnover > 1_000_000:  # > ₹10L
-                        liq_factor = 0.90
-                    else:
-                        liq_factor = 0.75  # Very illiquid
-                else:
-                    liq_factor = 1.00
-                
-                # SUB-COMPONENT 4: Size Factor (15% of risk factor)
-                # Use price as proxy for market cap size
-                price = row.get('price', 0)
-                
-                if pd.notna(price) and price > 0:
-                    if price > 1000:  # Large cap proxy
-                        size_factor = 1.10
-                    elif price > 500:  # Mid cap
-                        size_factor = 1.05
-                    elif price > 100:  # Small cap
-                        size_factor = 1.00
-                    else:  # Micro cap (higher risk)
-                        size_factor = 0.90
-                else:
-                    size_factor = 1.00
-                
-                # AGGREGATE RISK FACTOR
-                risk_factor = (
-                    mf_factor * 0.35 +
-                    sm_factor * 0.30 +
-                    liq_factor * 0.20 +
-                    size_factor * 0.15
+                # ===== WEIGHTED COMPOSITE =====
+                vmi_plus_score = (
+                    acceleration * 0.40 +
+                    correlation * 0.35 +
+                    footprint * 0.25
                 )
                 
-                # Clip to reasonable range [0.6, 1.4]
-                risk_factor = np.clip(risk_factor, 0.6, 1.4)
-                
-                return risk_factor
-            
-            df['advanced_ver_risk_factor'] = df.apply(calculate_risk_factor, axis=1)
-            
-            # ===== FINAL ADVANCED VER CALCULATION =====
-            # Advanced VER = Base_VER × Quality_Multiplier × Regime_Adjustment × Risk_Factor
-            # Apply safety clipping to prevent extreme compounding effects
-            df['advanced_ver'] = df.apply(
-                lambda row: np.clip(
-                    row['advanced_ver_base'] *
-                    row['advanced_ver_quality_mult'] *
-                    row['advanced_ver_regime_adj'] *
-                    row['advanced_ver_risk_factor'],
-                    row['advanced_ver_base'] * 0.4,  # Min: 40% of base (prevent over-penalization)
-                    row['advanced_ver_base'] * 2.0   # Max: 200% of base (prevent over-amplification)
-                ) if row['advanced_ver_base'] > 0 else 0,
-                axis=1
-            ).round(3)
-            
-            # Calculate confidence score based on data availability
-            def calculate_ver_confidence(row):
-                """
-                Calculate confidence score (0-100) based on data availability.
-                More data available = higher confidence in Advanced VER calculation.
-                Checks 10 critical data points across all VER components.
-                """
-                available_data = sum([
-                    1 if pd.notna(row.get('ret_1d')) and row.get('ret_1d', 0) != 0 else 0,
-                    1 if pd.notna(row.get('ret_7d')) and row.get('ret_7d', 0) != 0 else 0,
-                    1 if pd.notna(row.get('ret_30d')) and row.get('ret_30d', 0) != 0 else 0,
-                    1 if pd.notna(row.get('vol_ratio_1d_90d')) and row.get('vol_ratio_1d_90d', 0) > 0 else 0,
-                    1 if pd.notna(row.get('vol_ratio_7d_90d')) and row.get('vol_ratio_7d_90d', 0) > 0 else 0,
-                    1 if pd.notna(row.get('vol_ratio_30d_90d')) and row.get('vol_ratio_30d_90d', 0) > 0 else 0,
-                    1 if pd.notna(row.get('vmi')) else 0,
-                    1 if pd.notna(row.get('momentum_harmony')) else 0,
-                    1 if pd.notna(row.get('money_flow_mm')) else 0,
-                    1 if pd.notna(row.get('smart_money_flow')) and row.get('smart_money_flow') != 'Unknown' else 0,
-                ])
-                confidence = (available_data / 10) * 100
-                return confidence
-            
-            df['advanced_ver_confidence'] = df.apply(calculate_ver_confidence, axis=1).round(1)
-            
-            # ===== ADVANCED VER SCORING SYSTEM =====
-            def calculate_advanced_ver_score(ver_value):
-                """
-                Convert Advanced VER to 0-100 score with professional thresholds.
-                
-                Thresholds:
-                - >10.0: 100 (EXTREME - Institutional parabolic)
-                - >5.0: 95 (ELITE+ - Supply shock)
-                - >2.5: 85 (STRONG - Professional quality)
-                - >1.5: 75 (GOOD - Above average)
-                - >0.8: 60 (FAIR - Acceptable)
-                - >0.5: 45 (BELOW AVG)
-                - <0.5: 25 (POOR - Inefficient/risky)
-                """
-                if pd.isna(ver_value) or ver_value == 0:
-                    return 0
-                elif ver_value > 10.0:
-                    return 100
-                elif ver_value > 5.0:
-                    return 95
-                elif ver_value > 2.5:
-                    return 85
-                elif ver_value > 1.5:
-                    return 75
-                elif ver_value > 0.8:
-                    return 60
-                elif ver_value > 0.5:
-                    return 45
+                # ===== GRADING =====
+                if vmi_plus_score >= 85:
+                    grade, status = "A+", "🚀 Explosive"
+                elif vmi_plus_score >= 70:
+                    grade, status = "A", "🔥 Strong"
+                elif vmi_plus_score >= 55:
+                    grade, status = "B", "✅ Good"
+                elif vmi_plus_score >= 40:
+                    grade, status = "C", "⚪ Average"
+                elif vmi_plus_score >= 25:
+                    grade, status = "D", "⚠️ Weak"
                 else:
-                    return 25
-            
-            df['advanced_ver_score'] = df['advanced_ver'].apply(calculate_advanced_ver_score)
-            
-            # Assign letter grades with + modifiers for exceptional performance
-            def assign_advanced_ver_grade(ver_value):
-                """
-                Assign letter grade (A+, A, B, C, D, F) based on Advanced VER value.
+                    grade, status = "F", "❌ Poor"
                 
-                Grades:
-                - A+ (>10.0): Extreme - Institutional parabolic potential
-                - A (>5.0): Elite+ - Supply shock conditions
-                - B (>2.5): Strong - Professional-grade efficiency
-                - C (>1.5): Good - Above-average quality
-                - D (>0.8): Fair - Acceptable efficiency
-                - F (<0.8): Poor - Inefficient or risky
-                """
-                if pd.isna(ver_value) or ver_value == 0:
-                    return "N/A"
-                elif ver_value > 10.0:
-                    return "A+"  # Extreme
-                elif ver_value > 5.0:
-                    return "A"   # Elite+
-                elif ver_value > 2.5:
-                    return "B"   # Strong
-                elif ver_value > 1.5:
-                    return "C"   # Good
-                elif ver_value > 0.8:
-                    return "D"   # Fair
-                else:
-                    return "F"   # Poor
+                return pd.Series({
+                    'vmi_plus_score': round(vmi_plus_score, 2),
+                    'vmi_plus_acceleration': round(acceleration, 2),
+                    'vmi_plus_correlation': round(correlation, 2),
+                    'vmi_plus_footprint': round(footprint, 2),
+                    'vmi_plus_grade': grade,
+                    'vmi_plus_status': status
+                })
             
-            df['advanced_ver_grade'] = df['advanced_ver'].apply(assign_advanced_ver_grade)
+            # Calculate VMI+ for all stocks
+            logger.info("Calculating VMI+ (Volume Momentum Indicator Plus)...")
+            vmi_plus_results = df.apply(calculate_vmi_plus, axis=1)
+            df['vmi_plus_score'] = vmi_plus_results['vmi_plus_score']
+            df['vmi_plus_acceleration'] = vmi_plus_results['vmi_plus_acceleration']
+            df['vmi_plus_correlation'] = vmi_plus_results['vmi_plus_correlation']
+            df['vmi_plus_footprint'] = vmi_plus_results['vmi_plus_footprint']
+            df['vmi_plus_grade'] = vmi_plus_results['vmi_plus_grade']
+            df['vmi_plus_status'] = vmi_plus_results['vmi_plus_status']
             
-            # Assign status labels with emojis
-            def assign_advanced_ver_status(grade):
-                """Assign visual status label with emoji for Advanced VER grade."""
-                grade_status = {
-                    "A+": "🚀 Extreme",
-                    "A": "🔥 Elite+",
-                    "B": "✅ Strong",
-                    "C": "⚪ Good",
-                    "D": "⚠️ Fair",
-                    "F": "🚨 Poor",
-                    "N/A": "Unknown"
-                }
-                return grade_status.get(grade, "Unknown")
-            
-            df['advanced_ver_status'] = df['advanced_ver_grade'].apply(assign_advanced_ver_status)
-            
-            # Comprehensive logging
-            logger.info(f"Advanced VER calculated successfully")
-            logger.info(f"Advanced VER Grade distribution: {df['advanced_ver_grade'].value_counts().to_dict()}")
-            logger.info(f"Advanced VER range: [{df['advanced_ver'].min():.3f} to {df['advanced_ver'].max():.3f}]")
-            logger.info(f"Advanced VER mean: {df['advanced_ver'].mean():.3f}, median: {df['advanced_ver'].median():.3f}")
-            logger.info(f"Advanced VER components - Base mean: {df['advanced_ver_base'].mean():.3f}, Quality mean: {df['advanced_ver_quality_mult'].mean():.3f}, Regime mean: {df['advanced_ver_regime_adj'].mean():.3f}, Risk mean: {df['advanced_ver_risk_factor'].mean():.3f}")
-            logger.info(f"Advanced VER confidence scores - Mean: {df['advanced_ver_confidence'].mean():.1f}%, Median: {df['advanced_ver_confidence'].median():.1f}%")
-        
-        # 9. Growth Trend Classification (Based on Momentum)
+            # Logging
+            logger.info(f"VMI+ calculated. Grade distribution: {df['vmi_plus_grade'].value_counts().to_dict()}")
+            logger.info(f"VMI+ score range: [{df['vmi_plus_score'].min():.2f} to {df['vmi_plus_score'].max():.2f}]")
+            logger.info(f"VMI+ average: {df['vmi_plus_score'].mean():.2f}, median: {df['vmi_plus_score'].median():.2f}")
+            logger.info(f"Component averages - Acceleration: {df['vmi_plus_acceleration'].mean():.1f}, Correlation: {df['vmi_plus_correlation'].mean():.1f}, Footprint: {df['vmi_plus_footprint'].mean():.1f}")
         if all(col in df.columns for col in ['growth_30_to_90', 'growth_90_to_180', 'growth_momentum']):
             def classify_growth_trend(row):
                 g1 = row['growth_30_to_90']       # 30d vs 90d momentum
@@ -9900,7 +9088,7 @@ class FilterEngine:
             'growth_quality_tiers': [],
             'smart_money_flows': [],
             'vqs_grades': [],  # VQS Grade filter
-            'advanced_ver_grades': [],  # Advanced VER Grade filter
+            'vmi_plus_grades': [],  # VMI+ Grade filter
             'momentum_selection': "All Momentum",
             'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
@@ -10348,11 +9536,11 @@ class FilterEngine:
             if selected_grades:
                 masks.append(df['vqs_grade'].isin(selected_grades))
         
-        # 5.56.0.5. ⚡ Advanced VER Grade Filter
-        if 'advanced_ver_grades' in filters and 'advanced_ver_grade' in df.columns:
-            selected_grades = filters['advanced_ver_grades']
+        # 5.56.0.5. 🚀 VMI+ Grade Filter
+        if 'vmi_plus_grades' in filters and 'vmi_plus_grade' in df.columns:
+            selected_grades = filters['vmi_plus_grades']
             if selected_grades:
-                masks.append(df['advanced_ver_grade'].isin(selected_grades))
+                masks.append(df['vmi_plus_grade'].isin(selected_grades))
         
         # 5.56.1. Growth Trend Classification Filter (with Custom Range support)
         if 'growth_trend_custom_range' in filters and 'composite_growth_score' in df.columns:
@@ -10809,7 +9997,7 @@ class FilterEngine:
             'growth_quality_tiers': [],
             'smart_money_flows': [],
             'vqs_grades': [],  # VQS Grade filter
-            'advanced_ver_grades': [],  # Advanced VER Grade filter
+            'vmi_plus_grades': [],  # VMI+ Grade filter
             'momentum_selection': "All Momentum",
             'momentum_custom_range': (-100.0, 100.0),
             'momentum_range': (-100.0, 100.0),
@@ -12058,7 +11246,7 @@ class SessionStateManager:
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
                 'vqs_grades': [],  # VQS Grade filter
-                'advanced_ver_grades': [],  # Advanced VER Grade filter
+                'vmi_plus_grades': [],  # VMI+ Grade filter
                 'momentum_selection': "All Momentum",
                 'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
@@ -12357,7 +11545,7 @@ class SessionStateManager:
                 'growth_quality_tiers': [],
                 'smart_money_flows': [],
                 'vqs_grades': [],  # VQS Grade filter
-                'advanced_ver_grades': [],  # Advanced VER Grade filter
+                'vmi_plus_grades': [],  # VMI+ Grade filter
                 'momentum_selection': "All Momentum",
                 'momentum_custom_range': (-100.0, 100.0),
                 'momentum_range': (-100.0, 100.0),
@@ -14457,38 +13645,38 @@ def main():
                     selected_letter_grades = [grade.split(" - ")[0] for grade in vqs_grades]
                     filters['vqs_grades'] = selected_letter_grades
                 
-                st.caption("💡 **Tip:** Combine Advanced VQS A+/A with Advanced VER for institutional-grade stocks")
+                st.caption("💡 **Tip:** Combine Advanced VQS A+/A with VMI+ for institutional-grade stocks")
                 st.markdown("---")
             
-            # ⚡ Advanced VER Grade Filter (Multi-Dimensional Volume Efficiency)
-            if 'advanced_ver_grade' in ranked_df_display.columns:
-                st.markdown("**⚡ Advanced Volume Efficiency Ratio (VER) Grade**")
+            # 🚀 VMI+ Grade Filter (Volume Momentum Indicator Plus)
+            if 'vmi_plus_grade' in ranked_df_display.columns:
+                st.markdown("**🚀 Volume Momentum Indicator Plus (VMI+) Grade**")
                 
-                advanced_ver_grade_options = [
-                    "A+ - 🚀 Extreme (>10.0)",
-                    "A - 🔥 Elite+ (>5.0)",
-                    "B - ✅ Strong (>2.5)",
-                    "C - ⚪ Good (>1.5)",
-                    "D - ⚠️ Fair (>0.8)",
-                    "F - 🚨 Poor (<0.8)"
+                vmi_plus_grade_options = [
+                    "A+ - 🚀 Explosive (≥85)",
+                    "A - 🔥 Strong (≥70)",
+                    "B - ✅ Good (≥55)",
+                    "C - ⚪ Moderate (≥40)",
+                    "D - ⚠️ Weak (≥25)",
+                    "F - 🚨 Poor (<25)"
                 ]
                 
-                advanced_ver_grades = st.multiselect(
-                    "Filter by Advanced VER Grade",
-                    options=advanced_ver_grade_options,
-                    default=st.session_state.filter_state.get('advanced_ver_grades', []),
-                    key='advanced_ver_grade_multiselect',
-                    on_change=lambda: st.session_state.filter_state.update({'advanced_ver_grades': st.session_state.advanced_ver_grade_multiselect}),
-                    help="⚡ Filter by Advanced Volume Efficiency Ratio grade. Advanced VER is a multi-dimensional metric combining Base VER (multi-timeframe) × Quality Multiplier (consistency, VMI, harmony) × Regime Adjustment (market state, volatility) × Risk Factor (money flow, smart money, liquidity). This sophisticated algorithm uses 30+ data columns for institutional-grade volume efficiency assessment."
+                vmi_plus_grades = st.multiselect(
+                    "Filter by VMI+ Grade",
+                    options=vmi_plus_grade_options,
+                    default=st.session_state.filter_state.get('vmi_plus_grades', []),
+                    key='vmi_plus_grade_multiselect',
+                    on_change=lambda: st.session_state.filter_state.update({'vmi_plus_grades': st.session_state.vmi_plus_grade_multiselect}),
+                    help="🚀 Filter by Volume Momentum Indicator Plus grade. VMI+ combines 3 powerful components: (1) Volume Acceleration (40%) - measures volume building vs fading across 1d/7d/30d periods, (2) Price-Volume Correlation (35%) - detects healthy alignment or divergence between price and volume, (3) Institutional Footprint (25%) - identifies large institutional trades vs retail activity. This simple yet powerful indicator focuses on volume momentum quality."
                 )
                 
-                if advanced_ver_grades:
-                    # Extract letter grades from selected options (e.g., "A+ - 🚀 Extreme (>10.0)" -> "A+")
-                    selected_letter_grades = [grade.split(" - ")[0] for grade in advanced_ver_grades]
-                    filters['advanced_ver_grades'] = selected_letter_grades
+                if vmi_plus_grades:
+                    # Extract letter grades from selected options (e.g., "A+ - 🚀 Explosive (≥85)" -> "A+")
+                    selected_letter_grades = [grade.split(" - ")[0] for grade in vmi_plus_grades]
+                    filters['vmi_plus_grades'] = selected_letter_grades
                 
-                st.caption("💡 **Tip:** A+ and A grades indicate institutional-quality efficiency with supply shock potential")
-                st.caption("🎯 **Pro Tip:** Combine Advanced VER A+/A with VQS A/B and STRONG_UPTREND for elite opportunities")
+                st.caption("💡 **Tip:** A+ and A grades indicate explosive volume momentum with strong institutional participation")
+                st.caption("🎯 **Pro Tip:** Combine VMI+ A+/A with VQS A/B and STRONG_UPTREND for elite momentum opportunities")
                 st.markdown("---")
             
             # Growth Trend Classification Filter with Custom Range
@@ -19650,87 +18838,84 @@ def main():
                             
                             st.markdown("---")
                             
-                            # ⚡ ADVANCED VER (VOLUME EFFICIENCY RATIO) - Multi-Dimensional Algorithm
-                            st.markdown("**⚡ Advanced Volume Efficiency Ratio (VER)**")
-                            st.caption("Multi-dimensional algorithm using 30+ data columns: Base VER × Quality × Regime × Risk")
+                            # 🚀 VMI+ (VOLUME MOMENTUM INDICATOR PLUS)
+                            st.markdown("**🚀 Volume Momentum Indicator Plus (VMI+)**")
+                            st.caption("Simple yet powerful: Acceleration (40%) + Correlation (35%) + Footprint (25%)")
                             
-                            # Extract Advanced VER components
-                            if 'advanced_ver' in stock.index and pd.notna(stock['advanced_ver']):
-                                adv_ver = stock['advanced_ver']
-                                adv_ver_base = stock.get('advanced_ver_base', 0)
-                                adv_ver_quality = stock.get('advanced_ver_quality_mult', 1.0)
-                                adv_ver_regime = stock.get('advanced_ver_regime_adj', 1.0)
-                                adv_ver_risk = stock.get('advanced_ver_risk_factor', 1.0)
-                                adv_ver_score = stock.get('advanced_ver_score', 0)
-                                adv_ver_grade = stock.get('advanced_ver_grade', 'N/A')
-                                adv_ver_status = stock.get('advanced_ver_status', 'N/A')
-                                adv_ver_confidence = stock.get('advanced_ver_confidence', 0)
+                            # Extract VMI+ components
+                            if 'vmi_plus_score' in stock.index and pd.notna(stock['vmi_plus_score']):
+                                vmi_score = stock['vmi_plus_score']
+                                vmi_acceleration = stock.get('vmi_plus_acceleration', 0)
+                                vmi_correlation = stock.get('vmi_plus_correlation', 0)
+                                vmi_footprint = stock.get('vmi_plus_footprint', 0)
+                                vmi_grade = stock.get('vmi_plus_grade', 'N/A')
+                                vmi_status = stock.get('vmi_plus_status', 'N/A')
                                 
                                 # Determine color based on grade
                                 grade_colors = {
-                                    'A+': ('success', '🚀 Extreme'),
-                                    'A': ('success', '🔥 Elite+'),
-                                    'B': ('success', '✨ Strong'),
-                                    'C': ('info', '➡️ Normal'),
-                                    'D': ('warning', '⚠️ Below Average'),
-                                    'F': ('error', '❌ Poor')
+                                    'A+': ('success', '🚀 Explosive'),
+                                    'A': ('success', '🔥 Strong'),
+                                    'B': ('success', '✅ Good'),
+                                    'C': ('info', '⚪ Moderate'),
+                                    'D': ('warning', '⚠️ Weak'),
+                                    'F': ('error', '🚨 Poor')
                                 }
-                                adv_ver_color, adv_ver_label = grade_colors.get(adv_ver_grade, ('info', '➡️ Normal'))
+                                vmi_color, vmi_label = grade_colors.get(vmi_grade, ('info', '⚪ Moderate'))
                                 
-                                # Display Advanced VER
-                                aver_col1, aver_col2, aver_col3 = st.columns([1, 2, 2])
+                                # Display VMI+
+                                vmi_col1, vmi_col2, vmi_col3 = st.columns([1, 2, 2])
                                 
-                                with aver_col1:
-                                    st.metric("Advanced VER Grade", adv_ver_grade)
-                                    getattr(st, adv_ver_color)(f"**{adv_ver_label}**")
-                                    st.caption(f"Score: {adv_ver_score:.1f}/100")
-                                    st.caption(f"VER Value: {adv_ver:.2f}")
-                                    st.caption(f"Confidence: {adv_ver_confidence:.0f}%")
+                                with vmi_col1:
+                                    st.metric("VMI+ Grade", vmi_grade)
+                                    getattr(st, vmi_color)(f"**{vmi_label}**")
+                                    st.caption(f"Score: {vmi_score:.1f}/100")
+                                    st.caption(f"Status: {vmi_status}")
                                 
-                                with aver_col2:
+                                with vmi_col2:
                                     st.markdown("**🔧 Component Breakdown:**")
-                                    st.caption(f"• Base VER: {adv_ver_base:.2f}")
-                                    st.caption(f"  └─ Multi-timeframe (1d/7d/30d)")
-                                    st.caption(f"• Quality Multiplier: {adv_ver_quality:.2f}x")
-                                    st.caption(f"  └─ VQS + VMI + Harmony")
-                                    st.caption(f"• Regime Adjustment: {adv_ver_regime:.2f}x")
-                                    st.caption(f"  └─ Market State + Volatility")
-                                    st.caption(f"• Risk Factor: {adv_ver_risk:.2f}x")
-                                    st.caption(f"  └─ Money Flow + Smart Money")
+                                    st.caption(f"• Acceleration: {vmi_acceleration:.1f}/100 (40%)")
+                                    st.caption(f"  └─ Volume building vs fading")
+                                    st.caption(f"  └─ 1d/7d/30d momentum analysis")
+                                    st.caption(f"• Correlation: {vmi_correlation:.1f}/100 (35%)")
+                                    st.caption(f"  └─ Price-volume alignment")
+                                    st.caption(f"  └─ Healthy vs divergence")
+                                    st.caption(f"• Footprint: {vmi_footprint:.1f}/100 (25%)")
+                                    st.caption(f"  └─ Average trade size")
+                                    st.caption(f"  └─ Institutional vs retail")
                                     st.caption("")
-                                    st.caption("💡 **Formula:** Base × Quality × Regime × Risk")
+                                    st.caption("💡 **Formula:** Simple weighted average (no multipliers!)")
                                 
-                                with aver_col3:
+                                with vmi_col3:
                                     st.markdown("**📖 Grade Scale:**")
-                                    st.caption("🚀 A+ (>10.0): Extreme efficiency")
-                                    st.caption("🔥 A (>5.0): Elite+ efficiency")
-                                    st.caption("✨ B (>2.5): Strong efficiency")
-                                    st.caption("➡️ C (>1.5): Normal efficiency")
-                                    st.caption("⚠️ D (>0.8): Below average")
-                                    st.caption("❌ F (<0.8): Poor efficiency")
+                                    st.caption("🚀 A+ (≥85): Explosive momentum")
+                                    st.caption("🔥 A (≥70): Strong momentum")
+                                    st.caption("✅ B (≥55): Good momentum")
+                                    st.caption("⚪ C (≥40): Moderate momentum")
+                                    st.caption("⚠️ D (≥25): Weak momentum")
+                                    st.caption("🚨 F (<25): Poor momentum")
                                     st.caption("")
                                     
                                     # Interpretation based on grade
-                                    if adv_ver_grade == 'A+':
-                                        st.success("🎯 **Institutional-grade efficiency**")
-                                        st.caption("Exceptional price movement per unit volume")
-                                    elif adv_ver_grade == 'A':
-                                        st.success("🎯 **Elite efficiency**")
-                                        st.caption("Strong price impact with volume")
-                                    elif adv_ver_grade == 'B':
-                                        st.info("✅ **Good efficiency**")
-                                        st.caption("Above-average volume utilization")
-                                    elif adv_ver_grade == 'C':
-                                        st.info("⚪ **Normal efficiency**")
-                                        st.caption("Typical price-volume relationship")
-                                    elif adv_ver_grade == 'D':
-                                        st.warning("⚠️ **Low efficiency**")
-                                        st.caption("High volume, low price impact")
+                                    if vmi_grade == 'A+':
+                                        st.success("🎯 **Explosive Volume Momentum**")
+                                        st.caption("Building volume + strong correlation + institutional flow")
+                                    elif vmi_grade == 'A':
+                                        st.success("🎯 **Strong Momentum**")
+                                        st.caption("Healthy volume acceleration with good alignment")
+                                    elif vmi_grade == 'B':
+                                        st.info("✅ **Good Momentum**")
+                                        st.caption("Solid volume characteristics")
+                                    elif vmi_grade == 'C':
+                                        st.info("⚪ **Moderate Momentum**")
+                                        st.caption("Average volume momentum")
+                                    elif vmi_grade == 'D':
+                                        st.warning("⚠️ **Weak Momentum**")
+                                        st.caption("Fading volume or poor correlation")
                                     else:  # F
-                                        st.error("❌ **Poor efficiency**")
-                                        st.caption("Volume not translating to movement")
+                                        st.error("🚨 **Poor Momentum**")
+                                        st.caption("Volume divergence or retail-dominated")
                             else:
-                                st.info("⚡ Advanced VER data not available for this stock")
+                                st.info("🚀 VMI+ data not available for this stock")
                             
                             st.markdown("---")
                             
