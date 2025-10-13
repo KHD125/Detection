@@ -1598,6 +1598,8 @@ class DataProcessor:
         required_cols_vmi_plus = ['volume_1d', 'volume_7d', 'volume_30d', 'ret_1d', 'money_flow_mm']
         missing_cols = [col for col in required_cols_vmi_plus if col not in df.columns]
         
+        logger.info(f"🔍 VMI+ Column Check - Missing: {missing_cols}, Required: {required_cols_vmi_plus}")
+        
         if len(missing_cols) == 0:
             
             def calculate_vmi_plus(row):
