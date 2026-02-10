@@ -1576,3 +1576,4 @@ elif page == "🧪 Backtest Lab":
 # ── Footer ──
 st.markdown("---")
 st.caption("WAVE Analyzer — System Intelligence Engine. Companion to WAVE Detection 3.0. Not financial advice.")
+ 
