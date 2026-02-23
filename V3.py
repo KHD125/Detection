@@ -3351,15 +3351,18 @@ class RankingEngine:
         
         # CONTEXT ADJUSTMENTS
         
-        # 1. MOMENTUM CONFIRMATION
-        # High position needs momentum to confirm
-        if 'ret_30d' in df.columns and position_score.notna().any():
-            ret_30d = df['ret_30d']
+        # 1. SHORT-TERM PRICE CONFIRMATION
+        # FIXED v3.2: Use ret_7d instead of ret_30d to avoid cross-contamination with momentum_score
+        # Position confirmation should use SHORT-TERM price action (7d), not the same
+        # 30d signal that momentum_score's sigmoid already processes as its primary input.
+        # This reduces effective ret_30d exposure from ~50% to ~32%.
+        if 'ret_7d' in df.columns and position_score.notna().any():
+            ret_7d = df['ret_7d']
             
-            # Breakout with momentum = confirmed
+            # Breakout with short-term strength = confirmed
             breakout_confirmed = (
                 (position_in_range > 85) & 
-                (ret_30d > 10) & 
+                (ret_7d > 3) &  # 3% weekly = strong short-term
                 position_score.notna()
             )
             if breakout_confirmed.any():
@@ -3368,19 +3371,19 @@ class RankingEngine:
                     100
                 )
             
-            # High position but negative momentum = false breakout
+            # High position but negative short-term = false breakout
             false_breakout = (
                 (position_in_range > 85) & 
-                (ret_30d < -5) & 
+                (ret_7d < -2) &  # Pulling back from highs
                 position_score.notna()
             )
             if false_breakout.any():
                 position_score[false_breakout] *= 0.8
             
-            # Low position with positive momentum = potential reversal
+            # Low position with positive short-term = potential reversal
             reversal_starting = (
                 (position_in_range < 20) & 
-                (ret_30d > 5) & 
+                (ret_7d > 2) &  # Short-term bounce from lows
                 position_score.notna()
             )
             if reversal_starting.any():
@@ -4641,10 +4644,12 @@ class RankingEngine:
                     breakout_score[needs_volume] *= 0.85  # Penalty without volume
         
         # Sector momentum adjustment
-        if 'sector' in df.columns and 'ret_30d' in df.columns:
-            # If sector is strong, individual breakouts more likely
-            sector_returns = df.groupby('sector')['ret_30d'].transform('mean')
-            strong_sector = sector_returns > 10  # Sector up >10% in month
+        # FIXED v3.2: Use ret_3m instead of ret_30d to avoid cross-contamination with momentum_score
+        # Sector rotation is a multi-month phenomenon, not a 1-month signal.
+        if 'sector' in df.columns and 'ret_3m' in df.columns:
+            # If sector is strong over 3 months, individual breakouts more likely
+            sector_returns = df.groupby('sector')['ret_3m'].transform('mean')
+            strong_sector = sector_returns > 20  # Sector up >20% in 3 months
             
             sector_boost = strong_sector & breakout_score.notna() & (breakout_score > 60)
             if sector_boost.any():
