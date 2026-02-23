@@ -12243,7 +12243,13 @@ def main():
                 type="csv",
                 help="Upload a CSV file with stock data. Must contain 'ticker' and 'price' columns."
             )
-            if uploaded_file is None:
+            if uploaded_file is not None:
+                # Store uploaded filename (without .csv extension) for export naming
+                base_name = uploaded_file.name
+                if base_name.lower().endswith('.csv'):
+                    base_name = base_name[:-4]
+                st.session_state['uploaded_file_base_name'] = base_name
+            else:
                 st.info("Please upload a CSV file to continue")
         else:
             # Google Sheets input
@@ -14543,7 +14549,7 @@ def main():
                 st.download_button(
                     label="📥 Download Filtered Data (CSV)",
                     data=csv_filtered,
-                    file_name=f"wave_detection_filtered_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_filtered.csv",
                     mime="text/csv",
                     help="Download currently filtered stocks with all scores and indicators"
                 )
@@ -14557,7 +14563,7 @@ def main():
                 st.download_button(
                     label="📥 Download Top 100 (CSV)",
                     data=csv_top100,
-                    file_name=f"wave_detection_top100_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_top100.csv",
                     mime="text/csv",
                     help="Download top 100 stocks by Master Score"
                 )
@@ -14573,7 +14579,7 @@ def main():
                         st.download_button(
                             label="📥 Download Pattern Stocks (CSV)",
                             data=csv_patterns,
-                            file_name=f"wave_detection_patterns_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                            file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_patterns.csv",
                             mime="text/csv",
                             help="Download stocks with technical patterns"
                         )
@@ -15127,7 +15133,7 @@ def main():
                         st.download_button(
                             label=f"📥 Download Top {display_count} ({export_format})",
                             data=csv_data,
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                            file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_rankings.csv",
                             mime="text/csv"
                         )
                     elif export_format == "Excel":
@@ -15153,7 +15159,7 @@ def main():
                         st.download_button(
                             label=f"📥 Download Top {display_count} (Excel)",
                             data=excel_buffer.getvalue(),
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_rankings.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     elif export_format == "JSON":
@@ -15161,7 +15167,7 @@ def main():
                         st.download_button(
                             label=f"📥 Download Top {display_count} (JSON)",
                             data=json_data,
-                            file_name=f"professional_rankings_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
+                            file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_rankings.json",
                             mime="application/json"
                         )
             
@@ -20198,7 +20204,7 @@ def main():
                             st.download_button(
                                 label="📥 Download Excel Report",
                                 data=excel_file,
-                                file_name=f"wave_detection_report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_report.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                             
@@ -20230,7 +20236,7 @@ def main():
                         st.download_button(
                             label="📥 Download CSV File",
                             data=csv_data,
-                            file_name=f"wave_detection_data_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                            file_name=f"{st.session_state.get('uploaded_file_base_name', 'wave_detection')}_data.csv",
                             mime="text/csv"
                         )
                         
