@@ -332,6 +332,7 @@ class Config:
     VALUE_BOUNDS: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
         'price': (0.01, 1_000_000),
         'rvol': (0.01, 1_000_000.0),
+        'eps': (-1_000_000, 1_000_000),
         'pe': (-10000, 10000),
         'returns': (-99.99, 9999.99),
         'volume': (0, 1e12)
@@ -919,6 +920,8 @@ class DataProcessor:
                     bounds = CONFIG.VALUE_BOUNDS['volume']
                 elif col == 'rvol':
                     bounds = CONFIG.VALUE_BOUNDS['rvol']
+                elif col in ['eps_current', 'eps']:
+                    bounds = CONFIG.VALUE_BOUNDS['eps']
                 elif col == 'pe':
                     bounds = CONFIG.VALUE_BOUNDS['pe']
                 elif is_pct:
