@@ -17425,6 +17425,48 @@ def main():
             
             st.markdown("---")
             st.markdown("### 📊 **ADVANCED MARKET VISUALIZATION SUITE**")
+
+            # Analysis universe: reduce noise by excluding micro-cap names
+            analysis_core_df = filtered_df.copy()
+            analysis_allowed_categories = ['Mega Cap', 'Large Cap', 'Mid Cap', 'Small Cap']
+            if 'category' in analysis_core_df.columns:
+                analysis_core_df = analysis_core_df[analysis_core_df['category'].isin(analysis_allowed_categories)].copy()
+
+            analysis_control_col1, analysis_control_col2 = st.columns([3, 2])
+            with analysis_control_col1:
+                st.info(
+                    f"📌 Analysis universe: Mega/Large/Mid/Small only • "
+                    f"{len(analysis_core_df):,}/{len(filtered_df):,} stocks"
+                )
+
+            analysis_return_map = {
+                '1 Day': 'ret_1d',
+                '7 Days': 'ret_7d',
+                '30 Days': 'ret_30d',
+                '3 Months': 'ret_3m',
+                '6 Months': 'ret_6m',
+                '1 Year': 'ret_1y'
+            }
+            available_analysis_periods = [
+                label for label, col in analysis_return_map.items()
+                if col in analysis_core_df.columns
+            ]
+
+            with analysis_control_col2:
+                if available_analysis_periods:
+                    default_period = '30 Days' if '30 Days' in available_analysis_periods else available_analysis_periods[0]
+                    selected_analysis_period = st.selectbox(
+                        "📅 Sector Return Period",
+                        options=available_analysis_periods,
+                        index=available_analysis_periods.index(default_period),
+                        key="analysis_sector_return_period",
+                        help="Used for return-based sector ranking in this Analysis tab"
+                    )
+                    selected_analysis_return_col = analysis_return_map[selected_analysis_period]
+                else:
+                    selected_analysis_period = None
+                    selected_analysis_return_col = None
+                    st.warning("No return columns available for return-based sector ranking")
             
             viz_tabs = st.tabs([
                 "🎯 Score Analytics", 
@@ -17852,76 +17894,117 @@ def main():
             # Tab 5: Sector Analysis 
             with viz_tabs[4]:
                 st.markdown("#### 🏢 **Comprehensive Sector Intelligence**")
-                
-                sector_overview_df_local = MarketIntelligence.detect_sector_rotation(filtered_df)
-                
-                if not sector_overview_df_local.empty:
-                    sector_intel_cols = st.columns(2)
-                    
-                    with sector_intel_cols[0]:
-                        st.markdown("**🎯 Sector Leadership Analysis**")
-                        
-                        # Enhanced sector display
-                        display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
-                                               'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
-                        
-                        available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
-                        sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
-                        
-                        # Add quality indicators
-                        if 'ldi_score' in sector_overview_display.columns:
-                            sector_overview_display['Sector_Quality'] = sector_overview_display['ldi_score'].apply(
-                                lambda x: '💎 Elite' if x > 20 else '🔥 Strong' if x > 15 else '📈 Good' if x > 10 else '⚖️ Average'
-                            )
-                        
-                        st.dataframe(
-                            sector_overview_display,
-                            width='stretch',
-                            column_config={
-                                'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
-                                'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100, format="%.1f"),
-                                'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
-                                'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
-                            }
+
+                if analysis_core_df.empty:
+                    st.warning("No eligible stocks after category filter (Mega/Large/Mid/Small).")
+                else:
+                    # Return-based sector ranking for the selected timeframe
+                    if selected_analysis_return_col and 'sector' in analysis_core_df.columns:
+                        sector_base = analysis_core_df[analysis_core_df['sector'].notna()].copy()
+
+                        sector_return_df = sector_base.groupby('sector').agg(
+                            selected_stocks=('ticker', 'count'),
+                            median_return=(selected_analysis_return_col, 'median'),
+                            hit_rate=(selected_analysis_return_col, lambda s: (s.dropna() > 0).mean() * 100 if len(s.dropna()) > 0 else 0.0)
                         )
-                        
-                        # Sector insights
-                        if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
-                            top_sector = sector_overview_df_local.index[0]
-                            top_ldi = sector_overview_df_local['ldi_score'].iloc[0]
-                            st.success(f"🏆 **Leading Sector**: {top_sector} (LDI: {top_ldi:.1f}%)")
-                    
-                    with sector_intel_cols[1]:
-                        st.markdown("**📊 Sector Distribution Matrix**")
-                        
-                        if 'sector' in filtered_df.columns:
-                            sector_dist = filtered_df['sector'].value_counts().head(10)
-                            sector_pct = (sector_dist / len(filtered_df) * 100)
-                            
-                            sector_matrix = pd.DataFrame({
-                                'Sector': sector_dist.index,
-                                'Stock Count': sector_dist.values,
-                                'Percentage': sector_pct.values,
-                                'Representation': sector_pct.map(
-                                    lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖️ Moderate' if x > 5 else '📉 Light'
-                                ).values
-                            })
-                            
+
+                        if not sector_return_df.empty:
+                            sector_return_df['median_return_pct'] = sector_return_df['median_return'].rank(pct=True, method='average') * 100
+                            sector_return_df['hit_rate_pct'] = sector_return_df['hit_rate'].rank(pct=True, method='average') * 100
+                            sector_return_df['sector_score'] = (
+                                sector_return_df['median_return_pct'] * 0.6 +
+                                sector_return_df['hit_rate_pct'] * 0.4
+                            )
+                            sector_return_df['confidence'] = np.minimum(1.0, np.sqrt(sector_return_df['selected_stocks'] / 25.0))
+                            sector_return_df['final_score'] = sector_return_df['sector_score'] * sector_return_df['confidence']
+                            sector_return_df['quality'] = sector_return_df['final_score'].apply(
+                                lambda x: '💎 Elite' if x >= 80 else '🔥 Strong' if x >= 65 else '📈 Good' if x >= 50 else '⚖️ Average'
+                            )
+                            sector_return_df = sector_return_df.sort_values('final_score', ascending=False)
+
+                            st.markdown(f"**📈 Return-Based Sector Ranking ({selected_analysis_period})**")
                             st.dataframe(
-                                sector_matrix,
+                                sector_return_df[['median_return', 'hit_rate', 'selected_stocks', 'confidence', 'final_score', 'quality']],
                                 width='stretch',
-                                hide_index=True,
                                 column_config={
-                                    'Sector': st.column_config.TextColumn("Sector", width="medium"),
-                                    'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
-                                    'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f"),
-                                    'Representation': st.column_config.TextColumn("Level", width="small")
+                                    'median_return': st.column_config.NumberColumn('Median Return', format='%.2f%%'),
+                                    'hit_rate': st.column_config.ProgressColumn('Hit Rate', min_value=0, max_value=100, format='%.1f%%'),
+                                    'selected_stocks': st.column_config.NumberColumn('Stocks', width='small'),
+                                    'confidence': st.column_config.ProgressColumn('Confidence', min_value=0, max_value=1, format='%.2f'),
+                                    'final_score': st.column_config.ProgressColumn('Final Score', min_value=0, max_value=100, format='%.1f'),
+                                    'quality': st.column_config.TextColumn('Quality', width='small')
                                 }
                             )
-                        else:
-                            st.info("Sector data not available")
-                else:
-                    st.info("No sector data available for analysis")
+
+                    sector_overview_df_local = MarketIntelligence.detect_sector_rotation(analysis_core_df)
+
+                    if not sector_overview_df_local.empty:
+                        sector_intel_cols = st.columns(2)
+
+                        with sector_intel_cols[0]:
+                            st.markdown("**🎯 Sector Leadership Analysis**")
+
+                            # Enhanced sector display
+                            display_cols_overview = ['flow_score', 'ldi_score', 'leadership_density', 'analyzed_stocks', 
+                                                   'total_stocks', 'avg_score', 'elite_avg_score', 'ldi_quality']
+
+                            available_overview_cols = [col for col in display_cols_overview if col in sector_overview_df_local.columns]
+                            sector_overview_display = sector_overview_df_local[available_overview_cols].copy()
+
+                            # Add quality indicators
+                            if 'ldi_score' in sector_overview_display.columns:
+                                sector_overview_display['Sector_Quality'] = sector_overview_display['ldi_score'].apply(
+                                    lambda x: '💎 Elite' if x > 20 else '🔥 Strong' if x > 15 else '📈 Good' if x > 10 else '⚖️ Average'
+                                )
+
+                            st.dataframe(
+                                sector_overview_display,
+                                width='stretch',
+                                column_config={
+                                    'ldi_score': st.column_config.NumberColumn('LDI Score', format="%.1f%%"),
+                                    'flow_score': st.column_config.ProgressColumn('Flow Score', min_value=0, max_value=100, format="%.1f"),
+                                    'avg_score': st.column_config.ProgressColumn('Avg Score', min_value=0, max_value=100, format="%.1f"),
+                                    'Sector_Quality': st.column_config.TextColumn('Quality', width="small")
+                                }
+                            )
+
+                            # Sector insights
+                            if 'ldi_score' in sector_overview_df_local.columns and len(sector_overview_df_local) > 0:
+                                top_sector = sector_overview_df_local.index[0]
+                                top_ldi = sector_overview_df_local['ldi_score'].iloc[0]
+                                st.success(f"🏆 **Leading Sector**: {top_sector} (LDI: {top_ldi:.1f}%)")
+
+                        with sector_intel_cols[1]:
+                            st.markdown("**📊 Sector Distribution Matrix**")
+
+                            if 'sector' in analysis_core_df.columns:
+                                sector_dist = analysis_core_df['sector'].value_counts().head(10)
+                                sector_pct = (sector_dist / len(analysis_core_df) * 100)
+
+                                sector_matrix = pd.DataFrame({
+                                    'Sector': sector_dist.index,
+                                    'Stock Count': sector_dist.values,
+                                    'Percentage': sector_pct.values,
+                                    'Representation': sector_pct.map(
+                                        lambda x: '🔥 Dominant' if x > 20 else '📈 Strong' if x > 10 else '⚖️ Moderate' if x > 5 else '📉 Light'
+                                    ).values
+                                })
+
+                                st.dataframe(
+                                    sector_matrix,
+                                    width='stretch',
+                                    hide_index=True,
+                                    column_config={
+                                        'Sector': st.column_config.TextColumn("Sector", width="medium"),
+                                        'Stock Count': st.column_config.NumberColumn("Stocks", width="small"),
+                                        'Percentage': st.column_config.ProgressColumn("% of Total", min_value=0, max_value=50, format="%.1f"),
+                                        'Representation': st.column_config.TextColumn("Level", width="small")
+                                    }
+                                )
+                            else:
+                                st.info("Sector data not available")
+                    else:
+                        st.info("No sector data available for analysis")
             
             # Tab 6: Industry Analysis
             with viz_tabs[5]:
@@ -17932,14 +18015,14 @@ def main():
                 with industry_intel_cols[0]:
                     st.markdown("**🔍 Industry Performance Rankings**")
                     
-                    if 'industry' in filtered_df.columns:
+                    if 'industry' in analysis_core_df.columns:
                         # Industry performance analysis
-                        industry_metrics = filtered_df.groupby('industry').agg({
+                        industry_metrics = analysis_core_df.groupby('industry').agg({
                             'master_score': ['mean', 'std', 'count'],
-                            'momentum_score': 'mean' if 'momentum_score' in filtered_df.columns else lambda x: None,
-                            'acceleration_score': 'mean' if 'acceleration_score' in filtered_df.columns else lambda x: None,
-                            'volume_score': 'mean' if 'volume_score' in filtered_df.columns else lambda x: None,
-                            'price': 'mean' if 'price' in filtered_df.columns else lambda x: None
+                            'momentum_score': 'mean' if 'momentum_score' in analysis_core_df.columns else lambda x: None,
+                            'acceleration_score': 'mean' if 'acceleration_score' in analysis_core_df.columns else lambda x: None,
+                            'volume_score': 'mean' if 'volume_score' in analysis_core_df.columns else lambda x: None,
+                            'price': 'mean' if 'price' in analysis_core_df.columns else lambda x: None
                         }).round(2)
                         
                         # Flatten column names
@@ -17992,9 +18075,9 @@ def main():
                 with industry_intel_cols[1]:
                     st.markdown("**📊 Industry Concentration Analysis**")
                     
-                    if 'industry' in filtered_df.columns:
-                        industry_dist = filtered_df['industry'].value_counts().head(12)
-                        industry_pct = (industry_dist / len(filtered_df) * 100)
+                    if 'industry' in analysis_core_df.columns:
+                        industry_dist = analysis_core_df['industry'].value_counts().head(12)
+                        industry_pct = (industry_dist / len(analysis_core_df) * 100)
                         
                         # Create concentration matrix
                         concentration_matrix = pd.DataFrame({
@@ -18019,7 +18102,7 @@ def main():
                         )
                         
                         # Concentration insights
-                        total_industries = len(filtered_df['industry'].unique())
+                        total_industries = len(analysis_core_df['industry'].unique())
                         top_5_concentration = industry_pct.head(5).sum()
                         
                         if top_5_concentration > 60:
@@ -18030,10 +18113,10 @@ def main():
                             st.success(f"🎯 **Diversified Market**: Well-distributed across {total_industries} industries")
                         
                         # Industry momentum analysis
-                        if 'momentum_score' in filtered_df.columns:
+                        if 'momentum_score' in analysis_core_df.columns:
                             st.markdown("**🚀 Industry Momentum Leaders**")
                             
-                            industry_momentum = filtered_df.groupby('industry')['momentum_score'].mean().sort_values(ascending=False).head(8)
+                            industry_momentum = analysis_core_df.groupby('industry')['momentum_score'].mean().sort_values(ascending=False).head(8)
                             momentum_leaders = pd.DataFrame({
                                 'Industry': industry_momentum.index,
                                 'Avg Momentum': industry_momentum.values.round(1),
