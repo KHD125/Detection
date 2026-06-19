@@ -80,6 +80,477 @@ np.seterr(all='ignore')
 np.random.seed(42)
 
 # ============================================
+# CYCLICALITY TIER MAPS (DISPLAY-ONLY)
+# --------------------------------------------
+# A-priori business TYPE classification derived from `industry` (with a `sector`
+# fallback). These power the DISPLAY-ONLY `cyclicality_tier` / `cyclicality_tier_code`
+# columns materialized in DataProcessor._add_tier_classifications().
+#
+# HARD INVARIANT: these columns are a VIEW, never a SIGNAL. They must never feed any
+# score, gate, rank, or composite (RankingEngine never references them).
+#
+# Tier codes: A Deep-Cyclical/Commodity · B Cyclical · C Defensive
+#             · D Sensitive/Structural-Growth · E Financials · F Catch-all.
+# Resolution chain: industry -> sector fallback -> "F" catch-all (never NaN, never crashes).
+# Maps are key-sorted on purpose (deterministic); keep them so.
+# ============================================
+
+INDUSTRY_TIER = {
+    'Abrasives & Grinding Wheels': 'B',
+    'Advertisement': 'B',
+    'Aerospace & Defence - Equipments': 'D',
+    'Agricultural Processing - Maize': 'A',
+    'Air Transport Service': 'B',
+    'Aluminium': 'A',
+    'Aluminium - Sheets/Coils/Wires/Others': 'A',
+    'Aluminium Products': 'A',
+    'Amusement Parks': 'B',
+    'Aquaculture': 'A',
+    'Auto & Auto Ancl - CV': 'B',
+    'Auto - 2 & 3 Wheelers': 'B',
+    'Auto - 4 Wheelers': 'B',
+    'Auto - Bus/LCVs': 'B',
+    'Auto - Tractors': 'B',
+    'Auto Ancillaries - 2 Wheelers': 'B',
+    'Auto Ancillaries - 2&3 Wheelers': 'B',
+    'Auto Ancillaries - AC': 'B',
+    'Auto Ancillaries - Axle & Brakes': 'B',
+    'Auto Ancillaries - Axle shafts': 'B',
+    'Auto Ancillaries - Batteries': 'B',
+    'Auto Ancillaries - Bearings': 'B',
+    'Auto Ancillaries - Diversified': 'B',
+    'Auto Ancillaries - Electric Utility': 'B',
+    'Auto Ancillaries - Engine Parts': 'B',
+    'Auto Ancillaries - Gears': 'B',
+    'Auto Ancillaries - Head lamps lights': 'B',
+    'Auto Ancillaries - Lamps': 'B',
+    'Auto Ancillaries - Others': 'B',
+    'Auto Ancillaries - Plastic Mouldings': 'B',
+    'Auto Ancillaries - Seats': 'B',
+    'Auto Ancillaries - Sheet Metal': 'B',
+    'Auto Ancillaries - Shock Absorber': 'B',
+    'Auto Ancillaries - Spare Parts Accessories': 'B',
+    'Auto Ancillaries - Springs': 'B',
+    'Auto Ancillaries - Trading': 'B',
+    'Auto Ancillaries - Transmission': 'B',
+    'Auto Ancillaries - Wheels': 'B',
+    'Automobiles - LCVs/HCVs': 'B',
+    'Automobiles - Tractors': 'B',
+    'Aviation': 'B',
+    'Ayurvedic': 'C',
+    'Bearings': 'B',
+    'Building Material USA': 'B',
+    'Building Materials - Paints': 'C',
+    'Building Materials - Plastic Pipes': 'B',
+    'CCTV Camera': 'B',
+    'CNC - Machines': 'B',
+    'Cables - Power': 'B',
+    'Cables - Telecom': 'B',
+    'Capital Goods - EPC/Cranes': 'B',
+    'Capital Goods - Electric General': 'B',
+    'Capital Goods - Electrical Equipment': 'B',
+    'Capital Goods - Engineering General': 'B',
+    'Capital Goods - Engineering Heavy': 'B',
+    'Capital Goods - Gensets/Turbines': 'B',
+    'Capital Goods - Mining Equipement': 'B',
+    'Capital Goods - Others': 'B',
+    'Capital Goods - Solar': 'D',
+    'Capital Goods - Switchgear': 'B',
+    'Capital Goods - Transformers': 'B',
+    'Carbon Black': 'A',
+    'Castings - Grey Iron': 'A',
+    'Castings - Steel/Alloy': 'A',
+    'Castings, Forgings & Fastners': 'A',
+    'Cement': 'B',
+    'Cement Products': 'B',
+    'Ceramics - Tiles': 'B',
+    'Ceramics/Tiles/Sanitaryware': 'B',
+    'Chemicals - Flourine': 'D',
+    'Chemicals - Gelatine': 'D',
+    'Chemicals - Inorganic': 'A',
+    'Chemicals - Inorganic - Caustic Soda/Soda Ash': 'A',
+    'Chemicals - Organic': 'A',
+    'Chemicals - Organic - Alcohol Based': 'A',
+    'Chemicals - Organic - Maleic Anhydride': 'A',
+    'Chemicals - Others': 'B',
+    'Chemicals - Speciality': 'D',
+    'Cigarettes & Tobacco Products': 'C',
+    'Compressors': 'B',
+    'Computer - Hardware': 'B',
+    'Computer - Peripherals/Accessories': 'B',
+    'Computer Education': 'D',
+    'Construction & Contracting': 'B',
+    'Construction - Civil/Turnkey': 'B',
+    'Construction - Factories/Offices/Commercial': 'B',
+    'Construction - Housing': 'B',
+    'Consumer Electronics': 'B',
+    'Consumer Electronics - EMS': 'D',
+    'Contraceptives/Protectives': 'C',
+    'Copper Wires': 'A',
+    'Credit Rating Agencies': 'E',
+    'Cylinder': 'B',
+    'DI Pipes/Saw Pipes': 'B',
+    'Data Centre': 'D',
+    'Decoratives - Wood - based': 'B',
+    'Detergents/Intermediates': 'A',
+    'Diagnostics': 'C',
+    'Diamond, Gems & Jewellery': 'B',
+    'Diversified': 'F',
+    'Domestic Appliances': 'B',
+    'Dry Cells': 'C',
+    'Dyes & Pigments': 'A',
+    'Dyes - Intermediate': 'A',
+    'E - Services': 'D',
+    'E-Commerce - Platform - Food': 'D',
+    'E-Commerce - Platform - Travel': 'D',
+    'E-Commerce - Platform - Utility': 'D',
+    'EMS': 'D',
+    'EPC': 'B',
+    'Edible Oils, Agro Processing': 'A',
+    'Electric Equipment - General': 'B',
+    'Electric Equipment - Gensets/Turbines': 'B',
+    'Electric Equipment - Switchgears/Relays/Circuits': 'B',
+    'Electric Equipment - Transformers': 'B',
+    'Electrical Equipments/HVDC': 'B',
+    'Electrodes - Graphites': 'B',
+    'Electrodes - Welding Equipment': 'B',
+    'Electronics - Equipment/Components': 'B',
+    'Electronics - Others': 'B',
+    'Electronics - Soft Ferrites': 'B',
+    'Electronics - TV/Audio/VCR/VCP': 'B',
+    'Engineering - General': 'B',
+    'Engineering - Heavy - General': 'B',
+    'Engineering - Heavy - Material Handling': 'B',
+    'Engineering - Heavy - Plastic Machinery': 'B',
+    'Engineering - Light - Gears': 'B',
+    'Engineering - Light - General': 'B',
+    'Engineering - Light - Tools/Moulds': 'B',
+    'Engineering - Turnkey Services': 'B',
+    'Engines': 'B',
+    'Entertainment & Media': 'B',
+    'Exchanges': 'E',
+    'FMCG - Animal/Polutry': 'C',
+    'FMCG - Chocolate': 'C',
+    'FMCG - Coffee': 'C',
+    'FMCG - Contract Mfg': 'C',
+    'FMCG - Dairy Products': 'C',
+    'FMCG - Dry Fruits': 'C',
+    'FMCG - Foods': 'C',
+    'FMCG - Personal Care': 'C',
+    'FMCG - Rice': 'C',
+    'FMCG - Shrimp': 'A',
+    'FMCG - Snacks': 'C',
+    'FMCG Processing - Other': 'C',
+    'Facility Management': 'B',
+    'Fasteners': 'B',
+    'Ferro Alloys': 'A',
+    'Fertilisers': 'B',
+    'Fertilizers - Phosphatic - Single Super Phosphate': 'B',
+    'Finance & Investments - Others': 'E',
+    'Finance - Capital Markets': 'E',
+    'Finance - Capital Markets - Brokers': 'E',
+    'Finance - Capital Markets - RTA': 'E',
+    'Finance - Capital Markets - Wealth Management': 'E',
+    'Finance - Holding Company': 'E',
+    'Finance - Housing': 'E',
+    'Finance - Investment/Others': 'E',
+    'Finance - PSU Lending': 'E',
+    'Floriculture/Tissue Culture': 'A',
+    'Food & Dairy Products': 'C',
+    'Food - Processing - Atta/Rava/Sooji': 'C',
+    'Food - Processing - Egg Powder': 'C',
+    'Food - Processing - Others': 'C',
+    'Food - Processing - Spices/Pickles': 'C',
+    'Footwear': 'B',
+    'Forgings': 'A',
+    'Gas Distribution': 'C',
+    'General - Electric Equipement': 'B',
+    'Gensets': 'B',
+    'Geospatial': 'D',
+    'Glass & Glass Products': 'B',
+    'Glass - Others': 'B',
+    'Granite & Marble': 'B',
+    'Hospitals': 'C',
+    'Hospitals/Medical Services': 'C',
+    'Hotels': 'B',
+    'Hotels - Resorts': 'B',
+    'Hydraulics': 'B',
+    'IT - ER&D': 'D',
+    'IT - Education': 'D',
+    'IT - Software': 'D',
+    'IT Enabled Services': 'D',
+    'IT Enabled Services/Business Process Outsourcing': 'D',
+    'IT Networking Equipment': 'D',
+    'IT Product Companies': 'D',
+    'Industrial Explosives': 'B',
+    'Industrial Gas': 'C',
+    'Infra - Construction & Contracting': 'B',
+    'Infra - Engineering - General': 'B',
+    'Infra - General': 'B',
+    'Infra - Power - Generation/Distribution': 'C',
+    'Infra/Real Estate Investment Trust': 'C',
+    'Infrastructure Investment Trusts': 'C',
+    'Insurance - Proxy': 'E',
+    'Irrigation System': 'B',
+    'LPG Bottling': 'C',
+    'Lab Grown Diamonds': 'B',
+    'Laminates': 'B',
+    'Leather Products - Others': 'B',
+    'Logistics': 'B',
+    'Logistics - Warehousing/Supply Chain': 'B',
+    'Lubricants': 'C',
+    'Machine Tools - Others': 'B',
+    'Marine Port & Services': 'B',
+    'Mattress': 'B',
+    'Medical Equipment': 'C',
+    'Metal - Copper/Copper Alloy Products': 'A',
+    'Metal - Others': 'A',
+    'Metals': 'A',
+    'Mining/Minerals': 'A',
+    'Mining/Minerals - Iron Ore': 'A',
+    'Miscellaneous': 'F',
+    'NBFC - Holding Companies': 'E',
+    'NBFC - Others': 'E',
+    'New age - Platform - E-Retail': 'D',
+    'Newspaper': 'B',
+    'Oil Drilling & Exploration': 'A',
+    'Oil Exploration/Allied Services': 'A',
+    'Opalware': 'B',
+    'Packaging & Containers': 'B',
+    'Packaging - BOPP': 'B',
+    'Packaging - BOPP Self - adhesive Tape': 'B',
+    'Packaging - FMCG/Consumers': 'C',
+    'Packaging - Films': 'B',
+    'Packaging - Laminates': 'B',
+    'Packaging - Metallic': 'B',
+    'Packaging - Others': 'B',
+    'Packaging - Plastic Containers': 'B',
+    'Packaging - Polysacks': 'B',
+    'Paints/Varnishes': 'C',
+    'Paper': 'A',
+    'Paper Packaging': 'B',
+    'Personal Care': 'C',
+    'Pesticides/Agrochemicals': 'B',
+    'Petrochem - Others': 'A',
+    'Petrochem - Polymers': 'A',
+    'Pharma - API': 'C',
+    'Pharma - API & CRAMS': 'C',
+    'Pharma - Animal': 'C',
+    'Pharma - Formulators': 'C',
+    'Pharma - MNC bulk Drugs': 'C',
+    'Pharma - Others': 'C',
+    'Pharmaceuticals - I V Fluids': 'C',
+    'Pharmaceuticals Bulk Drugs': 'C',
+    'Pharmaceuticals Bulk Drugs & Formulation': 'C',
+    'Pharmacy Distribution': 'C',
+    'Photographic & Allied Products': 'B',
+    'Plantations - Tea & Coffee': 'A',
+    'Plastics - Drip Irrigation': 'B',
+    'Plastics - Furniture': 'B',
+    'Plastics - Others': 'B',
+    'Plastics - Pipes & Fittings': 'B',
+    'Plastics - Plastic & Plastic Products': 'B',
+    'Plastics - Plastic Containers': 'B',
+    'Plastics - Sheets/Films': 'B',
+    'Plastics - Thermoware': 'B',
+    'Platform - Education': 'D',
+    'Platform - Matrimony': 'D',
+    'Platform - Others': 'D',
+    'Plywood Boards/Laminates': 'B',
+    'Pollution Control Equipment': 'B',
+    'Power - Generation/Distribution': 'C',
+    'Power - Transmission/Equipment': 'D',
+    'Power Generation & Supply': 'C',
+    'Pre-Engineering Buildings': 'B',
+    'Printing & Stationery': 'B',
+    'Printing/Publishing/Stationery': 'B',
+    'Project Consultancy/Turnkey': 'B',
+    'Pumps': 'B',
+    'Quick Service Restaurant - QSR': 'B',
+    'Railways': 'D',
+    'Railways - Kavach/Springs': 'D',
+    'Real Estate Investment Trusts': 'C',
+    'Realty - CoWorking': 'B',
+    'Realty - Commercial': 'B',
+    'Realty - Construction & Contracting': 'B',
+    'Realty - National': 'B',
+    'Realty - Regional': 'B',
+    'Recycling': 'A',
+    'Refineries': 'A',
+    'Refractories': 'B',
+    'Refrigeration': 'B',
+    'Resorts': 'B',
+    'Retail - Departmental Stores': 'B',
+    'Retail - Electronics': 'B',
+    'Retail - Vehicles': 'B',
+    'Rubber - Products': 'B',
+    'Rubber Processing/Rubber Products': 'B',
+    'Scaffolding': 'B',
+    'Seeds/Tissue Culture/Bio Technology': 'A',
+    'Services - Others': 'F',
+    'Ship - Docks/Breaking/Repairs': 'D',
+    'Shipping': 'A',
+    'Shipping - Proxy': 'A',
+    'Shipping/Dredging': 'A',
+    'Shipyards - Dockrepairing': 'D',
+    'Shunt Resistors': 'B',
+    'Solar EPC': 'D',
+    'Solar Pumps': 'D',
+    'Solvent Extraction': 'A',
+    'Speciality Chemicals': 'D',
+    'Stainless Steel': 'A',
+    'Starch': 'A',
+    'Steel': 'A',
+    'Steel - Pig Iron': 'A',
+    'Steel - Rolling': 'A',
+    'Steel - Sponge Iron': 'A',
+    'Steel - Tubes/Pipes': 'B',
+    'Steel - Wires': 'B',
+    'Steel Products': 'B',
+    'Sugar': 'A',
+    'Sugar - Integrated': 'A',
+    'Sugar - Others': 'A',
+    'Tea': 'A',
+    'Telecom Services': 'C',
+    'Telecommunications - Equipment': 'B',
+    'Telecommunications - Service Provider': 'C',
+    'Textile machinery': 'B',
+    'Textiles': 'B',
+    'Textiles - Acrylic Fibre': 'B',
+    'Textiles - Composite Mills': 'B',
+    'Textiles - Composite/Cotton/Blended/Fabric': 'B',
+    'Textiles - Cotton Yarn - 100% EOUs': 'B',
+    'Textiles - Cotton Yarn - EOUs': 'B',
+    'Textiles - Cotton Yarn - Open - Ended Spinning': 'B',
+    'Textiles - Denim Fabric': 'B',
+    'Textiles - General': 'B',
+    'Textiles - Home Textile': 'B',
+    'Textiles - Hosiery/Knitwear': 'B',
+    'Textiles - Jute - Yarn/Products': 'B',
+    'Textiles - Jute/Jute Products': 'B',
+    'Textiles - Manmade Fibre - PFY/PSF': 'B',
+    'Textiles - Others': 'B',
+    'Textiles - Processing': 'B',
+    'Textiles - Processing/Texturising': 'B',
+    'Textiles - Readymade Apparel': 'B',
+    'Textiles - Socks': 'B',
+    'Textiles - Spinning': 'B',
+    'Textiles - Spinning - Synthetic/Blended': 'B',
+    'Textiles - Spinning/Cotton/Blended': 'B',
+    'Textiles - Technical Textile': 'B',
+    'Textiles - Texturising': 'B',
+    'Textiles - Weaving': 'B',
+    'Textiles - Worsted Fabric': 'B',
+    'Trading': 'F',
+    'Transport - Airlines': 'B',
+    'Transport - Road': 'B',
+    'Travel Bags': 'B',
+    'Tyres': 'B',
+    'Tyres & Tubes': 'B',
+    'Watches': 'B',
+    'Watches & Accessories': 'B',
+    'Water Treatment': 'B',
+    'Welding Equipments': 'B',
+}
+
+SECTOR_TIER_FALLBACK = {
+    'Aerospace & Defence': 'D',
+    'Agro Chemicals': 'B',
+    'Air Transport Service': 'B',
+    'Auto Ancillaries': 'B',
+    'Automobile': 'B',
+    'Bearings': 'B',
+    'Cables': 'B',
+    'Capital Goods - Electrical Equipment': 'B',
+    'Capital Goods-Non Electrical Equipment': 'B',
+    'Castings, Forgings & Fastners': 'A',
+    'Cement': 'B',
+    'Cement - Products': 'B',
+    'Ceramic Products': 'B',
+    'Chemicals': 'A',
+    'Co-Working': 'B',
+    'Computer Education': 'D',
+    'Construction': 'B',
+    'Consumer Durables': 'B',
+    'Credit Rating Agencies': 'E',
+    'Crude Oil & Natural Gas': 'A',
+    'Diamond, Gems and Jewellery': 'B',
+    'Diversified': 'F',
+    'Dry cells': 'C',
+    'E-Commerce/App based Aggregator': 'D',
+    'Edible Oil': 'A',
+    'Education': 'D',
+    'Electronics': 'B',
+    'Engineering': 'B',
+    'Entertainment': 'B',
+    'FMCG': 'C',
+    'Ferro Alloys': 'A',
+    'Fertilizers': 'B',
+    'Finance': 'E',
+    'Financial Services': 'E',
+    'Gas Distribution': 'C',
+    'Glass & Glass Products': 'B',
+    'Healthcare': 'C',
+    'Hotels & Restaurants': 'B',
+    'IT - Hardware': 'B',
+    'IT - Software': 'D',
+    'Infrastructure Developers & Operators': 'B',
+    'Infrastructure Investment Trusts': 'C',
+    'Leather': 'B',
+    'Logistics': 'B',
+    'Marine Port & Services': 'B',
+    'Media - Print/Television/Radio': 'B',
+    'Mining & Mineral products': 'A',
+    'Miscellaneous': 'F',
+    'Non Ferrous Metals': 'A',
+    'Oil Drill/Allied': 'A',
+    'Packaging': 'B',
+    'Paints/Varnish': 'C',
+    'Paper': 'A',
+    'Petrochemicals': 'A',
+    'Pharmaceuticals': 'C',
+    'Plantation & Plantation Products': 'A',
+    'Plastic products': 'B',
+    'Plywood Boards/Laminates': 'B',
+    'Power Generation & Distribution': 'C',
+    'Power Infrastructure': 'D',
+    'Printing & Stationery': 'B',
+    'Quick Service Restaurant': 'B',
+    'Railways': 'D',
+    'Readymade Garments/ Apparells': 'B',
+    'Real Estate Investment Trusts': 'C',
+    'Realty': 'B',
+    'Refineries': 'A',
+    'Refractories': 'B',
+    'Retail': 'B',
+    'Ship Building': 'D',
+    'Shipping': 'A',
+    'Steel': 'B',
+    'Stock/ Commodity Brokers': 'E',
+    'Sugar': 'A',
+    'Telecom Equipment & Infra Services': 'C',
+    'Telecom-Handsets/Mobile': 'C',
+    'Telecom-Service': 'C',
+    'Textiles': 'B',
+    'Tobacco Products': 'C',
+    'Trading': 'F',
+    'Tyres': 'B',
+}
+
+TIER_LABELS = {
+    'A': 'Deep Cyclical / Commodity',
+    'B': 'Cyclical',
+    'C': 'Defensive',
+    'D': 'Sensitive / Structural-Growth',
+    'E': 'Financials',
+    'F': 'Catch-all',
+}
+
+# Canonical display order (A -> F) derived from TIER_LABELS so the UI filter/order can
+# never drift from the engine labels.
+CYCLICALITY_TIER_ORDER = list(TIER_LABELS.values())
+
+# ============================================
 # SAFE DIVISION UTILITIES
 # Comprehensive zero-division protection with type handling
 # ============================================
@@ -1020,6 +1491,19 @@ class DataProcessor:
         based on predefined ranges in the `Config` class.
         This is a bug-fixed and robust version of the logic from earlier files.
         """
+        # ── Cyclicality tier: a-priori business TYPE (DISPLAY-ONLY — never scored) ─────────
+        # Chain: industry -> sector fallback -> "F" catch-all. Never NaN, never crashes.
+        # .get-safe Series so a synthetic/legacy frame lacking the columns can't KeyError.
+        # Pure vectorized .map()/.fillna() — no row iteration, no .apply(axis=1).
+        _cyc_ind = df['industry'] if 'industry' in df.columns else pd.Series(index=df.index, dtype=object)
+        _cyc_sec = df['sector'] if 'sector' in df.columns else pd.Series(index=df.index, dtype=object)
+        df['cyclicality_tier_code'] = (
+            _cyc_ind.map(INDUSTRY_TIER)
+                    .fillna(_cyc_sec.map(SECTOR_TIER_FALLBACK))
+                    .fillna("F")
+        )
+        df['cyclicality_tier'] = df['cyclicality_tier_code'].map(TIER_LABELS)
+
         def classify_tier(value: float, tier_dict: Dict[str, Tuple[float, float]]) -> str:
             """Helper function to map a value to its tier."""
             if pd.isna(value):
@@ -9028,6 +9512,7 @@ class FilterEngine:
                 'categories': [],
                 'sectors': [],
                 'industries': [],
+                'cyclicality_tiers': [],
                 'min_score': 0,
                 'patterns': [],
                 'trend_filter': "All Trends",
@@ -9139,6 +9624,7 @@ class FilterEngine:
         if filters.get('categories'): count += 1
         if filters.get('sectors'): count += 1
         if filters.get('industries'): count += 1
+        if filters.get('cyclicality_tiers'): count += 1
         if filters.get('min_score', 0) > 0: count += 1
         if filters.get('patterns'): count += 1
         if filters.get('trend_filter') != "All Trends": count += 1
@@ -9178,6 +9664,7 @@ class FilterEngine:
             'categories': [],
             'sectors': [],
             'industries': [],
+            'cyclicality_tiers': [],
             'min_score': 0,
             'patterns': [],
             'trend_filter': "All Trends",
@@ -9263,6 +9750,7 @@ class FilterEngine:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
+            'cyclicality_tier_multiselect',
             'patterns_multiselect', 'market_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
@@ -9445,6 +9933,8 @@ class FilterEngine:
                 filters['sectors'] = state['sectors']
             if state.get('industries'):
                 filters['industries'] = state['industries']
+            if state.get('cyclicality_tiers'):
+                filters['cyclicality_tiers'] = state['cyclicality_tiers']
             if state.get('min_score', 0) > 0:
                 filters['min_score'] = state['min_score']
             if state.get('patterns'):
@@ -9528,7 +10018,13 @@ class FilterEngine:
             mask = create_mask_from_isin('industry', filters['industries'])
             if mask is not None:
                 masks.append(mask)
-        
+
+        # Cyclicality Tier filter (DISPLAY-ONLY business-type classification)
+        if 'cyclicality_tiers' in filters:
+            mask = create_mask_from_isin('cyclicality_tier', filters['cyclicality_tiers'])
+            if mask is not None:
+                masks.append(mask)
+
         # 2. Score filter
         if filters.get('min_score', 0) > 0 and 'master_score' in df.columns:
             masks.append(df['master_score'] >= filters['min_score'])
@@ -10074,7 +10570,8 @@ class FilterEngine:
                 'volume_tier': 'volume_tiers',
                 'performance_tier': 'performance_tiers',
                 'vmi_tier': 'vmi_tiers',
-                'momentum_harmony_tier': 'momentum_harmony_tiers'
+                'momentum_harmony_tier': 'momentum_harmony_tiers',
+                'cyclicality_tier': 'cyclicality_tiers'
             }
             
             if column in filter_key_map:
@@ -10107,6 +10604,7 @@ class FilterEngine:
             'categories': [],
             'sectors': [],
             'industries': [],
+            'cyclicality_tiers': [],
             'min_score': 0,
             'patterns': [],
             'trend_filter': "All Trends",
@@ -10321,9 +10819,10 @@ class ExportEngine:
                 'focus': 'Position and breakout setups'
             },
             'investor': {
-                'columns': ['rank', 'ticker', 'company_name', 'master_score', 'pe', 
-                           'eps_current', 'eps_change_pct', 'ret_1y', 'ret_3y', 
-                           'long_term_strength', 'money_flow_mm', 'category', 'sector', 'industry'],
+                'columns': ['rank', 'ticker', 'company_name', 'master_score', 'pe',
+                           'eps_current', 'eps_change_pct', 'ret_1y', 'ret_3y',
+                           'long_term_strength', 'money_flow_mm', 'category', 'sector', 'industry',
+                           'cyclicality_tier'],
                 'focus': 'Fundamentals and long-term performance'
             },
             'full': {
@@ -11356,6 +11855,7 @@ class SessionStateManager:
                 'categories': [],
                 'sectors': [],
                 'industries': [],
+                'cyclicality_tiers': [],
                 'min_score': 0,
                 'patterns': [],
                 'trend_filter': "All Trends",
@@ -11488,6 +11988,8 @@ class SessionStateManager:
                 filters['sectors'] = state['sectors']
             if state.get('industries'):
                 filters['industries'] = state['industries']
+            if state.get('cyclicality_tiers'):
+                filters['cyclicality_tiers'] = state['cyclicality_tiers']
             if state.get('min_score', 0) > 0:
                 filters['min_score'] = state['min_score']
             if state.get('patterns'):
@@ -11654,6 +12156,7 @@ class SessionStateManager:
                 'categories': [],
                 'sectors': [],
                 'industries': [],
+                'cyclicality_tiers': [],
                 'min_score': 0,
                 'patterns': [],
                 'trend_filter': "All Trends",
@@ -11783,6 +12286,7 @@ class SessionStateManager:
         widget_keys_to_delete = [
             # Multiselect widgets
             'category_multiselect', 'sector_multiselect', 'industry_multiselect',
+            'cyclicality_tier_multiselect',
             'patterns_multiselect', 'market_states_multiselect',
             'eps_tier_multiselect', 'pe_tier_multiselect', 'price_tier_multiselect',
             'eps_change_tiers_widget', 'performance_tier_multiselect', 'position_tier_multiselect',
@@ -12571,7 +13075,11 @@ def main():
         def sync_industries():
             if 'industry_multiselect' in st.session_state:
                 st.session_state.filter_state['industries'] = st.session_state.industry_multiselect
-        
+
+        def sync_cyclicality_tiers():
+            if 'cyclicality_tier_multiselect' in st.session_state:
+                st.session_state.filter_state['cyclicality_tiers'] = st.session_state.cyclicality_tier_multiselect
+
         def sync_min_score():
             if 'min_score_slider' in st.session_state:
                 st.session_state.filter_state['min_score'] = st.session_state.min_score_slider
@@ -12789,6 +13297,34 @@ def main():
         
         if selected_industries:
             filters['industries'] = selected_industries
+
+        # 🔄 Cyclicality Tier filter — SMART INTERCONNECTED member of Company Classification.
+        # Business-TYPE by industry (DISPLAY-ONLY). Options cascade from the Category / Sector /
+        # Industry selections above it (same get_filter_options engine), then are re-ordered into
+        # the canonical A→F tier order so the list never drifts from the engine labels.
+        if 'cyclicality_tier' in ranked_df_display.columns:
+            available_cyc = set(FilterEngine.get_filter_options(ranked_df_display, 'cyclicality_tier', filters))
+            cyclicality_options = [t for t in CYCLICALITY_TIER_ORDER if t in available_cyc]
+
+            if cyclicality_options:
+                # Clean stored defaults to only currently-available options (INTERCONNECTION FIX)
+                stored_cyc = st.session_state.filter_state.get('cyclicality_tiers', [])
+                valid_cyc_defaults = [t for t in stored_cyc if t in cyclicality_options]
+
+                selected_cyclicality = st.multiselect(
+                    f"🔄 Cyclicality Tier ({len(cyclicality_options)} available)",
+                    options=cyclicality_options,
+                    default=valid_cyc_defaults,
+                    placeholder="Select business types (empty = All)",
+                    help=("Business-type by industry — updates with the Category/Sector/Industry above. "
+                          "Deep-Cyclical/Cyclical = timing trades; Defensive/Structural-Growth = hold "
+                          "through the cycle. Empty = all."),
+                    key="cyclicality_tier_multiselect",
+                    on_change=sync_cyclicality_tiers  # SYNC ON CHANGE
+                )
+
+                if selected_cyclicality:
+                    filters['cyclicality_tiers'] = selected_cyclicality
 
         st.markdown("#### ✨ Pattern Detector")
         
@@ -14815,9 +15351,10 @@ def main():
                     'patterns': 'Patterns',
                     'category': 'Category',
                     'sector': 'Sector',
-                    'industry': 'Industry'
+                    'industry': 'Industry',
+                    'cyclicality_tier': 'Cyclicality'
                 }
-                
+
                 # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY
                 if show_fundamentals:
                     display_cols.update({
@@ -14825,7 +15362,7 @@ def main():
                         'eps_current': 'EPS',
                         'eps_change_pct': 'EPS Δ%'
                     })
-                    
+
             else:  # Custom view
                 # Let user select what they want to see
                 st.markdown("#### 🛠️ Customize Your View")
@@ -14836,7 +15373,7 @@ def main():
                     'long_term_strength', 'liquidity_score', 'overall_market_strength', 'market_state',
                     'price', 'from_low_pct', 'from_high_pct', 'ret_1d', 'ret_3d', 'ret_7d', 'ret_30d',
                     'rvol', 'vmi', 'volume_1d', 'money_flow_mm', 'patterns',
-                    'category', 'sector', 'industry'
+                    'category', 'sector', 'industry', 'cyclicality_tier'
                 ]
                 
                 # Add fundamentals if available - ONLY WHAT EXISTS IN V9.PY  
@@ -15069,6 +15606,7 @@ def main():
                 "Category": st.column_config.TextColumn("Category", help="Market Cap Category", width="medium"),
                 "Sector": st.column_config.TextColumn("Sector", help="Sector Classification", width="medium"),
                 "Industry": st.column_config.TextColumn("Industry", help="Industry Classification", width="medium", max_chars=40),
+                "Cyclicality": st.column_config.TextColumn("Cyclicality", help="Business-type by industry (Deep Cyclical/Commodity, Cyclical, Defensive, Sensitive/Structural-Growth, Financials, Catch-all). Display-only.", width="medium"),
                 
                 # Fundamental columns - ONLY WHAT EXISTS IN V9.PY
                 "PE": st.column_config.TextColumn("PE", help="Price to Earnings Ratio", width="small"),
@@ -18726,7 +19264,15 @@ def main():
                                 if 'eps_change_tier' in stock.index:
                                     tier_data['Tier Type'].append('EPS Growth')
                                     tier_data['Classification'].append(stock.get('eps_change_tier', 'N/A'))
-                                
+
+                                # 🔄 Cyclicality Tier (business-type by industry — DISPLAY-ONLY)
+                                _cyc_tier = stock.get('cyclicality_tier')
+                                if _cyc_tier is not None and pd.notna(_cyc_tier):
+                                    _cyc_code = str(stock.get('cyclicality_tier_code', '') or '')
+                                    _cyc_label = f"{_cyc_tier} ({_cyc_code})" if _cyc_code else str(_cyc_tier)
+                                    tier_data['Tier Type'].append('🔄 Cyclicality')
+                                    tier_data['Classification'].append(_cyc_label)
+
                                 if tier_data['Tier Type']:
                                     tier_df = pd.DataFrame(tier_data)
                                     st.dataframe(
@@ -20437,6 +20983,28 @@ def main():
             - Number format: Indian conventions
             """)
         
+        # 🔄 Cyclicality Tier glossary (display-only business-type classification)
+        st.markdown("---")
+        st.markdown("#### 🔄 Cyclicality Tier")
+        st.markdown(
+            "A *display-only* a-priori classification of each stock's **business type**, derived from its "
+            "industry (with a sector fallback). It never affects scores, ranks, or filters' math — it is a "
+            "lens for *how to trade* a name, not a signal."
+        )
+        cyc_col1, cyc_col2 = st.columns(2)
+        with cyc_col1:
+            st.markdown("""
+            - **Deep Cyclical / Commodity (A)** — a price-taking commodity business (metals, sugar, refining); earnings swing hard with the commodity cycle. *Trade the cycle, don't marry it.*
+            - **Cyclical (B)** — demand tracks the economy, but the company has real value-add / pricing power.
+            - **Defensive (C)** — non-discretionary, stable demand (food, medicine, electricity); compounds steadily — a timing overlay only sheds return.
+            """)
+        with cyc_col2:
+            st.markdown("""
+            - **Sensitive / Structural-Growth (D)** — driven by a secular tailwind (IT, defence, platforms, EMS), not the economic cycle — hold / own.
+            - **Financials (E)** — banks, NBFCs and market-infra ride their own credit / rate / market cycle, judged differently from operating companies.
+            - **Catch-all (F)** — heterogeneous or hard-to-classify (conglomerates, trading, diversified); no single cyclicality label fits.
+            """)
+
         # System architecture section
         st.markdown("---")
         st.markdown("#### 🏗️ System Architecture")
