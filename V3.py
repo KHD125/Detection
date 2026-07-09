@@ -692,12 +692,12 @@ class Config:
     # Master Score 3.1 weights (total = 100%) — v3.1 rebalanced
     # Reduced volume dominance (~50% → ~20%), re-enabled acceleration
     # Position & Momentum are primary signals; Volume/RVOL confirm, don't lead
-    POSITION_WEIGHT: float = 0.30
-    VOLUME_WEIGHT: float = 0.15
-    MOMENTUM_WEIGHT: float = 0.25
-    ACCELERATION_WEIGHT: float = 0.07
-    BREAKOUT_WEIGHT: float = 0.18
-    RVOL_WEIGHT: float = 0.05
+    POSITION_WEIGHT: float = 0.15
+    VOLUME_WEIGHT: float = 0.25
+    MOMENTUM_WEIGHT: float = 0.20
+    ACCELERATION_WEIGHT: float = 0.12
+    BREAKOUT_WEIGHT: float = 0.20
+    RVOL_WEIGHT: float = 0.08
     
     # Display settings
     DEFAULT_TOP_N: int = 50
