@@ -7543,6 +7543,7 @@ class PatternDetector:
             '💎 HIDDEN GEM': {'importance_weight': 10, 'category': 'value'},
             '🏦 INSTITUTIONAL': {'importance_weight': 10, 'category': 'volume'},
             '⚡ VOL EXPLOSION': {'importance_weight': 15, 'category': 'volume'},
+            '🛑 STOPPING VOLUME': {'importance_weight': 20, 'category': 'accumulation'},
             '👑 MARKET LEADER': {'importance_weight': 10, 'category': 'leadership'},
             '🌊 MOMENTUM WAVE': {'importance_weight': 10, 'category': 'momentum'},
             '💰 LIQUID LEADER': {'importance_weight': 10, 'category': 'liquidity'},
@@ -7780,6 +7781,27 @@ class PatternDetector:
         # 4. Volume Explosion - Works with raw data
         mask = get_col_safe('rvol', 0) > 3
         patterns.append(('⚡ VOL EXPLOSION', mask))
+        
+        # 4b. Stopping Volume - Accumulation at the lows (Engine B enhancement)
+        if all(col in df.columns for col in ['rvol', 'from_high_pct', 'ret_30d', 'ret_1d', 'price', 'low', 'high', 'open']):
+            price = get_col_safe('price', 0)
+            low = get_col_safe('low', 0)
+            high = get_col_safe('high', 0)
+            open_px = get_col_safe('open', 0)
+            
+            # Close in the upper 40% of the daily range
+            with np.errstate(divide='ignore', invalid='ignore'):
+                range_pct = np.where(high > low, (price - low) / (high - low), 0.5)
+            range_pct_series = pd.Series(range_pct, index=df.index)
+            
+            mask = (
+                (get_col_safe('rvol', 0) > 2) &                                # High relative volume
+                ((get_col_safe('from_high_pct', 0) < -25) | (get_col_safe('ret_30d', 0) < -15)) & # Deeply oversold/downtrend
+                ((get_col_safe('ret_1d', 0) > 0) | (price > open_px) | (range_pct_series > 0.60)) # Price validation (closing green or strong lower wick)
+            )
+        else:
+            mask = pd.Series(False, index=df.index)
+        patterns.append(('🛑 STOPPING VOLUME', mask))
         
         # 5. Market Leader - FIXED: percentile might not exist
         if 'percentile' in df.columns:
